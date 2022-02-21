@@ -40,6 +40,8 @@ def findPrimitivePolynomials(degree : int, coeffs_count : int, balancing = 0, n 
     poly2 = copy.copy(poly)
     result.insert(0,poly2)
     print("Found prim. poly:", poly.getCoefficients())
+    if n == 1:
+      return result
   while poly.nextPrimitive():
     poly2 = copy.deepcopy(poly)
     result.insert(0,poly2)

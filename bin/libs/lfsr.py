@@ -16,6 +16,12 @@ class Polynomial:
     self._coefficients_list.sort(reverse=True)
     self._balancing = balancing
     
+  def __str__(self) -> str:
+    return str(self._coefficients_list)
+  
+  def __repr__(self) -> str:
+    return "Polynomial(" + str(self._coefficients_list) + ")"
+    
   def getCoefficients(self) -> list:
     return self._coefficients_list
   
@@ -94,7 +100,7 @@ class LfsrType(Enum):
 
 class Lfsr:
   
-  _my_poly : Polynomial
+  _my_poly : list
   _mask : int
   _value : int
   _type : LfsrType
@@ -103,15 +109,34 @@ class Lfsr:
   _fast_sim_array = False
   
   def __init__(self, poly : Polynomial, lfsr_type : LfsrType):
-    self._my_poly = poly
+    self._my_poly = poly.getCoefficients()
     self._type = lfsr_type
-    self._size = self._my_poly.getDegree()
+    self._size = poly.getDegree()
     if lfsr_type == LfsrType.Galois:
       self._mask = poly.toInt() >> 1
     else:
       self._mask = poly.toInt()
     self._value = 1
     self._hval = 1 << (poly.getDegree()-1)
+    
+  def __str__(self) -> str:
+    result = ""
+    if self._type == LfsrType.Galois:
+      result += "GALOIS"
+    if self._type == LfsrType.Fibonacci:
+      result += "FIBONACCI" 
+    result += "_LFSR(" + str(self._my_poly) + ")"
+    return result
+    
+  def __repr__(self) -> str:
+    result = "Lfsr(" + str(self._my_poly) + ", "
+    if self._type == LfsrType.Galois:
+      result += "Galois"
+    if self._type == LfsrType.Fibonacci:
+      result += "Fibonacci" 
+    result += ")"
+    return result
+    
     
   def _buildFastSimArray(self):
     oldVal = self._value
@@ -136,8 +161,8 @@ class Lfsr:
   def getValue(self) -> int:
     return self._value
   
-  def getPeriod(self) -> int:
-    return (self._my_poly.getCoefficientsCount() - 2)
+  def getSize(self) -> int:
+    return (self._size)
     
   def next(self, steps=1) -> int:
     if steps < 0:

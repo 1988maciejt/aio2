@@ -1,4 +1,9 @@
 #! /bin/bash
 SCRIPT=$(readlink -f $0)
 SCRIPTPATH=`dirname $SCRIPT`
-bpython ${SCRIPTPATH}/aio2.py $1
+if [ -z "$1" ]
+then
+  bpython -i ${SCRIPTPATH}/aio2.py
+else
+  bpython ${SCRIPTPATH}/aio2.py $1
+fi

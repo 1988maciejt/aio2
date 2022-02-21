@@ -18,8 +18,8 @@ def getTerminalRows():
   return shutil.get_terminal_size()[1]
 
 print()
-print("Maciej Trawka's".center(getTerminalColumns()))
-print("All-In-One v2".center(getTerminalColumns()))
+print("Maciej Trawka's".center(getTerminalColumns()>>1))
+print("All-In-One v2".center(getTerminalColumns()>>1))
 print()
 
 if len(sys.argv) > 1:
@@ -28,4 +28,7 @@ if len(sys.argv) > 1:
     os.removedirs("results")
     os.makedirs("results")
     os.chdir("results")
-  exec(open(SFile).read())
+  if os.path.isfile(SFile):
+    exec(open(SFile).read())
+  else:
+    print_error("No file '" + SFile + "'")
