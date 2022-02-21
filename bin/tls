@@ -1,0 +1,17 @@
+SCRIPT=$(readlink -f $0)
+SCRIPTPATH=`dirname $SCRIPT`
+repo=$(cat ${SCRIPTPATH}/tc_repo)
+resp=$(git ls-remote --heads --refs -q $repo $1)
+tab="	"
+while read line;
+do 
+	line=${line/$tab/_}
+	if [ "$line" != "" ];
+	then
+		line=$(basename $line)
+		if [ "$line" != "main" ];
+		then
+			echo $line
+		fi
+	fi
+done <<< "$resp"

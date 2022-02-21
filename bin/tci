@@ -1,0 +1,24 @@
+SCRIPT=$(readlink -f $0)
+SCRIPTPATH=`dirname $SCRIPT`
+repo=$(cat ${SCRIPTPATH}/tc_repo)
+if [ "$1" == "" ];
+then
+    echo "Error: You must specify a commit comment:"
+    echo "       tci 'Your commit comment'"
+    exit
+fi
+tc=$(basename "`pwd`")
+if [ ! -d ".git" ];
+then
+    git clone --branch main --single-branch $repo
+    cp -a testcase/.git ./
+    rm -rf testcase
+fi
+rm -rf results
+echo "Checking-in '$tc'..."
+git branch $tc
+git checkout $tc
+git add -A .
+git commit -m "$1"
+git push origin $tc
+echo "Done."

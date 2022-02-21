@@ -1,0 +1,22 @@
+SCRIPT=$(readlink -f $0)
+SCRIPTPATH=`dirname $SCRIPT`
+repo=$(cat ${SCRIPTPATH}/tc_repo)
+existing=$(${SCRIPTPATH}/tls.sh $1)
+tc="$1"
+if [ "$1" == "" ];
+then
+	tc="main"
+fi
+if [ "$existing" != "$tc" ];
+then
+	echo "Error: There is no '$tc' in the repository."
+	exit
+fi
+echo "Checking-out '$tc'..."
+git clone --branch $tc --single-branch $repo
+if [ "$tc" != "main" ];
+then
+	mv testcase $tc
+fi
+echo "Done."
+

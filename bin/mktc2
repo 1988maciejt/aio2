@@ -1,0 +1,7 @@
+mkdir $1
+cd $1
+mkdir data
+mkdir results
+# mkdir references
+touch driver.py
+cd ../
