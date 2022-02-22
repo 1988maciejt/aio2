@@ -165,7 +165,7 @@ class Polynomial:
         result.insert(0,i)
     return Polynomial(result, balancing)
   
-  def findPrimitivePolynomials(degree : int, coeffs_count : int, balancing = 0, n = 0) -> list:
+  def findPrimitivePolynomials(degree : int, coeffs_count : int, balancing = 0, n = 0, quiet = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -173,6 +173,7 @@ class Polynomial:
         coeffs_count (int): coefficients count (i.e. LFSR taps count + 2)
         balancing (int, optional): balancing factor. Defaults to 0 (no balance checking)
         n (int, optional): stop searching if n polynomials is found. Defaults to 0 (don't stop)
+        quiet (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
 
     Returns:
         list: list of polynomial objects
@@ -182,17 +183,32 @@ class Polynomial:
     if poly.isPrimitive():
       poly2 = copy.copy(poly)
       result.insert(0,poly2)
-      print("Found prim. poly:", poly.getCoefficients())
+      if not quiet:
+        print("Found prim. poly:", poly.getCoefficients())
       if n == 1:
         return result
     while poly.nextPrimitive():
       poly2 = copy.deepcopy(poly)
       result.insert(0,poly2)
-      print("Found prim. poly:", poly.getCoefficients())
+      if not quiet:
+        print("Found prim. poly:", poly.getCoefficients())
       if n > 0:
         if len(result) >= n:
           break
     return result
+
+  def getFirstPrimitive(degree : int, coeffs_count : int, balancing = 0) -> list:
+    """Returns a first found primitive (over GF(2)) polynomial.
+
+    Args:
+        degree (int): polynomial degree (i.e. LFSR size)
+        coeffs_count (int): coefficients count (i.e. LFSR taps count + 2)
+        balancing (int, optional): balancing factor. Defaults to 0 (no balance checking)
+
+    Returns:
+        list: _description_
+    """
+    return Polynomial.findPrimitivePolynomials(degree,coeffs_count,balancing,1,True)[0]
 
 # POLYNOMIAL END ==================
 
