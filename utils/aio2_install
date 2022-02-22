@@ -4,6 +4,7 @@ SCRIPTPATH=`dirname $SCRIPT`
 sudo apt update
 sudo apt upgrade -y
 sudo apt install -y -f python3 python3-pip python3-tk bpython3 dos2unix
+sudo pip3 install --upgrade pip
 sudo pip3 install pyqt5
 sudo pip3 install pyqtwebengine -U
 sudo pip3 install ptpython
