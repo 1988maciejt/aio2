@@ -19,7 +19,7 @@ class Int:
     if BitValue != 0:
       Value = Value | (1 << BitIndex)
     else:
-      Mask = (Value ^ Value ^ (1 << BitIndex))
+      Mask = (Value ^ ~Value ^ (1 << BitIndex))
       Value = Value & Mask
     return Value
   

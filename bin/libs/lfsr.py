@@ -29,15 +29,33 @@ class Polynomial:
     return "Polynomial(" + str(self._coefficients_list) + ")"
     
   def getCoefficients(self) -> list:
+    """Returns list of coefficients.
+    """
     return self._coefficients_list
   
   def getCoefficientsCount(self) -> int:
+    """Returns coefficients count.
+    """
     return len(self._coefficients_list)
   
   def getDegree(self) -> int:
+    """Returns polynomials degree.
+    """
     return self._coefficients_list[0]
   
   def makeNext(self, balancing = -1) -> bool:
+    """Moves the middle coefficients to obtain next polynomial
+    giving an LFSR having the sam count of taps.
+
+    Args:
+        balancing (int, optional): balancing factor.
+          -1 : auto (default)
+           0 : no balancechecking
+          >0 : balancing factor
+
+    Returns:
+        bool: True if successfull, Ffalse if no next polynomial.
+    """
     if balancing < 0:
       balancing = self._balancing
     if balancing > 0:
@@ -60,6 +78,8 @@ class Polynomial:
     return False
   
   def getBalancing(self) -> int:
+    """Calculates and returns the balaning factor of the polynomial.
+    """
     bmin = self._coefficients_list[0]
     bmax = 0
     for i in range(1, len(self._coefficients_list)):
@@ -71,6 +91,12 @@ class Polynomial:
     return (bmax - bmin)
   
   def toInt (self) -> int:
+    """Returns an integer representing the given polynomial.
+    
+    For example:
+    >>> Polynomial([3,1,0]).toInt()
+    >>> 0b1011
+    """
     clist = self._coefficients_list
     degree = int(clist[0])
     result = int(0)
@@ -79,14 +105,23 @@ class Polynomial:
       result += (1 << coeff)
     return result
   
-  def toString(self) -> str:
-    return str(self._coefficients_list)
-  
   def isPrimitive(self) -> bool:
+    """Check if the polynomial is primitive over GF(2).
+    
+    That's considered by simulating an LFSR based on the polynomial.
+
+    Returns:
+        bool: True if is the poly is primitive, otherwise False
+    """
     l = Lfsr(self, LfsrType.Galois)
     return l.isMaximum()
   
   def nextPrimitive(self) -> bool:
+    """Looks for the next primitive polynomial.
+
+    Returns:
+        bool: True if primitive found, otherwise False.
+    """
     while True:
       if not self.makeNext():
         return False
@@ -94,6 +129,13 @@ class Polynomial:
         return True
       
   def createPolynomial(degree : int, coeffs_count : int, balancing = 0) -> Polynomial:
+    """Returns a polynomial, usefull for LFSRs.
+
+    Args:
+        degree (int): polynomial degree (i.e. size of LFSR)
+        coeffs_count (int): coefficients count (i.e. LFSRs taps count + 2)
+        balancing (int, optional): balancing factor. Defaults to 0 (no balance checking).
+    """
     if coeffs_count < 1:
       print_error ("'oefficients_count' must be >= 1")
       return Polynomial([])
@@ -124,6 +166,17 @@ class Polynomial:
     return Polynomial(result, balancing)
   
   def findPrimitivePolynomials(degree : int, coeffs_count : int, balancing = 0, n = 0) -> list:
+    """Returns a list of primitive polynomials (over GF(2)).
+
+    Args:
+        degree (int): polynomial degree (i.e. LFSR size)
+        coeffs_count (int): coefficients count (i.e. LFSR taps count + 2)
+        balancing (int, optional): balancing factor. Defaults to 0 (no balance checking)
+        n (int, optional): stop searching if n polynomials is found. Defaults to 0 (don't stop)
+
+    Returns:
+        list: list of polynomial objects
+    """
     result = []
     poly = Polynomial.createPolynomial(degree, coeffs_count, balancing)
     if poly.isPrimitive():
@@ -174,13 +227,7 @@ class Lfsr:
     self._hval = 1 << (poly.getDegree()-1)
     
   def __str__(self) -> str:
-    result = ""
-    if self._type == LfsrType.Galois:
-      result += "GALOIS"
-    if self._type == LfsrType.Fibonacci:
-      result += "FIBONACCI" 
-    result += "_LFSR(" + str(self._my_poly) + ")"
-    return result
+    return str(bin(self._value))
     
   def __repr__(self) -> str:
     result = "Lfsr(" + str(self._my_poly) + ", "
@@ -213,12 +260,25 @@ class Lfsr:
     self._value = oldVal
     
   def getValue(self) -> int:
+    """Returns current value of the LFSR
+    """
     return self._value
   
   def getSize(self) -> int:
+    """Returns size of the LFSR
+    """
     return (self._size)
     
   def next(self, steps=1) -> int:
+    """Performs a shift of the LFSR. If more than 1 step is specified, 
+    the fast-simulation method is used.
+
+    Args:
+        steps (int, optional): How many steps to simulate. Defaults to 1.
+
+    Returns:
+        int: new LFSR value
+    """
     if steps < 0:
       print_error("'steps' must be a positve number")
       return 0
@@ -258,7 +318,13 @@ class Lfsr:
       return self._value
     
   def getPeriod(self) -> int:
-    MaxResult = Int.mersenne(self._size)
+    """Simulates the LFSR to obtain its period (count of states in trajectory).
+
+    Returns:
+        int: result. If the result is == (1<<size) it means a subtrajectory was reached
+              and it cannot determine the period.
+    """
+    MaxResult = Int.mersenne(self._size) + 1
     self._value = 1
     value0 = self._value
     result = 1
@@ -269,6 +335,12 @@ class Lfsr:
     return result
   
   def isMaximum(self) -> bool:
+    """Uses the fast-simulation method to determine if the LFSR's trajectory
+    includes all possible (but 0) states. 
+
+    Returns:
+        bool: True if is maximum, otherwise False.
+    """
     index = self._size
     self._value = 1
     if self.next(Int.mersenne(index)) != 1:
@@ -281,6 +353,11 @@ class Lfsr:
     return True
   
   def reset(self) -> int:
+    """Sets the value to 0x1.
+
+    Returns:
+        int: new value
+    """
     self._value = 1
     return 1
     

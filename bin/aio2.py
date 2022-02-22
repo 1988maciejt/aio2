@@ -23,7 +23,9 @@ print("Maciej Trawka's".center(getTerminalColumns()>>1))
 print("All-In-One v2".center(getTerminalColumns()>>1))
 print()
 
-if len(sys.argv) > 1:
+os.chdir(sys.argv[1])
+
+if len(sys.argv) > 2:
   SFile = str(sys.argv[1])
   if "driver.py" in SFile:
     os.removedirs("results")

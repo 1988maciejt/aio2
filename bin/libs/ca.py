@@ -17,8 +17,7 @@ class Ca:
     self._size = Size
     
   def __str__(self) -> str:
-    result = "CA(" + str(self._size) + ", " +  + str(bin(self._my_rules)) + ")"
-    return result
+    return str(bin(self._value))
     
   def __repr__(self) -> str:
     result = "Ca(" + str(self._size) + ", " + str(bin(self._my_rules)) + ")"
@@ -92,7 +91,7 @@ class Ca:
       return self._value
     
   def getPeriod(self) -> int:
-    MaxResult = Int.mersenne(self._size)
+    MaxResult = Int.mersenne(self._size) + 1
     self._value = 1
     value0 = self._value
     result = 1

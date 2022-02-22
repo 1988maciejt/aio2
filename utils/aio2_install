@@ -1,5 +1,12 @@
 #! /bin/bash
+SCRIPT=$(readlink -f $0)
+SCRIPTPATH=`dirname $SCRIPT`
 sudo apt update
 sudo apt upgrade -y
-sudo apt install -y -f python3 python3 -pip bpython3 dos2unix
+sudo apt install -y -f python3 python3-pip python3-tk bpython3 dos2unix
+sudo pip3 install pyqt5
+sudo pip3 install pyqtwebengine -U
 sudo pip3 install ptpython
+mkdir -p ~/.config/ptpython/
+cp ~/.config/ptpython/config.py ~/.config/ptpython/config.py.bak
+cp -r ${SCRIPTPATH}/ptpython_config.py ~/.config/ptpython/config.py
