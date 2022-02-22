@@ -1,2 +1,4 @@
 #! /bin/bash
-sudo apt install -y -f python3 python-is-python3 bpython dos2unix 
+sudo apt update
+sudo apt upgrade -y
+sudo apt install -y -f python3 bpython3 dos2unix
