@@ -1,16 +1,20 @@
+import inspect
 from asyncore import ExitNow
 import os
 import random
+import re
 import shutil
 import sys
 from libs.ca import *
 from libs.database import *
 from libs.files import *
 from libs.lfsr import *
+from libs.logic import *
 from libs.polynomial import *
 from libs.printing import *
 from libs.utils_array import *
 from libs.utils_int import *
+from libs.verilog import *
 
 def getTerminalColumns():
   return shutil.get_terminal_size()[0]
@@ -23,7 +27,8 @@ print("Maciej Trawka's".center(getTerminalColumns()>>1))
 print("All-In-One v2".center(getTerminalColumns()>>1))
 print()
 
-os.chdir(sys.argv[1])
+if len(sys.argv) > 1:
+  os.chdir(sys.argv[1])
 
 if len(sys.argv) > 2:
   SFile = str(sys.argv[1])
@@ -35,3 +40,4 @@ if len(sys.argv) > 2:
     exec(open(SFile).read())
   else:
     print_error("No file '" + SFile + "'")
+

@@ -54,14 +54,14 @@ def configure(repl):
     repl.wrap_lines = True
 
     # Mouse support.
-    repl.enable_mouse_support = True
+    repl.enable_mouse_support = False
 
     # Complete while typing. (Don't require tab before the
     # completion menu is shown.)
     repl.complete_while_typing = True
 
     # Fuzzy and dictionary completion.
-    repl.enable_fuzzy_completion = False
+    repl.enable_fuzzy_completion = True
     repl.enable_dictionary_completion = False
 
     # Vi mode.
