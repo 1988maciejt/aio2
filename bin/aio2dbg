@@ -2,4 +2,6 @@
 SCRIPT=$(readlink -f $0)
 SCRIPTPATH=`dirname $SCRIPT`
 THIS=`pwd`
-ptpython3 -i ${SCRIPTPATH}/aio2.py $THIS $1
+PSCR=`realpath $1`
+cd ${SCRIPTPATH}
+ptpython3 aio2.py $THIS $PSCR

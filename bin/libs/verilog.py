@@ -1,5 +1,5 @@
 from enum import Enum
-from libs.printing import *
+from libs.aio import *
 import re
 import copy
 from libs.files import *
@@ -61,6 +61,14 @@ class VerilogParameters:
     if len(self._params) > 0:
       return True
     return False
+  def __contains__(self, item) -> bool:
+    if isinstance(item, (str)):
+      return bool(self.getParameterByName(item))
+    elif isinstance(item, (VerilogParameter)):
+      return (item in self._params)
+    return False
+  def __getitem__(self, key) -> VerilogParameter:
+    return self._params[key]
   def __str__(self) -> str:
     result = self.IndentationString + "VERILOG_PARAMETERS {\n"
     for par in self._params:
@@ -144,6 +152,14 @@ class VerilogSignals:
     if len(self._signals) > 0:
       return True
     return False
+  def __contains__(self, item) -> bool:
+    if isinstance(item, (str)):
+      return bool(self.getConnectionByIOName(item))
+    elif isinstance(item, (VerilogSignal)):
+      return (item in self._signals)
+    return False
+  def __getitem__(self, key) -> VerilogSignal:
+    return self._signals[key]
   def __str__(self) -> str:
     result = self.IndentationString + "VERILOG_SIGNALS {\n"
     for sig in self._signals:
@@ -224,8 +240,16 @@ class VerilogInstanceConnections:
     if len(self._conn > 0):
       return True
     return False
+  def __contains__(self, item) -> bool:
+    if isinstance(item, (str)):
+      return bool(self.getConnectionByIOName(item))
+    elif isinstance(item, (VerilogInstanceConnection)):
+      return (item in self._conn)
+    return False
   def __len__(self) -> int:
     return len(self._conn)
+  def __getitem__(self, key) -> VerilogInstanceConnection:
+    return self._conn[key]
   def __str__(self) -> str:
     result = self.IndentationString + "CONNECTIONS {\n"
     for c in self._conn:
@@ -302,8 +326,16 @@ class VerilogInstances:
     if len(self._instances) > 0:
       return True
     return False
+  def __contains__(self, item) -> bool:
+    if isinstance(item, (str)):
+      return bool(self.getInstanceByName(item))
+    elif isinstance(item, (VerilogInstance)):
+      return (item in self._instances)
+    return False
   def __len__(self) -> int:
     return len(self._instances)
+  def __getitem__(self, key) -> VerilogInstance:
+    return self._instances[key]
   def __str__(self) -> str:
     result = self.IndentationString + "VERILOG_INSTANCES {\n"
     for i in self._instances:
@@ -357,7 +389,7 @@ class VerilogModule:
         params = R.group(2)
         ios = R.group(3)
       else:
-        print_error("The given string:\n\r"+Content+"\n\r is not a valid Verilog module")
+        Aio.printError("The given string:\n\r"+Content+"\n\r is not a valid Verilog module")
         return
     ios_list = ios.split(",")
     params_list = params.split(",")
@@ -452,7 +484,7 @@ class VerilogModule:
     result = []
     instances = []
     if (Direction != VerilogSignalDirection.UNDEFINED or Type != VerilogSignalType.UNDEFINED) and len(OfInstance) > 0:
-      print_error("Cannot determina Direction and/or Type of signal of an instance")
+      Aio.printError("Cannot determina Direction and/or Type of signal of an instance")
       return []
     if len(OfInstance) > 0:
       instances = self._instances.getInstancesByName(OfInstance)
@@ -476,6 +508,8 @@ class VerilogModule:
     return self._instances
   def getInstanceNames(self, RegexPattern = "") -> list:
     return self._instances.getInstanceNames(RegexPattern)
+  def getContent(self) -> str:
+    return self._content
   
   
 class VerilogModules:
@@ -485,8 +519,16 @@ class VerilogModules:
     if len(self._modules) > 0:
       return True
     return False
+  def __contains__(self, item) -> bool:
+    if isinstance(item, (str)):
+      return bool(self.getModuleByName(item))
+    elif isinstance(item, (VerilogModule)):
+      return (item in self._modules)
+    return False
   def __len__(self) -> int:
     return len(self._modules)
+  def __getitem__(self, key) -> VerilogModule:
+    return self._modules[key]
   def __repr__(self) -> str:
     return "VerilogModules(" + str(len(self._modules)) + ")"
   def __str__(self) -> str:
@@ -533,6 +575,10 @@ class VerilogModules:
         result.append(m.getName())
     result.sort()
     return result
+  def getContent(self) -> str:
+    result = ""
+    for m in self._modules:
+      result += m.getContent() + "\n\n"
     
   
 class Verilog:
@@ -540,10 +586,19 @@ class Verilog:
 class Verilog:
   Modules = VerilogModules()
   IndentationString = ""
+  _top = ""
   def __init__(self, Content = "") -> None:
     self.Modules.addFromString(Content)
   def __bool__(self) -> bool:
     return bool(self.Modules)
+  def __contains__(self, item) -> bool:
+    if isinstance(item, (str)):
+      return bool(self.Modules.getModuleByName(item))
+    elif isinstance(item, (VerilogModule)):
+      return (item in self.Modules.getModules())
+    return False
+  def __getitem__(self, key) -> VerilogModule:
+    return self.Modules[key]
   def __len__(self) -> int:
     return len(self.Modules)
   def __repr__(self) -> str:
@@ -579,3 +634,33 @@ class Verilog:
       for s in m.getSignalNames(RegexPattern,Direction,Type,OfInstance):
         result.append(m.getName() + "." + s)
     return result
+  def getContent(self) -> str:
+    return self.Modules.getContent()
+  def setTopModuleName(self, ModuleName : str) -> bool:
+    if self.Modules.getModuleByName(ModuleName):
+      self._top = ModuleName
+      return True
+    Aio.printError("'" + ModuleName + "' not found in modules.")
+    return False
+  def getTopModuleName(self) -> str:
+    return self._top
+  def getTopModule(self) -> VerilogModule:
+    return self.Modules.getModuleByName(self._top)
+  
+  
+class VerilogTesbench:
+  _my_verilog = Verilog
+  def __init__(self, MyVerilog = Verilog()) -> None:
+    self._my_verilog = MyVerilog
+  def __repr__(self) -> str:
+    return "VerilogTestbench(" + self._my_verilog.getTopModuleName + ")"
+  def __str__(self) -> str:
+    result = "VERILOG_TESTBENCH {\n"
+    self._my_verilog.IndentationString = "  "
+    result += str(self._my_verilog) + "\n"
+    result += "}"
+    return result
+  def setVerilog(self, MyVerilog : Verilog) -> None:
+    self._my_verilog = MyVerilog
+  def getVerilog(self) -> Verilog:
+    return self._my_verilog

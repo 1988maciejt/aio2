@@ -1,7 +1,7 @@
 from libs.utils_array import *
-from libs.printing import *
 from libs.utils_int import *
 from libs.database import *
+from libs.aio import *
 import copy
 
 class Ca:
@@ -10,20 +10,28 @@ class Ca:
   _value : int
   _size : int
   _fast_sim_array = False
-  
+  def __iter__(self):
+    self._value = 1
+    self._next_iteration = False
+    return self
+  def __next__(self):
+    val = self.getValue()
+    self.next()
+    if self._next_iteration:    
+      if val == 1:
+        raise StopIteration
+    else:
+      self._next_iteration = True
+    return val
   def __init__(self, Size : int, Rules : int):
     self._my_rules = Rules
     self._value = 1
     self._size = Size
-    
   def __str__(self) -> str:
     return str(bin(self._value))
-    
   def __repr__(self) -> str:
     result = "Ca(" + str(self._size) + ", " + str(bin(self._my_rules)) + ")"
     return result
-    
-    
   def _buildFastSimArray(self):
     oldVal = self._value
     size = self._size
@@ -52,7 +60,7 @@ class Ca:
     
   def next(self, steps=1) -> int:
     if steps < 0:
-      print_error("'steps' must be a positve number")
+      Aio.printError("'steps' must be a positve number")
       return 0
     if steps == 0:
       return self._value

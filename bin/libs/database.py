@@ -2,7 +2,6 @@ from libs.files import *
 
 
 class DB:
-
   def getPrimitiveTestingCyclesList(index : int) -> list:
     global primitive_testing_dict
     if "primitive_testing_dict" not in globals():

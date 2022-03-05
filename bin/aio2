@@ -2,10 +2,12 @@
 SCRIPT=$(readlink -f $0)
 SCRIPTPATH=`dirname $SCRIPT`
 THIS=`pwd`
-cd $SCRIPTPATH
 if [ -z "$1" ]
 then
+  cd $SCRIPTPATH
   ptpython3 -i ${SCRIPTPATH}/aio2.py $THIS
 else
-  ptpython3 ${SCRIPTPATH}/aio2.py $THIS $1
+  PSCR=`realpath $1`
+  cd $SCRIPTPATH
+  ptpython3 ${SCRIPTPATH}/aio2.py $THIS $PSCR
 fi
