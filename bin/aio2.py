@@ -5,6 +5,7 @@ import random
 import re
 import shutil
 import sys
+import plotext
 from libs.aio import *
 from libs.ca import *
 from libs.cache import *
@@ -17,6 +18,8 @@ from libs.gcode import *
 from libs.lfsr import *
 from libs.logic import *
 from libs.polynomial import *
+from libs.ring_oscillator import *
+from libs.stats import *
 from libs.unitnumber import *
 from libs.utils_array import *
 from libs.utils_int import *
@@ -48,6 +51,3 @@ if len(sys.argv) > 2:
 
 
 #========================================================
-
-    
-    

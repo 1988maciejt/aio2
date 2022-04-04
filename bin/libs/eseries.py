@@ -48,7 +48,7 @@ class ESeries:
     m = me[0]
     e = me[1]
     for i in lst:
-      if m < i:
+      if m <= i:
         m = i
         break
     return m * (10 ** e)
@@ -59,7 +59,7 @@ class ESeries:
     m = me[0]
     e = me[1]
     for i in lst:
-      if m > i:
+      if m >= i:
         m = i
         break
     return m * (10 ** e)

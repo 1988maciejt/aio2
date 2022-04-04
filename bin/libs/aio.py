@@ -25,6 +25,8 @@ class Aio:
     print(*args)
   def printError(*args):
     Aio.print("ERROR:",*args)
+  def printTemp(*args):
+    print(*args,"\r",end="")
   def shellExecute(ShellCommand : str) -> str:
     stream = os.popen(ShellCommand)
     return stream.read()

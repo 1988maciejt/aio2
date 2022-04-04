@@ -3,7 +3,7 @@ from libs.database import *
 from libs.utils_array import *
 from libs.utils_int import *
 from libs.cache import *
-#import copy
+import math
 
 
 # POLYNOMIAL CLASS ================
@@ -81,6 +81,10 @@ class Polynomial:
         return True
       last = this
     return False  
+  def getTaps(self) -> int:
+    return len(self._coefficients_list)-2
+  def getPolynomialsCount(self) -> int:
+    return math.comb(self.getDegree()-1, self.getTaps())
   def getBalancing(self) -> int:
     """Calculates and returns the balaning factor of the polynomial.
     """
@@ -125,6 +129,7 @@ class Polynomial:
       return cached
     l = Lfsr(self, LfsrType.Galois)
     result = l.isMaximum()
+    l.clear()
     Cache.store(self.toInt(), result)
     return result
   def nextPrimitive(self) -> bool:
@@ -136,7 +141,9 @@ class Polynomial:
     while True:
       if not self.makeNext():
         return False
+      Aio.printTemp("Testing",self)
       if self.isPrimitive():
+        Aio.printTemp(str(" ")*100)
         return True
   def createPolynomial(degree : int, coeffs_count : int, balancing = 0) -> Polynomial:
     """Returns a polynomial, usefull for LFSRs.
@@ -238,6 +245,9 @@ class Lfsr:
   _hval = 0
   _size = 0
   _fast_sim_array = False
+  def clear(self):
+    self._fast_sim_array.clear()
+    self._fast_sim_array = False
   def __iter__(self):
     self._value = 1
     self._next_iteration = False
@@ -442,6 +452,15 @@ class Lfsr:
       result += str(Int.getBit(self._value, bitIndex))
       self.next()
     return result
+  def printFastSimArray(self):
+    if self._fast_sim_array == False:
+      self._buildFastSimArray()
+    for r in self._fast_sim_array:
+      line = ""
+      for c in r:
+        line += str(bin(c)) + "\t"
+      Aio.print(line)
+    
       
     
 # LFSR END ========================
