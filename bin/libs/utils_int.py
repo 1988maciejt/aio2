@@ -1,6 +1,17 @@
-
+import re
 
 class Int:
+
+  def fromString(num : str, base = 10) -> int:
+    pattern = r'(\S)\(([0-9]+)\)'
+    while True:
+      r = re.search(pattern, num)
+      if r:
+        s = r.group(1)*int(r.group(2))
+        num = re.sub(pattern, s, num, count=1)
+      else:
+        break
+    return int(num, base)
 
   def parityOf(int_type : int) -> int:
     parity = 0

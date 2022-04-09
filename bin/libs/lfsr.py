@@ -14,9 +14,42 @@ class Polynomial:
   _coefficients_list = []
   _balancing = 0
   def __init__(self, coefficients_list : list, balancing = 0):
+    """ Polynomial (Polynomial, balancing=0)
+ Polynomial (coefficients_list, balancing=0)
+ Polynomial (int, balancing=0)
+ Polynomial (hex_string, balancing=0)
+ Polynomial ("size,HexNumber", balancing=0)
+    """
     if "Polynomial" in str(type(coefficients_list)):
       self._coefficients_list = coefficients_list._coefficients_list.copy()
       self._balancing = coefficients_list._balancing + 0
+    elif "int" in str(type(coefficients_list)):
+      cntr = 0
+      self._coefficients_list = []
+      while coefficients_list > 0:
+        if coefficients_list & 1 == 1:
+          self._coefficients_list.append(cntr)
+        cntr += 1
+        coefficients_list >>= 1
+      self._coefficients_list.sort(reverse=True)
+      self._balancing = balancing
+    elif "str" in str(type(coefficients_list)):
+      lst = coefficients_list.split(",")
+      num = lst[0]
+      deg = 0
+      if len(lst) > 1:
+        deg = 2**(int(lst[0]))
+        num = lst[1]
+      num = Int.fromString(num, 16) | deg
+      cntr = 0
+      self._coefficients_list = []
+      while num > 0:
+        if num & 1 == 1:
+          self._coefficients_list.append(cntr)
+        cntr += 1
+        num >>= 1
+      self._coefficients_list.sort(reverse=True)
+      self._balancing = balancing      
     else:
       self._coefficients_list = coefficients_list
       self._coefficients_list.sort(reverse=True)

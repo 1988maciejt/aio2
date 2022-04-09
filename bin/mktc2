@@ -1,7 +1,30 @@
 mkdir $1
 cd $1
 mkdir data
-mkdir results
-# mkdir references
-touch driver.py
+mkdir references
+
+echo "# ============================
+from aio import *
+# ============================
+
+# place your code here
+
+" > driver.py
+
+echo "{
+	\"folders\": [
+		{
+			\"path\": \".\"
+		}
+	],
+	\"settings\": {
+		\"python.autoComplete.extraPaths\": [
+			\"../../bin\",
+		],
+		\"python.analysis.extraPaths\": [
+			\"../../bin\"
+		],
+	}
+}" > VsCode_workspace.code-workspace
+
 cd ../
