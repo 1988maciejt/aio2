@@ -2,7 +2,7 @@ from libs.files import *
 from libs.aio import *
 import re
 import plotext
-import openpyxl
+#import openpyxl
 
 class Plot:
   Title = ""
@@ -37,6 +37,12 @@ class Plot:
       self.XData.append(x)
       self.YData.append(dct[x])
   def exportDataToOpenpyxlSheet(self, Sheet, XColumn=1, YColumn=1, FirstRow=1):
+    if self.XLabel != None:
+      Sheet.cell(FirstRow, XColumn).value = str(self.XLabel)
+    if self.YLabel != None:
+      Sheet.cell(FirstRow, YColumn).value = str(self.YLabel)
+    if self.XLabel != None or self.YLabel != None:
+      FirstRow += 1 
     for i in range(len(self.XData)):
       x = self.XData[i]
       y = self.YData[i]
@@ -71,25 +77,71 @@ class Plot:
     if not self.Colored:
       plotext.colorless()
     Aio.print(plotext.build())
-def readDieharder(FileName : str) -> list:
-  fdata = readFile(FileName)
-  l = fdata.split("\n")
-  result = []
-  tp = "d"
-  for n in l:
-    m = re.search(r'type:\s*(\S+)', n)
-    if m:
-      tp = m.group(1)
-    elif ":" not in n:
-      if tp == "b":
-        result.append(int(n, 2))
-      elif tp == "h":
-        result.append(int(n, 16))
-      else:
-        result.append(int(n))
-  return result
+
+class BinStrings:
+  def probOf1Histogram(BinStrings : list, IncludeAll = False) -> dict:
+    result = dict()
+    if IncludeAll:
+      for i in range(len(BinStrings[0])):
+        result[i] = 0
+    for word in BinStrings:
+      for index in range(len(word)):
+        bit = word[index]
+        if bit == "1": 
+          result[index] = result.get(index, 0) + 1
+    N = len(BinStrings)
+    for key in result.keys():
+      result[key] = result[key] * 1.0 / N
+    return result
+  def seriesHistogram(BinString : str, IncludeAll = False) -> dict:
+    result = dict()
+    if IncludeAll:
+      for i in range(len(BinString)):
+        result[i] = 0
+    cntr = 0
+    cPrev = "X"
+    for c in BinString:
+      cntr += 1
+      if c != cPrev:
+        if cntr > 0:
+          result[cntr] = result.get(cntr, 0) + 1
+          cPrev = c
+          cntr = 0
+    return result
+  def seriesCount(BinString : str) -> int:
+    result = 0
+    cPrev = "X"
+    for c in BinString:
+      if c != cPrev:
+          result += 1
+          cPrev = c
+    return result
+  def countOf1s(BinString : str) -> int:
+    result = 0
+    for c in BinString:
+      if c == "1":
+        result += 1
+    return result
+  
 
 class Stats:
+  def readDieharder(FileName : str) -> list:
+    fdata = readFile(FileName)
+    l = fdata.split("\n")
+    result = []
+    tp = "d"
+    for n in l:
+      m = re.search(r'type:\s*(\S+)', n)
+      if m:
+        tp = m.group(1)
+      elif ":" not in n:
+        if tp == "b":
+          result.append(int(n, 2))
+        elif tp == "h":
+          result.append(int(n, 16))
+        else:
+          result.append(int(n))
+    return result
   def deviation(DictData : dict, Expected : float):
     sum = 0
     values = DictData.values()
@@ -102,29 +154,6 @@ class Stats:
     for val in values:
       sum += (val-Expected) ** 2
     return sum / Expected
-  def probOf1Histogram_BinString(BinStrings : list) -> dict:
-    result = dict()
-    for word in BinStrings:
-      for index in range(len(word)):
-        bit = word[index]
-        if bit == "1": 
-          result[index] = result.get(index, 0) + 1
-    N = len(BinStrings)
-    for key in result.keys():
-      result[key] = result[key] * 1.0 / N
-    return result
-  def seriesHistogram_BinString(BinString : str) -> dict:
-    result = dict()
-    cntr = 0
-    cPrev = "X"
-    for c in BinString:
-      cntr += 1
-      if c != cPrev:
-        if cntr > 0:
-          result[cntr] = result.get(cntr, 0) + 1
-          cPrev = c
-          cntr = 0
-    return result
   def repeatedNumbers(data : list) -> dict:
     result = {}
     aux = {}

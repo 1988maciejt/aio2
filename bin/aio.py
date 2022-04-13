@@ -10,6 +10,7 @@ import sys
 import plotext
 import time
 import openpyxl
+import openpyxl.styles
 import xlsxwriter
 from ansi2html import *
 from libs.ca import *

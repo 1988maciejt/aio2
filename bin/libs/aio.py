@@ -9,6 +9,10 @@ class Aio:
   _sections = False
   _section_opened = False
   _subsection_opened = False
+  def isType(Object, ItsType) -> bool:
+    if "<class 'str'>" not in str(type(ItsType)):
+      ItsType = str(type(ItsType))
+    return ItsType in str(type(Object))
   def format(object, indent=0) -> str:
     result = ""
     if "list" in str(type(object)):
