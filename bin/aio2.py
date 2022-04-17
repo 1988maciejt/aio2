@@ -17,10 +17,14 @@ if len(sys.argv) > 2:
     Aio.shellExecute("mkdir -p references")
     os.chdir("results")
     sys.path.append("../data")
+    sys.path.append("../")
     Aio.print ("Testcase mode. Output redirected to 'transcript.txt'")
     Aio.printTranscriptEnable()
   if os.path.isfile(SFile):
-    exec(open(SFile).read())
+#    exec(open(SFile).read())
+#    from driver import *
+    with open(SFile) as src:
+      imp.load_module('__MAIN__', src, SFile, (".py", "r", imp.PY_SOURCE))
   else:
     Aio.printError("No file '" + SFile + "'")
     

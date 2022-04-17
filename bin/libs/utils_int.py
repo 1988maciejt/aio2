@@ -1,6 +1,43 @@
 import re
 
 class Int:
+  
+  def shiftLeft(value : int, bitsize : int, steps=1) -> int:
+    if (steps < 0):
+      return Int.shiftRight(value, bitsize, -steps)
+    clr = (1 << bitsize) - 1
+    return (value << steps) & clr
+  
+  def shiftRight(value : int, bitsize : int, steps=1) -> int:
+    if (steps < 0):
+      return Int.shiftLeft(value, bitsize, -steps)
+    return value >> steps
+
+  def rotateLeft(value : int, bitsize : int, steps=1) -> int:
+    if (steps < 0):
+      return Int.rotateRight(value, bitsize, -steps)
+    v = value
+    mask = (1 << (bitsize-1))
+    clr = (mask << 1) - 1
+    for i in range(steps):
+      b = v & mask
+      v <<= 1
+      if (b != 0):
+        v |= 1
+        v &= clr
+    return v
+        
+  def rotateRight(value : int, bitsize : int, steps=1) -> int:
+    if (steps < 0):
+      return Int.rotateLeft(value, bitsize, -steps)
+    v = value
+    bit = (1 << (bitsize-1))
+    for i in range(steps):
+      b = v & 1
+      v >>= 1
+      if (b != 0):
+        v |= bit
+    return v
 
   def fromString(num : str, base = 10) -> int:
     pattern = r'(\S)\(([0-9]+)\)'
@@ -36,3 +73,7 @@ class Int:
   
   def resetBit(Value : int, BitIndex : int) -> int:
     return Int.setBit(Value, BitIndex, 0)
+  
+  def toggleBit(Value : int, BitIndex : int) -> int:
+    bit = 1 << BitIndex
+    return Value ^ bit

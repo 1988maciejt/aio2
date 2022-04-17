@@ -33,8 +33,8 @@ class GCode:
   _my_serial = serial.Serial()
   _history = ""
   _history_store = False
-  def __init__(self, SerialName : str) -> None:
-    self._my_serial.baudrate = 115200
+  def __init__(self, SerialName : str, Baud = 115200) -> None:
+    self._my_serial.baudrate = Baud
     self._my_serial.port = SerialName
     self._my_serial.timeout = 500
   def __repr__(self) -> str:

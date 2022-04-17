@@ -1,9 +1,15 @@
+from ast import BitOr
+from libs.logic import Logic
 from libs.aio import *
 from libs.database import *
 from libs.utils_array import *
 from libs.utils_int import *
 from libs.cache import *
 import math
+from tqdm import *
+import multiprocessing
+import time
+import copy
 
 
 # POLYNOMIAL CLASS ================
@@ -12,7 +18,20 @@ class Polynomial:
   pass
 class Polynomial:
   _coefficients_list = []
-  _balancing = 0
+  _balancing = 0    
+  _result = None
+  _cont = True
+  _n = 0
+  _bmin = 1
+  def _check(p):
+    if Polynomial._cont:
+      Aio.printTemp("Checking " + str(p))
+      if p.isPrimitive():
+        Polynomial._result.append(p)
+        if Polynomial._n > 0 and len(Polynomial._result) >= Polynomial._n:
+          Polynomial._cont = False
+        if not Polynomial._quiet:
+          print("Found " + str(p) + " " * 30)
   def __init__(self, coefficients_list : list, balancing = 0):
     """ Polynomial (Polynomial, balancing=0)
  Polynomial (coefficients_list, balancing=0)
@@ -54,6 +73,14 @@ class Polynomial:
       self._coefficients_list = coefficients_list
       self._coefficients_list.sort(reverse=True)
       self._balancing = balancing
+  def __iter__(self):
+    p = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self.getBalancing())
+    self._coefficients_list = p._coefficients_list
+    return self
+  def __next__(self):
+    if self.makeNext():
+      return Polynomial(self)
+    raise StopIteration  
   def __str__(self) -> str:
     return str(self._coefficients_list)
   def __repr__(self) -> str:
@@ -71,6 +98,12 @@ class Polynomial:
     """
     return len(self._coefficients_list)
   def getReversed(self) -> Polynomial:
+    """Gets 'reversed' version of polynomial.
+    
+    For example:
+    Polynomial([6,4,3,1,0]).getReversed() 
+    >> Polynomial([6,5,3,2,0])
+    """
     clen = len(self._coefficients_list)
     deg = self._coefficients_list[0]
     result = [deg, self._coefficients_list[clen-1]]
@@ -81,42 +114,38 @@ class Polynomial:
     """Returns polynomials degree.
     """
     return self._coefficients_list[0]
-  def makeNext(self, balancing = -1) -> bool:
-    """Moves the middle coefficients to obtain next polynomial
+  def makeNext(self) -> bool:
+    """Moves the middle coefficients to obtain a next polynomial
     giving an LFSR having the sam count of taps.
-
-    Args:
-        balancing (int, optional): balancing factor.
-          -1 : auto (default)
-           0 : no balancechecking
-          >0 : balancing factor
 
     Returns:
         bool: True if successfull, Ffalse if no next polynomial.
     """
-    if balancing < 0:
-      balancing = self._balancing
-    if balancing > 0:
-      while True:
-        if not self.makeNext(0):
-          return False
-        if self.getBalancing() <= balancing:
-          return True
+    minsub = self._bmin
     ccount = len(self._coefficients_list)
     degree = self._coefficients_list[0]
-    last = degree
+    lastmax = degree-minsub
     for i in range(1, ccount-1):
       this = self._coefficients_list[i]
-      if this+1 < last:
+      if this < lastmax:
         self._coefficients_list[i] = this+1
-        for j in range(i-1, 0,-1):
-          self._coefficients_list[j] = self._coefficients_list[j+1] + 1
         return True
-      last = this
+      else:
+        if (i == (ccount-2)):
+          return False
+        if self._coefficients_list[i+1] + 1 + minsub <= self._coefficients_list[i]:
+          self._coefficients_list[i] = self._coefficients_list[i+1] + 1 + minsub
+          self._coefficients_list[i+1] = self._coefficients_list[i+1] + 1
+          return True      
+      lastmax = this-minsub
     return False  
   def getTaps(self) -> int:
+    """Returns LFSR taps count in case of a LFSR created basing on this polynomial 
+    """
     return len(self._coefficients_list)-2
   def getPolynomialsCount(self) -> int:
+    """Returns a count of polynomials having the same parameters (obtained using .makeNext())  
+    """
     return math.comb(self.getDegree()-1, self.getTaps())
   def getBalancing(self) -> int:
     """Calculates and returns the balaning factor of the polynomial.
@@ -134,7 +163,7 @@ class Polynomial:
     """Returns an integer representing the given polynomial.
     
     For example:
-    >>> Polynomial([3,1,0]).toInt()
+    >>> bin(Polynomial([3,1,0]).toInt())
     >>> 0b1011
     """
     clist = self._coefficients_list
@@ -193,6 +222,7 @@ class Polynomial:
       Aio.printError ("'coefficients_count - 1' must be <= 'degree'")
       return Polynomial([])  
     result = [degree]
+    bmin = 1
     if balancing > 0 and balancing < degree:
       avg = float(degree) / float(coeffs_count - 1)
       halfbal = float(balancing) / 2.0
@@ -213,7 +243,9 @@ class Polynomial:
     else:
       for i in range(coeffs_count-1):
         result.insert(0,i)
-    return Polynomial(result, balancing)
+    p = Polynomial(result, balancing)
+    p._bmin = int(bmin)
+    return p
   def listPrimitives(degree : int, coeffs_count : int, balancing = 0, n = 0, quiet = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
@@ -227,24 +259,23 @@ class Polynomial:
     Returns:
         list: list of polynomial objects
     """
-    result = []
+    Aio.printTemp("Preparing...")
+    manager = multiprocessing.Manager()
+    Polynomial._result = manager.list()
+    Polynomial._n = n
+    Polynomial._quiet = quiet
+    Polynomial._cont = True
     poly = Polynomial.createPolynomial(degree, coeffs_count, balancing)
-    if poly.isPrimitive():
-      poly2 = Polynomial(poly)
-      result.insert(0,poly2)
-      if not quiet:
-        print("Found prim. poly:", poly.getCoefficients())
-      if n == 1:
-        return result
-    while poly.nextPrimitive():
-      poly2 = Polynomial(poly)
-      result.insert(0,poly2)
-      if not quiet:
-        print("Found prim. poly:", poly.getCoefficients())
-      if n > 0:
-        if len(result) >= n:
-          break
-    return result
+    pool = multiprocessing.Pool()
+    pr = pool.map_async(Polynomial._check, poly)
+    while not pr.ready():
+       time.sleep(0.1)
+    pool.close()
+    r = list(Polynomial._result)
+    if n > 0 and len(r) > n:
+      r = r[0:n]
+    Aio.printTemp(" " * Aio.getTerminalColumns())
+    return r
   def firstPrimitive(degree : int, coeffs_count : int, balancing = 0) -> list:
     """Returns a first found primitive (over GF(2)) polynomial.
 
@@ -256,33 +287,49 @@ class Polynomial:
     Returns:
         list: _description_
     """
-    result = Polynomial.listPrimitives(degree,coeffs_count,balancing,1,True)
-    if len(result) > 0:
-      return result[0]
+    p = Polynomial.createPolynomial(degree, coeffs_count, balancing)
+    if p.isPrimitive():
+      return p
+    elif p.nextPrimitive():
+      return p
     return None
 # POLYNOMIAL END ==================
 
 
 # LFSR TYPE ENUM ==================
 class LfsrType:
+  """Enumerator used to determine an LFSR type. 
+  
+  Available types:
+  .Galois
+  .Fibonacci
+  .RingGenerator
+  """
   Galois = 1
   Fibonacci = 2
+  RingGenerator = 3
 
 
 # LFSR BEGIN ======================
 class Lfsr:
+  """An LFSR object. Used for all 3 LFSR implementations, like 
+  Galois, Fibonacci (default), RingGenerator.
+  """
   _my_poly = []
   _mask = []
-  _value = 0
+  Value = 0
   _type = LfsrType.Galois
   _hval = 0
   _size = 0
   _fast_sim_array = False
+  _taps = []
   def clear(self):
+    """Clears the fast-simulation array
+    """
     self._fast_sim_array.clear()
     self._fast_sim_array = False
   def __iter__(self):
-    self._value = 1
+    self.Value = 1
     self._next_iteration = False
     return self
   def __next__(self):
@@ -296,6 +343,16 @@ class Lfsr:
     return val
   def __init__(self, polynomial, lfsr_type = LfsrType.Fibonacci):
     poly = polynomial
+    if "Lfsr" in str(type(polynomial)):
+        self._my_poly = copy.deepcopy(polynomial._my_poly)
+        self._mask = copy.deepcopy(polynomial._mask)
+        self.Value = copy.deepcopy(polynomial.Value)
+        self._type = copy.deepcopy(polynomial._type)
+        self._hval = copy.deepcopy(polynomial._hval)
+        self._size = copy.deepcopy(polynomial._size)
+        self._fast_sim_array = copy.deepcopy(polynomial._fast_sim_array)
+        self._taps = copy.deepcopy(polynomial._taps)
+        return
     if type(Polynomial([])) != type(polynomial):
       poly = Polynomial(polynomial)
     self._my_poly = poly.getCoefficients()
@@ -303,27 +360,61 @@ class Lfsr:
     self._size = poly.getDegree()
     if lfsr_type == LfsrType.Galois:
       self._mask = poly.toInt() >> 1
-    else:
+    elif lfsr_type == LfsrType.Fibonacci:
       self._mask = poly.toInt()
-    self._value = 1
+    elif lfsr_type == LfsrType.RingGenerator:
+      self._rg_table = []
+      flist = self._my_poly
+      flist_incr = flist.copy()
+      flist_incr.sort()
+      bitcount = flist[0]
+      taps_count = len(flist) - 2
+      sum = 0
+      active_upper = True
+      From = 0
+      To = bitcount-1
+      taps = []
+      for i in range(taps_count):
+        factor = flist_incr[i+1]
+        while sum < factor:
+          sum += 1
+          if active_upper:
+            active_upper = False
+            if From <= 0:
+              From = bitcount-1
+            else:
+              From -= 1
+          else:
+            active_upper = True
+            if To >= bitcount-1:
+              To = 0
+            else:          
+              To += 1
+        taps.append([From, To])
+      self._taps = taps
+    else:
+      Aio.printError("Unrecognised lfsr type '" + str(lfsr_type) + "'")
+    self.Value = 1
     self._hval = 1 << (poly.getDegree()-1)
   def __str__(self) -> str:
-    return str(bin(self._value))
+    return str(bin(self.Value))
   def __repr__(self) -> str:
     result = "Lfsr(" + str(self._my_poly) + ", "
     if self._type == LfsrType.Galois:
       result += "Galois"
     if self._type == LfsrType.Fibonacci:
       result += "Fibonacci" 
+    if self._type == LfsrType.RingGenerator:
+      result += "RingGenerator" 
     result += ")"
     return result
   def _buildFastSimArray(self):
-    oldVal = self._value
+    oldVal = self.Value
     size = self._size
     self._fast_sim_array = create2DArray(size, size)
     value0 = 1
     for i in range(size):
-      self._value = value0
+      self.Value = value0
       self._fast_sim_array[0][i] = self.next()
       value0 <<= 1
     for r in range(1,size):
@@ -335,11 +426,11 @@ class Lfsr:
             result ^= self._fast_sim_array[r-1][b]
           PrevValue >>= 1
         self._fast_sim_array[r][c] = result
-    self._value = oldVal
+    self.Value = oldVal
   def getValue(self) -> int:
     """Returns current value of the LFSR
     """
-    return self._value
+    return self.Value
   def getSize(self) -> int:
     """Returns size of the LFSR
     """
@@ -358,20 +449,29 @@ class Lfsr:
       Aio.printError("'steps' must be a positve number")
       return 0
     if steps == 0:
-      return self._value
+      return self.Value
     if steps == 1:
       if self._type == LfsrType.Fibonacci:
-        hbit = Int.parityOf(self._mask & self._value)
-        self._value >>= 1
+        hbit = Int.parityOf(self._mask & self.Value)
+        self.Value >>= 1
         if hbit == 1:
-          self._value |= self._hval
-        return self._value
-      if self._type == LfsrType.Galois:
-        lbit = self._value & 0x1
-        self._value >>= 1
+          self.Value |= self._hval
+        return self.Value
+      elif self._type == LfsrType.Galois:
+        lbit = self.Value & 0x1
+        self.Value >>= 1
         if lbit == 1:
-          self._value ^= self._mask
-        return self._value
+          self.Value ^= self._mask
+        return self.Value
+      elif self._type == LfsrType.RingGenerator:
+        Value2 = Int.rotateRight(self.Value, self._size, 1)
+        for tap in self._taps:
+          From = tap[0]
+          To = tap[1]
+          frombit = Int.getBit(self.Value, From)
+          Value2 ^= (frombit << To)
+        self.Value = Value2
+        return self.Value
       return 0
     else:
       if self._fast_sim_array == False:
@@ -380,17 +480,17 @@ class Lfsr:
       RowIndex = 0
       #steps = copy.deepcopy(steps)
       while steps > 0: 
-        value0 = self._value
+        value0 = self.Value
         if steps & 1 == 1:
           result = 0
           for b in range(size):
             if value0 & 1 == 1:
               result ^= self._fast_sim_array[RowIndex][b]
             value0 >>= 1
-          self._value = result
+          self.Value = result
         steps >>= 1
         RowIndex += 1
-      return self._value    
+      return self.Value    
   def getPeriod(self) -> int:
     """Simulates the LFSR to obtain its period (count of states in trajectory).
 
@@ -399,8 +499,8 @@ class Lfsr:
               and it cannot determine the period.
     """
     MaxResult = Int.mersenne(self._size) + 1
-    self._value = 1
-    value0 = self._value
+    self.Value = 1
+    value0 = self.Value
     result = 1
     valuex = self.next()
     while valuex != value0 and result <= MaxResult:
@@ -415,23 +515,26 @@ class Lfsr:
         bool: True if is maximum, otherwise False.
     """
     index = self._size
-    self._value = 1
+    self.Value = 1
     if self.next(Int.mersenne(index)) != 1:
       return False
     lst = DB.getPrimitiveTestingCyclesList(index)
     for num in lst:
-      self._value = 1
+      self.Value = 1
       if self.next(num) == 1:
         return False
     return True
-  def reset(self) -> int:
-    """Sets the value to 0x1.
+  def reset(self, NewValue = 1) -> int:
+    """Resets the LFSR value 
+
+    Args:
+        NewValue (int, optional): new value. Defaults to 1.
 
     Returns:
-        int: new value
+        int: The new value
     """
-    self._value = 1
-    return 1
+    self.Value = NewValue
+    return NewValue
   def getValues(self, n = 0, step = 1, reset = True) -> list:
     """Returns a list containing consecutive values of the LFSR.
 
@@ -449,7 +552,7 @@ class Lfsr:
       self.reset()
     result = []
     for i in range(n):
-      result.append(self._value)
+      result.append(self.Value)
       self.next(step)
     return result
   def printValues(self, n = 0, step = 1, reset = True) -> None:
@@ -465,7 +568,7 @@ class Lfsr:
     if reset:
       self.reset()
     for i in range(n):
-      Aio.print(bin(self._value))
+      Aio.print(bin(self.Value))
       self.next(step)
   def getMSequence(self, bitIndex = 0, reset = True) -> str:
     """Returns a string containing the M-Sequence of the LFSR.
@@ -482,10 +585,12 @@ class Lfsr:
       self.reset()
     n = self.getPeriod()
     for i in range(n):
-      result += str(Int.getBit(self._value, bitIndex))
+      result += str(Int.getBit(self.Value, bitIndex))
       self.next()
     return result
   def printFastSimArray(self):
+    """Prints the fast-simulation array.
+    """
     if self._fast_sim_array == False:
       self._buildFastSimArray()
     for r in self._fast_sim_array:
@@ -493,7 +598,31 @@ class Lfsr:
       for c in r:
         line += str(bin(c)) + "\t"
       Aio.print(line)
-    
+  def _append_results(r):
+    global _results
+    _results.append(r)
+    Lfsr._C += 1
+    Aio.printTemp("  Lfsr sim ", Lfsr._C, "/",Lfsr._N, "             ")
+  def simulateForDataString(self, BinString : str, InjectionAtBit = 0, StartValue = 0) -> int:
+    if "list" in str(type(BinString)):
+      global _results
+      _results = []
+      pool = multiprocessing.Pool()
+      Lfsr._N = len(BinString)
+      Lfsr._C = 0
+      for BS in BinString:
+        rn = Lfsr(self)
+        pool.apply_async(rn.simulateForDataString, args=(BS, InjectionAtBit, StartValue), callback=Lfsr._append_results)
+      pool.close()
+      pool.join()
+      return _results
+    self.Value = StartValue
+    imask = 1 << InjectionAtBit
+    for Bit in BinString:
+      self.next()
+      if Bit == "1":
+        self.Value ^= imask
+    return [BinString ,self.Value]
       
     
 # LFSR END ========================

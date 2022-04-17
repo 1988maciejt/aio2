@@ -3,6 +3,8 @@ from libs.utils_int import *
 
 
 class Flags:
+  """Flags object (similar to that one used in HP-50G calculator)
+  """
   _flags = 0
   def __repr__(self) -> str:
     return "Flags(" + str(bin(self._flags)) + ")"

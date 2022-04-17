@@ -5,7 +5,8 @@ from libs.aio import *
 import copy
 
 class Ca:
-  
+  """Cellular automata object.
+  """
   _my_rules : int
   _value : int
   _size : int
@@ -24,6 +25,13 @@ class Ca:
       self._next_iteration = True
     return val
   def __init__(self, Size : int, Rules : int):
+    """Initializes the CA object.
+
+    Args:
+        Size (int): bit-size of the CA
+        Rules (int): rules vector. Bit==1 means 150 rule, Bit==0 means 90 rule.
+          Example rules 0b101, 0b110110
+    """
     self._my_rules = Rules
     self._value = 1
     self._size = Size
@@ -51,13 +59,10 @@ class Ca:
           PrevValue >>= 1
         self._fast_sim_array[r][c] = result
     self._value = oldVal
-    
   def getValue(self) -> int:
     return self._value
-  
   def getSize(self) -> int:
     return (self._size)
-    
   def next(self, steps=1) -> int:
     if steps < 0:
       Aio.printError("'steps' must be a positve number")
@@ -97,7 +102,6 @@ class Ca:
         steps >>= 1
         RowIndex += 1
       return self._value
-    
   def getPeriod(self) -> int:
     MaxResult = Int.mersenne(self._size) + 1
     self._value = 1
@@ -108,7 +112,6 @@ class Ca:
       valuex = self.next()  
       result += 1
     return result
-  
   def isMaximum(self) -> bool:
     index = self._size
     self._value = 1
@@ -120,8 +123,7 @@ class Ca:
       if self.next(num) == 1:
         return False
     return True
-  
-  def reset(self) -> int:
-    self._value = 1
-    return 1
+  def reset(self, NewValue = 1) -> int:
+    self._value = NewValue
+    return NewValue
     

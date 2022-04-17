@@ -2,6 +2,7 @@ from libs.files import *
 from libs.aio import *
 import re
 import plotext
+import multiprocess
 #import openpyxl
 
 class Plot:
@@ -18,6 +19,19 @@ class Plot:
   Height = None
   Colored = None
   def __init__(self, Data=None, Type="scatter", Title="", XTicks=None, YTicks=None, Grid=False, Width=None, Height=None, Colored=True) -> None:
+    """Initialization of the Plot object
+
+    Args:
+        Data (dict data, optional): plot X/Y data. Defaults to None.
+        Type (str, optional): Plot type; available: "scatter","bar". Defaults to "scatter".
+        Title (str, optional): Plot title. Defaults to "".
+        XTicks (list, optional): a list containing X tick values. Defaults to None.
+        YTicks (list, optional): a list containing Y tick values. Defaults to None.
+        Grid (bool, optional): whether to plot the grid or not. Defaults to False.
+        Width (int, optional): plot width (char count). Defaults to None.
+        Height (int, optional): plot height (rows count). Defaults to None.
+        Colored (bool, optional): print colored plot or not. Defaults to True.
+    """
     self.Title = Title
     self.Type = Type
     self.XTicks = XTicks
@@ -29,6 +43,14 @@ class Plot:
     if "dict" in str(type(Data)):
       self.importDict(Data)
   def importDict(self, dct : dict) -> None:
+    """Imports a data dictionary, formatted like this:
+    {
+      x1: y1,
+      x2: y2,
+      ...
+      xn: yn
+    }
+    """
     self.XData = []
     self.YData = []
     xs = list(dct.keys())
@@ -36,7 +58,15 @@ class Plot:
     for x in xs:
       self.XData.append(x)
       self.YData.append(dct[x])
-  def exportDataToOpenpyxlSheet(self, Sheet, XColumn=1, YColumn=1, FirstRow=1):
+  def exportDataToOpenpyxlSheet(self, Sheet, XColumn=1, YColumn=2, FirstRow=1):
+    """Exports the data to a openpyxl Sheet instance
+
+    Args:
+        Sheet (openpyxl.Sheet): a Sheet instance in which to place the plot data
+        XColumn (int, optional): in which column to place X values. Defaults to 1.
+        YColumn (int, optional): in which column to place Y values. Defaults to 2.
+        FirstRow (int, optional): first row of the data. Defaults to 1.
+    """
     if self.XLabel != None:
       Sheet.cell(FirstRow, XColumn).value = str(self.XLabel)
     if self.YLabel != None:
@@ -49,6 +79,8 @@ class Plot:
       Sheet.cell(FirstRow+i, XColumn).value = x
       Sheet.cell(FirstRow+i, YColumn).value = y
   def printTable(self) -> None:
+    """Prints the plot data
+    """
     Aio.print("------------------------")
     Aio.print(self.XLabel, "\t", self.YLabel)
     Aio.print("------------------------")
@@ -58,6 +90,8 @@ class Plot:
       Aio.print(x, "\t", y)
     Aio.print("------------------------")
   def print(self) -> None:
+    """Prints the plot
+    """
     plotext.clear_plot()
     plotext.title(self.Title)
     if self.XTicks != None:
@@ -79,7 +113,20 @@ class Plot:
     Aio.print(plotext.build())
 
 class BinStrings:
+  """Static class containing binary-string related stats.
+  
+  A binary string is a string like "01101010100000".
+  """
   def probOf1Histogram(BinStrings : list, IncludeAll = False) -> dict:
+    """Returns a dict containing a histogram: P(1) for each bit in a sequence.
+
+    Args:
+        BinStrings (list): a list of binary strings
+        IncludeAll (bool, optional): whether to include bit indexes having P(1)==0. Defaults to False.
+
+    Returns:
+        dict: usable for Plot
+    """
     result = dict()
     if IncludeAll:
       for i in range(len(BinStrings[0])):
@@ -94,6 +141,15 @@ class BinStrings:
       result[key] = result[key] * 1.0 / N
     return result
   def seriesHistogram(BinString : str, IncludeAll = False) -> dict:
+    """Returns a dict containing a series length histogram.
+
+    Args:
+        BinString (str): input data
+        IncludeAll (bool, optional): Whether tp include series lengths appearing 0 times. Defaults to False.
+
+    Returns:
+        dict: usable for Plot
+    """
     result = dict()
     if IncludeAll:
       for i in range(len(BinString)):
@@ -109,6 +165,11 @@ class BinStrings:
           cntr = 0
     return result
   def seriesCount(BinString : str) -> int:
+    """Returns count of series in the given binary string
+
+    Args:
+        BinString (str): input data
+    """
     result = 0
     cPrev = "X"
     for c in BinString:
@@ -117,6 +178,8 @@ class BinStrings:
           cPrev = c
     return result
   def countOf1s(BinString : str) -> int:
+    """Returns the count of 1s in the given binary string
+    """
     result = 0
     for c in BinString:
       if c == "1":
@@ -125,7 +188,17 @@ class BinStrings:
   
 
 class Stats:
+  """A static class containing statistical methods
+  """
   def readDieharder(FileName : str) -> list:
+    """Reads the Dieharder-like data file.
+
+    Args:
+        FileName (str): dieharder-like data file
+
+    Returns:
+        list: list of integers
+    """
     fdata = readFile(FileName)
     l = fdata.split("\n")
     result = []
@@ -142,19 +215,44 @@ class Stats:
         else:
           result.append(int(n))
     return result
-  def deviation(DictData : dict, Expected : float):
+  def deviation(DictData : dict, Expected : float) -> float:
+    """Calculates a parameter non-officially called 'deviation':
+    SUM ( abs(Pi - Expected) )
+
+    Args:
+        DictData (dict): dict-like data
+        Expected (float): expected probavility value (0-1)
+    """
     sum = 0
     values = DictData.values()
     for val in values:
       sum += abs(val-Expected)
     return sum / len(values)
-  def chi2(DictData : dict, Expected : float):
+  def chi2(DictData : dict, Expected : float) -> float:
+    """Calculates chi-squared stat for a given dict data value
+
+    Args:
+        DictData (dict): input data
+        Expected (float): expected probability
+    """
     sum = 0
     values = DictData.values()
     for val in values:
       sum += (val-Expected) ** 2
     return sum / Expected
   def repeatedNumbers(data : list) -> dict:
+    """Returns a stat showing repeated numbers in the given set
+
+    Args:
+        data (list): input data list
+
+    Returns:
+        dict: dictionary structure:
+        {
+          number: how_many_times_appeared,
+          ...
+        }
+    """
     result = {}
     aux = {}
     for d in data:
@@ -167,6 +265,18 @@ class Stats:
       result[rep] = ThisRep + 1
     return result
   def repeatedSequence(data : list, seqLen = 2) -> dict:
+    """Returns a stat showing series of repeated numbers in the given set
+
+    Args:
+        data (list): input data list
+
+    Returns:
+        dict: dictionary structure:
+        {
+          serie: how_many_times_appeared,
+          ...
+        }
+    """
     dlen = len(data)
     aux = {}
     result = {}

@@ -3,6 +3,8 @@ import copy
 import os
 import re
 import inspect
+import multiprocessing
+import imp
 from asyncore import ExitNow
 import random
 import re
@@ -23,6 +25,7 @@ from libs.flags import *
 from libs.gcode import *
 from libs.lfsr import *
 from libs.logic import *
+from libs.multi_process import *
 from libs.polynomial import *
 from libs.ring_oscillator import *
 from libs.stats import *
@@ -33,7 +36,10 @@ from libs.utils_list import *
 from libs.utils_serial import *
 from libs.verilog import *
 from tqdm import *
+import pathos
 
 
 pbar = tqdm
 sleep = time.sleep
+
+
