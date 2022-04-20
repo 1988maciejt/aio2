@@ -9,13 +9,15 @@ print()
 if len(sys.argv) > 1:
   os.chdir(sys.argv[1])
 
-if len(sys.argv) > 2:
-  SFile = str(sys.argv[2])
+
+def tc(filename="driver.py"):
+  SFile = filename
   if "driver.py" in SFile:
     shutil.rmtree("results", ignore_errors=True)
     os.makedirs("results")
     Aio.shellExecute("mkdir -p references")
     os.chdir("results")
+    SFile = "../" + SFile
     sys.path.append("../data")
     sys.path.append("../")
     Aio.print ("Testcase mode. Output redirected to 'transcript.txt'")
@@ -23,11 +25,22 @@ if len(sys.argv) > 2:
   if os.path.isfile(SFile):
 #    exec(open(SFile).read())
 #    from driver import *
+#    try:
     with open(SFile) as src:
       imp.load_module('__MAIN__', src, SFile, (".py", "r", imp.PY_SOURCE))
+#    except:
+#      Aio.printError("TC processing error!")
   else:
-    Aio.printError("No file '" + SFile + "'")
-    
+    Aio.printError("No file '" + SFile + "'")    
+  os.chdir("../")
+  print("==== TC FINISHED ====")
+
+
+if len(sys.argv) > 2:
+#  pool = pathos.multiprocessing.ThreadingPool()
+#  xp = pool.amap(tc, [str(sys.argv[2])])
+#  xp.wait()
+  tc(str(sys.argv[2]))
     
 class Shell:
   def getUserObjects():
@@ -60,6 +73,8 @@ class Shell:
       print("History loaded.")
     except:
       print("History loading error!")
+      
+  
       
 Cache.store("globals", list(globals().keys()).copy())
 #========================================================

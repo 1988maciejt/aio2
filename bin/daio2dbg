@@ -3,4 +3,4 @@ SCRIPT=$(readlink -f $0)
 SCRIPTPATH=`dirname $SCRIPT`
 THIS=`pwd`
 cd ${SCRIPTPATH}
-ptpython3 -i aio2.py $THIS $THIS/driver.py
+ptpython3 -i aio2.py $THIS driver.py

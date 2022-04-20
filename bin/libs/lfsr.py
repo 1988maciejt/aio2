@@ -194,7 +194,7 @@ class Polynomial:
     l.clear()
     Cache.store(self.toInt(), result)
     return result
-  def nextPrimitive(self) -> bool:
+  def nextPrimitive(self, quiet=False) -> bool:
     """Looks for the next primitive polynomial.
 
     Returns:
@@ -203,9 +203,11 @@ class Polynomial:
     while True:
       if not self.makeNext():
         return False
-      Aio.printTemp("Testing",self)
+      if not quiet:
+        Aio.printTemp("Testing",self)
       if self.isPrimitive():
-        Aio.printTemp(str(" ")*100)
+        if not quiet:
+          Aio.printTemp(str(" ")*100)
         return True
   def createPolynomial(degree : int, coeffs_count : int, balancing = 0) -> Polynomial:
     """Returns a polynomial, usefull for LFSRs.
@@ -276,7 +278,7 @@ class Polynomial:
       r = r[0:n]
     Aio.printTemp(" " * Aio.getTerminalColumns())
     return r
-  def firstPrimitive(degree : int, coeffs_count : int, balancing = 0) -> list:
+  def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, quiet=False) -> list:
     """Returns a first found primitive (over GF(2)) polynomial.
 
     Args:
@@ -290,7 +292,7 @@ class Polynomial:
     p = Polynomial.createPolynomial(degree, coeffs_count, balancing)
     if p.isPrimitive():
       return p
-    elif p.nextPrimitive():
+    elif p.nextPrimitive(quiet):
       return p
     return None
 # POLYNOMIAL END ==================
@@ -326,7 +328,7 @@ class Lfsr:
   def clear(self):
     """Clears the fast-simulation array
     """
-    self._fast_sim_array.clear()
+    #self._fast_sim_array.clear()
     self._fast_sim_array = False
   def __iter__(self):
     self.Value = 1
@@ -601,8 +603,9 @@ class Lfsr:
   def _append_results(r):
     global _results
     _results.append(r)
-    Lfsr._C += 1
-    Aio.printTemp("  Lfsr sim ", Lfsr._C, "/",Lfsr._N, "             ")
+    cnt = len(_results)
+    if cnt % 100 == 0:
+      Aio.printTemp("  Lfsr sim ", cnt, "/",Lfsr._N, "             ")
   def simulateForDataString(self, BinString : str, InjectionAtBit = 0, StartValue = 0) -> int:
     if "list" in str(type(BinString)):
       global _results
@@ -615,6 +618,7 @@ class Lfsr:
         pool.apply_async(rn.simulateForDataString, args=(BS, InjectionAtBit, StartValue), callback=Lfsr._append_results)
       pool.close()
       pool.join()
+      Aio.printTemp("                                    ")
       return _results
     self.Value = StartValue
     imask = 1 << InjectionAtBit

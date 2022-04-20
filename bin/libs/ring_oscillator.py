@@ -1,14 +1,9 @@
+from importlib.machinery import WindowsRegistryFinder
 from math import *
-from random import *
 import multiprocessing
+from random import *
 from libs.aio import *
 
-def _ro_sset_agent(WLen, T, dT, Ts, TOffset):
-  ro = RingOscillator(T, dT)
-  s = ro.sample(WLen, Ts, TOffset, False)
-  ro.reset()
-  del ro
-  return s
 
 class RingOscillator:
   """Object used to simulate ring oscillators (RO).
@@ -26,24 +21,28 @@ class RingOscillator:
   _C = 0
   _N = 0
   CalculateJitter = True
-  def _append_res(r):
-    global _results
-    _results.append(r)
-    RingOscillator._C += 1
-    Aio.printTemp("  RO sample:",RingOscillator._C, "/", RingOscillator._N, "               ")
-  def getSampleSet(N : int, SampleLen : int, T_avg : float, dT : float, Ts : float, TOffset : float) -> list:
-    global _results
+  def _gets(n) -> str:
+    ro = RingOscillator(RingOscillator._T, RingOscillator._dT, False)
+    RingOscillator._result.append(ro.sample(RingOscillator._Wlen, RingOscillator._Ts, RingOscillator._Toff))
+    cnt = len(RingOscillator._result)
+    if cnt % 100 == 0:
+      Aio.printTemp("RO sim:",cnt, "/", RingOscillator._N)
+  def getSampleSet(N : int, WordLen : int, Tavg : float, dT : float, Ts : float, TOffset = 0.0) -> list:
+    RingOscillator._T = Tavg
+    RingOscillator._dT = dT
+    RingOscillator._Ts = Ts
+    RingOscillator._Toff = TOffset
+    RingOscillator._Wlen = WordLen
     RingOscillator._N = N
-    RingOscillator._C = 0
-    _results = []
+    RingOscillator._cnt = 0
+    man = multiprocessing.Manager()
+    RingOscillator._result = man.list()
     pool = multiprocessing.Pool()
-    manager = multiprocessing.Manager()
-    ress = manager.list()
-    for i in range(N):
-      pool.apply_async(_ro_sset_agent, args=(SampleLen, T_avg, dT, Ts, TOffset), callback=RingOscillator._append_res)
+    pool.map_async(RingOscillator._gets, range(N))
     pool.close()
     pool.join()
-    return _results
+    Aio.printTemp("                                                      ")
+    return list(RingOscillator._result)
   def _randT(self) -> float:
     return gauss(self._T, self._Sigma) 
   def __init__(self, T : float, DeltaT : float, CalculateJitter = True) -> None:
@@ -147,7 +146,7 @@ class RingOscillator:
     if tStart > tStop:
       return True
     return False
-  def sample(self, N : int, Ts : float, t0 = -1, Reset = False) -> str:
+  def sample(self, N : int, Ts : float, t0 = -1) -> str:
     """Gets a string of 0|1 values
 
     Args:
@@ -164,12 +163,21 @@ class RingOscillator:
     """
     if t0 < 0:
       t0 = self._T / 2
-    if Reset:
-      self.reset()
     t = t0
     result = ""
+    v = False
+    tstamp = 0
     for i in range(N):
-      result += (str(self.value(t)))
+      if t <= 0: 
+        result += "0"
+      else:
+        while tstamp < t:
+          v = not v
+          tstamp += self._randT()/2
+        if v:
+          result += "0"
+        else:
+          result += "1"
       t += Ts
     return result
   

@@ -175,6 +175,8 @@ class Aio:
   def printError(*args):
     Aio.print("ERROR:",*args)
   def printTemp(*args):
+    if len(args) == 0:
+      print(" " * 320, end="")
     print(*args,"\r",end="")
   def shellExecute(ShellCommand : str) -> str:
     stream = os.popen(ShellCommand)
