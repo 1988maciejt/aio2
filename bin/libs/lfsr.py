@@ -10,6 +10,8 @@ from tqdm import *
 import multiprocessing
 import time
 import copy
+import gc
+import zlib
 
 
 # POLYNOMIAL CLASS ================
@@ -277,6 +279,7 @@ class Polynomial:
     if n > 0 and len(r) > n:
       r = r[0:n]
     Aio.printTemp(" " * Aio.getTerminalColumns())
+    gc.collect()
     return r
   def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, quiet=False) -> list:
     """Returns a first found primitive (over GF(2)) polynomial.
@@ -605,28 +608,41 @@ class Lfsr:
     _results.append(r)
     cnt = len(_results)
     if cnt % 100 == 0:
-      Aio.printTemp("  Lfsr sim ", cnt, "/",Lfsr._N, "             ")
-  def simulateForDataString(self, BinString : str, InjectionAtBit = 0, StartValue = 0) -> int:
+      perc = round(cnt * 100 / Lfsr._N, 1)
+      Aio.printTemp("  Lfsr sim ", perc , "%             ")
+  def simulateForDataString(self, BinString : str, InjectionAtBit = 0, StartValue = 0, CompressedData=False) -> int:
     if "list" in str(type(BinString)):
       global _results
       _results = []
       pool = multiprocessing.Pool()
+      lfsrs = []
       Lfsr._N = len(BinString)
-      Lfsr._C = 0
       for BS in BinString:
         rn = Lfsr(self)
-        pool.apply_async(rn.simulateForDataString, args=(BS, InjectionAtBit, StartValue), callback=Lfsr._append_results)
+        lfsrs.append(rn)
+        pool.apply_async(rn.simulateForDataString, args=(BS, InjectionAtBit, StartValue, CompressedData), callback=Lfsr._append_results)
       pool.close()
       pool.join()
+      for rn in lfsrs:
+        del rn
+      gc.collect()
       Aio.printTemp("                                    ")
       return _results
     self.Value = StartValue
     imask = 1 << InjectionAtBit
-    for Bit in BinString:
-      self.next()
-      if Bit == "1":
-        self.Value ^= imask
-    return [BinString ,self.Value]
+    if CompressedData:
+      BitArray = zlib.decompress(BinString)
+      for Bit in BitArray:
+        self.next()
+        if Bit == 49:
+          self.Value ^= imask
+      return [BinString ,self.Value]
+    else:  
+      for Bit in BinString:
+        self.next()
+        if Bit == "1":
+          self.Value ^= imask
+      return [BinString ,self.Value]
       
     
 # LFSR END ========================

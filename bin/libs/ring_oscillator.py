@@ -3,6 +3,8 @@ from math import *
 import multiprocessing
 from random import *
 from libs.aio import *
+import gc
+import zlib
 
 
 class RingOscillator:
@@ -23,11 +25,16 @@ class RingOscillator:
   CalculateJitter = True
   def _gets(n) -> str:
     ro = RingOscillator(RingOscillator._T, RingOscillator._dT, False)
-    RingOscillator._result.append(ro.sample(RingOscillator._Wlen, RingOscillator._Ts, RingOscillator._Toff))
+    res = ro.sample(RingOscillator._Wlen, RingOscillator._Ts, RingOscillator._Toff)
+    if RingOscillator._compress:
+      res = zlib.compress(res.encode())
+    RingOscillator._result.append(res)
+    del ro
     cnt = len(RingOscillator._result)
-    if cnt % 100 == 0:
-      Aio.printTemp("RO sim:",cnt, "/", RingOscillator._N)
-  def getSampleSet(N : int, WordLen : int, Tavg : float, dT : float, Ts : float, TOffset = 0.0) -> list:
+    if cnt % 200 == 0:
+      perc = round(cnt * 100 / RingOscillator._N,1)
+      Aio.printTemp("  RO sim:",perc,"%            ")
+  def getSampleSet(N : int, WordLen : int, Tavg : float, dT : float, Ts : float, TOffset = 0.0, Compress=False) -> list:
     RingOscillator._T = Tavg
     RingOscillator._dT = dT
     RingOscillator._Ts = Ts
@@ -35,6 +42,7 @@ class RingOscillator:
     RingOscillator._Wlen = WordLen
     RingOscillator._N = N
     RingOscillator._cnt = 0
+    RingOscillator._compress = Compress
     man = multiprocessing.Manager()
     RingOscillator._result = man.list()
     pool = multiprocessing.Pool()
@@ -42,7 +50,11 @@ class RingOscillator:
     pool.close()
     pool.join()
     Aio.printTemp("                                                      ")
-    return list(RingOscillator._result)
+    
+    ret = list(RingOscillator._result)
+    del RingOscillator._result
+    gc.collect()
+    return ret
   def _randT(self) -> float:
     return gauss(self._T, self._Sigma) 
   def __init__(self, T : float, DeltaT : float, CalculateJitter = True) -> None:

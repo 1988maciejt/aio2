@@ -1,5 +1,6 @@
 import shutil
 import copy
+import gc
 import os
 import re
 import inspect
@@ -13,7 +14,10 @@ import plotext
 import time
 import openpyxl
 import openpyxl.styles
+import pickle
 import xlsxwriter
+import numpy
+import zlib
 from ansi2html import *
 from libs.ca import *
 from libs.cache import *

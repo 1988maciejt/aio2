@@ -1,6 +1,7 @@
 import shutil
 import os
 import re
+import pickle
 from ansi2html import *
 
 
