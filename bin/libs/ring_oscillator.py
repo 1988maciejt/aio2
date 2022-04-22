@@ -6,6 +6,7 @@ from libs.aio import *
 import gc
 import zlib
 from libs.binstr import *
+import numba
 
 
 class RingOscillator:
@@ -24,6 +25,11 @@ class RingOscillator:
   _C = 0
   _N = 0
   CalculateJitter = True
+  def __del__(self):
+    self._1s.clear()
+    self._0s.clear()
+    self._jstart.clear()
+    self._jstop.clear()
   def _gets(n) -> str:
     ro = RingOscillator(RingOscillator._T, RingOscillator._dT, False)
     res = ro.sample(RingOscillator._Wlen, RingOscillator._Ts, RingOscillator._Toff)

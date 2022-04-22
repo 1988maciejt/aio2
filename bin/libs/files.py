@@ -60,3 +60,8 @@ def readDictionary(FileName : str, GZip = False) -> dict:
   f.close()
   return r
   
+def writeLinesFromList(FileName : str, List : list):
+    f = open(FileName, "w")
+    for i in List:
+      f.write(str(i))
+    f.close()

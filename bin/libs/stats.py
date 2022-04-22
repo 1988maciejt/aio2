@@ -3,6 +3,7 @@ from libs.aio import *
 import re
 import plotext
 import multiprocess
+from libs.binstr import *
 #import openpyxl
 
 class Plot:
@@ -112,16 +113,14 @@ class Plot:
       plotext.colorless()
     Aio.print(plotext.build())
 
-class BinStrings:
-  """Static class containing binary-string related stats.
-  
-  A binary string is a string like "01101010100000".
+class BinStringStats:
+  """Static class containing BinString object related stats.
   """
   def probOf1Histogram(BinStrings : list, IncludeAll = False) -> dict:
     """Returns a dict containing a histogram: P(1) for each bit in a sequence.
 
     Args:
-        BinStrings (list): a list of binary strings
+        BinStrings (list): a list of BinString objects
         IncludeAll (bool, optional): whether to include bit indexes having P(1)==0. Defaults to False.
 
     Returns:
@@ -134,17 +133,17 @@ class BinStrings:
     for word in BinStrings:
       for index in range(len(word)):
         bit = word[index]
-        if bit == "1": 
+        if bit == 1: 
           result[index] = result.get(index, 0) + 1
     N = len(BinStrings)
     for key in result.keys():
       result[key] = result[key] * 1.0 / N
     return result
-  def seriesHistogram(BinString : str, IncludeAll = False) -> dict:
+  def seriesHistogram(data : BinString, IncludeAll = False) -> dict:
     """Returns a dict containing a series length histogram.
 
     Args:
-        BinString (str): input data
+        BinString (BinString): input data
         IncludeAll (bool, optional): Whether tp include series lengths appearing 0 times. Defaults to False.
 
     Returns:
@@ -152,11 +151,11 @@ class BinStrings:
     """
     result = dict()
     if IncludeAll:
-      for i in range(len(BinString)):
+      for i in range(len(data)):
         result[i] = 0
     cntr = 0
-    cPrev = "X"
-    for c in BinString:
+    cPrev = -1
+    for c in data:
       cntr += 1
       if c != cPrev:
         if cntr > 0:
@@ -164,25 +163,25 @@ class BinStrings:
           cPrev = c
           cntr = 0
     return result
-  def seriesCount(BinString : str) -> int:
+  def seriesCount(data : BinString) -> int:
     """Returns count of series in the given binary string
 
     Args:
-        BinString (str): input data
+        BinString (BinString): input data
     """
     result = 0
-    cPrev = "X"
-    for c in BinString:
+    cPrev = -1
+    for c in data:
       if c != cPrev:
           result += 1
           cPrev = c
     return result
-  def countOf1s(BinString : str) -> int:
+  def countOf1s(data : str) -> int:
     """Returns the count of 1s in the given binary string
     """
     result = 0
-    for c in BinString:
-      if c == "1":
+    for c in data:
+      if c == 1:
         result += 1
     return result
   

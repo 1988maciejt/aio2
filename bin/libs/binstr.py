@@ -18,6 +18,14 @@ class BinString:
     return r
   def __repr__(self) -> str:
     return "BinString(" + self.__str__() + ")"
+  def __getitem__(self, Index) -> int:
+    return Int.getBit(self._val, Index)
+  def __setitem__(self, Index, Value) -> int:
+    self._val = Int.setBit(self._val, Index, Value)
+  def __len__(self) -> int:
+    return self.BitCount
+  def __assign__(self, other):
+    self._val = other._val
   def setValue(self, Value):
     stype = str(type(Value))
     if "int" in stype:

@@ -1,4 +1,3 @@
-from ast import BitOr
 from libs.binstr import *
 from libs.logic import Logic
 from libs.aio import *
@@ -26,6 +25,7 @@ class Polynomial:
   _cont = True
   _n = 0
   _bmin = 1
+  _positions = False
   def _check(p):
     if Polynomial._cont:
       Aio.printTemp("Checking " + str(p))
@@ -35,16 +35,22 @@ class Polynomial:
           Polynomial._cont = False
         if not Polynomial._quiet:
           print("Found " + str(p) + " " * 30)
+  def __del__(self):
+    if self._positions != False:
+      self._positions.clear()
+    self._coefficients_list.clear()
   def __init__(self, coefficients_list : list, balancing = 0):
     """ Polynomial (Polynomial, balancing=0)
- Polynomial (coefficients_list, balancing=0)
- Polynomial (int, balancing=0)
- Polynomial (hex_string, balancing=0)
- Polynomial ("size,HexNumber", balancing=0)
+Polynomial (coefficients_list, balancing=0)
+Polynomial (int, balancing=0)
+Polynomial (hex_string, balancing=0)
+Polynomial ("size,HexNumber", balancing=0)
     """
     if "Polynomial" in str(type(coefficients_list)):
       self._coefficients_list = coefficients_list._coefficients_list.copy()
       self._balancing = coefficients_list._balancing + 0
+      self._bmin = coefficients_list._bmin
+      self._positions = coefficients_list._positions
     elif "int" in str(type(coefficients_list)):
       cntr = 0
       self._coefficients_list = []
@@ -79,10 +85,13 @@ class Polynomial:
   def __iter__(self):
     p = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self.getBalancing())
     self._coefficients_list = p._coefficients_list
+    self._mnext = True
     return self
   def __next__(self):
-    if self.makeNext():
-      return Polynomial(self)
+    if self._mnext:
+      q = Polynomial(self)
+      self._mnext = self.makeNext()
+      return q
     raise StopIteration  
   def __str__(self) -> str:
     return str(self._coefficients_list)
@@ -95,7 +104,7 @@ class Polynomial:
   def getCoefficients(self) -> list:
     """Returns list of coefficients.
     """
-    return self._coefficients_list
+    return self._coefficients_list.copy()
   def getCoefficientsCount(self) -> int:
     """Returns coefficients count.
     """
@@ -124,23 +133,38 @@ class Polynomial:
     Returns:
         bool: True if successfull, Ffalse if no next polynomial.
     """
-    minsub = self._bmin
+    print("makenext", self)
+    while self._makeNext():
+      if self._balancing > 0:
+        if self.getBalancing() <= self._balancing:
+          return True
+      else:
+        return True
+    return False    
+  def _makeNext(self) -> bool:
     ccount = len(self._coefficients_list)
     degree = self._coefficients_list[0]
-    lastmax = degree-minsub
+    left = degree
+    pos = {}
+    step = self._bmin
+    if self._positions != False:
+      pos = self._positions
     for i in range(1, ccount-1):
+      posi = pos.get(i, [0, self._coefficients_list[0]])
+      vmax = posi[1]
+      vmin = posi[0]
       this = self._coefficients_list[i]
-      if this < lastmax:
-        self._coefficients_list[i] = this+1
+      right = self._coefficients_list[i+1]
+      if vmax > (left-step):
+        vmax = left-step
+      if vmin < (right+step):
+        vmin = right+step
+      if this < vmax:
+        self._coefficients_list[i] += 1
         return True
-      else:
-        if (i == (ccount-2)):
-          return False
-        if self._coefficients_list[i+1] + 1 + minsub <= self._coefficients_list[i]:
-          self._coefficients_list[i] = self._coefficients_list[i+1] + 1 + minsub
-          self._coefficients_list[i+1] = self._coefficients_list[i+1] + 1
-          return True      
-      lastmax = this-minsub
+      if this > vmin+1:
+        self._coefficients_list[i] = vmin+1    
+        left = vmin+1 
     return False  
   def getTaps(self) -> int:
     """Returns LFSR taps count in case of a LFSR created basing on this polynomial 
@@ -212,6 +236,8 @@ class Polynomial:
         if not quiet:
           Aio.printTemp(str(" ")*100)
         return True
+  def copy(self):
+    return Polynomial(self)
   def createPolynomial(degree : int, coeffs_count : int, balancing = 0) -> Polynomial:
     """Returns a polynomial, usefull for LFSRs.
 
@@ -237,19 +263,37 @@ class Polynomial:
       if bmin < 1.0:
         bmin = 1.0
         bmax = float(balancing + 1)
-      c = 0.0
-      for i in range(3, coeffs_count):
-        c += bmin
-        result.insert(0, int(round(c)))
-      max_c = int(round(float(degree) - bmax))
-      while max_c in result:
-        max_c += 1
-      result.insert(0, max_c)
+      result = [0]
+      rest = degree
+      actual = bmin
+      restcoeffs = coeffs_count-2
+      diff = round(bmin,0)
+      for i in range(2, coeffs_count):
+        coeff = int(round(actual, 0))
+        result.append(coeff)
+        rest -= diff
+        restcoeffs -= 1
+        actual += diff
+        if diff < bmax:
+          try:
+            if rest / restcoeffs >= bmax:
+              diff = bmax
+          except:
+            pass
+      result.append(degree)
     else:
       for i in range(coeffs_count-1):
-        result.insert(0,i)
+        result.append(i)
     p = Polynomial(result, balancing)
-    p._bmin = int(bmin)
+    q = p.getReversed()
+    pos = {}
+    cp = p._coefficients_list.copy()
+    cq = q._coefficients_list.copy()
+    for i in range(1, coeffs_count-1):
+      pos[i] = [cp[i], cq[i]]
+    p._positions = pos
+    p._bmin = int(round(bmin,0))
+#    print(Aio.format(pos))
     return p
   def checkPrimitives(Candidates : list, n = 0, quiet = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)) found on a given list.
@@ -281,7 +325,7 @@ class Polynomial:
     Aio.printTemp(" " * Aio.getTerminalColumns())
     gc.collect()
     return r
-  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, n = 0, quiet = False) -> list:
+  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, n = 0, quiet = False, MaxSetSize=2048) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -294,23 +338,27 @@ class Polynomial:
     Returns:
         list: list of polynomial objects
     """
-    Aio.printTemp("Preparing...")
-    manager = multiprocessing.Manager()
-    Polynomial._result = manager.list()
-    Polynomial._n = n
-    Polynomial._quiet = quiet
-    Polynomial._cont = True
-    poly = Polynomial.createPolynomial(degree, coeffs_count, balancing)
-    pool = multiprocessing.Pool()
-    pool.map_async(Polynomial._check, poly)
-    pool.close()
-    pool.join()
-    r = list(Polynomial._result)
-    if n > 0 and len(r) > n:
-      r = r[0:n]
+    polys = Polynomial.createPolynomial(degree, coeffs_count, balancing)
+    result = []
+    candidates = []
+    cntr = 0
+    for p in polys:
+      candidates.append(p)
+      cntr += 1
+      if (cntr >= MaxSetSize):
+        result += Polynomial.checkPrimitives(candidates, n, quiet)
+        candidates.clear()
+        cntr = 0
+        if len(result) >= n:
+          break
+    if cntr != 0:
+        result += Polynomial.checkPrimitives(candidates, n, quiet)
+        candidates.clear()      
+    if n > 0 and len(result) > n:
+      result = result[0:n]
     Aio.printTemp(" " * Aio.getTerminalColumns())
     gc.collect()
-    return r
+    return result
   def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, quiet=False) -> list:
     """Returns a first found primitive (over GF(2)) polynomial.
 
@@ -344,6 +392,10 @@ class LfsrType:
   Fibonacci = 2
   RingGenerator = 3
 
+# Constants
+FIBONACCI = LfsrType.Fibonacci
+GALOIS = LfsrType.Galois
+RING_GENERATOR = LfsrType.RingGenerator
 
 # LFSR BEGIN ======================
 class Lfsr:
@@ -351,18 +403,25 @@ class Lfsr:
   Galois, Fibonacci (default), RingGenerator.
   """
   _my_poly = []
-  _mask = []
+  _mask = 0
   Value = 0
   _type = LfsrType.Galois
   _hval = 0
   _size = 0
   _fast_sim_array = False
   _taps = []
+  def __del__(self):
+    self.clear()
+    self._taps.clear()
+    self._my_poly.clear()    
   def clear(self):
     """Clears the fast-simulation array
     """
     #self._fast_sim_array.clear()
-    self._fast_sim_array = False
+    if self._fast_sim_array != False:
+      self._fast_sim_array.clear()
+      del self._fast_sim_array
+      self._fast_sim_array = False
   def __iter__(self):
     self.Value = 1
     self._next_iteration = False
@@ -605,7 +664,7 @@ class Lfsr:
     if reset:
       self.reset()
     for i in range(n):
-      Aio.print(bin(self.Value))
+      Aio.print(self.toBinString())
       self.next(step)
   def getMSequence(self, bitIndex = 0, reset = True) -> str:
     """Returns a string containing the M-Sequence of the LFSR.
@@ -613,7 +672,7 @@ class Lfsr:
     Args:
         bitIndex (int, optional): At this bit the sequence is observed. Defaults to 0.
         reset (bool, optional): If True, then the LFSR is resetted to the 0x1 value before simulation. Defaults to True.
- 
+
     Returns:
         str: M-Sequence
     """

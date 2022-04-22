@@ -6,6 +6,7 @@ import re
 import inspect
 import multiprocessing
 import imp
+import numba
 from asyncore import ExitNow
 import random
 import re
@@ -43,6 +44,7 @@ from libs.utils_serial import *
 from libs.verilog import *
 from tqdm import *
 import pathos
+from libs.nist import *
 
 
 pbar = tqdm
