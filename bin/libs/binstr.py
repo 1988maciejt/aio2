@@ -4,6 +4,9 @@ class BinString:
   BitCount = 64
   _val = 0
   def __init__(self, BitCount = 64, Value = 0) -> None:
+    if type("") == type(BitCount):
+      Value = BitCount
+      BitCount = len(BitCount)
     self.BitCount = BitCount
     self.setValue(Value)
   def __str__(self) -> str:
