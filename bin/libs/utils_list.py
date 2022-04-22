@@ -1,6 +1,18 @@
 import re
+import numpy
+import numba
+
+
 
 class List:
+  def mathDelta(List : list) -> list:
+    left = List[0]
+    result = []
+    for i in range(1, len(List)):
+      this = List[i]
+      result.append(this - left)
+      left = this
+    return result
   def join(list1 : list, list2 : list) -> list:
     result = []
     for i in list1:

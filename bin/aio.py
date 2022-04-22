@@ -4,6 +4,7 @@ import gc
 import os
 import re
 import inspect
+import collections
 import multiprocessing
 import imp
 import numba

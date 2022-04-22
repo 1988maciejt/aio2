@@ -1,4 +1,5 @@
 from libs.utils_int import *
+from collections import Counter
 
 class BinString:
   BitCount = 64
@@ -67,6 +68,12 @@ class BinString:
       bit = self.getBit(self.BitCount - 1)
       self._val <<= 1
       return bit
+  def onesCount(self):
+    return Counter(self)[1]
+  def zerosCount(self):
+    return Counter(self)[0]
+  def parity(self):
+    return Counter(self)[1] & 1
   def __iter__(self):
     self._ii = 0
     return self
