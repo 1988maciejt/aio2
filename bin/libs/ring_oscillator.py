@@ -25,6 +25,8 @@ class RingOscillator:
   _C = 0
   _N = 0
   CalculateJitter = True
+  def __hash__(self) -> int:
+    return int((self._T * 100 + self._dT) & 1000)
   def __del__(self):
     self._1s.clear()
     self._0s.clear()

@@ -133,7 +133,6 @@ Polynomial ("size,HexNumber", balancing=0)
     Returns:
         bool: True if successfull, Ffalse if no next polynomial.
     """
-    print("makenext", self)
     while self._makeNext():
       if self._balancing > 0:
         if self.getBalancing() <= self._balancing:
@@ -359,7 +358,7 @@ Polynomial ("size,HexNumber", balancing=0)
     Aio.printTemp(" " * Aio.getTerminalColumns())
     gc.collect()
     return result
-  def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, quiet=False) -> list:
+  def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, quiet=False) -> Polynomial:
     """Returns a first found primitive (over GF(2)) polynomial.
 
     Args:
@@ -375,6 +374,12 @@ Polynomial ("size,HexNumber", balancing=0)
       return p
     elif p.nextPrimitive(quiet):
       return p
+    return None
+  def firstMostBalancedPrimitive(degree : int, coeffs_count : int) -> Polynomial:
+    for b in range(1, int(degree/2)):
+      fp = Polynomial.firstPrimitive(degree, coeffs_count, b)
+      if type(fp) != type(None):
+        return fp
     return None
 # POLYNOMIAL END ==================
 
@@ -694,38 +699,36 @@ class Lfsr:
       for c in r:
         line += str(bin(c)) + "\t"
       Aio.print(line)
-  def _append_results(r):
-    global _results
-    _results.append(r)
-    cnt = len(_results)
+  def _simplySim(self, sequence : BinString):
+    rm = Lfsr(self)
+    res = rm.simulateForDataString(sequence, self._IBit, self._Start)
+    self._C.append(0)
+    cnt = len(self._C)
     if cnt % 100 == 0:
-      perc = round(cnt * 100 / Lfsr._N, 1)
-      Aio.printTemp("  Lfsr sim ", perc , "%             ")
-  def simulateForDataString(self, BinString : str, InjectionAtBit = 0, StartValue = 0) -> int:
-    if "list" in str(type(BinString)):
-      global _results
-      _results = []
+      perc = round(cnt * 100 / self._N, 1)
+      Aio.printTemp("  Lfsr sim ", perc , "%             ")  
+    return res
+  def simulateForDataString(self, Sequence : BinString, InjectionAtBit = 0, StartValue = 0, quiet=False) -> int:
+    if "list" in str(type(Sequence)):
       pool = multiprocessing.Pool()
-      lfsrs = []
-      Lfsr._N = len(BinString)
-      for BS in BinString:
-        rn = Lfsr(self)
-        lfsrs.append(rn)
-        pool.apply_async(rn.simulateForDataString, args=(BS, InjectionAtBit, StartValue), callback=Lfsr._append_results)
+      self._N = len(Sequence)
+      self._IBit = InjectionAtBit
+      self._Start = StartValue
+      man = multiprocessing.Manager()
+      self._C = man.list()
+      results = pool.map(self._simplySim, Sequence)
       pool.close()
       pool.join()
-      for rn in lfsrs:
-        del rn
-      gc.collect()
       Aio.printTemp("                                    ")
-      return _results
+      del self._C
+      return results
     self.Value = StartValue
     imask = 1 << InjectionAtBit
-    for Bit in BinString:
+    for Bit in Sequence:
       self.next()
       if Bit == 1:
         self.Value ^= imask
-    return [BinString ,self.Value]
+    return self.Value
       
     
 # LFSR END ========================

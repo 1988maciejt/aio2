@@ -10,6 +10,8 @@ class BinString:
       BitCount = len(BitCount)
     self.BitCount = BitCount
     self.setValue(Value)
+  def __hash__(self) -> int:
+    return ((1 << self.BitCount) - 1) & self._val
   def __str__(self) -> str:
     r = ""
     v = self._val
