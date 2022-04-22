@@ -18,7 +18,9 @@ import pickle
 import xlsxwriter
 import numpy
 import zlib
+import gzip
 from ansi2html import *
+from libs.binstr import *
 from libs.ca import *
 from libs.cache import *
 from libs.cas import *

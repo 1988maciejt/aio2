@@ -1,4 +1,5 @@
 from ast import BitOr
+from libs.binstr import *
 from libs.logic import Logic
 from libs.aio import *
 from libs.database import *
@@ -250,6 +251,36 @@ class Polynomial:
     p = Polynomial(result, balancing)
     p._bmin = int(bmin)
     return p
+  def checkPrimitives(Candidates : list, n = 0, quiet = False) -> list:
+    """Returns a list of primitive polynomials (over GF(2)) found on a given list.
+
+    Args:
+        PList (list): list of candidate polynomials 
+        m (int, optional): stop checking if n polynomials is found. Defaults to 0 (don't stop)
+        quiet (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
+
+    Returns:
+        list: list of polynomial objects
+    """    
+    PList = []
+    for p in Candidates:
+      PList.append(Polynomial(p))
+    Aio.printTemp("Preparing...")
+    manager = multiprocessing.Manager()
+    Polynomial._result = manager.list()
+    Polynomial._n = n
+    Polynomial._quiet = quiet
+    Polynomial._cont = True
+    pool = multiprocessing.Pool()
+    pool.map_async(Polynomial._check, PList)
+    pool.close()
+    pool.join()
+    r = list(Polynomial._result)
+    if n > 0 and len(r) > n:
+      r = r[0:n]
+    Aio.printTemp(" " * Aio.getTerminalColumns())
+    gc.collect()
+    return r
   def listPrimitives(degree : int, coeffs_count : int, balancing = 0, n = 0, quiet = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
@@ -271,10 +302,9 @@ class Polynomial:
     Polynomial._cont = True
     poly = Polynomial.createPolynomial(degree, coeffs_count, balancing)
     pool = multiprocessing.Pool()
-    pr = pool.map_async(Polynomial._check, poly)
-    while not pr.ready():
-       time.sleep(0.1)
+    pool.map_async(Polynomial._check, poly)
     pool.close()
+    pool.join()
     r = list(Polynomial._result)
     if n > 0 and len(r) > n:
       r = r[0:n]
@@ -401,8 +431,10 @@ class Lfsr:
       Aio.printError("Unrecognised lfsr type '" + str(lfsr_type) + "'")
     self.Value = 1
     self._hval = 1 << (poly.getDegree()-1)
+  def toBinString(self):
+    return BinString(self._size, self.Value)
   def __str__(self) -> str:
-    return str(bin(self.Value))
+    return str(self.toBinString())
   def __repr__(self) -> str:
     result = "Lfsr(" + str(self._my_poly) + ", "
     if self._type == LfsrType.Galois:
@@ -610,7 +642,7 @@ class Lfsr:
     if cnt % 100 == 0:
       perc = round(cnt * 100 / Lfsr._N, 1)
       Aio.printTemp("  Lfsr sim ", perc , "%             ")
-  def simulateForDataString(self, BinString : str, InjectionAtBit = 0, StartValue = 0, CompressedData=False) -> int:
+  def simulateForDataString(self, BinString : str, InjectionAtBit = 0, StartValue = 0) -> int:
     if "list" in str(type(BinString)):
       global _results
       _results = []
@@ -620,7 +652,7 @@ class Lfsr:
       for BS in BinString:
         rn = Lfsr(self)
         lfsrs.append(rn)
-        pool.apply_async(rn.simulateForDataString, args=(BS, InjectionAtBit, StartValue, CompressedData), callback=Lfsr._append_results)
+        pool.apply_async(rn.simulateForDataString, args=(BS, InjectionAtBit, StartValue), callback=Lfsr._append_results)
       pool.close()
       pool.join()
       for rn in lfsrs:
@@ -630,19 +662,11 @@ class Lfsr:
       return _results
     self.Value = StartValue
     imask = 1 << InjectionAtBit
-    if CompressedData:
-      BitArray = zlib.decompress(BinString)
-      for Bit in BitArray:
-        self.next()
-        if Bit == 49:
-          self.Value ^= imask
-      return [BinString ,self.Value]
-    else:  
-      for Bit in BinString:
-        self.next()
-        if Bit == "1":
-          self.Value ^= imask
-      return [BinString ,self.Value]
+    for Bit in BinString:
+      self.next()
+      if Bit == 1:
+        self.Value ^= imask
+    return [BinString ,self.Value]
       
     
 # LFSR END ========================

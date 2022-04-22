@@ -5,6 +5,7 @@ from random import *
 from libs.aio import *
 import gc
 import zlib
+from libs.binstr import *
 
 
 class RingOscillator:
@@ -26,15 +27,13 @@ class RingOscillator:
   def _gets(n) -> str:
     ro = RingOscillator(RingOscillator._T, RingOscillator._dT, False)
     res = ro.sample(RingOscillator._Wlen, RingOscillator._Ts, RingOscillator._Toff)
-    if RingOscillator._compress:
-      res = zlib.compress(res.encode())
     RingOscillator._result.append(res)
     del ro
     cnt = len(RingOscillator._result)
     if cnt % 200 == 0:
       perc = round(cnt * 100 / RingOscillator._N,1)
       Aio.printTemp("  RO sim:",perc,"%            ")
-  def getSampleSet(N : int, WordLen : int, Tavg : float, dT : float, Ts : float, TOffset = 0.0, Compress=False) -> list:
+  def getSampleSet(N : int, WordLen : int, Tavg : float, dT : float, Ts : float, TOffset = 0.0) -> list:
     RingOscillator._T = Tavg
     RingOscillator._dT = dT
     RingOscillator._Ts = Ts
@@ -42,7 +41,6 @@ class RingOscillator:
     RingOscillator._Wlen = WordLen
     RingOscillator._N = N
     RingOscillator._cnt = 0
-    RingOscillator._compress = Compress
     man = multiprocessing.Manager()
     RingOscillator._result = man.list()
     pool = multiprocessing.Pool()
@@ -50,10 +48,8 @@ class RingOscillator:
     pool.close()
     pool.join()
     Aio.printTemp("                                                      ")
-    
     ret = list(RingOscillator._result)
     del RingOscillator._result
-    gc.collect()
     return ret
   def _randT(self) -> float:
     return gauss(self._T, self._Sigma) 
@@ -158,7 +154,7 @@ class RingOscillator:
     if tStart > tStop:
       return True
     return False
-  def sample(self, N : int, Ts : float, t0 = -1) -> str:
+  def sample(self, N : int, Ts : float, t0 = -1) -> BinString:
     """Gets a string of 0|1 values
 
     Args:
@@ -171,25 +167,25 @@ class RingOscillator:
             before started sampling. Defaults to False.
 
     Returns:
-        str: string of 0|1 samples
+        BinString: BinaryString
     """
     if t0 < 0:
       t0 = self._T / 2
     t = t0
-    result = ""
+    result = BinString(N, 0)
     v = False
     tstamp = 0
     for i in range(N):
       if t <= 0: 
-        result += "0"
+        result.shiftIn(0)
       else:
         while tstamp < t:
           v = not v
           tstamp += self._randT()/2
         if v:
-          result += "0"
+          result.shiftIn(0)
         else:
-          result += "1"
+          result.shiftIn(1)
       t += Ts
     return result
   
