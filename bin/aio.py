@@ -21,6 +21,12 @@ import xlsxwriter
 import numpy
 import zlib
 import gzip
+import statistics
+import pathlib
+import fileinput
+import tempfile
+import shelve
+import dbm
 from ansi2html import *
 from libs.binstr import *
 from libs.ca import *

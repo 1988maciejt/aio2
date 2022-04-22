@@ -1,3 +1,4 @@
+from numpy import polysub
 from libs.binstr import *
 from libs.logic import Logic
 from libs.aio import *
@@ -22,19 +23,18 @@ class Polynomial:
   _coefficients_list = []
   _balancing = 0    
   _result = None
-  _cont = True
   _n = 0
   _bmin = 1
   _positions = False
+  _ctemp = True
   def _check(p):
-    if Polynomial._cont:
-      Aio.printTemp("Checking " + str(p))
-      if p.isPrimitive():
-        Polynomial._result.append(p)
-        if Polynomial._n > 0 and len(Polynomial._result) >= Polynomial._n:
-          Polynomial._cont = False
-        if not Polynomial._quiet:
-          print("Found " + str(p) + " " * 30)
+    if (Polynomial._n > 0) and  (len(Polynomial._result) >= Polynomial._n):
+      return
+    Aio.printTemp("Checking " + str(p))
+    if p.isPrimitive():
+      Polynomial._result.append(p)
+      if not Polynomial._quiet:
+        print("Found " + str(p) + " " * 30)
   def __del__(self):
     if self._positions != False:
       self._positions.clear()
@@ -50,6 +50,7 @@ Polynomial ("size,HexNumber", balancing=0)
       self._coefficients_list = coefficients_list._coefficients_list.copy()
       self._balancing = coefficients_list._balancing + 0
       self._bmin = coefficients_list._bmin
+      self._bmax = coefficients_list._bmax
       self._positions = coefficients_list._positions
     elif "int" in str(type(coefficients_list)):
       cntr = 0
@@ -61,6 +62,7 @@ Polynomial ("size,HexNumber", balancing=0)
         coefficients_list >>= 1
       self._coefficients_list.sort(reverse=True)
       self._balancing = balancing
+      self._bmax = self._coefficients_list[0] 
     elif "str" in str(type(coefficients_list)):
       lst = coefficients_list.split(",")
       num = lst[0]
@@ -77,14 +79,16 @@ Polynomial ("size,HexNumber", balancing=0)
         cntr += 1
         num >>= 1
       self._coefficients_list.sort(reverse=True)
-      self._balancing = balancing      
+      self._balancing = balancing   
+      self._bmax = self._coefficients_list[0]   
     else:
       self._coefficients_list = coefficients_list
       self._coefficients_list.sort(reverse=True)
       self._balancing = balancing
+      self._bmax = self._coefficients_list[0]
   def __iter__(self):
     p = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self.getBalancing())
-    self._coefficients_list = p._coefficients_list
+    self._coefficients_list = p._coefficients_list.copy()
     self._mnext = True
     return self
   def __next__(self):
@@ -133,19 +137,12 @@ Polynomial ("size,HexNumber", balancing=0)
     Returns:
         bool: True if successfull, Ffalse if no next polynomial.
     """
-    while self._makeNext():
-      if self._balancing > 0:
-        if self.getBalancing() <= self._balancing:
-          return True
-      else:
-        return True
-    return False    
-  def _makeNext(self) -> bool:
     ccount = len(self._coefficients_list)
     degree = self._coefficients_list[0]
     left = degree
     pos = {}
     step = self._bmin
+    stepmax = self._bmax
     if self._positions != False:
       pos = self._positions
     for i in range(1, ccount-1):
@@ -156,6 +153,8 @@ Polynomial ("size,HexNumber", balancing=0)
       right = self._coefficients_list[i+1]
       if vmax > (left-step):
         vmax = left-step
+      if vmax > (right+stepmax):
+        vmax = right+stepmax
       if vmin < (right+step):
         vmin = right+step
       if this < vmax:
@@ -209,15 +208,18 @@ Polynomial ("size,HexNumber", balancing=0)
     """
     if len(self._coefficients_list) % 2 == 0: 
       return False
+#    cached = PersistentCache.recall(self)
     cached = Cache.recall(self.toInt())
     if cached != None:
       return cached
+#    cached = PersistentCache.recall(self.getReversed())
     cached = Cache.recall(self.getReversed().toInt())
     if cached != None:
       return cached
-    l = Lfsr(self, LfsrType.Galois)
+    l = Lfsr(self.copy(), LfsrType.Galois)
     result = l.isMaximum()
-    l.clear()
+    del l
+#    PersistentCache.store(self, result)
     Cache.store(self.toInt(), result)
     return result
   def nextPrimitive(self, quiet=False) -> bool:
@@ -253,6 +255,7 @@ Polynomial ("size,HexNumber", balancing=0)
       return Polynomial([])  
     result = [degree]
     bmin = 1
+    bmax = degree-1
     if balancing > 0 and balancing < degree:
       avg = float(degree) / float(coeffs_count - 1)
       halfbal = float(balancing) / 2.0
@@ -292,6 +295,7 @@ Polynomial ("size,HexNumber", balancing=0)
       pos[i] = [cp[i], cq[i]]
     p._positions = pos
     p._bmin = int(round(bmin,0))
+    p._bmax = int(round(bmax,0))
 #    print(Aio.format(pos))
     return p
   def checkPrimitives(Candidates : list, n = 0, quiet = False) -> list:
@@ -308,23 +312,20 @@ Polynomial ("size,HexNumber", balancing=0)
     PList = []
     for p in Candidates:
       PList.append(Polynomial(p))
-    Aio.printTemp("Preparing...")
     manager = multiprocessing.Manager()
     Polynomial._result = manager.list()
     Polynomial._n = n
     Polynomial._quiet = quiet
-    Polynomial._cont = True
-    pool = multiprocessing.Pool()
+    pool = multiprocessing.Pool()   
     pool.map_async(Polynomial._check, PList)
     pool.close()
     pool.join()
     r = list(Polynomial._result)
     if n > 0 and len(r) > n:
       r = r[0:n]
-    Aio.printTemp(" " * Aio.getTerminalColumns())
-    gc.collect()
+    Aio.printTemp(" " * (Aio.getTerminalColumns()-1))
     return r
-  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, n = 0, quiet = False, MaxSetSize=2048) -> list:
+  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, n = 0, quiet = False, MaxSetSize=1024) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -341,24 +342,29 @@ Polynomial ("size,HexNumber", balancing=0)
     result = []
     candidates = []
     cntr = 0
+    Polynomial._ctemp = False
     for p in polys:
-      candidates.append(p)
+      candidates.append(p.copy())
       cntr += 1
       if (cntr >= MaxSetSize):
         result += Polynomial.checkPrimitives(candidates, n, quiet)
         candidates.clear()
         cntr = 0
-        if len(result) >= n:
-          break
+        if len(result) >= n > 0:
+          break    
+    if (cntr > 0):
+      result += Polynomial.checkPrimitives(candidates, n, quiet)
+      candidates.clear()
+    Polynomial._ctemp = True
     if cntr != 0:
         result += Polynomial.checkPrimitives(candidates, n, quiet)
         candidates.clear()      
     if n > 0 and len(result) > n:
       result = result[0:n]
-    Aio.printTemp(" " * Aio.getTerminalColumns())
+    Aio.printTemp()
     gc.collect()
     return result
-  def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, quiet=False) -> Polynomial:
+  def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, quiet=True) -> Polynomial:
     """Returns a first found primitive (over GF(2)) polynomial.
 
     Args:
@@ -369,15 +375,21 @@ Polynomial ("size,HexNumber", balancing=0)
     Returns:
         list: _description_
     """
-    p = Polynomial.createPolynomial(degree, coeffs_count, balancing)
-    if p.isPrimitive():
-      return p
-    elif p.nextPrimitive(quiet):
-      return p
+    lp = Polynomial.listPrimitives(degree, coeffs_count, balancing, 1, quiet)
+    if len(lp) > 0:
+      return lp[0]
+#    p = Polynomial.createPolynomial(degree, coeffs_count, balancing)
+#    if p.isPrimitive():
+#      return p
+#    elif p.nextPrimitive(quiet):
+#      return p
     return None
-  def firstMostBalancedPrimitive(degree : int, coeffs_count : int) -> Polynomial:
-    for b in range(1, int(degree/2)):
-      fp = Polynomial.firstPrimitive(degree, coeffs_count, b)
+  def firstMostBalancedPrimitive(degree : int, coeffs_count : int, StartBalancing=1, EndBalancing=10, quiet = True) -> Polynomial:
+    bal = EndBalancing
+    if bal > (degree-coeffs_count):
+      bal = (degree-coeffs_count)
+    for b in range(StartBalancing, bal):
+      fp = Polynomial.firstPrimitive(degree, coeffs_count, b, quiet)
       if type(fp) != type(None):
         return fp
     return None
@@ -452,7 +464,7 @@ class Lfsr:
         self._fast_sim_array = copy.deepcopy(polynomial._fast_sim_array)
         self._taps = copy.deepcopy(polynomial._taps)
         return
-    if type(Polynomial([])) != type(polynomial):
+    if type(Polynomial([0])) != type(polynomial):
       poly = Polynomial(polynomial)
     self._my_poly = poly.getCoefficients()
     self._type = lfsr_type

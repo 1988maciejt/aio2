@@ -55,7 +55,7 @@ class RingOscillator:
     pool.map_async(RingOscillator._gets, range(N))
     pool.close()
     pool.join()
-    Aio.printTemp("                                                      ")
+    Aio.printTemp()
     ret = list(RingOscillator._result)
     del RingOscillator._result
     return ret

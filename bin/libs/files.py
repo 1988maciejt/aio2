@@ -2,6 +2,28 @@ import os
 import ast
 import pickle
 import gzip
+import pathlib
+
+FS = pathlib.Path(".")
+
+def cd(dirname : str):
+  os.chdir(dirname)
+  FS = pathlib.Path(os.getcwd())
+  
+def pwd() -> str:
+  return os.getcwd()
+
+def ls(DirsOnly = False) -> str:
+  res = []
+  for e in FS.iterdir():
+    if DirsOnly:
+      if not pathlib.Path.is_dir(e):
+        continue
+    res.append(str(e))
+  return res
+
+
+
 
 def getAioPath() -> str:
   return os.path.dirname(os.path.dirname(__file__)) + "/"
@@ -65,3 +87,7 @@ def writeLinesFromList(FileName : str, List : list):
     for i in List:
       f.write(str(i))
     f.close()
+    
+
+def cat(FileName : str):
+  print(readFile(FileName))
