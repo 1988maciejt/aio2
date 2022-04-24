@@ -53,9 +53,10 @@ from libs.verilog import *
 from tqdm import *
 import pathos
 from libs.nist import *
-import sympy
+from sympy import *
 import matplotlib
 import latex
+
 
 
 pbar = tqdm
