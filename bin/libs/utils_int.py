@@ -1,4 +1,5 @@
 import re
+from libs.utils_str import *
 
 class Int:
   
@@ -40,6 +41,10 @@ class Int:
     return v
 
   def fromString(num : str, base = 10) -> int:
+    pattern = r'([⁰¹²³⁴⁵⁶⁷⁸⁹]+)'
+    sub = r'(\1)'
+    num = re.sub(pattern, sub, num)
+    num = Str.fromSuperScript(num)
     pattern = r'(\S)\(([0-9]+)\)'
     while True:
       r = re.search(pattern, num)

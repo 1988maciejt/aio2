@@ -14,21 +14,27 @@ class Aio:
     if "<class 'str'>" not in str(type(ItsType)):
       ItsType = str(type(ItsType))
     return ItsType in str(type(Object))
-  def format(object, indent=0) -> str:
+  def format(object, indent=0, Repr=False) -> str:
     result = ""
     if "list" in str(type(object)):
       result += " "*indent + "[\n"
       for i in object:
-        result += Aio.format(i, indent+2)
+        result += Aio.format(i, indent+2, Repr)
       result += " "*indent + "]\n"
     elif "dict" in str(type(object)):
       result += " "*indent + "[\n"
       for key in object.keys():
-        result += "  " + str(key) + ":\n"
-        result += Aio.format(object[key], indent+2)
+        if Repr:
+          result += " "*indent + "  " + repr(key) + ":\n"
+        else:
+          result += " "*indent + "  " + str(key) + ":\n"
+        result += Aio.format(object[key], indent+2, Repr)
       result += " "*indent + "]\n"
     else: 
-      result = " "*indent + str(object) + "\n"
+      if Repr:
+        result = " "*indent + repr(object) + "\n"
+      else:
+        result = " "*indent + str(object) + "\n"
     return result
   def getTerminalColumns() -> int:
     return shutil.get_terminal_size()[0]
@@ -179,7 +185,14 @@ class Aio:
     if len(args) == 0:
       print(" " * (Aio.getTerminalColumns()-1) + "\r", end="")
     else:
-      print(*args,"\r",end="")
+      wl = Aio.getTerminalColumns()
+      txt = ""
+      for arg in args:
+        txt += str(arg) + " "
+      if len(txt) > (wl-1):
+        txt = txt[0:wl-2]
+      txt += "\r"
+      print(txt,end="")
   def shellExecute(ShellCommand : str) -> str:
     stream = os.popen(ShellCommand)
     return stream.read()

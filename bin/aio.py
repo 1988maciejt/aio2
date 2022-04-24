@@ -48,10 +48,14 @@ from libs.utils_array import *
 from libs.utils_int import *
 from libs.utils_list import *
 from libs.utils_serial import *
+from libs.utils_str import *
 from libs.verilog import *
 from tqdm import *
 import pathos
 from libs.nist import *
+import sympy
+import matplotlib
+import latex
 
 
 pbar = tqdm

@@ -1,10 +1,17 @@
 import re
 import numpy
 import numba
+import random
 
 
 
 class List:
+  def randomSelect(List : list):
+    if len(List) > 0:
+      Max = len(List)-1
+      Index = int(round(random.uniform(0, Max), 0))
+      return List[Index]
+    return None
   def mathDelta(List : list) -> list:
     left = List[0]
     result = []

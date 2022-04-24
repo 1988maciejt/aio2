@@ -27,6 +27,7 @@ class Polynomial:
   _bmin = 1
   _positions = False
   _ctemp = True
+  _lf = False
   def _check(p):
     if (Polynomial._n > 0) and  (len(Polynomial._result) >= Polynomial._n):
       return
@@ -52,6 +53,7 @@ Polynomial ("size,HexNumber", balancing=0)
       self._bmin = coefficients_list._bmin
       self._bmax = coefficients_list._bmax
       self._positions = coefficients_list._positions
+      self._lf = coefficients_list._lf
     elif "int" in str(type(coefficients_list)):
       cntr = 0
       self._coefficients_list = []
@@ -87,15 +89,25 @@ Polynomial ("size,HexNumber", balancing=0)
       self._balancing = balancing
       self._bmax = self._coefficients_list[0]
   def __iter__(self):
-    p = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self.getBalancing())
-    self._coefficients_list = p._coefficients_list.copy()
+    self = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self._balancing, self._lf)
     self._mnext = True
+    self._first = True
+    if self._balancing > 0:
+      if self.getBalancing() > self._balancing:
+        self._mnext = False
+    if self._lf:
+      if not self.isLayoutFriendly():
+        self._mnext = False
     return self
   def __next__(self):
-    if self._mnext:
-      q = Polynomial(self)
-      self._mnext = self.makeNext()
-      return q
+    if self._mnext:  
+      if self._first:
+        self._first = False
+        return self
+      else:
+        self._mnext = self.makeNext()
+        if self._mnext:
+          return self
     raise StopIteration  
   def __str__(self) -> str:
     return str(self._coefficients_list)
@@ -105,6 +117,24 @@ Polynomial ("size,HexNumber", balancing=0)
     return self._coefficients_list == other._coefficients_list
   def __ne__(self, other : Polynomial) -> bool:
     return self._coefficients_list != other._coefficients_list
+  def printFullInfo(self):
+    title = "Polynomial  deg=" + str(self.getDegree()) + ", bal=" + str(self.getBalancing())
+    Aio.transcriptSubsectionBegin(title)
+    Aio.print("Degree            : ", self.getDegree())
+    Aio.print("Coefficients count: ", self.getCoefficientsCount())
+    Aio.print("Hex with degree   : ", self.toHexString())
+    Aio.print("Hex without degree: ", self.toHexString(False))
+    Aio.print("Balancing         : ", self.getBalancing())
+    Aio.print("Is layout-friendly: ", self.isLayoutFriendly())
+    Aio.print("Coefficients      : ", self.getCoefficients())
+  def toHexString(self, IncludeDegree=True, shorten=True):
+    ival = self.toInt()
+    deg = self.getDegree()
+    if not IncludeDegree:
+      msk = (1 << (deg)) - 1
+      ival &= msk
+    bs = BinString(deg+1, ival)
+    return bs.toHexString(shorten)
   def getCoefficients(self) -> list:
     """Returns list of coefficients.
     """
@@ -137,6 +167,18 @@ Polynomial ("size,HexNumber", balancing=0)
     Returns:
         bool: True if successfull, Ffalse if no next polynomial.
     """
+    while self._makeNext():
+      s = True
+      if self._lf:
+        if not self.isLayoutFriendly():
+          s = False
+      if self._balancing > 0:
+        if self.getBalancing() > self._balancing:
+          s = False
+      if s:
+        return True
+    return False
+  def _makeNext(self) -> bool:
     ccount = len(self._coefficients_list)
     degree = self._coefficients_list[0]
     left = degree
@@ -239,13 +281,21 @@ Polynomial ("size,HexNumber", balancing=0)
         return True
   def copy(self):
     return Polynomial(self)
-  def createPolynomial(degree : int, coeffs_count : int, balancing = 0) -> Polynomial:
+  def isLayoutFriendly(self) -> bool:
+    for i in range(len(self._coefficients_list)-1):
+      this = self._coefficients_list[i]
+      right = self._coefficients_list[i+1]
+      if (this-right) <= 1:
+        return False
+    return True
+  def createPolynomial(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False) -> Polynomial:
     """Returns a polynomial, usefull for LFSRs.
 
     Args:
         degree (int): polynomial degree (i.e. size of LFSR)
         coeffs_count (int): coefficients count (i.e. LFSRs taps count + 2)
         balancing (int, optional): balancing factor. Defaults to 0 (no balance checking).
+        LayoutFriendly (bool, optional): only layout-friendly poly.
     """
     if coeffs_count < 1:
       Aio.printError ("'oefficients_count' must be >= 1")
@@ -265,8 +315,10 @@ Polynomial ("size,HexNumber", balancing=0)
       if bmin < 1.0:
         bmin = 1.0
         bmax = float(balancing + 1)
+      if bmin < 2 and LayoutFriendly:
+        bmin = 2
       result = [0]
-      rest = degree
+      rest = degree-1
       actual = bmin
       restcoeffs = coeffs_count-2
       diff = round(bmin,0)
@@ -296,8 +348,18 @@ Polynomial ("size,HexNumber", balancing=0)
     p._positions = pos
     p._bmin = int(round(bmin,0))
     p._bmax = int(round(bmax,0))
+    p._lf = LayoutFriendly
 #    print(Aio.format(pos))
-    return p
+    success = True
+    if p._balancing > 0:
+      if p.getBalancing() > p._balancing:
+        success = p.makeNext()
+    if p._lf:
+      if not p.isLayoutFriendly():
+        success = p.makeNext()
+    if success:
+      return p
+    return None
   def checkPrimitives(Candidates : list, n = 0, quiet = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)) found on a given list.
 
@@ -309,9 +371,13 @@ Polynomial ("size,HexNumber", balancing=0)
     Returns:
         list: list of polynomial objects
     """    
+    if len(Candidates) < 1:
+      return []
     PList = []
     for p in Candidates:
       PList.append(Polynomial(p))
+#    print("CHECK_PRIMITIVES:")
+#    print(Aio.format(PList))
     manager = multiprocessing.Manager()
     Polynomial._result = manager.list()
     Polynomial._n = n
@@ -325,7 +391,7 @@ Polynomial ("size,HexNumber", balancing=0)
       r = r[0:n]
     Aio.printTemp(" " * (Aio.getTerminalColumns()-1))
     return r
-  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, n = 0, quiet = False, MaxSetSize=1024) -> list:
+  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, n = 0, quiet = False, MaxSetSize=1024) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -338,7 +404,9 @@ Polynomial ("size,HexNumber", balancing=0)
     Returns:
         list: list of polynomial objects
     """
-    polys = Polynomial.createPolynomial(degree, coeffs_count, balancing)
+    polys = Polynomial.createPolynomial(degree, coeffs_count, balancing, LayoutFriendly)
+    if type(polys) == type(None):
+      return []
     result = []
     candidates = []
     cntr = 0
@@ -364,7 +432,7 @@ Polynomial ("size,HexNumber", balancing=0)
     Aio.printTemp()
     gc.collect()
     return result
-  def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, quiet=True) -> Polynomial:
+  def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, quiet=True) -> Polynomial:
     """Returns a first found primitive (over GF(2)) polynomial.
 
     Args:
@@ -375,7 +443,7 @@ Polynomial ("size,HexNumber", balancing=0)
     Returns:
         list: _description_
     """
-    lp = Polynomial.listPrimitives(degree, coeffs_count, balancing, 1, quiet)
+    lp = Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, 1, quiet)
     if len(lp) > 0:
       return lp[0]
 #    p = Polynomial.createPolynomial(degree, coeffs_count, balancing)
@@ -384,15 +452,69 @@ Polynomial ("size,HexNumber", balancing=0)
 #    elif p.nextPrimitive(quiet):
 #      return p
     return None
-  def firstMostBalancedPrimitive(degree : int, coeffs_count : int, StartBalancing=1, EndBalancing=10, quiet = True) -> Polynomial:
+  def firstMostBalancedPrimitive(degree : int, coeffs_count : int, StartBalancing=1, EndBalancing=10, LayoutFriendly = False, quiet = True) -> Polynomial:
     bal = EndBalancing
     if bal > (degree-coeffs_count):
       bal = (degree-coeffs_count)
     for b in range(StartBalancing, bal):
-      fp = Polynomial.firstPrimitive(degree, coeffs_count, b, quiet)
+      fp = Polynomial.firstPrimitive(degree, coeffs_count, b, LayoutFriendly, quiet)
       if type(fp) != type(None):
         return fp
     return None
+  def firstDense(Degree : int, quiet = True) -> Polynomial:
+    r = Polynomial.listDense(Degree, 1, quiet)
+    if len(r) > 0:
+      return r[0]
+    return None
+  def listDense(Degree, n=0, quiet = False) -> list:
+    Half = int(Degree / 2) | 1
+    c = Half
+    result = []
+    n2 = n
+    Cont = True
+    scntr = int(Half / 5) + 1
+    while (c >= 3) & Cont & (scntr>0):
+      result += Polynomial.listPrimitives(Degree, c, 1, False, n2, quiet)
+      if n > 0:
+        n2 -= len(result)
+        if n2 <= 0:
+          break
+      else:
+        if len(result) > 0:
+          Cont = False
+      c -= 2
+    if len(result) == 0:
+      c = Half-2
+      Cont = True
+      scntr = int(Half / 5) + 1
+      while (c >= 3) & Cont & (scntr>0):
+        result += Polynomial.listPrimitives(Degree, c, 2, True, n2, quiet)
+        if n > 0:
+          n2 -= len(result)
+          if n2 <= 0:
+            break
+        else:
+          if len(result) > 0:
+            Cont = False
+        c -= 2
+        scntr += 1
+    if len(result) == 0:
+      c = Half-4
+      Cont = True
+      scntr = int(Half / 4) + 1
+      while (c >= 3) & Cont & (scntr>0):
+        result += Polynomial.listPrimitives(Degree, c, 3, True, n2, quiet)
+        if n > 0:
+          n2 -= len(result)
+          if n2 <= 0:
+            break
+        else:
+          if len(result) > 0:
+            Cont = False
+        c -= 2
+    if len(result) > n > 0:
+      return result[0:n-1]      
+    return result
 # POLYNOMIAL END ==================
 
 

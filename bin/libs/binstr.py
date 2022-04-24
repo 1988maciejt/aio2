@@ -1,4 +1,5 @@
 from libs.utils_int import *
+from libs.utils_str import *
 from collections import Counter
 
 class BinString:
@@ -22,6 +23,36 @@ class BinString:
         r = "0" + r
       v >>= 1
     return r
+  def toHexString(self, shorten=False, Superscripts=True):
+    msk = (1 << self.BitCount) - 1
+    val = self._val & msk
+    s = hex(val)[2:].upper()
+    if shorten:
+      r = ""
+      last = ""
+      cntr = 0
+      for c in s:
+        cntr += 1
+        if c != last:
+          if cntr > 1:
+            if Superscripts:
+              r += last + Str.toSuperScript(cntr) 
+            else:
+              r += last + "(" + str(cntr) + ")"
+          else:
+            r += last
+          cntr = 0
+        last = c      
+      if cntr > 0:
+        if Superscripts:
+          r += last + Str.toSuperScript(cntr+1) 
+        else:
+          r += last + "(" + str(cntr+1) + ")"
+      else:
+        r += last
+      return r
+    else:
+      return s
   def __repr__(self) -> str:
     return "BinString(" + self.__str__() + ")"
   def __getitem__(self, Index) -> int:
