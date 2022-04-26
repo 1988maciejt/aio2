@@ -1,4 +1,5 @@
 from numpy import polysub
+from sympy import Poly
 from libs.binstr import *
 from libs.logic import Logic
 from libs.aio import *
@@ -127,6 +128,7 @@ Polynomial ("size,HexNumber", balancing=0)
     Aio.print("Balancing         : ", self.getBalancing())
     Aio.print("Is layout-friendly: ", self.isLayoutFriendly())
     Aio.print("Coefficients      : ", self.getCoefficients())
+    Aio.transcriptSubsectionEnd()
   def toHexString(self, IncludeDegree=True, shorten=True):
     ival = self.toInt()
     deg = self.getDegree()
@@ -350,16 +352,13 @@ Polynomial ("size,HexNumber", balancing=0)
     p._bmax = int(round(bmax,0))
     p._lf = LayoutFriendly
 #    print(Aio.format(pos))
-    success = True
     if p._balancing > 0:
       if p.getBalancing() > p._balancing:
-        success = p.makeNext()
+        return None
     if p._lf:
       if not p.isLayoutFriendly():
-        success = p.makeNext()
-    if success:
-      return p
-    return None
+        return None
+    return p
   def checkPrimitives(Candidates : list, n = 0, quiet = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)) found on a given list.
 
@@ -461,6 +460,24 @@ Polynomial ("size,HexNumber", balancing=0)
       if type(fp) != type(None):
         return fp
     return None
+  def firstEveryNTaps(Degree : int, EveryN : int, quiet = True) -> Polynomial:
+    result = Polynomial.listEveryNTaps(Degree, EveryN, 1, quiet)
+    if len(result) > 0:
+      return result[0]
+    return None
+  def listEveryNTaps(Degree : int, EveryN : int, n = 0, quiet = False) -> list:
+    ccount = int(round(Degree / EveryN, 0)) | 1
+    if ccount < 3: ccount = 3
+    results = []
+    for b in range(1, EveryN):
+      results += Polynomial.listPrimitives(Degree, ccount, b, True, n, quiet)
+      if n > 0:
+        if len(results) >= n:
+          break
+    if n > 0:
+      if len(results) > n:
+        results = results[0:n]
+    return results
   def firstDense(Degree : int, quiet = True) -> Polynomial:
     r = Polynomial.listDense(Degree, 1, quiet)
     if len(r) > 0:
@@ -472,8 +489,8 @@ Polynomial ("size,HexNumber", balancing=0)
     result = []
     n2 = n
     Cont = True
-    scntr = int(Half / 5) + 1
-    while (c >= 3) & Cont & (scntr>0):
+    minc = Half * 0.8
+    while (c >= 3) & Cont & (c >= minc):
       result += Polynomial.listPrimitives(Degree, c, 1, False, n2, quiet)
       if n > 0:
         n2 -= len(result)
@@ -486,8 +503,7 @@ Polynomial ("size,HexNumber", balancing=0)
     if len(result) == 0:
       c = Half-2
       Cont = True
-      scntr = int(Half / 5) + 1
-      while (c >= 3) & Cont & (scntr>0):
+      while (c >= 3) & Cont & (c >= minc):
         result += Polynomial.listPrimitives(Degree, c, 2, True, n2, quiet)
         if n > 0:
           n2 -= len(result)
@@ -497,12 +513,10 @@ Polynomial ("size,HexNumber", balancing=0)
           if len(result) > 0:
             Cont = False
         c -= 2
-        scntr += 1
     if len(result) == 0:
       c = Half-4
       Cont = True
-      scntr = int(Half / 4) + 1
-      while (c >= 3) & Cont & (scntr>0):
+      while (c >= 3) & Cont & (c >= minc):
         result += Polynomial.listPrimitives(Degree, c, 3, True, n2, quiet)
         if n > 0:
           n2 -= len(result)

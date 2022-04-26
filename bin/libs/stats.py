@@ -4,13 +4,21 @@ import re
 import plotext
 import multiprocess
 from libs.binstr import *
+import matplotlib.pyplot as plt
 #import openpyxl
+
+class PlotTypes:
+  Scatter = 1,
+  Bar = 2
+  
+SCATTER = PlotTypes.Scatter,
+BAR = PlotTypes.Bar
 
 class Plot:
   Title = ""
   XData = []
   YData = []
-  Type = "scatter"
+  Type = PlotTypes.Scatter
   BarWidth = 1
   XLabel = None
   YLabel = None
@@ -19,7 +27,8 @@ class Plot:
   Width = None
   Height = None
   Colored = None
-  def __init__(self, Data=None, Type="scatter", Title="", XTicks=None, YTicks=None, Grid=False, Width=None, Height=None, Colored=True) -> None:
+  Graphical = False
+  def __init__(self, Data=None, Type=PlotTypes.Scatter, Title="", XTicks=None, YTicks=None, XLabel=None, YLabel=None, Grid=False, Width=None, Height=None, Colored=True, Graphical=False) -> None:
     """Initialization of the Plot object
 
     Args:
@@ -28,21 +37,39 @@ class Plot:
         Title (str, optional): Plot title. Defaults to "".
         XTicks (list, optional): a list containing X tick values. Defaults to None.
         YTicks (list, optional): a list containing Y tick values. Defaults to None.
+        XLabel (str, optional): X-axis label.
+        YLabel (str, optional): Y-axis label.
         Grid (bool, optional): whether to plot the grid or not. Defaults to False.
         Width (int, optional): plot width (char count). Defaults to None.
         Height (int, optional): plot height (rows count). Defaults to None.
         Colored (bool, optional): print colored plot or not. Defaults to True.
     """
     self.Title = Title
-    self.Type = Type
+    if type("") == type(Type):
+      if Type.lower == "scatter":
+        self.Type = PlotTypes.Scatter
+      elif Type.lower == "bar":
+        self.Type = PlotTypes.Bar
+    else:
+      self.Type = Type
     self.XTicks = XTicks
     self.YTicks = YTicks
     self.Grid = Grid
     self.Width = Width
     self.Height = Height
     self.Colored = Colored
+    self.Graphical = Graphical
+    self.XLabel = XLabel
+    self.YLabel = YLabel
     if "dict" in str(type(Data)):
       self.importDict(Data)
+    elif "list" in str(type(Data)):
+      if "list" in str(type(Data[0])):
+        self.XData = Data[0]
+        self.YData = Data[1]
+      else:
+        self.YData = Data
+        self.XData = [i for i in range(len(Data))] 
   def importDict(self, dct : dict) -> None:
     """Imports a data dictionary, formatted like this:
     {
@@ -93,25 +120,42 @@ class Plot:
   def print(self) -> None:
     """Prints the plot
     """
-    plotext.clear_plot()
-    plotext.title(self.Title)
-    if self.XTicks != None:
-      plotext.xticks(self.XTicks)
-    if self.YTicks != None:
-      plotext.yticks(self.YTicks)
-    if self.XLabel != None:
-      plotext.xlabel(self.XLabel)
-    if self.YLabel != None:
-      plotext.ylabel(self.YLabel)
-    plotext.grid(self.Grid)
-    plotext.plot_size(self.Width, self.Height)
-    if "bar" in self.Type.lower():
-      plotext.bar(self.XData, self.YData, width = self.BarWidth)
-    else:  
-      plotext.scatter(self.XData, self.YData)
-    if not self.Colored:
-      plotext.colorless()
-    Aio.print(plotext.build())
+    if self.Graphical:
+      plt.plot(self.XData, self.YData)
+      if self.XLabel != None:
+        plt.xlabel(self.XLabel)
+      if self.YLabel != None:
+        plt.ylabel(self.YLabel)
+      if self.XTicks != None:
+        plt.xticks(self.XTicks)
+      if self.YTicks != None:
+        plt.yticks(self.YTicks)
+      plt.grid(self.Grid)
+      if self.Type == PlotTypes.Bar:
+        plt.bar(self.XData, self.YData, width = self.BarWidth)
+      else:  
+        plt.scatter(self.XData, self.YData)
+      plt.show()
+    else:
+      plotext.clear_plot()
+      plotext.title(self.Title)
+      if self.XTicks != None:
+        plotext.xticks(self.XTicks)
+      if self.YTicks != None:
+        plotext.yticks(self.YTicks)
+      if self.XLabel != None:
+        plotext.xlabel(self.XLabel)
+      if self.YLabel != None:
+        plotext.ylabel(self.YLabel)
+      plotext.grid(self.Grid)
+      plotext.plot_size(self.Width, self.Height)
+      if self.Type == PlotTypes.Bar:
+        plotext.bar(self.XData, self.YData, width = self.BarWidth)
+      else:  
+        plotext.scatter(self.XData, self.YData)
+      if not self.Colored:
+        plotext.colorless()
+      Aio.print(plotext.build())
 
 class BinStringStats:
   """Static class containing BinString object related stats.

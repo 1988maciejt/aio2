@@ -52,9 +52,10 @@ from libs.utils_str import *
 from libs.verilog import *
 from tqdm import *
 import pathos
-from libs.nist import *
 from sympy import *
 import matplotlib
+#import matplotlib_inline
+import matplotlib.pyplot as plt
 import latex
 
 

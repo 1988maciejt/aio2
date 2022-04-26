@@ -44,3 +44,8 @@ class List:
       if not re.search(pattern, str(i)):
         result.append(i)
     return result
+  def toString(lst : list) -> str:
+    result = ""
+    for i in lst:
+      result += str(i) + "\n"
+    return result

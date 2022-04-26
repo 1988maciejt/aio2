@@ -176,9 +176,13 @@ class Aio:
   def transcriptSectionEnd():
     Aio._transcript += '</div>\n' 
     Aio._section_opened = False
+    print("")
+    transcript_file.write("\n")
   def transcriptSubsectionEnd():
     Aio._transcript += '</div>\n' 
     Aio._subsection_opened = False
+    print("")
+    transcript_file.write("\n")
   def printError(*args):
     Aio.print("ERROR:",*args)
   def printTemp(*args):

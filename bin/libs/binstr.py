@@ -5,6 +5,11 @@ from collections import Counter
 class BinString:
   BitCount = 64
   _val = 0
+  def fromList(BitCount=64, Data=[]) -> list:
+    result = []
+    for d in Data:
+      result.append(BinString(BitCount, d))
+    return result
   def __init__(self, BitCount = 64, Value = 0) -> None:
     if type("") == type(BitCount):
       Value = BitCount
