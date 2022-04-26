@@ -30,15 +30,24 @@ echo "{
 echo "{
  \"cells\": [
   {
+   \"cell_type\": \"markdown\",
+   \"metadata\": {
+    \"tags\": []
+   },
+   \"source\": [
+    \"# AIO preparing\"
+   ]
+  }, 
+  {
    \"cell_type\": \"code\",
-   \"execution_count\": 2,
+   \"execution_count\": 0,
    \"metadata\": {},
    \"outputs\": [],
    \"source\": [
-    \"# IMPORT Maciej Trawka's All-In-One 2\n\",
     \"import sys\n\",
     \"try:\n\",
     \"    sys.path.append('../../bin')\n\",
+    \"    sys.path.append('./data')\n\",
     \"    from aio import *\n\",
     \"    print('AIO2 initialized successfully')\n\",
     \"except:\n\",

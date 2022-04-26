@@ -5,6 +5,7 @@ sudo apt update
 sudo apt upgrade -y
 sudo apt install -y -f python3 python3-pip python3-tk dos2unix
 sudo apt install -y -f texlive-xetex texlive-fonts-recommended texlive-plain-generic
+sudo apt install -y -f zlib1g pandoc
 sudo pip3 install --upgrade pip
 #sudo pip3 install pyqt5
 #sudo pip3 install pyqtwebengine -U
@@ -29,7 +30,6 @@ sudo pip3 install latex
 sudo pip3 install jupyter
 sudo pip3 install notebook
 sudo pip3 install jupyterlab --ignore-installed pyzmq
-sudo apt install zlib1g
 
 
 
