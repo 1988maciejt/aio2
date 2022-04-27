@@ -137,6 +137,13 @@ Polynomial ("size,HexNumber", balancing=0)
       ival &= msk
     bs = BinString(deg+1, ival)
     return bs.toHexString(shorten)
+  def toBinString(self, IncludeDegree=True):
+    ival = self.toInt()
+    deg = self.getDegree()
+    if not IncludeDegree:
+      msk = (1 << (deg)) - 1
+      ival &= msk
+    return BinString(deg+1, ival)
   def getCoefficients(self) -> list:
     """Returns list of coefficients.
     """

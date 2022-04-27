@@ -1,3 +1,4 @@
+import multiprocessing
 from libs.files import *
 from libs.aio import *
 import re
@@ -160,26 +161,31 @@ class Plot:
 class BinStringStats:
   """Static class containing BinString object related stats.
   """
-  def probOf1Histogram(BinStrings : list, IncludeAll = False) -> dict:
+  def _p1_mproc(index):
+    BinStringStats._p1res[index] = 0
+    bsum = 0
+    for bs in BinStringStats._data:
+      bsum += bs[index]
+    BinStringStats._p1res[index] = float(bsum) / BinStringStats._p1n
+    Aio.print(index,"\t",BinStringStats._p1res[index])
+  def probOf1Histogram(BinStrings : list) -> dict:
     """Returns a dict containing a histogram: P(1) for each bit in a sequence.
 
     Args:
         BinStrings (list): a list of BinString objects
-        IncludeAll (bool, optional): whether to include bit indexes having P(1)==0. Defaults to False.
 
     Returns:
         dict: usable for Plot
     """
+    N = len(BinStrings)
     result = dict()
-    if IncludeAll:
-      for i in range(len(BinStrings[0])):
-        result[i] = 0
+    for i in range(len(BinStrings[0])):
+      result[i] = 0
     for word in BinStrings:
       for index in range(len(word)):
         bit = word[index]
         if bit == 1: 
           result[index] = result.get(index, 0) + 1
-    N = len(BinStrings)
     for key in result.keys():
       result[key] = result[key] * 1.0 / N
     return result

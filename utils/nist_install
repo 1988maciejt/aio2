@@ -1,0 +1,8 @@
+sudo apt update
+sudo apt upgrade -y
+sudo apt install -f -y fftw3-dev
+git clone https://github.com/arcetri/sts.git
+cd sts
+make
+sudo make install
+rm -rf sts
