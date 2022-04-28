@@ -1,6 +1,7 @@
 from libs.utils_int import *
 from libs.utils_str import *
 from collections import Counter
+from math import ceil
 
 class BinString:
   BitCount = 64
@@ -18,6 +19,11 @@ class BinString:
     self.setValue(Value)
   def __hash__(self) -> int:
     return ((1 << self.BitCount) - 1) & self._val
+  def __bytes__(self):
+    return self.toBytes()
+  def __int__(self):
+    msk = (1 << self.BitCount) - 1
+    return self._val * msk
   def __str__(self) -> str:
     r = ""
     v = self._val
@@ -28,6 +34,15 @@ class BinString:
         r = "0" + r
       v >>= 1
     return r
+  def toBytes(self) -> bytes:
+    BytesCount = ceil(self.BitCount / 8)
+    msk = (1 << self.BitCount) - 1
+    rlist = [0 for i in range(BytesCount)]
+    val = self._val & msk
+    for i in range(BytesCount-1,-1,-1):
+      rlist[i] = val & 255
+      val >>= 8
+    return bytes(rlist)
   def toHexString(self, shorten=False, Superscripts=True):
     msk = (1 << self.BitCount) - 1
     val = self._val & msk
@@ -79,8 +94,8 @@ class BinString:
         if c == "1":
           self._val |= 1
   def getValue(self):
-     msk = (1 << self.BitCount) - 1
-     return self._val & msk
+    msk = (1 << self.BitCount) - 1
+    return self._val & msk
   def setBit(self, Index : int, BitValue = 1):
     self._val = Int.setBit(self._val, Index, BitValue)
   def resetBit(self, Index : int):
@@ -220,3 +235,4 @@ class BinString:
     new = self.copy()
     new._val = (1 << new.BitCount) - new._val 
     return new
+  

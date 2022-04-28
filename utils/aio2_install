@@ -30,6 +30,7 @@ sudo pip3 install latex
 sudo pip3 install jupyter
 sudo pip3 install notebook
 sudo pip3 install jupyterlab --ignore-installed pyzmq
+sudo pip3 install ipywidgets
 
 
 

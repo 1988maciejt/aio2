@@ -49,3 +49,9 @@ class List:
     for i in lst:
       result += str(i) + "\n"
     return result
+  def toBytes(lst : list) -> bytes:
+    result = bytes(0)
+    for item in lst:
+      result += bytes(item)
+    return result
+  

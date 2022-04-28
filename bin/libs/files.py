@@ -28,6 +28,7 @@ def ls(DirsOnly = False) -> str:
 def getAioPath() -> str:
   return os.path.dirname(os.path.dirname(__file__)) + "/"
 
+
 def readFile(FileName : str, GZip = False) -> str:
   if GZip:
     f = gzip.open(FileName, "r")
@@ -44,6 +45,7 @@ def writeFile(FileName : str, Data, GZip = False):
     f = open(FileName, "w")
   f.write(str(Data))
   f.close()
+  
 
 def writeObjectToFile(FileName : str, Obj, GZip = False):
   if GZip:
@@ -61,6 +63,7 @@ def readObjectFromFile(FileName : str, GZip = False):
   r = pickle.load(f)
   f.close()
   return r
+
 
 def writeDictionary(FileName : str, dictionary : dict, GZip = False):
   if GZip:
@@ -81,6 +84,7 @@ def readDictionary(FileName : str, GZip = False) -> dict:
   r = ast.literal_eval(f.read())
   f.close()
   return r
+
   
 def writeLinesFromList(FileName : str, List : list):
     f = open(FileName, "w")
@@ -88,6 +92,20 @@ def writeLinesFromList(FileName : str, List : list):
       f.write(str(i))
     f.close()
     
-
+    
+def writeBinary(FileName : str, Data : bytes):
+  f = open(FileName, "wb")
+  f.write(bytes(Data))
+  f.close()
+  
+def readBinary(FileName : str) -> bytes:
+  f = open(FileName, 'rb')
+  d = bytes(f.read())
+  f.close()
+  return d
+  
+    
+    
+    
 def cat(FileName : str):
   print(readFile(FileName))

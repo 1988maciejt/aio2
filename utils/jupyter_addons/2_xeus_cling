@@ -1,0 +1,10 @@
+conda update conda
+conda config --remove channels conda-forge
+conda config --add channels conda-forge
+conda create -n cling
+conda activate cling
+conda install -c conda-forge xeus-cling
+conda deactivate
+jupyter kernelspec install ~/anaconda3/envs/cling/share/jupyter/kernels/xcpp11 --user
+#jupyter kernelspec install ~/anaconda3/envs/cling/share/jupyter/kernels/xcpp14 --user 
+#jupyter kernelspec install ~/anaconda3/envs/cling/share/jupyter/kernels/xcpp17 --user 
