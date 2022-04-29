@@ -1,0 +1,6 @@
+sudo apt install -y -f libbz2-dev libdivsufsort-dev libjsoncpp-dev libssl-dev libmpfr-dev
+mkdir -p ~/nist
+cd ~/nist
+git clone https://github.com/usnistgov/SP800-90B_EntropyAssessment
+cd SP800-90B_EntropyAssessment/cpp
+make
