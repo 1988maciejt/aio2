@@ -40,6 +40,7 @@ from libs.gcode import *
 from libs.lfsr import *
 from libs.logic import *
 from libs.multi_process import *
+from libs.nist import *
 from libs.polynomial import *
 from libs.ring_oscillator import *
 from libs.stats import *

@@ -1,3 +1,5 @@
+source ~/anaconda3/etc/profile.d/conda.sh
+conda deactivate
 conda update conda
 conda config --remove channels conda-forge
 conda config --add channels conda-forge

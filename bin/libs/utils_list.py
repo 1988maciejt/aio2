@@ -2,6 +2,7 @@ import re
 import numpy
 import numba
 import random
+import multiprocessing
 
 
 
@@ -44,14 +45,31 @@ class List:
       if not re.search(pattern, str(i)):
         result.append(i)
     return result
+  def splitIntoSublists(lst : list, SublistSize : int) -> list:
+    result = []
+    for i in range(0, len(lst), SublistSize):
+      result.append(lst[i:(i+SublistSize)])
+    return result
   def toString(lst : list) -> str:
     result = ""
     for i in lst:
       result += str(i) + "\n"
     return result
   def toBytes(lst : list) -> bytes:
+    lstlen = len(lst)
+    if lstlen <= 512:      
+      result = bytes(0)
+      for item in lst:
+        result += bytes(item)
+      return result
+    sublists = List.splitIntoSublists(lst, 512)
+    pool = multiprocessing.Pool()
+    reslist = pool.map(List.toBytes, sublists)
+    pool.close()
+    pool.join()
     result = bytes(0)
-    for item in lst:
-      result += bytes(item)
+    for r in reslist:
+      result += r
     return result
+    
   
