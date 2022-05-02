@@ -3,6 +3,9 @@ import ast
 import pickle
 import gzip
 import pathlib
+import random
+import shutil
+from tempfile import tempdir
 
 FS = pathlib.Path(".")
 
@@ -104,8 +107,26 @@ def readBinary(FileName : str) -> bytes:
   f.close()
   return d
   
-    
-    
-    
 def cat(FileName : str):
   print(readFile(FileName))
+
+
+class TempDir:
+  _name = ""
+  _path = ""
+  def __del__(self) -> None:
+    shutil.rmtree(self._path, ignore_errors=True)
+  def __init__(self) -> None:
+    oncemore = True
+    while oncemore:
+      self._name = "aio" + str(int(random.uniform(1000000000, 9999999999)))
+      self._path = os.path.expanduser("~/temp/" + self._name)
+      oncemore = os.path.isdir(self._path)
+    os.makedirs(self._path)
+  def name(self) -> str:
+    return self._name
+  def path(self) -> str:
+    return self._path
+    
+    
+    
