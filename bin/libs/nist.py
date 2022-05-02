@@ -22,7 +22,7 @@ class Nist:
         rg = re.search(f'{test}\s+([0-9.]+)\s+(PASS|FAIL)', raw)
         if rg:
           result[test] = [rg.group(2), rg.group(1)]
-        del t
+      del tmp
       return result
     except:
       Aio.printError("No SP800-22 test suite installed. Install using the script from aio2/utils/nist.")
