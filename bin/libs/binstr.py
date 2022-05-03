@@ -2,6 +2,7 @@ from libs.utils_int import *
 from libs.utils_str import *
 from collections import Counter
 from math import ceil
+import multiprocessing
 
 class BinString:
   BitCount = 64
@@ -122,9 +123,15 @@ class BinString:
       self._val <<= 1
       return bit
   def onesCount(self):
-    return Counter(self)[1]
+    cntr = 0
+    msk = (1 << self.BitCount) - 1
+    num = self._val & msk
+    while num > 0:
+      cntr += 1
+      num = num & (num - 1)
+    return cntr
   def zerosCount(self):
-    return Counter(self)[0]
+    return self.BitCount - self.onesCount()
   def parity(self):
     return Counter(self)[1] & 1
   def __iter__(self):
@@ -235,4 +242,14 @@ class BinString:
     new = self.copy()
     new._val = (1 << new.BitCount) - new._val 
     return new
+  # multiprocessing
+  def onesCountInList(BinStringList : list) -> int:
+    pool = multiprocessing.Pool()
+    partial = pool.map(BinString.onesCount, BinStringList)
+    pool.close()
+    pool.join()
+    result = 0
+    for s1 in partial:
+      result += s1
+    return result
   
