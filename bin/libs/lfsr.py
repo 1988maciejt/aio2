@@ -551,11 +551,13 @@ class LfsrType:
   Galois = 1
   Fibonacci = 2
   RingGenerator = 3
+  RingWithSpecifiedTaps = 4
 
 # Constants
 FIBONACCI = LfsrType.Fibonacci
 GALOIS = LfsrType.Galois
 RING_GENERATOR = LfsrType.RingGenerator
+RING_WITH_SPECIFIED_TAPS = LfsrType.RingWithSpecifiedTaps
 
 # LFSR BEGIN ======================
 class Lfsr:
@@ -595,7 +597,7 @@ class Lfsr:
     else:
       self._next_iteration = True
     return val
-  def __init__(self, polynomial, lfsr_type = LfsrType.Fibonacci):
+  def __init__(self, polynomial, lfsr_type = LfsrType.Fibonacci, manual_taps = []):
     poly = polynomial
     if "Lfsr" in str(type(polynomial)):
         self._my_poly = copy.deepcopy(polynomial._my_poly)
@@ -608,11 +610,16 @@ class Lfsr:
         self._taps = copy.deepcopy(polynomial._taps)
         return
     if type(Polynomial([0])) != type(polynomial):
-      poly = Polynomial(polynomial)
+      if lfsr_type == LfsrType.RingWithSpecifiedTaps:
+        poly = Polynomial([int(polynomial),0])
+      else:
+        poly = Polynomial(polynomial)
     self._my_poly = poly.getCoefficients()
     self._type = lfsr_type
     self._size = poly.getDegree()
-    if lfsr_type == LfsrType.Galois:
+    if lfsr_type == LfsrType.RingWithSpecifiedTaps:
+      self._taps = manual_taps
+    elif lfsr_type == LfsrType.Galois:
       self._mask = poly.toInt() >> 1
     elif lfsr_type == LfsrType.Fibonacci:
       self._mask = poly.toInt()
@@ -662,6 +669,8 @@ class Lfsr:
       result += "Fibonacci" 
     if self._type == LfsrType.RingGenerator:
       result += "RingGenerator" 
+    if self._type == LfsrType.RingWithSpecifiedTaps:
+      result += "RingWithSpecifiedTaps" 
     result += ")"
     return result
   def _buildFastSimArray(self):
@@ -719,7 +728,7 @@ class Lfsr:
         if lbit == 1:
           self.Value ^= self._mask
         return self.Value
-      elif self._type == LfsrType.RingGenerator:
+      elif self._type == LfsrType.RingGenerator or self._type == LfsrType.RingWithSpecifiedTaps:
         Value2 = Int.rotateRight(self.Value, self._size, 1)
         for tap in self._taps:
           From = tap[0]

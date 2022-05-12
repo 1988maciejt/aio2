@@ -6,7 +6,7 @@ from libs.aio import *
 import gc
 import zlib
 from libs.binstr import *
-import numba
+#import numba
 
 
 class RingOscillator:

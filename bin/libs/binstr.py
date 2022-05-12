@@ -133,7 +133,28 @@ class BinString:
   def zerosCount(self):
     return self.BitCount - self.onesCount()
   def parity(self):
-    return Counter(self)[1] & 1
+    return self.onesCount() & 1
+  def split(self, BusesList : list) -> list:
+    """aplit 
+
+    Args:
+        BusesList (list): list of bus sizes.
+        
+    Example:
+      BinString(64, 0xFF00FFFF).split([8,8,16])
+      -> [BinString(8,0xFF), BinString(8,0x00), BinString(16,0xFFFF)]
+    """
+    buses = BusesList.copy()
+    buses.reverse()
+    result = []
+    LsbIndex = 0
+    for bus in buses:
+      mask = ((1<<bus) - 1) << LsbIndex
+      val = (self._val & mask) >> LsbIndex
+      result.append(BinString(bus, val))
+      LsbIndex += bus
+    result.reverse()
+    return result
   def __iter__(self):
     self._ii = 0
     return self
@@ -242,8 +263,9 @@ class BinString:
     new = self.copy()
     new._val = (1 << new.BitCount) - new._val 
     return new
-  # multiprocessing
-  def onesCountInList(BinStringList : list) -> int:
+  
+class BinStringList:
+  def onesCount(BinStringList : list) -> int:
     pool = multiprocessing.Pool()
     partial = pool.map(BinString.onesCount, BinStringList)
     pool.close()
@@ -252,4 +274,13 @@ class BinString:
     for s1 in partial:
       result += s1
     return result
+  def split(BinStringList : list, BusesList : list) -> list:
+    buses = len(BusesList)
+    result = [ [] for i in range(buses)]
+    for b in BinStringList:
+      bsp = b.split(BusesList)
+      for i in range(buses):
+        result[i].append(bsp[i])
+    return result
+    
   

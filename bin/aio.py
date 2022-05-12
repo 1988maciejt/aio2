@@ -7,7 +7,7 @@ import inspect
 import collections
 import multiprocessing
 import imp
-import numba
+#import numba
 from asyncore import ExitNow
 import random
 import re
@@ -58,6 +58,7 @@ import matplotlib
 #import matplotlib_inline
 import matplotlib.pyplot as plt
 import latex
+import libs.jt as JT
 
 
 
