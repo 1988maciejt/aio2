@@ -2,7 +2,6 @@ import shutil
 import copy
 import gc
 import os
-import re
 import inspect
 import collections
 import multiprocessing
@@ -59,7 +58,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import latex
 import libs.jt as JT
-
+import re
 
 
 pbar = tqdm
