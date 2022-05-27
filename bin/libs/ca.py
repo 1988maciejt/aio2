@@ -1,7 +1,10 @@
+from curses.ascii import SP
 from libs.utils_array import *
 from libs.utils_int import *
 from libs.database import *
 from libs.aio import *
+from libs.lfsr import *
+from libs.PolynomialsArithmetic import *
 import copy
 
 class Ca:
@@ -24,7 +27,7 @@ class Ca:
     else:
       self._next_iteration = True
     return val
-  def __init__(self, Size : int, Rules : int):
+  def __init__(self, SizeOrPolynomial : int, Rules = 0):
     """Initializes the CA object.
 
     Args:
@@ -32,9 +35,19 @@ class Ca:
         Rules (int): rules vector. Bit==1 means 150 rule, Bit==0 means 90 rule.
           Example rules 0b101, 0b110110
     """
-    self._my_rules = Rules
-    self._value = 1
-    self._size = Size
+    if type(SizeOrPolynomial) == type(Polynomial([0])):
+      PPoly = SizeOrPolynomial.toInt()
+      SPoly = 1 << (p_degree(PPoly)-1)    
+      self._my_rules = None
+      while type(self._my_rules) == type(None):
+        self._my_rules = Ca.rules_from_bpoly(PPoly, SPoly)
+        SPoly += 1
+      self._value = 1
+      self._size = p_degree(PPoly)
+    else:
+      self._my_rules = Rules
+      self._value = 1
+      self._size = SizeOrPolynomial
   def __str__(self) -> str:
     return str(bin(self._value))
   def __repr__(self) -> str:
@@ -126,4 +139,49 @@ class Ca:
   def reset(self, NewValue = 1) -> int:
     self._value = NewValue
     return NewValue
-    
+  def rules_from_bpoly(polyint : int, polyint2 : int) -> int:
+    deg = p_degree(polyint)
+    result = 0
+    a = polyint
+    b = polyint2
+    for i in range(deg):
+#      print(f'{bin(a)}, {bin(b)}')
+      if not b:
+        return None
+      tpl = p_divmod(a, b)
+      #print (f'{i}:  divmod({a}, {b}) = {tpl}')
+      a = b
+      b = tpl[1]
+      if tpl[0] & 1:
+        result |= (1 << i)
+    if a == 1:
+      return result
+    return None  
+  def look_for_second_poly(modulus : int, fi):
+    n = p_degree(modulus)
+    print(f'modulus: {bin(modulus)}')
+    polyint_prim = p_derivative(modulus)
+    print(f'prim:    {bin(polyint_prim)}')
+    f = p_mod_mul(0b110, polyint_prim, modulus)
+    print(f'f:       {bin(f)}')
+    finv = p_mod_inv(f, modulus)
+    g = p_mod_pow(finv, 2, modulus)
+    print(f'g:       {bin(g)}')
+#    fi = 1
+#    if (n & 1) == 0:
+#      fi = p_get_next_trace1(1, modulus, True)
+    print(f'fi:      {bin(fi)}') 
+    beta = 0
+    for i in range(1, n):
+      g2isum = 0
+      for j in range(0, i):
+        g2i = p_mod_pow(g, 2**j, modulus)
+        g2isum ^= g2i
+      fi2i = p_mod_pow(fi, 2**i, modulus)
+      beta ^= p_mod_mul(fi2i, g2isum, modulus) 
+    print(f'beta: {bin(beta)}')
+    q1 = p_mod_mul(beta, f, modulus)
+    print(f'q1: {bin(q1)}')
+    return q1
+#    q2 = p_mod_inv(q1, modulus)
+#    print(f'q2: {bin(q2)}')

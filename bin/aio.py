@@ -42,6 +42,7 @@ from libs.logic import *
 from libs.multi_process import *
 from libs.nist import *
 from libs.polynomial import *
+import libs.PolynomialsArithmetic as PolynomialsArithmetic
 from libs.ring_oscillator import *
 from libs.stats import *
 from libs.unitnumber import *
