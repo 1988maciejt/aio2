@@ -92,7 +92,7 @@ def readDictionary(FileName : str, GZip = False) -> dict:
 def writeLinesFromList(FileName : str, List : list):
     f = open(FileName, "w")
     for i in List:
-      f.write(str(i))
+      f.write(str(i) + "\n")
     f.close()
     
     

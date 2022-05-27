@@ -3,8 +3,18 @@ from libs.aio import *
 import os
 import re
 from libs.files import *
+from libs.binstr import *
+from math import *
 
 class Nist:
+  def monobitPVal(ones_count : int, zeros_count : int) -> float:
+    s_obs = abs(ones_count-zeros_count)
+    aux = s_obs / sqrt(float(ones_count+zeros_count))
+    aux2 = aux / sqrt(2.)
+    return erfc(aux2)
+  def monobitTest(BinStringData : list) -> float:
+    N = len(BinStringData[0]) * len(BinStringData)
+  
   def sp800_22_execute(FileName : str) -> str:
     try:
       tmp = TempDir()
