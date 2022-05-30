@@ -536,6 +536,39 @@ Polynomial ("size,HexNumber", balancing=0)
     if len(result) > n > 0:
       return result[0:n-1]      
     return result
+  def listTapsFromTheLeft(degree : int, coeffs_count : int, max_distance = 3, n=0, quiet = False) -> list:
+    clist = [degree]
+    davg = degree // coeffs_count
+    distance = max_distance
+    if davg < distance:
+      distance = davg
+    num = degree
+    for _ in range(1, coeffs_count-1):
+      num -= distance
+      clist.append(num)
+    clist.append(0)
+    poly = Polynomial(clist)
+    plist = [poly.copy()]
+    while poly.makeNext():
+      plist.append(poly.copy())
+    return Polynomial.checkPrimitives(plist, n, quiet)
+  def firstTapsFromTheLeft(degree : int, coeffs_count : int, max_distance = 3, quiet = False) -> list:
+    lst = Polynomial.listTapsFromTheLeft(degree, coeffs_count, max_distance, quiet)
+    if len(lst) > 0:
+      return lst[0]
+    return None
+  def derivativeGF2(self) -> Polynomial:
+    result = self.copy();
+    coeffs = result._coefficients_list
+    coeffs.sort()
+    new_coeffs = []
+    for i in range(1,len(coeffs)):
+      if coeffs[i] & 1 == 1:
+        new_coeffs.append(coeffs[i]-1)
+    new_coeffs.sort(reverse=True)
+    result._coefficients_list = new_coeffs
+    return result
+
 # POLYNOMIAL END ==================
 
 

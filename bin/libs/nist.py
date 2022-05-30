@@ -12,9 +12,21 @@ class Nist:
     aux = s_obs / sqrt(float(ones_count+zeros_count))
     aux2 = aux / sqrt(2.)
     return erfc(aux2)
-  def monobitTest(BinStringData : list) -> float:
+  def monobitTest(BinStringData : list, PrintFullInfo = False) -> float:
     N = len(BinStringData[0]) * len(BinStringData)
-  
+    ones_count = BinStringList.onesCount(BinStringData)
+    zeros_count = N - ones_count
+    PVal = Nist.monobitPVal(ones_count, zeros_count)
+    if PrintFullInfo:
+        pf = "FAIL"
+        if PVal>0.01:
+            pf = "PASS"
+        Aio.print(f'Monobit test    {pf}')
+        Aio.print(f'  BIT_COUNT   : {N}')
+        Aio.print(f'  ONES_COUNT  : {ones_count}')
+        Aio.print(f'  ZEROS_COUNT : {zeros_count}')
+        Aio.print(f'  P_VALUE     : {PVal}')
+    return PVal
   def sp800_22_execute(FileName : str) -> str:
     try:
       tmp = TempDir()

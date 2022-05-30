@@ -35,6 +35,7 @@ from libs.database import *
 from libs.eseries import *
 from libs.files import *
 from libs.flags import *
+from libs.gcd import *
 from libs.gcode import *
 from libs.lfsr import *
 from libs.logic import *
