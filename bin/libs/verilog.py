@@ -579,6 +579,7 @@ class VerilogModules:
     result = ""
     for m in self._modules:
       result += m.getContent() + "\n\n"
+    return result
     
   
 class Verilog:
@@ -604,7 +605,7 @@ class Verilog:
   def __repr__(self) -> str:
     return "Verilog(" + str(len(self.Modules)) + ")"
   def __str__(self) -> str:
-    result = self.IndentationString + "VERILOG {"
+    result = self.IndentationString + "VERILOG {\n"
     self.Modules.IndentationString = self.IndentationString + "  "
     result += str(self.Modules) + "\n"
     result += self.IndentationString + "}"
@@ -636,6 +637,8 @@ class Verilog:
     return result
   def getContent(self) -> str:
     return self.Modules.getContent()
+  def writeToFile(self, FileName : str):
+    writeFile(FileName, self.getContent())
   def setTopModuleName(self, ModuleName : str) -> bool:
     if self.Modules.getModuleByName(ModuleName):
       self._top = ModuleName
