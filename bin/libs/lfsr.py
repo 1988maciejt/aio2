@@ -7,6 +7,7 @@ from libs.database import *
 from libs.utils_array import *
 from libs.utils_int import *
 from libs.cache import *
+from libs.asci_drawing import *
 import math
 from tqdm import *
 import multiprocessing
@@ -1006,7 +1007,176 @@ end
     
 endmodule'''
     return Module
-      
+  def draw(self, JT = False, Shorten = True, Crop = True):
+    if self._type == LfsrType.RingGenerator:
+      FFs = []
+      InputNodes = []
+      OutputNodes = []
+      OutputNodesPrim = []
+      OutputNodesPrim2 = []
+      InputNodesPrim = []
+      XorUsage = []
+      HorizontalWires = []
+      FFSize = 3
+      if self._size > 9:
+        FFSize = 4
+      if self._size > 99:
+        FFSize = 5
+      UpperSize = self._size // 2
+      LowerSize = self._size - UpperSize
+      WireTxt = " " * (FFSize + 1)
+      for i in range(self._size):
+        if JT:
+          FFs.append(AsciiDrawing_HorizontalFF(self.getJTIndex(i), FFSize))
+        else:
+          FFs.append(AsciiDrawing_HorizontalFF(i, FFSize))
+        InputNodes.append(AsciiDrawing_WiringNode(AD_DIRECTION_LEFT + AD_DIRECTION_RIGHT))
+        OutputNodes.append(AsciiDrawing_WiringNode(AD_DIRECTION_LEFT + AD_DIRECTION_RIGHT))
+        OutputNodesPrim.append(AsciiDrawing_WiringNode())
+        OutputNodesPrim2.append(AsciiDrawing_WiringNode())
+        InputNodesPrim.append(AsciiDrawing_WiringNode())
+        HorizontalWires.append(WireTxt)
+        XorUsage.append(0)
+      Lines = ["" for _ in range(9)]
+      # taps
+      empties = []
+      lastIndex = self._size-1
+      for tap in self._taps:
+        if tap[0] < lastIndex:
+          empties += [i  for i in range(tap[0]+2, lastIndex)]
+          lastIndex = tap[0]-1
+        OutputNodes[tap[0]].addDirection(AD_DIRECTION_DOWN)
+        OutputNodesPrim[tap[0]].addDirection(AD_DIRECTION_UP+AD_DIRECTION_DOWN)
+        OutputNodesPrim2[tap[0]].addDirection(AD_DIRECTION_UP)
+        ForLeftTesting = (self._size - tap[0])
+        ForRightTesting = ((self._size-2 - tap[0])) % self._size
+        if tap[0] == tap[1]:
+          XorUsage[tap[0]] += 1  
+        if (self._size-1 - tap[0]) == tap[1]:
+          OutputNodesPrim2[tap[0]].addDirection(AD_DIRECTION_DOWN)
+          InputNodes[tap[1]].addDirection(AD_DIRECTION_SPECIAL_XOR)
+          InputNodesPrim[tap[1]].addDirection(AD_DIRECTION_UP+AD_DIRECTION_DOWN)
+          XorUsage[tap[1]] += 1
+        elif ForLeftTesting == tap[1]:
+          ### Not yet supported!
+          OutputNodesPrim2[tap[0]].addDirection(AD_DIRECTION_LEFT)
+        elif ForRightTesting == tap[1]:
+          OutputNodesPrim2[tap[0]].addDirection(AD_DIRECTION_RIGHT)
+          if XorUsage[tap[1]] == 0:
+            OutputNodesPrim2[(tap[0]+1) % self._size].addDirection(AD_DIRECTION_LEFT+AD_DIRECTION_DOWN)
+            HorizontalWires[tap[0]] = AsciiDrawing_Characters.HORIZONTAL * (FFSize+1)
+            InputNodes[tap[1]].addDirection(AD_DIRECTION_SPECIAL_XOR)
+            InputNodesPrim[tap[1]].addDirection(AD_DIRECTION_UP+AD_DIRECTION_DOWN)
+          else:
+            HorizontalWires[tap[0]] = AsciiDrawing_Characters.HORIZONTAL * (FFSize) + AsciiDrawing_Characters.UPPER_RIGHT    
+          XorUsage[(tap[1] + 1) % self._size] += 1
+          if XorUsage[tap[1]] > 0:        
+            OutputNodes[(tap[1]+1) % self._size].addDirection(AD_DIRECTION_SPECIAL_XOR)
+            OutputNodesPrim[(tap[1]+1) % self._size].addDirection(AD_DIRECTION_UP+AD_DIRECTION_DOWN)           
+      if not Shorten:
+        empties = []
+      if LowerSize < lastIndex:
+        empties += [i  for i in range(LowerSize+1, lastIndex)]
+      el = []
+      for e in empties:
+        el.append(self._size-1 - e)
+      empties += el
+      # upper
+      Lines[0] += "  "
+      Lines[1] += AsciiDrawing_Characters.UPPER_LEFT + AsciiDrawing_Characters.LEFT_ARROW
+      Lines[2] += AsciiDrawing_Characters.VERTICAL + " "
+      if UpperSize < LowerSize:
+        Lines[0] += " " * (FFSize + 2)
+        Lines[1] += AsciiDrawing_Characters.HORIZONTAL * (FFSize + 2)
+        Lines[2] += " " * (FFSize + 2)
+      DashesAdded = False
+      for i in range(UpperSize):
+        index = LowerSize + i
+        if index in empties:       
+          if not DashesAdded:
+            Lines[0] += "  "
+            Lines[1] += "\U0000254C\U0000254C"
+            Lines[2] += "  "
+            DashesAdded = True
+          continue
+        DashesAdded = False
+        Lines[0] += " "
+        Lines[1] += str(OutputNodes[index])
+        Lines[2] += str(OutputNodesPrim[index])
+        Lines[0] += FFs[index].toString(0)
+        Lines[1] += FFs[index].toString(1)
+        Lines[2] += FFs[index].toString(2)
+        Lines[0] += " "
+        Lines[1] += str(InputNodes[index])
+        Lines[2] += " "
+      Lines[0] += "  "
+      Lines[1] += AsciiDrawing_Characters.LEFT_ARROW + AsciiDrawing_Characters.UPPER_RIGHT
+      Lines[2] += " " + AsciiDrawing_Characters.VERTICAL
+      # wires
+      Lines[3] += AsciiDrawing_Characters.VERTICAL + " "
+      if UpperSize < LowerSize:
+        Lines[3] += " " * (FFSize + 2)
+      DashesAdded = False
+      for i in range(UpperSize):
+        index = LowerSize + i
+        if index in empties:       
+          if not DashesAdded:
+            Lines[3] += "  "
+            DashesAdded = True
+          continue
+        DashesAdded = False
+        Lines[3] += str(OutputNodesPrim2[index]) + HorizontalWires[index]
+      Lines[3] += " " + AsciiDrawing_Characters.VERTICAL
+      # lower
+      Lines[6] += AsciiDrawing_Characters.VERTICAL + " "
+      Lines[7] += AsciiDrawing_Characters.LOWER_LEFT + AsciiDrawing_Characters.RIGHT_ARROW
+      Lines[8] += "  "
+      DashesAdded = False
+      for i in range(LowerSize):
+        index = LowerSize-1 - i
+        if index in empties:       
+          if not DashesAdded:
+            Lines[6] += "  "
+            Lines[7] += "\U0000254C\U0000254C"
+            Lines[8] += "  "
+            DashesAdded = True
+          continue
+        DashesAdded = False
+        Lines[6] += str(InputNodesPrim[index])
+        Lines[7] += str(InputNodes[index])
+        Lines[8] += " "
+        Lines[6] += FFs[index].toString(0)
+        Lines[7] += FFs[index].toString(1)
+        Lines[8] += FFs[index].toString(2)
+        Lines[6] += str(OutputNodesPrim[index])
+        Lines[7] += str(OutputNodes[index])
+        Lines[8] += " "
+      Lines[6] += " " + AsciiDrawing_Characters.VERTICAL
+      Lines[7] += AsciiDrawing_Characters.RIGHT_ARROW + AsciiDrawing_Characters.LOWER_RIGHT
+      Lines[8] += "  "
+      # print
+      Result = ""
+      Cols = Aio.getTerminalColumns()-1
+      for i in range(9):
+        if 4 <= i <= 5:
+          continue
+        if Crop:
+          Result += (Lines[i][0:Cols] + '\n')
+        else:
+          Result += (Lines[i] + '\n')
+    else:
+      Result = Aio.print("<This type of LFSR is not yet supported.>")
+    return Result
+  def print(self, JT = False, Shorten = True, Crop = True):
+    Aio.print(self.draw(JT, Shorten, Crop))
+  def getJTIndex(self, index):
+    if self._type == LfsrType.RingGenerator:
+      UpperSize = self._size // 2
+      LowerSize = self._size - UpperSize
+      if index >= LowerSize:
+        return index - LowerSize
+      return index + LowerSize
+    return index
     
 # LFSR END ========================
   
