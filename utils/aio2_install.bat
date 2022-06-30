@@ -21,3 +21,4 @@ pip3 install matplotlib
 pip3 install latex
 pip3 install jupyter
 pip3 install notebook
+pip3 install simple_term_menu

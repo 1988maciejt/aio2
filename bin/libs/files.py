@@ -6,13 +6,17 @@ import pathlib
 import random
 import shutil
 from tempfile import tempdir
+from simple_term_menu import TerminalMenu
 
 FS = pathlib.Path(".")
 
-def cd(dirname : str):
+def cd(dirname = None):
+  global FS
+  if dirname == None:
+    dirname = pickDirectory()
   os.chdir(dirname)
-  FS = pathlib.Path(os.getcwd())
-  
+  FS = pathlib.Path(os.getcwd())    
+
 def pwd() -> str:
   return os.getcwd()
 
@@ -24,10 +28,9 @@ def ls(DirsOnly = False) -> str:
         continue
     res.append(str(e))
   return res
-
-
-
-
+def mkdir(dirname : str):
+  os.mkdir(dirname)
+    
 def getAioPath() -> str:
   return os.path.dirname(os.path.dirname(__file__)) + "/"
 
@@ -129,4 +132,40 @@ class TempDir:
     return self._path
     
     
-    
+def pickFile(Path = "", Title = "Choose a file:", Preview = False) -> str:
+  Result = os.path.abspath(Path)
+  if os.path.isfile(Result):
+    Result = os.path.dirname(Result)
+  while os.path.isdir(Result):
+    Items = [".."] + os.listdir(Result)
+    if Preview:
+      PCommand = "batcat --color=never -p " + Result + "/{}"
+      Menu = TerminalMenu(Items, title=Title, preview_command=PCommand, preview_size=0.75)
+    else:
+      Menu = TerminalMenu(Items, title=Title)
+    Selected = Menu.show()
+    if Selected == 0:
+      Result = os.path.dirname(Result)
+    else:
+      Result += "/" + Items[Selected]
+  return Result
+
+def pickDirectory(Path = "", Title = "Choose a directory:", Preview = False) -> str:
+  Result = os.path.abspath(Path)
+  if os.path.isfile(Result):
+    Result = os.path.dirname(Result)
+  Choosen = False
+  while not Choosen:
+    AllItems = os.listdir(Result)
+    Dirs = ["CHOOSE THIS", ".."]
+    for Item in AllItems:
+      if os.path.isdir(Result + "/" + Item):
+        Dirs.append(Item)
+      Menu = TerminalMenu(Dirs, title=Title + "\n[" + Result + "]")
+    Selected = Menu.show()
+    if Selected == 1:
+      Result = os.path.dirname(Result)
+    elif Selected == 0:
+      return Result
+    else:
+      Result += "/" + Dirs[Selected]

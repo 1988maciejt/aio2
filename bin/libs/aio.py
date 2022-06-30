@@ -2,6 +2,7 @@ import shutil
 import os
 import re
 import pickle
+from libs.files import getAioPath
 from ansi2html import *
 
 class Aio:
@@ -39,6 +40,8 @@ class Aio:
     return shutil.get_terminal_size()[0]
   def getTerminalRows() -> int:
     return shutil.get_terminal_size()[1]
+  def getPath() -> str:
+    return getAioPath()
   def printTranscriptEnable(FileName = "transcript.txt"):
     global transcript_file
     Aio._transcript = ""
