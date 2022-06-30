@@ -1,12 +1,28 @@
 from libs.utils_int import *
 from libs.utils_str import *
+from libs.utils_list import *
 from collections import Counter
 from math import ceil
 import multiprocessing
 
 class BinString:
+  pass
+class BinString:
   BitCount = 64
   _val = 0
+  def merge(BinStringsList : list) -> BinString:
+    BSLLen = len(BinStringsList)
+    if BSLLen > 0:
+      res_size = BinStringsList[0].BitCount
+      res_val = BinStringsList[0]._val
+      for i in range(1, BSLLen):
+        ilen = BinStringsList[i].BitCount
+        ival = BinStringsList[i]._val
+        res_size += ilen
+        res_val = ((res_val << ilen) | ival)
+      return BinString(res_size, res_val)
+    else:
+      return BinString(1, 0)
   def fromList(BitCount=64, Data=[]) -> list:
     result = []
     for d in Data:
@@ -105,16 +121,16 @@ class BinString:
     return Int.getBit(self._val, Index)
   def copy(self):
     return BinString(self.BitCount, self._val)
-  def shiftIn(self, BitValue : int, Left=True):
-    if Left:
+  def shiftIn(self, BitValue : int, MSB=True):
+    if MSB:
+      self._val >>= 1
+      self._val = Int.setBit(self._val, self.BitCount-1, BitValue)
+    else:
       self._val <<= 1
       self._val += BitValue
-    else:
-      self._val >>= 1
-      Int.setBit(self._val, self.BitCount-1, BitValue)
     return self
-  def shiftOut(self, BitValue : int, Right=True):
-    if Right:
+  def shiftOut(self, LSB=True):
+    if LSB:
       bit = self._val & 1
       self._val >>= 1
       return bit
@@ -134,6 +150,12 @@ class BinString:
     return self.BitCount - self.onesCount()
   def parity(self):
     return self.onesCount() & 1
+  def getReversed(self):
+    BSNew = self.copy()
+    aux = self.copy()
+    for _ in range(self.BitCount):
+      BSNew.shiftIn(aux.shiftOut(), False)
+    return BSNew
   def split(self, BusesList : list) -> list:
     """aplit 
 
@@ -282,5 +304,79 @@ class BinStringList:
       for i in range(buses):
         result[i].append(bsp[i])
     return result
-    
-  
+  def merge(BinStringsListOfLists : list) -> list:
+    result = []
+    buses_count = len(BinStringsListOfLists)
+    bslen = len(BinStringsListOfLists[0])
+    for i in range(bslen):
+      row = []
+      for j in range(buses_count):
+        row.append(BinStringsListOfLists[j][i])
+      result.append(BinString.merge(row))
+    return result  
+  def toBytes(lst : list) -> bytes:
+    BytesResult = bytes(0)
+    IntResult = 0
+    BitCount = 0
+    for item in lst:
+      BitCount += item.BitCount
+      IntResult <<= item.BitCount
+      IntResult += item._val
+      if BitCount > 500:
+        if BitCount & 0b111 == 0:
+          BytesResult += BinString(BitCount, IntResult).toBytes()
+          IntResult = 0
+          BitCount = 0
+    if BitCount > 0:
+      Rest = 8 - (BitCount % 8)
+      BitCount += Rest
+      IntResult <<= Rest
+      BytesResult += BinString(BitCount, IntResult).toBytes()
+    return BytesResult
+	
+class BinStringBytes:
+  _flushed_len = 0
+  _length = 0
+  _bytes_table = bytes(0)
+  _rest_val = 0
+  _rest_len = 0
+  _file = None
+  def __init__(self, FileName = None):
+    if FileName != None:
+      self.openFile(FileName)
+  def __str__(self) -> str:
+    return str(self.toBytes())
+  def __repr__(self) -> str:
+    return "BinStringBytes(" + self.__str__() + ")"
+  def __len__(self) -> int:
+    return self._length + self._flushed_len
+  def __bytes__(self):
+    return self.toBytes()
+  def openFile(self, FileName):
+    self._file = open(FileName, 'wb')
+  def closeFile(self):
+    if self._file != None:
+      self._file.write(self.toBytes())
+      self._file.close()
+      self._file = None
+  def append(self, Value : BinString):
+    self._rest_len += Value.BitCount
+    self._rest_val <<= Value.BitCount
+    self._rest_val |= Value._val
+    if self._rest_len > 1000:
+      if self._rest_len & 0b111 == 0:
+        self._bytes_table += BinString(self._rest_len, self._rest_val).toBytes()
+        self._rest_len = 0
+        self._rest_val = 0
+    if self._file != None:
+      if len(self._bytes_table) >= 1024:
+        self._file.write(self._bytes_table)
+        self._flushed_len += len(self._bytes_table)
+        self._bytes_table = bytes(0)
+  def toBytes(self) -> bytes:
+    BRes = self._bytes_table
+    if self._rest_len > 0:
+      Rest = 8 - (self._rest_len % 8)
+      Val = self._rest_val << Rest
+      BRes += BinString(Rest+self._rest_len, Val).toBytes()
+    return BRes
