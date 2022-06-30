@@ -29,6 +29,7 @@ import dbm
 from ansi2html import *
 from libs.asci_drawing import *
 from libs.binstr import *
+from libs.binstream import *
 from libs.ca import *
 from libs.cache import *
 from libs.cas import *

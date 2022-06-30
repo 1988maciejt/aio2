@@ -4,7 +4,6 @@ import re
 import pickle
 from ansi2html import *
 
-
 class Aio:
   _transcript = "" 
   _sections = False

@@ -239,8 +239,12 @@ class BinString:
   def __ge__(self, other):
     return (self.getValue() >= other.getValue())
   def __eq__(self, other):
+    if type(other) == type(None):
+      return False
     return (self.getValue() == other.getValue())
   def __ne__(self, other):
+    if type(other) == type(None):
+      return True
     return (self.getValue() != other.getValue())
   def __iadd__(self, other):
     self._val += other.getValue()
@@ -341,9 +345,9 @@ class BinStringBytes:
   _rest_val = 0
   _rest_len = 0
   _file = None
-  def __init__(self, FileName = None):
+  def __init__(self, FileName = None, AppendToFile = False):
     if FileName != None:
-      self.openFile(FileName)
+      self.openFile(FileName, AppendToFile)
   def __str__(self) -> str:
     return str(self.toBytes())
   def __repr__(self) -> str:
@@ -352,8 +356,11 @@ class BinStringBytes:
     return self._length + self._flushed_len
   def __bytes__(self):
     return self.toBytes()
-  def openFile(self, FileName):
-    self._file = open(FileName, 'wb')
+  def openFile(self, FileName, AppendToFile = False):
+    if AppendToFile:
+      self._file = open(FileName, 'ab')
+    else:
+      self._file = open(FileName, 'wb')
   def closeFile(self):
     if self._file != None:
       self._file.write(self.toBytes())
