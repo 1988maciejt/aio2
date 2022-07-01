@@ -345,9 +345,10 @@ class BinStringBytes:
   _rest_val = 0
   _rest_len = 0
   _file = None
-  def __init__(self, FileName = None, AppendToFile = False):
+  _ascii = False
+  def __init__(self, FileName = None, AppendToFile = False, ASCII = False):
     if FileName != None:
-      self.openFile(FileName, AppendToFile)
+      self.openFile(FileName, AppendToFile, ASCII)
   def __str__(self) -> str:
     return str(self.toBytes())
   def __repr__(self) -> str:
@@ -356,30 +357,43 @@ class BinStringBytes:
     return self._length + self._flushed_len
   def __bytes__(self):
     return self.toBytes()
-  def openFile(self, FileName, AppendToFile = False):
-    if AppendToFile:
-      self._file = open(FileName, 'ab')
+  def openFile(self, FileName, AppendToFile = False, ASCII = False):
+    self._ascii = ASCII
+    if ASCII:
+      if AppendToFile:
+        self._file = open(FileName, 'a')
+      else:
+        self._file = open(FileName, 'w')
     else:
-      self._file = open(FileName, 'wb')
+      if AppendToFile:
+        self._file = open(FileName, 'ab')
+      else:
+        self._file = open(FileName, 'wb')
   def closeFile(self):
     if self._file != None:
-      self._file.write(self.toBytes())
+      if not self._ascii:
+        self._file.write(self.toBytes())
+        self._bytes_table = bytes(0)
       self._file.close()
       self._file = None
   def append(self, Value : BinString):
-    self._rest_len += Value.BitCount
-    self._rest_val <<= Value.BitCount
-    self._rest_val |= Value._val
-    if self._rest_len > 1000:
-      if self._rest_len & 0b111 == 0:
-        self._bytes_table += BinString(self._rest_len, self._rest_val).toBytes()
-        self._rest_len = 0
-        self._rest_val = 0
-    if self._file != None:
-      if len(self._bytes_table) >= 1024:
-        self._file.write(self._bytes_table)
-        self._flushed_len += len(self._bytes_table)
-        self._bytes_table = bytes(0)
+    if self._ascii and  self._file != None:
+      self._file.write(str(Value))
+      self._file.write('\n')
+    else:
+      self._rest_len += Value.BitCount
+      self._rest_val <<= Value.BitCount
+      self._rest_val |= Value._val
+      if self._rest_len > 1000:
+        if self._rest_len & 0b111 == 0:
+          self._bytes_table += BinString(self._rest_len, self._rest_val).toBytes()
+          self._rest_len = 0
+          self._rest_val = 0
+      if self._file != None:
+        if len(self._bytes_table) >= 1024:
+          self._file.write(self._bytes_table)
+          self._flushed_len += len(self._bytes_table)
+          self._bytes_table = bytes(0)
   def toBytes(self) -> bytes:
     BRes = self._bytes_table
     if self._rest_len > 0:

@@ -6,26 +6,39 @@ class BinStreamIn:
   _myfile = None
   _bit_to_read_from_byte = 7
   _last_byte = None
-  def __init__(self, BinFileName : str) -> None:
+  _ascii = False
+  def __init__(self, BinFileName : str, ASCII = False) -> None:
+    self._ascii = ASCII
     self._myfile = open(BinFileName, 'rb')
   def __repr__(self) -> str:
     return f'BinStreamIn({self._myfile.name})'
   def __str__(self) -> str:
     return f'BinStreamIn({self._myfile.name})'
   def getBit(self) -> int:
-    bresult = None
-    if self._last_byte == None:
-      res = self._myfile.read(1)
-      if res:
-        self._last_byte = res[0]
-        bresult = Int.getBit(self._last_byte, 7)
-        self._bit_to_read_from_byte = 6
+    if self._ascii:
+      while True:
+        res = self._myfile.read(1)
+        if res:
+          if res[0] == 48:
+            return 0
+          elif res[0] == 49:
+            return 1
+        else:
+          return None       
     else:
-      bresult = Int.getBit(self._last_byte, self._bit_to_read_from_byte)
-      if self._bit_to_read_from_byte > 0:
-        self._bit_to_read_from_byte -= 1
+      bresult = None  
+      if self._last_byte == None:
+        res = self._myfile.read(1)
+        if res:
+          self._last_byte = res[0]
+          bresult = Int.getBit(self._last_byte, 7)
+          self._bit_to_read_from_byte = 6
       else:
-        self._last_byte = None
+        bresult = Int.getBit(self._last_byte, self._bit_to_read_from_byte)
+        if self._bit_to_read_from_byte > 0:
+          self._bit_to_read_from_byte -= 1
+        else:
+          self._last_byte = None
     return bresult
   def getBinString(self, Length : int) -> BinString:
     Num = 0
@@ -39,9 +52,10 @@ class BinStreamIn:
 class BinStreamOut:
   _myfilename = None
   _my_bsb = None
-  def __init__(self, BinFileName : str) -> None:
+  def __init__(self, BinFileName : str, AppendToFile = False, ASCII = False) -> None:
+    self._ascii = ASCII
     self._myfilename = BinFileName
-    self._my_bsb = BinStringBytes(BinFileName)
+    self._my_bsb = BinStringBytes(BinFileName, AppendToFile, ASCII)
   def __repr__(self) -> str:
     return f'BinStreamOut({self._myfilename})'
   def __str__(self) -> str:
