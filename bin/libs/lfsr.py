@@ -113,6 +113,16 @@ Polynomial ("size,HexNumber", balancing=0)
     raise StopIteration  
   def __str__(self) -> str:
     return str(self._coefficients_list)
+  def toKassabStr(self) -> str:
+    result = "add_polynomial("
+    first = True
+    for c in self._coefficients_list:
+      if first:
+        first = False
+      else:
+        result += ", "
+      result += str(c)
+    return result + ");"
   def __repr__(self) -> str:
     return "Polynomial(" + str(self._coefficients_list) + ")"
   def __eq__(self, other : Polynomial) -> bool:
@@ -364,8 +374,9 @@ Polynomial ("size,HexNumber", balancing=0)
       if p.getBalancing() > p._balancing:
         return None
     if p._lf:
-      if not p.isLayoutFriendly():
-        return None
+      while not p.isLayoutFriendly():
+        if not p.makeNext():
+          return None
     return p
   def checkPrimitives(Candidates : list, n = 0, quiet = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)) found on a given list.
