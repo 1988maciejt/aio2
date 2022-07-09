@@ -29,7 +29,8 @@ class Plot:
   Height = None
   Colored = None
   Graphical = False
-  def __init__(self, Data=None, Type=PlotTypes.Scatter, Title="", XTicks=None, YTicks=None, XLabel=None, YLabel=None, Grid=False, Width=None, Height=None, Colored=True, Graphical=False) -> None:
+  Lines = True
+  def __init__(self, Data=None, Type=PlotTypes.Scatter, Title="", XTicks=None, YTicks=None, XLabel=None, YLabel=None, Grid=False, Width=None, Height=None, Colored=True, Lines=True, Graphical=False) -> None:
     """Initialization of the Plot object
 
     Args:
@@ -44,6 +45,8 @@ class Plot:
         Width (int, optional): plot width (char count). Defaults to None.
         Height (int, optional): plot height (rows count). Defaults to None.
         Colored (bool, optional): print colored plot or not. Defaults to True.
+		Lines (bool, optionsl): whether to connect scatter points by lines (default) or not
+		Graphical (bool, optional): default False. If True, then the graphical plot will be created instead of textplot
     """
     self.Title = Title
     if type("") == type(Type):
@@ -53,6 +56,7 @@ class Plot:
         self.Type = PlotTypes.Bar
     else:
       self.Type = Type
+    self.Lines = Lines
     self.XTicks = XTicks
     self.YTicks = YTicks
     self.Grid = Grid
@@ -66,8 +70,11 @@ class Plot:
       self.importDict(Data)
     elif "list" in str(type(Data)):
       if "list" in str(type(Data[0])):
-        self.XData = Data[0]
-        self.YData = Data[1]
+        self.XData = []
+        self.YData = []
+        for i in range(len(Data)):
+          self.XData.append(Data[i][0])
+          self.YData.append(Data[i][1])
       else:
         self.YData = Data
         self.XData = [i for i in range(len(Data))] 
@@ -122,7 +129,10 @@ class Plot:
     """Prints the plot
     """
     if self.Graphical:
-      plt.plot(self.XData, self.YData)
+      if self.Lines:
+        plt.plot(self.XData, self.YData)
+      else:
+        plt.plot(self.XData, self.YData, linestyle='None')
       if self.XLabel != None:
         plt.xlabel(self.XLabel)
       if self.YLabel != None:

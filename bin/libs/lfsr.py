@@ -398,7 +398,7 @@ Polynomial ("size,HexNumber", balancing=0)
       r = r[0:n]
     Aio.printTemp(" " * (Aio.getTerminalColumns()-1))
     return r
-  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, n = 0, quiet = False, MaxSetSize=1024) -> list:
+  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, n = 0, quiet = False, MaxSetSize=1024, ExcludeList = [], ReturnAlsoAllCandidaes = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -407,19 +407,28 @@ Polynomial ("size,HexNumber", balancing=0)
         balancing (int, optional): balancing factor. Defaults to 0 (no balance checking)
         n (int, optional): stop searching if n polynomials is found. Defaults to 0 (don't stop)
         quiet (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
+        ExcludeList (list, optional): list of polynomials excluded from checking
+        ReturnAlsoAllCandidaes (bool, optional): if true, then it returns list: [polynomials_found, all_tested_polynomials]
 
     Returns:
         list: list of polynomial objects
     """
     polys = Polynomial.createPolynomial(degree, coeffs_count, balancing, LayoutFriendly)
     if type(polys) == type(None):
+      if ReturnAlsoAllCandidaes:
+        return [[], []]
       return []
     result = []
     candidates = []
+    AllCandidates = []
     cntr = 0
     Polynomial._ctemp = False
     for p in polys:
+      if p in ExcludeList:
+        continue
       candidates.append(p.copy())
+      if ReturnAlsoAllCandidaes:
+        AllCandidates.append(p.copy())
       cntr += 1
       if (cntr >= MaxSetSize):
         result += Polynomial.checkPrimitives(candidates, n, quiet)
@@ -438,6 +447,8 @@ Polynomial ("size,HexNumber", balancing=0)
       result = result[0:n]
     Aio.printTemp()
     gc.collect()
+    if ReturnAlsoAllCandidaes:
+      return [result, AllCandidates]
     return result
   def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, quiet=True) -> Polynomial:
     """Returns a first found primitive (over GF(2)) polynomial.
@@ -477,8 +488,12 @@ Polynomial ("size,HexNumber", balancing=0)
     ccount = int(round(Degree / EveryN, 0)) | 1
     if ccount < 3: ccount = 3
     results = []
+    exclude = []
     for b in range(1, EveryN):
-      results += Polynomial.listPrimitives(Degree, ccount, b, True, n, quiet)
+      resultsAux = Polynomial.listPrimitives(Degree, ccount, b, True, n, quiet, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
+      exclude += resultsAux[1]
+      for pol in resultsAux[0]:
+        results.append(pol.copy())
       if n > 0:
         if len(results) >= n:
           break
@@ -495,11 +510,14 @@ Polynomial ("size,HexNumber", balancing=0)
     Half = int(Degree / 2) | 1
     c = Half
     result = []
+    exclude = []
     n2 = n
     Cont = True
     minc = Half * 0.8
     while (c >= 3) & Cont & (c >= minc):
-      result += Polynomial.listPrimitives(Degree, c, 1, False, n2, quiet)
+      resultAux = Polynomial.listPrimitives(Degree, c, 1, False, n2, quiet, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
+      result += resultAux[0]
+      exclude += resultAux[1]
       if n > 0:
         n2 -= len(result)
         if n2 <= 0:
@@ -512,7 +530,9 @@ Polynomial ("size,HexNumber", balancing=0)
       c = Half-2
       Cont = True
       while (c >= 3) & Cont & (c >= minc):
-        result += Polynomial.listPrimitives(Degree, c, 2, True, n2, quiet)
+        resultAux = Polynomial.listPrimitives(Degree, c, 2, True, n2, quiet, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
+        result += resultAux[0]
+        exclude += resultAux[1]
         if n > 0:
           n2 -= len(result)
           if n2 <= 0:
@@ -525,7 +545,9 @@ Polynomial ("size,HexNumber", balancing=0)
       c = Half-4
       Cont = True
       while (c >= 3) & Cont & (c >= minc):
-        result += Polynomial.listPrimitives(Degree, c, 3, True, n2, quiet)
+        resultAux = Polynomial.listPrimitives(Degree, c, 3, True, n2, quiet, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
+        result += resultAux[0]
+        exclude += resultAux[1]
         if n > 0:
           n2 -= len(result)
           if n2 <= 0:
