@@ -45,8 +45,8 @@ class Plot:
         Width (int, optional): plot width (char count). Defaults to None.
         Height (int, optional): plot height (rows count). Defaults to None.
         Colored (bool, optional): print colored plot or not. Defaults to True.
-		Lines (bool, optionsl): whether to connect scatter points by lines (default) or not
-		Graphical (bool, optional): default False. If True, then the graphical plot will be created instead of textplot
+        Lines (bool, optionsl): whether to connect scatter points by lines (default) or not
+        Graphical (bool, optional): default False. If True, then the graphical plot will be created instead of textplot
     """
     self.Title = Title
     if type("") == type(Type):
@@ -70,11 +70,8 @@ class Plot:
       self.importDict(Data)
     elif "list" in str(type(Data)):
       if "list" in str(type(Data[0])):
-        self.XData = []
-        self.YData = []
-        for i in range(len(Data)):
-          self.XData.append(Data[i][0])
-          self.YData.append(Data[i][1])
+        self.XData = Data[0].copy()
+        self.YData = Data[1].copy()
       else:
         self.YData = Data
         self.XData = [i for i in range(len(Data))] 
@@ -148,7 +145,7 @@ class Plot:
         plt.scatter(self.XData, self.YData)
       plt.show()
     else:
-      plotext.clear_plot()
+      plotext.clear_figure()
       plotext.title(self.Title)
       if self.XTicks != None:
         plotext.xticks(self.XTicks)
