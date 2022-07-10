@@ -39,6 +39,7 @@ from libs.files import *
 from libs.flags import *
 from libs.gcd import *
 from libs.gcode import *
+from libs.interactive_menu import *
 from libs.lfsr import *
 from libs.logic import *
 from libs.multi_process import *
@@ -55,7 +56,7 @@ from libs.utils_serial import *
 from libs.utils_str import *
 from libs.verilog import *
 from tqdm import *
-from simple_term_menu import TerminalMenu
+from simple_term_menu import *
 import pathos
 from sympy import *
 import matplotlib
