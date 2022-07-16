@@ -40,6 +40,7 @@ from libs.flags import *
 from libs.gcd import *
 from libs.gcode import *
 from libs.interactive_menu import *
+from libs.icarus_verilog import *
 from libs.lfsr import *
 from libs.logic import *
 from libs.multi_process import *

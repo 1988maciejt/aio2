@@ -649,6 +649,29 @@ class Verilog:
     return self._top
   def getTopModule(self) -> VerilogModule:
     return self.Modules.getModuleByName(self._top)
+  def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechlibFileName = None):
+    tmpFileName = "/tmp/tmp.v"
+    ysFileName = "synth.ys"
+    self.writeToFile(tmpFileName)
+    Script = f'read_verilog -sv {tmpFileName} \n'
+    if Xilinx:
+      Script += f'synth_xilinx '
+    else:
+      Script += f'hierarchy '
+    if TopModuleName != None:
+      Script += f'-top {TopModuleName} '
+    Script += f'\n'
+    Script += "techmap \n"
+    Script += "proc; fsm; opt; memory; opt \n"
+    if TechlibFileName != None:
+      Script += f'dfflibmap -prepare -liberty {TechlibFileName} \n'
+      Script += f'abc -liberty {TechlibFileName} \n'
+    Script += f'write_verilog -noattr -noexpr {OutputFileName} \n'
+    writeFile(ysFileName, Script)
+    result = Aio.shellExecute(f'yosys {ysFileName}')
+    Aio.print(result)
+    
+    
   
   
 class VerilogTestbenchClock:

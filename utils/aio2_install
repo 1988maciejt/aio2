@@ -53,8 +53,28 @@ sudo pip3 install notebook
 sudo pip3 install jupyterlab --ignore-installed pyzmq
 sudo pip3 install ipywidgets
 
-
+cd iverilog
+sudo apt install -y gtkwave gperf flex bison yosys covered 
+tar -zxvf verilog-11.0.tar.gz
+rm -rf ~/iverilog
+mv verilog-11.0 ~/iverilog
+cd ~/iverilog
+git clone https://github.com/steveicarus/iverilog.git
+cd iverilog
+git checkout --track -b v11-branch origin/v11-branch
+cd ../
+./configure
+sudo make
+sudo make install
 
 mkdir -p ~/.config/ptpython/
 cp ~/.config/ptpython/config.py ~/.config/ptpython/config.py.bak
 cp -r ${SCRIPTPATH}/ptpython_config.py ~/.config/ptpython/config.py
+
+cd /tmp
+git clone https://github.com/stefanhaustein/TerminalImageViewer.git
+cd TerminalImageViewer/src/main/cpp
+make
+sudo make install
+cd /tmp
+rm -rf TerminalImageViewer
