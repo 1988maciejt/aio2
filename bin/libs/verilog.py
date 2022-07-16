@@ -651,14 +651,60 @@ class Verilog:
     return self.Modules.getModuleByName(self._top)
   
   
-class VerilogTesbench:
-  _my_verilog = Verilog
-  def __init__(self, MyVerilog = Verilog()) -> None:
-    self._my_verilog = MyVerilog
+class VerilogTestbenchClock:
+  Name = "clk"
+  Frequency = 1000
+  DutyCycle = 0.5
+  EnableInput = False
+  def __init__(self, Name : str, Frequency = 1000, DutyCycle = 0.5, EnableInput = False) -> None:
+    self.Frequency = Frequency
+    self.DutyCycle = DutyCycle
+    self.Name = Name
+    self.EnableInput = EnableInput
   def __repr__(self) -> str:
-    return "VerilogTestbench(" + self._my_verilog.getTopModuleName + ")"
+    return f'VerilogTestbenchClock({self.Name}, {self.Frequency}, {self.DutyCycle})'
+  def __str__(self) -> str:
+    return self.__repr__()
+  def getSignalDeclaration(self):
+    Result = "reg " + self.Name
+    if self.EnableInput:
+      Result += ", " + self.Name + "_enable"
+    Result += ";"
+    return Result
+  def getEnableInputName(self):
+    return self.Name + "_enable"
+  def getBody(self):
+    onTimeNs = round(self.DutyCycle * 1000000000 / self.Frequency, 3)
+    offTimeNs = round(1000000000 / self.Frequency - onTimeNs, 3)
+    Result = "initial begin\n"
+    Result += f'  {self.Name} <= 1\'b0;\n'
+    Result += "  forever begin\n"
+    if self.EnableInput:
+      Result += f'    if ({self.Name}_enable) begin\n'
+      Result += f'      #{offTimeNs} {self.Name} <= 1\'b1;\n'
+      Result += f'      #{onTimeNs} {self.Name} <= 1\'b0;\n'
+      Result += f'    end\n'
+    else:
+      Result += f'    #{offTimeNs} {self.Name} <= 1\'b1;\n'
+      Result += f'    #{onTimeNs} {self.Name} <= 1\'b0;\n'
+    Result += "  end\n"
+    Result += "end"
+    return Result  
+  
+class VerilogTestbench:
+  _my_verilog = Verilog
+  Name = "tb"
+  Clocks = []
+  def __init__(self, Name = "tb", MyVerilog = Verilog()) -> None:
+    self._my_verilog = MyVerilog
+    self.Name = Name
+  def __repr__(self) -> str:
+    return "VerilogTestbench(" + self.Name + ", " + self._my_verilog.getTopModuleName() + ")"
   def __str__(self) -> str:
     result = "VERILOG_TESTBENCH {\n"
+    result += f'  Name = {self.Name}' + "\n"
+    for Clock in self.Clocks:
+      result += "  " + str(Clock) + "\n"
     self._my_verilog.IndentationString = "  "
     result += str(self._my_verilog) + "\n"
     result += "}"
@@ -667,3 +713,18 @@ class VerilogTesbench:
     self._my_verilog = MyVerilog
   def getVerilog(self) -> Verilog:
     return self._my_verilog
+  def getBody(self) -> str:
+    Result = f'module {self.Name} (' + "\n"
+    Result += ");\n\n"
+    for Clock in self.Clocks:
+      Result += Clock.getSignalDeclaration() + "\n"
+    for Clock in self.Clocks:
+      Result += "\n" + Clock.getBody() + "\n"
+    Result += "\nendmodule"
+    return Result
+  def addClock(self, TBClock : VerilogTestbenchClock):
+    self.Clocks.append(TBClock)
+  def createClock(self, Name : str, Frequency = 1000, DutyCycle = 0.5, EnableInput = False) -> VerilogTestbenchClock:
+    Clock = VerilogTestbenchClock(Name, Frequency, DutyCycle, EnableInput)
+    self.Clocks.append(Clock)
+    return Clock
