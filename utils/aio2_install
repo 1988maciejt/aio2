@@ -29,6 +29,8 @@ sudo pip3 install sympy
 sudo pip3 install matplotlib
 sudo pip3 install latex
 sudo pip3 install simple_term_menu 
+sudo pip3 install esptool
+sudo pip3 install rshell 
 pip3 install ipython
 pip3 install ptpython
 pip3 install pyserial

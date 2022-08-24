@@ -35,6 +35,7 @@ from libs.cache import *
 from libs.cas import *
 from libs.database import *
 from libs.eseries import *
+from libs.esp8266 import *
 from libs.files import *
 from libs.flags import *
 from libs.gcd import *
