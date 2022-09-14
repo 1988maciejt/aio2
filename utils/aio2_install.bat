@@ -24,3 +24,4 @@ pip3 install notebook
 pip3 install simple_term_menu
 pip3 install esptool
 pip3 install rshell
+pip3 install pydbus

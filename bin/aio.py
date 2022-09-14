@@ -35,6 +35,7 @@ from libs.cache import *
 from libs.cas import *
 from libs.database import *
 from libs.eseries import *
+from libs.esp32 import *
 from libs.esp8266 import *
 from libs.files import *
 from libs.flags import *
@@ -48,6 +49,7 @@ from libs.multi_process import *
 from libs.nist import *
 from libs.polynomial import *
 from libs.preprocessor import *
+from libs.simplecommandparser import *
 import libs.PolynomialsArithmetic as PolynomialsArithmetic
 from libs.ring_oscillator import *
 from libs.stats import *
