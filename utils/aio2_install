@@ -32,6 +32,7 @@ sudo pip3 install simple_term_menu
 sudo pip3 install esptool
 sudo pip3 install rshell 
 sudo pip3 install pydbus
+sudo pip3 install bitarray
 pip3 install ipython
 pip3 install ptpython
 pip3 install pyserial
@@ -52,6 +53,7 @@ pip3 install matplotlib
 pip3 install latex
 pip3 install simple_term_menu 
 pip3 install pydbus
+pip3 install bitarray
 sudo pip3 install jupyter
 sudo pip3 install notebook
 sudo pip3 install jupyterlab --ignore-installed pyzmq

@@ -1,15 +1,4 @@
-import numba
-
-from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-import warnings
-
-warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
-warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
-
-from numpy import polysub
-from sympy import Poly
 from libs.binstr import *
-from libs.logic import Logic
 from libs.aio import *
 from libs.database import *
 from libs.utils_array import *
@@ -19,10 +8,9 @@ from libs.asci_drawing import *
 import math
 from tqdm import *
 import multiprocessing
-import time
 import copy
 import gc
-import zlib
+from bitarray import *
 
 
 # POLYNOMIAL CLASS ================
@@ -262,11 +250,16 @@ Polynomial ("size,HexNumber", balancing=0)
     >>> 0b1011
     """
     clist = self._coefficients_list
-    degree = int(clist[0])
     result = int(0)
-    for i in range(len(clist)):
-      coeff = clist[i]
+    for coeff in clist:
       result += (1 << coeff)
+    return result
+  def toBitarray(self):
+    clist = self._coefficients_list
+    result = bitarray(self.getDegree()+1)
+    result.setall(0)
+    for coeff in clist:
+      result[-coeff-1] = 1
     return result
   def isPrimitive(self) -> bool:
     """Check if the polynomial is primitive over GF(2).
@@ -639,13 +632,13 @@ class Lfsr:
   Galois, Fibonacci (default), RingGenerator.
   """
   _my_poly = []
-  _mask = 0
-  Value = 0
   _type = LfsrType.Galois
   _hval = 0
   _size = 0
-  _fast_sim_array = False
+  _ba_fast_sim_array = False
   _taps = []
+  _baValue = bitarray(0)
+  _bamask = bitarray(0)
   def __del__(self):
     self.clear()
     self._taps.clear()
@@ -653,20 +646,20 @@ class Lfsr:
   def clear(self):
     """Clears the fast-simulation array
     """
-    #self._fast_sim_array.clear()
-    if self._fast_sim_array != False:
-      self._fast_sim_array.clear()
-      del self._fast_sim_array
-      self._fast_sim_array = False
+    if self._ba_fast_sim_array != False:
+      self._ba_fast_sim_array.clear()
+      del self._ba_fast_sim_array
+      self._ba_fast_sim_array = False
   def __iter__(self):
-    self.Value = 1
+    self.reset()
+    self._v0 = self._baValue.copy()
     self._next_iteration = False
     return self
   def __next__(self):
-    val = self.getValue()
+    val = self._baValue
     self.next()
     if self._next_iteration:    
-      if val == 1:
+      if val == self._v0:
         raise StopIteration
     else:
       self._next_iteration = True
@@ -675,12 +668,12 @@ class Lfsr:
     poly = polynomial
     if "Lfsr" in str(type(polynomial)):
         self._my_poly = copy.deepcopy(polynomial._my_poly)
-        self._mask = copy.deepcopy(polynomial._mask)
-        self.Value = copy.deepcopy(polynomial.Value)
         self._type = copy.deepcopy(polynomial._type)
         self._hval = copy.deepcopy(polynomial._hval)
         self._size = copy.deepcopy(polynomial._size)
-        self._fast_sim_array = copy.deepcopy(polynomial._fast_sim_array)
+        self._baValue = copy.deepcopy(polynomial._baValue)
+        self._bamask = copy.deepcopy(polynomial._bamask)
+        self._ba_fast_sim_array = copy.deepcopy(polynomial._ba_fast_sim_array)
         self._taps = copy.deepcopy(polynomial._taps)
         return
     if type(Polynomial([0])) != type(polynomial):
@@ -691,12 +684,13 @@ class Lfsr:
     self._my_poly = poly.getCoefficients()
     self._type = lfsr_type
     self._size = poly.getDegree()
+    self._baValue = bitarray(self._size)
     if lfsr_type == LfsrType.RingWithSpecifiedTaps:
       self._taps = manual_taps
     elif lfsr_type == LfsrType.Galois:
-      self._mask = poly.toInt() >> 1
+      self._bamask = (poly.toBitarray() >> 1)[1:]
     elif lfsr_type == LfsrType.Fibonacci:
-      self._mask = poly.toInt()
+      self._bamask = poly.toBitarray()[1:]
     elif lfsr_type == LfsrType.RingGenerator:
       self._rg_table = []
       flist = self._my_poly
@@ -729,12 +723,12 @@ class Lfsr:
       self._taps = taps
     else:
       Aio.printError("Unrecognised lfsr type '" + str(lfsr_type) + "'")
-    self.Value = 1
+    self.reset()
     self._hval = 1 << (poly.getDegree()-1)
   def toBinString(self):
-    return BinString(self._size, self.Value)
+    return BinString(str(self))
   def __str__(self) -> str:
-    return str(self.toBinString())
+    return str(self._baValue)[10:-2]
   def __repr__(self) -> str:
     result = "Lfsr(" + str(self._my_poly) + ", "
     if self._type == LfsrType.Galois:
@@ -748,35 +742,38 @@ class Lfsr:
     result += ")"
     return result
   def _buildFastSimArray(self):
-    oldVal = self.Value
+    oldVal = self._baValue
     size = self._size
-    self._fast_sim_array = create2DArray(size, size)
-    value0 = 1
+    self._ba_fast_sim_array = create2DArray(size, size)
+    value0 = bitarray(size)
+    value0.setall(0)
+    value0[-1] = 1
     for i in range(size):
-      self.Value = value0
-      self._fast_sim_array[0][i] = self.next()
-      value0 <<= 1
+      self._baValue = value0.copy()
+      self.next()
+      self._ba_fast_sim_array[0][i] = self._baValue.copy()
+      value0 <<= 1 
+    res = bitarray(size)
     for r in range(1,size):
-      rowm1 = self._fast_sim_array[r-1]
+      rowm1 = self._ba_fast_sim_array[r-1]
       for c in range(size):
-        bword = bin(rowm1[c])
         index = 0
-        res = 0
-        for b in reversed(bword):
-          if b == '1':
+        res.setall(0)
+        for b in reversed(rowm1[c]):
+          if b:
             res ^= rowm1[index]
           index += 1
-        self._fast_sim_array[r][c] = res
-    self.Value = oldVal
-  def getValue(self) -> int:
+        self._ba_fast_sim_array[r][c] = res.copy()
+    self._baValue = oldVal
+  def getValue(self) -> bitarray:
     """Returns current value of the LFSR
     """
-    return self.Value
+    return self._baValue
   def getSize(self) -> int:
     """Returns size of the LFSR
     """
     return (self._size)
-  def next(self, steps=1) -> int:
+  def next(self, steps=1) -> bitarray:
     """Performs a shift of the LFSR. If more than 1 step is specified, 
     the fast-simulation method is used.
 
@@ -784,7 +781,7 @@ class Lfsr:
         steps (int, optional): How many steps to simulate. Defaults to 1.
 
     Returns:
-        int: new LFSR value
+        bitarray: new LFSR value
     """
     if steps < 0:
       Aio.printError("'steps' must be a positve number")
@@ -793,45 +790,46 @@ class Lfsr:
       return self.Value
     if steps == 1:
       if self._type == LfsrType.Fibonacci:
-        hbit = Int.parityOf(self._mask & self.Value)
-        self.Value >>= 1
-        if hbit == 1:
-          self.Value |= self._hval
-        return self.Value
+        ParityBit = (self._baValue & self._bamask).count(1) & 1
+        self._baValue >>= 1
+        if ParityBit:
+          self._baValue[0] = 1
+        return self._baValue
       elif self._type == LfsrType.Galois:
-        lbit = self.Value & 0x1
-        self.Value >>= 1
-        if lbit == 1:
-          self.Value ^= self._mask
-        return self.Value
+        lbit = self._baValue[-1]
+        self._baValue >>= 1
+        if lbit:
+          self._baValue ^= self._bamask
+        return self._baValue
       elif self._type == LfsrType.RingGenerator or self._type == LfsrType.RingWithSpecifiedTaps:
-        Value2 = Int.rotateRight(self.Value, self._size, 1)
+        lbit = self._baValue[-1]
+        nval = self._baValue >> 1
+        nval[0] = lbit
         for tap in self._taps:
-          From = tap[0]
-          To = tap[1]
-          frombit = Int.getBit(self.Value, From)
-          Value2 ^= (frombit << To)
-        self.Value = Value2
-        return self.Value
-      return 0
+          From = -tap[0]-1
+          To = -tap[1]-1
+          nval[To] = nval[To] ^ self._baValue[From]
+        self._baValue = nval
+        return self._baValue
+      return bitarray(self._size).setall(0)
     else:
-      if self._fast_sim_array == False:
+      if self._ba_fast_sim_array == False:
         self._buildFastSimArray()
       size = self._size
       RowIndex = 0
-      #steps = copy.deepcopy(steps)
+      baresult = bitarray(size)
       while steps > 0: 
-        value0 = self.Value
-        if steps & 1 == 1:
-          result = 0
-          for b in range(size):
-            if value0 & 1 == 1:
-              result ^= self._fast_sim_array[RowIndex][b]
-            value0 >>= 1
-          self.Value = result
+        if steps & 1:
+          baresult.setall(0)
+          index = 0
+          for b in reversed(self._baValue):
+            if b:
+              baresult ^= self._ba_fast_sim_array[RowIndex][index]
+            index += 1
+          self._baValue = baresult.copy()
         steps >>= 1
         RowIndex += 1
-      return self.Value    
+      return self._baValue    
   def getPeriod(self) -> int:
     """Simulates the LFSR to obtain its period (count of states in trajectory).
 
@@ -840,8 +838,8 @@ class Lfsr:
               and it cannot determine the period.
     """
     MaxResult = Int.mersenne(self._size) + 1
-    self.Value = 1
-    value0 = self.Value
+    self.reset()
+    value0 = self._baValue.copy()
     result = 1
     valuex = self.next()
     while valuex != value0 and result <= MaxResult:
@@ -856,26 +854,25 @@ class Lfsr:
         bool: True if is maximum, otherwise False.
     """
     index = self._size
-    self.Value = 1
-    if self.next(Int.mersenne(index)) != 1:
+    self.reset()
+    value0 = self._baValue.copy()
+    if self.next(Int.mersenne(index)) != value0:
       return False
     lst = DB.getPrimitiveTestingCyclesList(index)
     for num in lst:
-      self.Value = 1
-      if self.next(num) == 1:
+      self.reset()
+      if self.next(num) == value0:
         return False
     return True
-  def reset(self, NewValue = 1) -> int:
-    """Resets the LFSR value 
-
-    Args:
-        NewValue (int, optional): new value. Defaults to 1.
+  def reset(self) -> bitarray:
+    """Resets the LFSR value to the 0b0...001
 
     Returns:
-        int: The new value
+        bitarray: The new value
     """
-    self.Value = NewValue
-    return NewValue
+    self._baValue.setall(0)
+    self._baValue[-1] = 1
+    return self._baValue
   def getValues(self, n = 0, step = 1, reset = True) -> list:
     """Returns a list containing consecutive values of the LFSR.
 
@@ -885,7 +882,7 @@ class Lfsr:
         reset (bool, optional): If True, then the LFSR is resetted to the 0x1 value before simulation. Defaults to True.
 
     Returns:
-        list of integers.
+        list of bitarrays.
     """
     if n <= 0:
       n = self.getPeriod()
@@ -893,7 +890,7 @@ class Lfsr:
       self.reset()
     result = []
     for i in range(n):
-      result.append(self.Value)
+      result.append(self._baValue.copy())
       self.next(step)
     return result
   def printValues(self, n = 0, step = 1, reset = True) -> None:
@@ -909,7 +906,7 @@ class Lfsr:
     if reset:
       self.reset()
     for i in range(n):
-      Aio.print(self.toBinString())
+      Aio.print(self)
       self.next(step)
   def getMSequence(self, bitIndex = 0, reset = True) -> str:
     """Returns a string containing the M-Sequence of the LFSR.
@@ -932,14 +929,14 @@ class Lfsr:
   def printFastSimArray(self):
     """Prints the fast-simulation array.
     """
-    if self._fast_sim_array == False:
+    if self._ba_fast_sim_array == False:
       self._buildFastSimArray()
-    for r in self._fast_sim_array:
+    for r in self._ba_fast_sim_array:
       line = ""
       for c in r:
-        line += str(bin(c)) + "\t"
+        line += str(str(c)[10:-2]) + "\t"
       Aio.print(line)
-  def _simplySim(self, sequence : BinString):
+  def _simplySim(self, sequence):
     rm = Lfsr(self)
     res = rm.simulateForDataString(sequence, self._IBit, self._Start)
     self._C.append(0)
@@ -948,7 +945,7 @@ class Lfsr:
       perc = round(cnt * 100 / self._N, 1)
       Aio.printTemp("  Lfsr sim ", perc , "%             ")  
     return res
-  def simulateForDataString(self, Sequence : BinString, InjectionAtBit = 0, StartValue = 0, quiet=False) -> int:
+  def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = None, quiet=False) -> int:
     if "list" in str(type(Sequence)):
       pool = multiprocessing.Pool()
       self._N = len(Sequence)
@@ -962,13 +959,14 @@ class Lfsr:
       Aio.printTemp("                                    ")
       del self._C
       return results
-    self.Value = StartValue
-    imask = 1 << InjectionAtBit
+    if not Aio.isType(StartValue, None):
+      self._baValue = StartValue
+    Index = -InjectionAtBit-1
     for Bit in Sequence:
       self.next()
-      if Bit == 1:
-        self.Value ^= imask
-    return self.Value
+      if Bit:
+        self._baValue[Index] ^= 1
+    return self._baValue
   def toVerilog(self, ModuleName : str, SingleInjector = False, CorrectionInput = False) -> str:
     Module = \
 f'''module {ModuleName} (
