@@ -1,3 +1,11 @@
+import numba
+
+from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+import warnings
+
+warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
+warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
+
 from numpy import polysub
 from sympy import Poly
 from libs.binstr import *
@@ -607,6 +615,7 @@ Polynomial ("size,HexNumber", balancing=0)
 
 
 # LFSR TYPE ENUM ==================
+
 class LfsrType:
   """Enumerator used to determine an LFSR type. 
   
@@ -750,14 +759,16 @@ class Lfsr:
       self._fast_sim_array[0][i] = self.next()
       value0 <<= 1
     for r in range(1,size):
+      rowm1 = self._fast_sim_array[r-1]
       for c in range(size):
-        result = 0
-        PrevValue = self._fast_sim_array[r-1][c]
-        for b in range(size):
-          if PrevValue & 1 == 1:
-            result ^= self._fast_sim_array[r-1][b]
-          PrevValue >>= 1
-        self._fast_sim_array[r][c] = result
+        bword = bin(rowm1[c])
+        index = 0
+        res = 0
+        for b in reversed(bword):
+          if b == '1':
+            res ^= rowm1[index]
+          index += 1
+        self._fast_sim_array[r][c] = res
     self.Value = oldVal
   def getValue(self) -> int:
     """Returns current value of the LFSR
