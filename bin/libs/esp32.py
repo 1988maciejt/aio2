@@ -4,7 +4,7 @@ from libs.aio import *
 from simple_term_menu import TerminalMenu
 import subprocess
 
-class Esp32:
+class Esp32c3:
   Port = ""
   _WasErased = False
   def __init__(self, Port = None) -> None:
@@ -16,10 +16,10 @@ class Esp32:
   def eraseFlash(self):
     subprocess.call(["esptool.py", "--chip", "esp32", "--port", self.Port, "erase_flash"])
     self._WasErased = True
-  def WriteFlash(self, File = None):
+  def writeFlash(self, File = None):
     if Aio.isType(File, None):
       File =  pickFile(Aio.getPath()+"../utils/esp32_firmware")
     if not self._WasErased:
       self.eraseFlash()
-    subprocess.call(["esptool.py", "--chip", "esp32", "--port", self.Port, "--baud", "460800", 
-                    "write_flash", "-z", "0x1000", File])
+    subprocess.call(["esptool.py", "--chip", "esp32c3", "--port", self.Port, "--baud", "921600", 
+                    "write_flash", "--flash_size=detect", "-z", "0x0", File])

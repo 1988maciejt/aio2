@@ -4,6 +4,7 @@ import re
 import pickle
 from libs.files import getAioPath
 from ansi2html import *
+import time
 
 class Aio:
   _transcript = "" 
@@ -223,7 +224,12 @@ class Aio:
       else:
         result = (result * 250) + (n-1)
     return result
-
+  def timeItCode(Code : str, Iterations = 1):
+    SCode = ""
+    for Line in Code.split("\n"):
+      SCode += "  " + Line + "\n"
+    TCode = f'dt = 0\nfor i in range({str(Iterations)}):\n  t0 = time.time()\n{SCode}\n  dt += time.time() - t0\nprint(dt/{str(Iterations)},"s")'
+    return compile(TCode, 'dummy', 'exec')
     
 class Tc:
   def step(name = "transcript.txt") -> None:

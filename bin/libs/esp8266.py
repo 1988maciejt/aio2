@@ -59,7 +59,7 @@ class Esp8266:
   def eraseFlash(self):
     subprocess.call(["esptool.py", "--port", self.Port, "erase_flash"])
     self._WasErased = True
-  def WriteFlash(self, File = None):
+  def writeFlash(self, File = None):
     if Aio.isType(File, None):
       File =  pickFile(Aio.getPath()+"../utils/esp8266_firmware")
     if not self._WasErased:

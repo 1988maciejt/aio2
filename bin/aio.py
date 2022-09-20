@@ -70,9 +70,53 @@ import matplotlib.pyplot as plt
 import latex
 import libs.jt as JT
 import re
-
+import cProfile, pstats, io
 
 pbar = tqdm
 sleep = time.sleep
 
+def timeIt(Code : str, Iterations = 1):
+    exec(Aio.timeItCode(Code, Iterations))
+    
+def profile(Code : str, FilterBuiltIns = True, FilterInternals = True):
+    pr = cProfile.Profile()
+    pr.enable()
+    exec(Code)
+    pr.disable()
+    s = io.StringIO()
+    sortby = pstats.SortKey.TIME
+    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    ps.print_stats()
+    for Line in str(s.getvalue()).split("\n"):
+        if FilterInternals and ("lib/python" in Line or 
+                               "<frozen " in Line or
+                               "__enter__" in Line or
+                               "__exit__" in Line or
+                               "'_thread." in Line or
+                               "'_multiprocessing." in Line or
+                               "'_pickle." in Line or
+                               "'_random." in Line or
+                               "'_socket." in Line or
+                               "'_queue." in Line or
+                               "__len__" in Line or
+                               "__getitem__" in Line or
+                               "'_hashlib." in Line or
+                               "'_io." in Line or
+                               "<string>:" in Line or
+                               "function Random." in Line or
+                               "function socket." in Line or
+                               "built-in method" in Line):
+            continue
+        if FilterBuiltIns and (" of 'str' objects" in Line or 
+                               " of 'dict' objects" in Line or 
+                               " of 'set' objects" in Line or 
+                               " of 'property' objects" in Line or 
+                               " of 'bytes' objects" in Line or 
+                               " of 'collections." in Line or 
+                               " of 'int' objects" in Line or 
+                               " of 'list' objects" in Line):
+            continue
+        if "'_lsprof.Profiler'" in Line:
+            continue
+        print(Line)
 

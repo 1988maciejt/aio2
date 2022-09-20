@@ -402,8 +402,6 @@ Polynomial ("size,HexNumber", balancing=0)
     PList = []
     for p in Candidates:
       PList.append(Polynomial(p))
-#    print("CHECK_PRIMITIVES:")
-#    print(Aio.format(PList))
     manager = multiprocessing.Manager()
     Polynomial._result = manager.list()
     Polynomial._n = n
