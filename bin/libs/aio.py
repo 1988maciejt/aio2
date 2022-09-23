@@ -104,6 +104,8 @@ class Aio:
     Aio._transcript += s
     if "transcript_file" in globals():
       transcript_file.write(s)
+      transcript_file.flush()
+      os.fsync(transcript_file.fileno())
     print(*args)
   def _add_collapsing_css():
     if not Aio._sections:
@@ -164,6 +166,7 @@ class Aio:
     if "transcript_file" in globals():
       transcript_file.write(s)
       transcript_file.flush()
+      os.fsync(transcript_file.fileno())
     Aio._transcript += '\n<button type="button" class="collapsible">' + str(SectionName) + '</button><div class="content">\n' 
     Aio._section_opened = True
   def transcriptSubsectionBegin(SectionName : str):
@@ -175,6 +178,8 @@ class Aio:
     print(s)
     if "transcript_file" in globals():
       transcript_file.write(s)
+      transcript_file.flush()
+      os.fsync(transcript_file.fileno())
     Aio._transcript += '\n<button type="button" class="collapsiblesub">' + str(SectionName) + '</button><div class="content">\n' 
     Aio._subsection_opened = True
   def transcriptSectionEnd():
@@ -183,12 +188,16 @@ class Aio:
     print("")    
     if "transcript_file" in globals():
       transcript_file.write("\n")
+      transcript_file.flush()
+      os.fsync(transcript_file.fileno())
   def transcriptSubsectionEnd():
     Aio._transcript += '</div>\n' 
     Aio._subsection_opened = False
     print("")
     if "transcript_file" in globals():
       transcript_file.write("\n")
+      transcript_file.flush()
+      os.fsync(transcript_file.fileno())
   def printError(*args):
     Aio.print("ERROR:",*args)
   def printTemp(*args):
