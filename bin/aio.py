@@ -47,6 +47,7 @@ from libs.iterators import *
 from libs.lfsr import *
 from libs.logic import *
 from libs.multi_process import *
+from libs.nlfsr import *
 from libs.nist import *
 from libs.polynomial import *
 from libs.preprocessor import *

@@ -37,7 +37,6 @@ class Polynomial:
   def __del__(self):
     if self._positions != False:
       self._positions.clear()
-    self._coefficients_list.clear()
   def __init__(self, coefficients_list : list, balancing = 0):
     """ Polynomial (Polynomial, balancing=0)
 Polynomial (coefficients_list, balancing=0)
@@ -664,6 +663,8 @@ class Lfsr:
     else:
       self._next_iteration = True
     return val
+  def copy(self):
+    return Lfsr(self)
   def __init__(self, polynomial, lfsr_type = LfsrType.Fibonacci, manual_taps = []):
     poly = polynomial
     if "Lfsr" in str(type(polynomial)):
@@ -786,9 +787,9 @@ class Lfsr:
     if steps < 0:
       Aio.printError("'steps' must be a positve number")
       return 0
-    if steps == 0:
-      return self.Value
-    if steps == 1:
+    elif steps == 0:
+      return self._baValue
+    elif steps == 1:
       if self._type == LfsrType.Fibonacci:
         ParityBit = (self._baValue & self._bamask).count(1) & 1
         self._baValue >>= 1
@@ -841,11 +842,16 @@ class Lfsr:
     self.reset()
     value0 = self._baValue.copy()
     result = 1
-    valuex = self.next()
-    while valuex != value0 and result <= MaxResult:
-      valuex = self.next()  
-      result += 1
-    return result
+    valuebefore = self._baValue.copy()
+    valuex = self.next().copy()
+    for i in range(MaxResult+1):
+      if valuex == value0:
+        return i+1
+      elif valuex == valuebefore:
+        return 1
+      valuebefore = valuex
+      valuex = self.next().copy()  
+    return -1      
   def isMaximum(self) -> bool:
     """Uses the fast-simulation method to determine if the LFSR's trajectory
     includes all possible (but 0) states. 
@@ -908,7 +914,7 @@ class Lfsr:
     for i in range(n):
       Aio.print(self)
       self.next(step)
-  def getMSequence(self, bitIndex = 0, reset = True) -> str:
+  def getMSequence(self, bitIndex = 0, reset = True) -> bitarray:
     """Returns a string containing the M-Sequence of the LFSR.
 
     Args:
@@ -918,12 +924,13 @@ class Lfsr:
     Returns:
         str: M-Sequence
     """
-    result = ""
+    result = bitarray()
+    bindex = -bitIndex-1
     if reset:
       self.reset()
     n = self.getPeriod()
     for i in range(n):
-      result += str(Int.getBit(self.Value, bitIndex))
+      result.append(self._baValue[bindex])
       self.next()
     return result
   def printFastSimArray(self):
