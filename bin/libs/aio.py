@@ -163,6 +163,7 @@ class Aio:
     print(s)
     if "transcript_file" in globals():
       transcript_file.write(s)
+      transcript_file.flush()
     Aio._transcript += '\n<button type="button" class="collapsible">' + str(SectionName) + '</button><div class="content">\n' 
     Aio._section_opened = True
   def transcriptSubsectionBegin(SectionName : str):
