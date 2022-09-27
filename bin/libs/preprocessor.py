@@ -10,6 +10,8 @@ def preprocessTextToPythonCode(Text : str, *args, **kwargs) -> str:
   Lines = Text.split('\n')
   Spaces = ""
   for Line in Lines:
+    if len(Line) == 0:
+      continue
     if re.match(r'^`\s*end\s*\S*$', Line):
       if len(Spaces) > 0:
         Spaces = Spaces[0:-1]

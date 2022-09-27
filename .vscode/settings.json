@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "*.dofile": "tcl",
+        "*.dc_script": "tcl",
+        "*.tessent_meta": "tcl",
+        "xstring": "cpp",
+        "vector": "cpp"
+    }
+}
