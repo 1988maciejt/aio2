@@ -14,6 +14,7 @@ class CppProgram:
   HeaderFileNames = []
   def __init__(self, CppFileName : str, *args, **kwargs) -> None:
     self._args = args
+    self.HeaderFileNames = []
     self._kwargs = kwargs
     rand = str(int(uniform(100000000, 999999999)))
     self.CppFileName = os.path.abspath(CppFileName)
@@ -23,6 +24,12 @@ class CppProgram:
     return f'{self.ExeFileName}'
   def __repr__(self) -> str:
     return f'CppProgram({self.CppFileName}, {self.ExeFileName})'
+  def setKwarg(self, Kwarg, Value):
+    if self._kwargs.get(Kwarg, None) != Value:
+      self.Compiled = False
+      self._kwargs[Kwarg] = Value
+  def getKwarg(self, Kwarg, DefaultValue):
+    return self._kwargs.get(Kwarg, DefaultValue)
   def compile(self) -> bool:
     preprocessFile(self.CppFileName, self.PreprocessedSourceFileName, *self._args, **self._kwargs)
     SourceFiles = self.PreprocessedSourceFileName
@@ -31,16 +38,18 @@ class CppProgram:
       preprocessFile(H+".cpp", '/tmp/'+os.path.basename(H)+".cpp", *self._args, **self._kwargs)
       SourceFiles += " " + '/tmp/'+os.path.basename(H)+".cpp"
     Cmd = f'g++ {SourceFiles} -o {self.ExeFileName}'
-    Result = Aio.shellExecute(Cmd)
-    if len(Result) > 2:
+    Result = Aio.shellExecute(Cmd, StdErr=True)
+    if len(Result) > 5:
       self._comp_error = Result
       self.Compiled = False
+      Aio.print(Result)
+      Aio.print('Command for debugging:\n  ', Cmd)
     else:
       self._comp_error = ""
       self.Compiled = True
     return self.Compiled
   def isCompiled(self) -> bool:
-    return self.Compiled
+    return bool(self.Compiled)
   def run(self, *args) -> str:
     if not self.Compiled:
       self.compile()
@@ -64,8 +73,19 @@ class CppProgram:
     self.HeaderFileNames.append(os.path.abspath(FileName))
     
 class CppPrograms:
-  NonLinearRingGeneratorPeriodCounter = CppProgram('junk')
+  _ready = 0
+  NLSFRPeriodCounter = CppProgram('junk')
+  NLSFRPeriodCounterInvertersAllowed = CppProgram('junk')
+  def debug(State = True):
+    for F in [CppPrograms.NLSFRPeriodCounter,
+              CppPrograms.NLSFRPeriodCounterInvertersAllowed]:
+      F.setKwarg('debug', State)
+        
   
 
-CppPrograms.NonLinearRingGeneratorPeriodCounter = CppProgram(Aio.getPath() + 'cpp/non_linear_ring_generator_period_counter.cpp')
-CppPrograms.NonLinearRingGeneratorPeriodCounter.addHeader(Aio.getPath() + 'cpp/libs/string_split')
+if not CppPrograms._ready:
+  CppPrograms._ready = 1
+  CppPrograms.NLSFRPeriodCounter = CppProgram(Aio.getPath() + 'cpp/non_linear_ring_generator_period_counter.cpp')
+  CppPrograms.NLSFRPeriodCounter.addHeader(Aio.getPath() + 'cpp/libs/string_split')
+  CppPrograms.NLSFRPeriodCounterInvertersAllowed = CppProgram(Aio.getPath() + 'cpp/non_linear_ring_generator_period_counter.cpp', inverters=1)
+  CppPrograms.NLSFRPeriodCounterInvertersAllowed.addHeader(Aio.getPath() + 'cpp/libs/string_split')

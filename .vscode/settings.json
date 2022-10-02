@@ -4,6 +4,16 @@
         "*.dc_script": "tcl",
         "*.tessent_meta": "tcl",
         "xstring": "cpp",
-        "vector": "cpp"
+        "vector": "cpp",
+        "deque": "cpp",
+        "initializer_list": "cpp",
+        "list": "cpp",
+        "queue": "cpp",
+        "random": "cpp",
+        "stack": "cpp",
+        "type_traits": "cpp",
+        "valarray": "cpp",
+        "xtree": "cpp",
+        "xutility": "cpp"
     }
 }

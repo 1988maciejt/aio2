@@ -59,7 +59,6 @@ from libs.stats import *
 from libs.unitnumber import *
 from libs.utils_array import *
 from libs.utils_int import *
-from libs.utils_list import *
 from libs.utils_serial import *
 from libs.utils_str import *
 from libs.verilog import *
@@ -74,6 +73,7 @@ import latex
 import libs.jt as JT
 import re
 import cProfile, pstats, io
+from libs.utils_list import *
 
 pbar = tqdm
 sleep = time.sleep

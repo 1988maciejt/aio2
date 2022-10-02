@@ -212,7 +212,18 @@ class Aio:
         txt = txt[0:wl-2]
       txt += "\r"
       print(txt,end="")
-  def shellExecute(ShellCommand : str) -> str:
+  def shellExecute(ShellCommand : str, StdOut = True, StdErr = False) -> str:
+    from subprocess import PIPE, Popen
+    p = Popen(ShellCommand, shell=True, stdout=PIPE, stderr=PIPE)
+    stdout, stderr = p.communicate()
+    Result = ""
+    if StdOut:
+      Result += stdout.decode('utf-8')
+      if StdErr:
+        Result += "\n"
+    if StdErr:
+      Result += stderr.decode('utf-8')
+    return Result
     stream = os.popen(ShellCommand)
     return stream.read()
   def numToCompressedString(num : int) -> str:

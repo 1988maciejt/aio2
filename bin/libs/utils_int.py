@@ -1,7 +1,25 @@
 import re
+from math import sqrt
 from libs.utils_str import *
 
 class Int:
+  
+  _primes = [2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97]
+  def isPrime(value : int) -> bool:
+    DMax = int(sqrt(value))+1
+    Prime = True
+    NM = Int._primes[-1]
+    while Int._primes[-1] < DMax:
+      NM += 2
+      if Int.isPrime(NM):
+        Int._primes.append(NM)
+    for N in Int._primes:
+      if N > DMax:
+        break
+      if (value % N) == 0:
+        Prime = False
+        break
+    return Prime
   
   def shiftLeft(value : int, bitsize : int, steps=1) -> int:
     if (steps < 0):

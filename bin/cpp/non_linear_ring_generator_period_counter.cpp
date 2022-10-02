@@ -1,4 +1,5 @@
 `debug = kwargs.get('debug', 0)
+`inverters = kwargs.get('inverters', 0)
 
 #include <iostream>
 #include <string>
@@ -12,40 +13,59 @@ int main(int argc, char* argv[])
 {
    if (argc < 2) {
       cout << "Too few arguments!" << endl;
-      return 1;
+      return 0;
    }
    
+   // Taps database
    int Size = stoi(argv[1]);
    int TapsCount = argc - 2;
    int*** TapsBase = new int**[Size];
    for (int i = 0; i < Size; ++i) {
       TapsBase[i] = new int*[TapsCount];
    }
+`if inverters:
+
+   // Inverters database
+   bool** InvertersBase = new bool*[TapsCount];
+`endif
    
    // Parsing taps from argv
    vector<vector<int>> Taps;
    int TapIndex = 0;
    for (int i = 2; i < argc; ++i) {
-      cout << argv[i] << " ";
-      vector<string> TapStrings = split(argv[i], "-");    
+      vector<string> TapStrings = stringSplit(argv[i], "_");   
+`if inverters:
+      bool* TapInverters = new bool[TapStrings.size()];
+`endif
       int TapTableSize = TapStrings.size()+1;
       bool Destination = true;
       int NumPosition = 1;
-      for (auto Num : TapStrings) {
+      for (auto sNum : TapStrings) {
+`if inverters:
+         int iNum = stoi(sNum);
+         int Num = ((iNum < 0) ? -iNum : iNum) % Size;
+         TapInverters[NumPosition-1] = (iNum < 0);
+`endif
+`else:
+         int Num = stoi(sNum) % Size;
+`endif
          for (int Offset = 0; Offset < Size; ++Offset) {
             if (Destination) {
                int* Tap = new int[TapTableSize];
-               Tap[0] = (stoi(Num) + 1 + Offset) % Size;
+               Tap[0] = (Num + 1 + Offset) % Size;
                Tap[1] = TapTableSize;
                TapsBase[Offset][TapIndex] = Tap;
             } else {
-               TapsBase[Offset][TapIndex][NumPosition] = (stoi(Num) + Offset) % Size;
+               TapsBase[Offset][TapIndex][NumPosition] = (Num + Offset) % Size;
             }
          }
          NumPosition++;
          Destination = false;
       }
       TapIndex++;
+`if inverters:
+      InvertersBase[i-2] = TapInverters;
+`endif
    }
 
 `if debug:
@@ -85,9 +105,23 @@ int main(int argc, char* argv[])
          int DestinationIndex = Tap[0];
          int TapMaxIndex = Tap[1];
          int AndResult = 1;
-         for (int AIndex = 2; AIndex < TapMaxIndex; ++AIndex) {
+         for (int AIndex = 2; AIndex < TapMaxIndex; ++AIndex) {           
+`if inverters:
+            if (InvertersBase[TapIndex][AIndex-1]) {
+               AndResult &= !Value[Tap[AIndex]];
+            } else {
+               AndResult &= Value[Tap[AIndex]];
+            }
+`endif
+`else:
             AndResult &= Value[Tap[AIndex]];
+`endif
          }
+`if inverters:
+         if (InvertersBase[TapIndex][0]) {
+            AndResult = !AndResult;
+         }
+`endif
          int OldBit = Value[DestinationIndex];
          int NewBit = OldBit ^ AndResult;
          Value[DestinationIndex] = NewBit;
@@ -113,5 +147,5 @@ int main(int argc, char* argv[])
       cout << "  " << OnesCount << endl;
 `endif
    }
-   cout << ";" << Period;
+   cout << Period;
 }

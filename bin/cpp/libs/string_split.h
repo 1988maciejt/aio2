@@ -6,7 +6,6 @@
 
 using namespace std;
 
- // Split proc for arg
-vector<string> split (string s, string delimiter);
+vector<string> stringSplit (string s, string delimiter);
 
 #endif
