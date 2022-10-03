@@ -14,7 +14,7 @@ class Nlfsr(Lfsr):
   _points = []
   _start = bitarray()
   _offset = 0
-  _exebane = ""
+  _exename = ""
   def clear(self):
     pass
   def copy(self):
@@ -61,12 +61,12 @@ class Nlfsr(Lfsr):
       self._Config = Size._Config.copy()
       self._baValue = Size._baValue.copy()
       self._points = Size._points
-      self._exebane = Size._exename
+      self._exename = Size._exename
     else:  
       self._size = Size
       self._Config = Config
       self._baValue = bitarray(self._size)
-      self._exebane = ""
+      self._exename = ""
       self.reset()
   def __repr__(self) -> str:
     result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ")"
@@ -121,8 +121,8 @@ class Nlfsr(Lfsr):
           if S < 0:
             WithInverters = 1
       ArgStr += " " + TString
-    if len(self._exebane) > 0:
-      Res = Aio.shellExecute(self._exebane + " " + ArgStr)   
+    if len(self._exename) > 0:
+      Res = Aio.shellExecute(self._exename + " " + ArgStr)   
     else:
       if WithInverters:
         Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
@@ -179,7 +179,7 @@ class Nlfsr(Lfsr):
     return Results
   def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False):
     #Pool = multiprocessing.Pool()
-    global _exebane
+    print("HERE")
     if InvertersAllowed:
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounterInvertersAllowed.Compiled:
@@ -189,8 +189,8 @@ class Nlfsr(Lfsr):
 #      if not CppPrograms.NLSFRPeriodCounter.Compiled:
 #        CppPrograms.NLSFRPeriodCounter.compile()
     InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, InvertersAllowed)
-    for n in InputSet:
-      n._exename = exename
+    for i in range(len(InputSet)):
+      InputSet[i]._exename = exename
     Periods = process_map(_nlfsr_find_spec_period_helper, InputSet, chunksize=10)
     #Periods = Pool.map(_nlfsr_find_spec_period_helper, InputSet)
     #Pool.close()
