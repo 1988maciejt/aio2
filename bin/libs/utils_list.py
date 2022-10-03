@@ -8,7 +8,7 @@ import multiprocessing
 
 class List:
   
-  def getPermutationsPfManyLists(ExcludeBase = 0, *lists) -> list:
+  def getPermutationsPfManyLists(*lists, ExcludeBase = 0, ) -> list:
     """gets some lists and returns a list of lists containing
     all possible permutations of elements of those lists.
     

@@ -23,14 +23,14 @@ class Aio:
         result += Aio.format(i, indent+2, Repr)
       result += " "*indent + "]\n"
     elif "dict" in str(type(object)):
-      result += " "*indent + "[\n"
+      result += " "*indent + "{\n"
       for key in object.keys():
         if Repr:
           result += " "*indent + "  " + repr(key) + ":\n"
         else:
           result += " "*indent + "  " + str(key) + ":\n"
-        result += Aio.format(object[key], indent+2, Repr)
-      result += " "*indent + "]\n"
+        result += Aio.format(object[key], indent+4, Repr)
+      result += " "*indent + "}\n"
     else: 
       if Repr:
         result = " "*indent + repr(object) + "\n"

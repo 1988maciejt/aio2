@@ -147,5 +147,5 @@ int main(int argc, char* argv[])
       cout << "  " << OnesCount << endl;
 `endif
    }
-   cout << Period;
+   cout << Period << " ";
 }

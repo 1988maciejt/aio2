@@ -23,7 +23,7 @@ class Nlfsr(Lfsr):
     self._Config.clear()
     self._baValue.clear()
   def printFullInfo(self):
-    Result = "NLFSRs taps list:\n"
+    Result = f'{self._size}-bits NLFSRs taps list:\n'
     for C in self._Config:
       D = C[0]
       Slist = C[1]
@@ -54,7 +54,7 @@ class Nlfsr(Lfsr):
       if DInv:
         Result += " )"
       Result += "\n"
-      Aio.print(Result)
+    Aio.print(Result[:-1])
   def __init__(self, Size : int, Config = []) -> None:
     if Aio.isType(Size, "Nlfsr"):
       self._size = Size._size      
@@ -69,27 +69,27 @@ class Nlfsr(Lfsr):
   def __repr__(self) -> str:
     result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ")"
     return result
-  def _next(self):
-    NewVal = self._baValue >> 1
+  def _next1(self):
+    NewVal = self._baValue << 1
     NewVal[-1] = self._baValue[0]
     for Tap in self._Config:
       D = Tap[0]
       S = Tap[1]
       AndResult = 1
       if Aio.isType(S, 0):
-        Bit = self._baValue[S % self._size]
+        Bit = self._baValue[abs(S) % self._size]
         if S < 0:
           Bit = 1 - Bit
         AndResult = Bit
       else:
         for Si in S:
-          Bit = self._baValue[Si % self._size]
+          Bit = self._baValue[abs(Si) % self._size]
           if Si < 0:
             Bit = 1 - Bit
           AndResult &= Bit
       if D < 0:
         AndResult = 1 - AndResult
-      NewVal[D % self._size] ^= AndResult
+      NewVal[abs(D) % self._size] ^= AndResult
     self._baValue = NewVal
     return self._baValue
   def next(self, steps=1):
@@ -119,11 +119,12 @@ class Nlfsr(Lfsr):
           if S < 0:
             WithInverters = 1
       ArgStr += " " + TString
+    if WithInverters:
+      Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
+    else:
+      Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
     try:
-      if WithInverters:
-        return int(CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr))
-      else:
-        return int(CppPrograms.NLSFRPeriodCounter.run(ArgStr))
+      return int(Res)
     except:
       return 0
   def isMaximum(self):
