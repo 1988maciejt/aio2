@@ -6,7 +6,6 @@ import multiprocessing
 from random import uniform
 from tqdm.contrib.concurrent import process_map
 
-_globalsum = 0
 
 class Nlfsr(Lfsr):
   _baValue = None
@@ -15,6 +14,7 @@ class Nlfsr(Lfsr):
   _points = []
   _start = bitarray()
   _offset = 0
+  _exebane = ""
   def clear(self):
     pass
   def copy(self):
@@ -61,10 +61,12 @@ class Nlfsr(Lfsr):
       self._Config = Size._Config.copy()
       self._baValue = Size._baValue.copy()
       self._points = Size._points
+      self._exebane = Size._exename
     else:  
       self._size = Size
       self._Config = Config
       self._baValue = bitarray(self._size)
+      self._exebane = ""
       self.reset()
   def __repr__(self) -> str:
     result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ")"
@@ -119,10 +121,13 @@ class Nlfsr(Lfsr):
           if S < 0:
             WithInverters = 1
       ArgStr += " " + TString
-    if WithInverters:
-      Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
+    if len(self._exebane) > 0:
+      Res = Aio.shellExecute(self._exebane + " " + ArgStr)   
     else:
-      Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
+      if WithInverters:
+        Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
+      else:
+        Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
     try:
       return int(Res)
     except:
@@ -174,13 +179,18 @@ class Nlfsr(Lfsr):
     return Results
   def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False):
     #Pool = multiprocessing.Pool()
+    global _exebane
     if InvertersAllowed:
-      if not CppPrograms.NLSFRPeriodCounterInvertersAllowed.Compiled:
-        CppPrograms.NLSFRPeriodCounterInvertersAllowed.compile()
+      exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+#      if not CppPrograms.NLSFRPeriodCounterInvertersAllowed.Compiled:
+#        CppPrograms.NLSFRPeriodCounterInvertersAllowed.compile()
     else:
-      if not CppPrograms.NLSFRPeriodCounter.Compiled:
-        CppPrograms.NLSFRPeriodCounter.compile()
+      exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+#      if not CppPrograms.NLSFRPeriodCounter.Compiled:
+#        CppPrograms.NLSFRPeriodCounter.compile()
     InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, InvertersAllowed)
+    for n in InputSet:
+      n._exename = exename
     Periods = process_map(_nlfsr_find_spec_period_helper, InputSet, chunksize=10)
     #Periods = Pool.map(_nlfsr_find_spec_period_helper, InputSet)
     #Pool.close()

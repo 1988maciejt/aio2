@@ -30,6 +30,10 @@ class CppProgram:
       self._kwargs[Kwarg] = Value
   def getKwarg(self, Kwarg, DefaultValue):
     return self._kwargs.get(Kwarg, DefaultValue)
+  def getExePath(self) -> str:
+    if not self.Compiled:
+      self.compile()
+    return self.ExeFileName
   def compile(self) -> bool:
     preprocessFile(self.CppFileName, self.PreprocessedSourceFileName, *self._args, **self._kwargs)
     SourceFiles = self.PreprocessedSourceFileName
