@@ -1,6 +1,7 @@
 from libs.cpp_program import *
 from libs.lfsr import *
 from libs.utils_list import *
+from libs.utils_bitarray import *
 from bitarray import *
 import multiprocessing
 from random import uniform
@@ -74,26 +75,28 @@ class Nlfsr(Lfsr):
     result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ")"
     return result
   def _next1(self):
-    NewVal = self._baValue << 1
-    NewVal[-1] = self._baValue[0]
+    NewVal = Bitarray.rotr(self._baValue)
     for Tap in self._Config:
       D = Tap[0]
       S = Tap[1]
+      DIndex = -(abs(D) % self._size)-1
       AndResult = 1
       if Aio.isType(S, 0):
-        Bit = self._baValue[abs(S) % self._size]
+        SIndex = -(abs(S) % self._size)-1
+        Bit = self._baValue[SIndex]
         if S < 0:
           Bit = 1 - Bit
         AndResult = Bit
       else:
         for Si in S:
-          Bit = self._baValue[abs(Si) % self._size]
+          SIndex = -(abs(Si) % self._size)-1
+          Bit = self._baValue[SIndex]
           if Si < 0:
             Bit = 1 - Bit
           AndResult &= Bit
       if D < 0:
         AndResult = 1 - AndResult
-      NewVal[abs(D) % self._size] ^= AndResult
+      NewVal[DIndex] ^= AndResult
     self._baValue = NewVal
     return self._baValue
   def next(self, steps=1):
