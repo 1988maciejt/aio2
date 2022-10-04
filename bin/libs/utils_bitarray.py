@@ -16,9 +16,8 @@ class Bitarray:
         
     def getShiftBetweenSequences(A : bitarray, B : bitarray) -> int:
         if len(A) == len(B):
-            B2 = B.copy()
-            for i in range(len(A)):
-                if A == B2:
-                    return i
-                B2 = Bitarray.rotl(B2)
+            B2 = B + B
+            Res = B2.find(A)
+            if Res >= 0:
+                return Res
         return None
