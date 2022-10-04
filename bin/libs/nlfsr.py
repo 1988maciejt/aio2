@@ -2,6 +2,7 @@ from libs.cpp_program import *
 from libs.lfsr import *
 from libs.utils_list import *
 from libs.utils_bitarray import *
+from libs.asci_drawing import *
 from bitarray import *
 import multiprocessing
 from random import uniform
@@ -33,7 +34,7 @@ class Nlfsr(Lfsr):
       if D < 0:
         DInv = True      
       D = D % self._size
-      Result += f' {D} <- '
+      Result += f' {D} {AsciiDrawing_Characters.LEFT_ARROW} '
       if DInv:
         Result += "~("
       if Aio.isType(Slist, 0):
