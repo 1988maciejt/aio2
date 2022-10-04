@@ -21,8 +21,7 @@ class Nlfsr(Lfsr):
   def copy(self):
     return Nlfsr(self)
   def __del__(self):
-    self._Config.clear()
-    self._baValue.clear()
+    pass
   def printFullInfo(self):
     Aio.print(self.getFullInfo())
   def getFullInfo(self):
@@ -68,6 +67,9 @@ class Nlfsr(Lfsr):
     else:  
       self._size = Size
       self._Config = Config
+      def msortf(e):
+        return abs(e[0])%Size
+      self._Config.sort(key=msortf)
       self._baValue = bitarray(self._size)
       self._exename = ""
       self.reset()
