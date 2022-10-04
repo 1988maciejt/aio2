@@ -23,6 +23,8 @@ class Nlfsr(Lfsr):
     self._Config.clear()
     self._baValue.clear()
   def printFullInfo(self):
+    Aio.print(self.getFullInfo())
+  def getFullInfo(self):
     Result = f'{self._size}-bits NLFSRs taps list:\n'
     for C in self._Config:
       D = C[0]
@@ -31,15 +33,15 @@ class Nlfsr(Lfsr):
       if D < 0:
         DInv = True      
       D = D % self._size
-      Result += f' [{D}] <- '
+      Result += f' {D} <- '
       if DInv:
-        Result += "!("
+        Result += "~("
       if Aio.isType(Slist, 0):
         Result += " "
         if Slist < 0:
-          Result += "!"
-        Slist = Slist % self._size
-        Result += f'[{Slist}]'
+          Result += "~"
+        Slist = abs(Slist) % self._size
+        Result += f'{Slist}'
       else:
         First = True
         for S in Slist:
@@ -48,13 +50,13 @@ class Nlfsr(Lfsr):
           First = False
           Result += " "
           if S < 0:
-            Result += "!"
-          S = S % self._size
-          Result += f'[{S}]'
+            Result += "~"
+          S = abs(S) % self._size
+          Result += f'{S}'
       if DInv:
         Result += " )"
       Result += "\n"
-    Aio.print(Result[:-1])
+    return Result[:-1]
   def __init__(self, Size : int, Config = []) -> None:
     if Aio.isType(Size, "Nlfsr"):
       self._size = Size._size      
