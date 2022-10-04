@@ -19,5 +19,7 @@ class Bitarray:
             B2 = B + B
             Res = B2.find(A)
             if Res >= 0:
+                if Res > (len(A) >> 1):
+                    return Res - len(A)
                 return Res
         return None

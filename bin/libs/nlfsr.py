@@ -25,7 +25,7 @@ class Nlfsr(Lfsr):
   def printFullInfo(self):
     Aio.print(self.getFullInfo())
   def getFullInfo(self):
-    Result = f'{self._size}-bits NLFSRs taps list:\n'
+    Result = f'{self._size}-bit NLFSRs taps list:\n'
     for C in self._Config:
       D = C[0]
       Slist = C[1]
