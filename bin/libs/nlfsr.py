@@ -35,7 +35,7 @@ class Nlfsr(Lfsr):
         DInv = False
         if D < 0:
           DInv = True      
-        D = D % self._size
+        D = abs(D) % self._size
         Result += f' {D} {AsciiDrawing_Characters.LEFT_ARROW} '
         if DInv:
           Result += "~("
@@ -67,7 +67,7 @@ class Nlfsr(Lfsr):
         DInv = False
         if D < 0:
           DInv = True      
-        D = D % self._size
+        D = abs(D) % self._size
         dest_str = f'Q[{D}]'
         expr_line = ''
         if DInv:
