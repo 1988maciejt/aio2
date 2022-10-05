@@ -3,6 +3,7 @@ from libs.lfsr import *
 from libs.utils_list import *
 from libs.utils_bitarray import *
 from libs.asci_drawing import *
+from pyeda.inter import *
 from bitarray import *
 import multiprocessing
 from random import uniform
@@ -23,40 +24,82 @@ class Nlfsr(Lfsr):
     return Nlfsr(self)
   def __del__(self):
     pass
-  def printFullInfo(self):
-    Aio.print(self.getFullInfo())
-  def getFullInfo(self):
+  def printFullInfo(self, Simplified = False):
+    Aio.print(self.getFullInfo(Simplified))
+  def getFullInfo(self, Simplified = False):
     Result = f'{self._size}-bit NLFSRs taps list:\n'
-    for C in self._Config:
-      D = C[0]
-      Slist = C[1]
-      DInv = False
-      if D < 0:
-        DInv = True      
-      D = D % self._size
-      Result += f' {D} {AsciiDrawing_Characters.LEFT_ARROW} '
-      if DInv:
-        Result += "~("
-      if Aio.isType(Slist, 0):
-        Result += " "
-        if Slist < 0:
-          Result += "~"
-        Slist = abs(Slist) % self._size
-        Result += f'{Slist}'
-      else:
-        First = True
-        for S in Slist:
-          if not First:
-            Result += " AND"
-          First = False
+    if not Simplified:
+      for C in self._Config:
+        D = C[0]
+        Slist = C[1]
+        DInv = False
+        if D < 0:
+          DInv = True      
+        D = D % self._size
+        Result += f' {D} {AsciiDrawing_Characters.LEFT_ARROW} '
+        if DInv:
+          Result += "~("
+        if Aio.isType(Slist, 0):
           Result += " "
-          if S < 0:
+          if Slist < 0:
             Result += "~"
-          S = abs(S) % self._size
-          Result += f'{S}'
-      if DInv:
-        Result += " )"
-      Result += "\n"
+          Slist = abs(Slist) % self._size
+          Result += f'{Slist}'
+        else:
+          First = True
+          for S in Slist:
+            if not First:
+              Result += " AND"
+            First = False
+            Result += " "
+            if S < 0:
+              Result += "~"
+            S = abs(S) % self._size
+            Result += f'{S}'
+        if DInv:
+          Result += " )"
+        Result += "\n"
+    else:
+      EqDict = {}
+      for C in self._Config:
+        D = C[0]
+        Slist = C[1]
+        DInv = False
+        if D < 0:
+          DInv = True      
+        D = D % self._size
+        dest_str = f'Q[{D}]'
+        expr_line = ''
+        if DInv:
+          expr_line += "~("
+        if Aio.isType(Slist, 0):
+          expr_line += " "
+          if Slist < 0:
+            expr_line += "~"
+          Slist = abs(Slist) % self._size
+          expr_line += f'Q[{Slist}]'
+        else:
+          First = True
+          for S in Slist:
+            if not First:
+              expr_line += " &"
+            First = False
+            expr_line += " "
+            if S < 0:
+              expr_line += "~"
+            S = abs(S) % self._size
+            expr_line += f'Q[{S}]'
+        if DInv:
+          expr_line += " )"
+        if dest_str in EqDict:
+          EqDict[dest_str] = f'({EqDict[dest_str]}) ^ ({expr_line})'
+        else:
+          EqDict[dest_str] = expr_line
+      for key in EqDict.keys():
+        Result += f' {key} {AsciiDrawing_Characters.LEFT_ARROW} {espresso_exprs(expr(EqDict[key]).to_dnf())[0]}\n'
+#        EqDict[key] = espresso_exprs(expr(EqDict[key]).to_dnf())[0]
+      Result = Result.replace('Q[', '')
+      Result = Result.replace(']', '')
     return Result[:-1]
   def __init__(self, Size : int, Config = []) -> None:
     if Aio.isType(Size, "Nlfsr"):

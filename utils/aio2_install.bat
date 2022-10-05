@@ -26,3 +26,4 @@ pip3 install esptool
 pip3 install rshell
 pip3 install pydbus
 pip3 install bitarray
+pip3 install pyeda
