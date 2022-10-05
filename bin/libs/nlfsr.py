@@ -36,7 +36,7 @@ class Nlfsr(Lfsr):
         if D < 0:
           DInv = True      
         D = abs(D) % self._size
-        Result += f' {D} {AsciiDrawing_Characters.LEFT_ARROW} '
+        Result += f' {D} <= '
         if DInv:
           Result += "~("
         if Aio.isType(Slist, 0):
@@ -96,7 +96,7 @@ class Nlfsr(Lfsr):
         else:
           EqDict[dest_str] = expr_line
       for key in EqDict.keys():
-        Result += f' {key} {AsciiDrawing_Characters.LEFT_ARROW} {espresso_exprs(expr(EqDict[key]).to_dnf())[0]}\n'
+        Result += f' {key} <= {espresso_exprs(expr(EqDict[key]).to_dnf())[0]}\n'
 #        EqDict[key] = espresso_exprs(expr(EqDict[key]).to_dnf())[0]
       Result = Result.replace('Q[', '')
       Result = Result.replace(']', '')
