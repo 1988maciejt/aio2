@@ -1,3 +1,4 @@
+from executing import Source
 from libs.cpp_program import *
 from libs.lfsr import *
 from libs.utils_list import *
@@ -110,7 +111,13 @@ class Nlfsr(Lfsr):
       self._exename = Size._exename
     else:  
       self._size = Size
-      self._Config = Config
+      self._Config = []
+      for C in Config:
+        D = C[0]
+        S = C[1]
+        if Aio.isType(S, []):
+          S.sort()
+        self._Config.append([D, S])
       def msortf(e):
         return abs(e[0])%Size
       self._Config.sort(key=msortf)
@@ -185,7 +192,120 @@ class Nlfsr(Lfsr):
       return 0
   def isMaximum(self):
     return self.getPeriod() == ((1<<self._size)-1)
-  
+  def _shiftTap(self, tap, positions) -> list:
+    D = tap[0]
+    S = tap[1]
+    Res = []
+    Dneg = False
+    if D < 0:
+      Dneg = True
+      D = abs(D)
+    D += positions
+    while D < 0:
+      D += self._size
+    while D >= self._size:
+      D -= self._size
+    if Dneg:
+      if D == 0:
+        Res.append(-self._size)
+      else:
+        Res.append(-D)
+    else:
+      Res.append(D)
+    if Aio.isType(S, 0):
+      Sneg = False
+      if S < 0:
+        Sneg = True
+        S = abs(S)
+      S += positions
+      while S < 0:
+        S += self._size
+      while S >= self._size:
+        S -= self._size
+      if Sneg:
+        if S == 0:
+          Res.append(-self._size)
+        else:
+          Res.append(-S)
+      else:
+        Res.append(S)
+    else:
+      SList = []
+      for Si in S:
+        Sneg = False
+        if Si < 0:
+          Sneg = True
+          Si = abs(Si)
+        Si += positions
+        while Si < 0:
+          Si += self._size
+        while Si >= self._size:
+          Si -= self._size
+        if Sneg:
+          if Si == 0:
+            SList.append(-self._size)
+          else:
+            SList.append(-Si)
+        else:
+          SList.append(Si)
+      Res.append(SList)
+    return Res
+  def _areTapsEquivalent(self, t1, t2) -> bool:
+    positions = abs(t2[0]) - abs(t1[0])
+    t1s = self._shiftTap(t1, positions)
+    return (t2 == t1s)
+  def isCrossingFree(self) -> bool:
+    Branches = []
+    for Tap in self._Config:
+      D = abs(Tap[0]) % self._size
+      S = Tap[1]
+      if Aio.isType(S, 0):
+        S = abs(S) % self._size
+        Branches.append([S, D])
+      else:
+        for Si in reversed(S):
+          Si = abs(Si) % self._size
+          Branches.append([Si, D])
+    LastS = self._size
+    for B in Branches:
+      if B[0] > LastS:
+        return False
+      LastS = B[0]
+    return True
+  def isEquivalent(self, Another) -> bool:
+    if self._size != Another._size:
+      return False
+    a = self._Config.copy()
+    b = Another._Config.copy()
+    if len(a) != len(b):
+      return False
+    for ai in a:
+      for bi in b:
+        if self._areTapsEquivalent(ai, bi):
+          b.remove(bi)
+          a.remove(ai)
+    return (len(a) + len(b)) == 0
+  def getFanout(self, FF = -1) -> int:
+    Sources = []
+    FFs = [1 for i in range(self._size)]
+    for C in self._Config:
+      S = C[1]
+      if Aio.isType(S, 0):
+        Sources.append(abs(S) % self._size)
+      else:
+        for Si in S:
+          Sources.append(abs(Si) % self._size)
+    Sources.sort()
+    for S in Sources:
+      FFs[S] += 1
+    if Aio.isType(FF, 0):
+      if FF >= 0:
+        return FFs[FF % self._size]
+    else:
+      if str(FF).lower().startswith("ma"):
+        return max(FFs)
+    return sum(FFs) / self._size
+    
   def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = False) -> list:
     RG = Lfsr(Poly, RING_GENERATOR)
     Taps = RG._taps
@@ -228,7 +348,7 @@ class Nlfsr(Lfsr):
     for P in Permutations:
       Results.append(Nlfsr(Size, P))
     return Results
-  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False):
+  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, FilterEquivalent = True):
     #Pool = multiprocessing.Pool()
     if InvertersAllowed:
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
@@ -256,12 +376,66 @@ class Nlfsr(Lfsr):
         continue
       if OnlyPrimePeriods and (not Int.isPrime(p)):
         continue
-      Results.append([nlrg, p, ratio])
+      Results.append(nlrg)
 #      print([nlrg, p, ratio])
+    if FilterEquivalent:
+      Results = Nlfsr.filterEquivalent(Results)
     return Results
+  
+  def filterEquivalent(NlfsrList : list) -> list:
+    Result = []
+    iList = []
+    for nlfsr in NlfsrList:
+      iList.append(nlfsr.copy())
+    for n1 in iList:
+      Add = 1
+      for n2 in Result:
+        if n1.isEquivalent(n2):
+          Add = 0
+          break
+      if Add:
+        Result.append(n1)
+    return Result
+  
+  def makeBeauty(self, FanoutMax = 2) -> bool:
+    if len(self._Config) <= 1:
+      return True
+    LastFanout = self.getFanout('max')
+    while self.getFanout('max') > FanoutMax:
+#      print(f'DEBUG: in While! {self.getFanout("max")}')
+      FirstFanout = LastFanout
+      for i in range(len(self._Config)):
+#        print("For in")
+#        print(self._Config)
+        self._Config[i] = self._shiftTap(self._Config[i], -1)
+#        print(self._Config, self.getFanout('max'))
+        if self.getFanout() < LastFanout and self.isCrossingFree() and self.isMaximum():
+          LastFanout = self.getFanout('max')
+#          print("ShiftedLeft!")
+          continue
+        self._Config[i] = self._shiftTap(self._Config[i], 2)
+#        print(self._Config, self.getFanout('max'))
+        if self.getFanout() < LastFanout and self.isCrossingFree() and self.isMaximum():
+          LastFanout = self.getFanout('max')
+#          print("ShiftedRight!")
+          continue
+        self._Config[i] = self._shiftTap(self._Config[i], -1)
+#        print(self._Config)
+      if FirstFanout <= LastFanout:
+        break
+    return ((self.getFanout('max') <= FanoutMax) and self.isCrossingFree()) 
+        
+        
+        
+        
+      
     
     
 def _nlfsr_find_spec_period_helper(nlrg : Nlfsr) -> int:
   p = nlrg.getPeriod()
 #  print(repr(nlrg), "\t", p)
   return p
+
+
+
+  
