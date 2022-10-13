@@ -1,4 +1,3 @@
-from executing import Source
 from libs.cpp_program import *
 from libs.lfsr import *
 from libs.utils_list import *
@@ -322,9 +321,9 @@ class Nlfsr(Lfsr):
       D = Tap[1]
       A = (S-1)%Size
       while 1:
+        AOptions.append(A)
         if A in Bounds:
           break
-        AOptions.append(A)
         A = (A-1)%Size
       A = (S+1)%Size
       while 1:
