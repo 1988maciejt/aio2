@@ -401,9 +401,10 @@ class Nlfsr(Lfsr):
     if len(self._Config) <= 1:
       return True
     LastFanout = self.getFanout('max')
-    while self.getFanout('max') > FanoutMax:
+    while (self.getFanout('max')) > FanoutMax or (not self.isCrossingFree()):
 #      print(f'DEBUG: in While! {self.getFanout("max")}')
       FirstFanout = LastFanout
+      WasCrossingFree = self.isCrossingFree()
       for i in range(len(self._Config)):
 #        print("For in")
 #        print(self._Config)
@@ -413,12 +414,21 @@ class Nlfsr(Lfsr):
           LastFanout = self.getFanout('max')
 #          print("ShiftedLeft!")
           continue
+        if self.getFanout() == LastFanout and self.isCrossingFree() and (not WasCrossingFree) and self.isMaximum():
+          LastFanout = self.getFanout('max')
+#          print("ShiftedLeft!")
+          continue
         self._Config[i] = self._shiftTap(self._Config[i], 2)
 #        print(self._Config, self.getFanout('max'))
         if self.getFanout() < LastFanout and self.isCrossingFree() and self.isMaximum():
           LastFanout = self.getFanout('max')
 #          print("ShiftedRight!")
           continue
+        if self.getFanout() == LastFanout and self.isCrossingFree() and (not WasCrossingFree) and self.isMaximum():
+          LastFanout = self.getFanout('max')
+#          print("ShiftedRight!")
+          continue
+        
         self._Config[i] = self._shiftTap(self._Config[i], -1)
 #        print(self._Config)
       if FirstFanout <= LastFanout:
