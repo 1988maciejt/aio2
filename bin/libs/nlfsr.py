@@ -379,6 +379,7 @@ class Nlfsr(Lfsr):
 #      print([nlrg, p, ratio])
     if FilterEquivalent:
       Results = Nlfsr.filterEquivalent(Results)
+#    print(f'Found {len(Results)}')
     return Results
   
   def filterEquivalent(NlfsrList : list) -> list:
