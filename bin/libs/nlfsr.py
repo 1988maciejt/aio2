@@ -282,8 +282,7 @@ class Nlfsr(Lfsr):
       for bi in b:
         if self._areTapsEquivalent(ai, bi):
           b.remove(bi)
-          a.remove(ai)
-    return (len(a) + len(b)) == 0
+    return len(b) == 0
   def getFanout(self, FF = -1) -> int:
     Sources = []
     FFs = [1 for i in range(self._size)]
