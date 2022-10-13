@@ -312,7 +312,7 @@ class Nlfsr(Lfsr):
     for Tap in Taps:
       Bounds.append(Tap[0])
       Bounds.append(Tap[1])
-    Bounds += [Size>>1, (Size>>1), 1, 2, 0]
+    Bounds += [Size>>1, (Size>>1)-1, 1, 2, 0]
     AOptionsList = []
     for Tap in Taps:
       AOptions = []
@@ -320,15 +320,15 @@ class Nlfsr(Lfsr):
       D = Tap[1]
       A = (S-1)%Size
       while 1:
+        AOptions.append(A)
         if A in Bounds:
           break
-        AOptions.append(A)
         A = (A-1)%Size
       A = (S+1)%Size
       while 1:
+        AOptions.append(A)
         if A in Bounds:
           break
-        AOptions.append(A)
         A = (A+1)%Size
       ProposedTaps = [ [D, [S]] ]
       for AIn in AOptions:
