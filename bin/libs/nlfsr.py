@@ -326,9 +326,9 @@ class Nlfsr(Lfsr):
         A = (A-1)%Size
       A = (S+1)%Size
       while 1:
-        AOptions.append(A)
         if A in Bounds:
           break
+        AOptions.append(A)
         A = (A+1)%Size
       ProposedTaps = [ [D, [S]] ]
       for AIn in AOptions:
