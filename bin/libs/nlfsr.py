@@ -304,7 +304,7 @@ class Nlfsr(Lfsr):
         return max(FFs)
     return sum(FFs) / self._size
     
-  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = False) -> list:
+  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0) -> list:
     RG = Lfsr(Poly, RING_GENERATOR)
     Taps = RG._taps
     Size = RG._size
@@ -341,12 +341,12 @@ class Nlfsr(Lfsr):
             ProposedTaps.append([DS * D, [S, -AIn]])
             ProposedTaps.append([DS * D, [-S, -AIn]])
       AOptionsList.append(ProposedTaps)
-    Permutations = List.getPermutationsPfManyLists(*AOptionsList)[1:]
+    Permutations = List.getPermutationsPfManyLists(AOptionsList, MaximumNonBaseElements=MaxAndCount)[1:]
     Results = []
     for P in Permutations:
       Results.append(Nlfsr(Size, P))
     return Results
-  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, FilterEquivalent = True):
+  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, FilterEquivalent = True, MaxAndCount = 0):
     #Pool = multiprocessing.Pool()
     if InvertersAllowed:
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
@@ -356,7 +356,7 @@ class Nlfsr(Lfsr):
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounter.Compiled:
 #        CppPrograms.NLSFRPeriodCounter.compile()
-    InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, InvertersAllowed)
+    InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, InvertersAllowed, MaxAndCount)
     for i in range(len(InputSet)):
       InputSet[i]._exename = exename
     Periods = process_map(_nlfsr_find_spec_period_helper, InputSet, chunksize=10)
