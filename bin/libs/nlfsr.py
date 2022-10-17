@@ -271,6 +271,35 @@ class Nlfsr(Lfsr):
         return False
       LastS = B[0]
     return True
+  def isInverted(self, Another) -> bool:
+    taps1 = self._Config
+    taps2 = Another._Config
+    if len(taps1) != len(taps2):
+      return False
+    for i in range(len(taps1)):
+      tap1 = taps1[i]
+      tap2 = taps2[i]
+      if tap1[0] != tap2[i]:
+        print(1)
+        return False
+      s1 = tap1[1]
+      s2 = tap2[1]
+      if type(s1) != type(s2):
+        print(2)
+        return False
+      if Aio.isType(s1, 0):
+        if s1 != -s2:
+          print(3)
+          return False
+      else:
+        s2c = s2.copy()
+        for s1i in s1:
+          if -s1i in s2c:
+            s2c.remove(-s1i)
+          else:
+            print(4)
+            return False
+    return True
   def isEquivalent(self, Another) -> bool:
     if self._size != Another._size:
       return False
@@ -344,7 +373,14 @@ class Nlfsr(Lfsr):
     Permutations = List.getPermutationsPfManyLists(AOptionsList, MaximumNonBaseElements=MaxAndCount)[1:]
     Results = []
     for P in Permutations:
-      Results.append(Nlfsr(Size, P))
+      newR = Nlfsr(Size, P)
+      Add = 1
+      for R in Results:
+        if newR.isInverted(R):
+          Add = 0
+          break
+      if Add:
+        Results.append(newR)
     return Results
   def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, FilterEquivalent = True, MaxAndCount = 0):
     #Pool = multiprocessing.Pool()

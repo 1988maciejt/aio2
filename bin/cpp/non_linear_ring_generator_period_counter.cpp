@@ -136,9 +136,11 @@ int main(int argc, char* argv[])
             Period = Step+1;
             break;
          }
+`if not inverters:
          if (OnesCount == 0) {
             break;
          }
+`endif
       }
 `if debug:
       for (int i = 0; i < Size; ++i) {
