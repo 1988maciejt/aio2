@@ -254,7 +254,8 @@ class Nlfsr(Lfsr):
   def _areTapsEquivalent(self, t1, t2) -> bool:
     positions = abs(t2[0]) - abs(t1[0])
     t1s = self._shiftTap(t1, positions)
-    return (t2 == t1s)
+    t2s = self._shiftTap(t2, 0)
+    return (t2s == t1s)
   def isCrossingFree(self) -> bool:
     Branches = []
     for Tap in self._Config:
@@ -301,13 +302,18 @@ class Nlfsr(Lfsr):
   def isEquivalent(self, Another) -> bool:
     if self._size != Another._size:
       return False
+    if self._Config == Another._Config:
+      return True
     a = self._Config.copy()
     b = Another._Config.copy()
     if len(a) != len(b):
       return False
     for ai in a:
-      for bi in b:
+      bc = b.copy()
+      for bi in bc:
+#        print(ai, bi)
         if self._areTapsEquivalent(ai, bi):
+#          print("ARE!")
           b.remove(bi)
     return len(b) == 0
   def getFanout(self, FF = -1) -> int:
