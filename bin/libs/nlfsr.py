@@ -280,16 +280,13 @@ class Nlfsr(Lfsr):
       tap1 = taps1[i]
       tap2 = taps2[i]
       if tap1[0] != tap2[i]:
-        print(1)
         return False
       s1 = tap1[1]
       s2 = tap2[1]
       if type(s1) != type(s2):
-        print(2)
         return False
       if Aio.isType(s1, 0):
         if s1 != -s2:
-          print(3)
           return False
       else:
         s2c = s2.copy()
@@ -297,7 +294,6 @@ class Nlfsr(Lfsr):
           if -s1i in s2c:
             s2c.remove(-s1i)
           else:
-            print(4)
             return False
     return True
   def isEquivalent(self, Another) -> bool:
