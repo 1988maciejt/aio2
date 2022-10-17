@@ -370,13 +370,13 @@ class Nlfsr(Lfsr):
     Results = []
     for P in Permutations:
       newR = Nlfsr(Size, P)
-      Add = 1
-      for R in Results:
-        if newR.isInverted(R):
-          Add = 0
-          break
-      if Add:
-        Results.append(newR)
+#      Add = 1
+#      for R in Results:
+#        if newR.isInverted(R):
+#          Add = 0
+#          break
+#      if Add:
+      Results.append(newR)
     return Results
   def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, FilterEquivalent = True, MaxAndCount = 0):
     #Pool = multiprocessing.Pool()
@@ -422,6 +422,20 @@ class Nlfsr(Lfsr):
       Add = 1
       for n2 in Result:
         if n1.isEquivalent(n2):
+          Add = 0
+          break
+      if Add:
+        Result.append(n1)
+    return Result
+  def filterInverted(NlfsrList : list) -> list:
+    Result = []
+    iList = []
+    for nlfsr in NlfsrList:
+      iList.append(nlfsr.copy())
+    for n1 in iList:
+      Add = 1
+      for n2 in Result:
+        if n1.isInverted(n2):
           Add = 0
           break
       if Add:
