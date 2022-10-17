@@ -88,66 +88,79 @@ int main(int argc, char* argv[])
 `endif
 
    int* Value = new int[Size];
-   for (int i = 0; i < Size; i++) {
-      if (i == 0) Value[i] = 1;
-      else Value[i] = 0;
-   }
-   int** TapsRow;
-   int Offset = 0;
-   unsigned int OnesCount = 1;
+   int OneInFlop = 0;
+   unsigned long long int Max = 1<<Size;
    unsigned long long int Period = 0;
-   unsigned long long int Max = 1;
-   Max <<= Size;
-   for (unsigned long long int Step = 0; Step < Max; ++Step) {
-      TapsRow = TapsBase[Offset];
-      for (int TapIndex = 0; TapIndex < TapsCount; ++TapIndex) {
-         int* Tap = TapsRow[TapIndex];
-         int DestinationIndex = Tap[0];
-         int TapMaxIndex = Tap[1];
-         int AndResult = 1;
-         for (int AIndex = 2; AIndex < TapMaxIndex; ++AIndex) {           
+   while (1) {
+      for (int i = 0; i < Size; i++) {
+         if (i == OneInFlop) Value[i] = 1;
+         else Value[i] = 0;
+      }
+      int** TapsRow;
+      int Offset = 0;
+      unsigned int OnesCount = 1;
+      Period = 0;
+      for (unsigned long long int Step = 0; Step < Max; ++Step) {
+         TapsRow = TapsBase[Offset];
+         for (int TapIndex = 0; TapIndex < TapsCount; ++TapIndex) {
+            int* Tap = TapsRow[TapIndex];
+            int DestinationIndex = Tap[0];
+            int TapMaxIndex = Tap[1];
+            int AndResult = 1;
+            for (int AIndex = 2; AIndex < TapMaxIndex; ++AIndex) {           
 `if inverters:
-            if (InvertersBase[TapIndex][AIndex-1]) {
-               AndResult &= !Value[Tap[AIndex]];
-            } else {
-               AndResult &= Value[Tap[AIndex]];
-            }
+               if (InvertersBase[TapIndex][AIndex-1]) {
+                  AndResult &= !Value[Tap[AIndex]];
+               } else {
+                  AndResult &= Value[Tap[AIndex]];
+               }
 `endif
 `else:
-            AndResult &= Value[Tap[AIndex]];
+               AndResult &= Value[Tap[AIndex]];
 `endif
-         }
+            }
 `if inverters:
-         if (InvertersBase[TapIndex][0]) {
-            AndResult = !AndResult;
-         }
+            if (InvertersBase[TapIndex][0]) {
+               AndResult = !AndResult;
+            }
 `endif
-         int OldBit = Value[DestinationIndex];
-         int NewBit = OldBit ^ AndResult;
-         Value[DestinationIndex] = NewBit;
-         if (OldBit != NewBit) {
-            if (NewBit == 1) OnesCount++;
-            else OnesCount--;
+            int OldBit = Value[DestinationIndex];
+            int NewBit = OldBit ^ AndResult;
+            Value[DestinationIndex] = NewBit;
+            if (OldBit != NewBit) {
+               if (NewBit == 1) OnesCount++;
+               else OnesCount--;
+            }
          }
-      }
-      Offset = (Offset+1) % Size;
-      if (OnesCount <= 1) {
-         if (Value[Offset] == 1) {
-            Period = Step+1;
-            break;
-         }
+         Offset = (Offset+1) % Size;
+         if (OnesCount <= 1) {
+            if (Value[(Offset+OneInFlop) % Size] == 1) {
+               Period = Step+1;
+               break;
+            }
 `if not inverters:
-         if (OnesCount == 0) {
+            if (OnesCount == 0) {
+               break;
+            }
+`endif
+         }
+`if debug:
+         for (int i = 0; i < Size; ++i) {
+            cout << Value[(i+Offset)%Size];
+         }
+         cout << "  " << OnesCount << endl;
+`endif
+      }
+      if (Period <= 1) {
+         if (OneInFlop != 1) {
+            OneInFlop = 1;
+         } else {
             break;
          }
-`endif
+      } else {
+         break;
       }
-`if debug:
-      for (int i = 0; i < Size; ++i) {
-         cout << Value[(i+Offset)%Size];
-      }
-      cout << "  " << OnesCount << endl;
-`endif
    }
+
    cout << Period << " ";
 }

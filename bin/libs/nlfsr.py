@@ -26,8 +26,10 @@ class Nlfsr(Lfsr):
     pass
   def printFullInfo(self, Simplified = False):
     Aio.print(self.getFullInfo(Simplified))
-  def getFullInfo(self, Simplified = False):
-    Result = f'{self._size}-bit NLFSRs taps list:\n'
+  def getFullInfo(self, Simplified = False, Header = True):
+    Result = ""
+    if Header:
+      Result = f'{self._size}-bit NLFSRs taps list:\n'
     if not Simplified:
       for C in self._Config:
         D = C[0]
@@ -441,6 +443,103 @@ class Nlfsr(Lfsr):
       if Add:
         Result.append(n1)
     return Result
+  def toBooleanExpressionFromRing(self) -> str:
+    if not self.isCrossingFree():
+      return "Error: NLFSR must be crossing-free!"
+    GlobalInv = False
+    ResultList = []
+    for Tap in self._Config:
+      D = Tap[0]
+      if D < 0:
+        GlobalInv = not(GlobalInv)
+        D = abs(D)
+      D = D % self._size
+      S = Tap[1]
+      if Aio.isType(S, 0):
+        if S < 0:
+          GlobalInv = not(GlobalInv)
+          S = abs(S)
+        S = S % self._size
+        x = (self._size - S + D + 1) % self._size
+        ResultList.append(f'x{x}')
+      else:
+        AndList = []
+        First = True
+        for Si in S:
+          Siinv = False
+          if Si < 0:
+            Siinv = True
+            Si = abs(Si)
+          Si = Si % self._size
+          xi = (self._size - Si + D + 1) % self._size
+          First = False
+          if Siinv:
+            AndList.append([1, f'x{xi}'])
+          else:
+            AndList.append([f'x{xi}'])
+        SubSum = [1]
+        for Term in AndList:
+          #print("TERM",Term)
+          newSubSum = []
+          #print("  SubSum", SubSum)
+          for t1 in Term:
+            for t2 in SubSum:
+              #print(f'    t1 = {t1},    t2 = {t2}')
+              if t1 == 0 or t2 == 0:
+                pass
+              elif t1 == 1:
+                newSubSum.append(t2)
+              #  print(f'    newSubSum append {t2}')
+              elif t2 == 1:
+                newSubSum.append(t1)
+              #  print(f'    newSubSum append {t1}')
+              else:
+                newSubSum.append(f'{t1} & {t2}')
+              #  print(f'    newSubSum append {t1} & {t2}')
+              #print(f'   newSubSum {newSubSum}')
+          SubSum = newSubSum
+        for SS in SubSum:
+          #print(f'   SS = {SS}, GI = {GlobalInv}')
+          if SS == 1:
+            GlobalInv = not(GlobalInv)
+          else:
+            ResultList.append(SS)
+    #print (ResultList, GlobalInv)
+    RL2 = []
+    if GlobalInv:
+      RL2.append('1')
+    for R in ResultList:
+      if R in RL2:
+        RL2.remove(R)
+      else:
+        RL2.append(R)
+    RLa = []
+    RLb = []
+    for R in RL2:
+      if len(str(R)) < 7:
+        RLa.append(str(R))
+      else:
+        RLb.append(str(R))  
+    #print(RL2)
+    RLa.sort()
+    RLb.sort()
+    RE = ""
+    First = True
+    for R in RLa:
+      if not First:
+        RE += " + "
+      First = False
+      RE += str(R)  
+    for R in RLb:
+      if not First:
+        RE += " + "
+      First = False
+      RE += f'({str(R)})'
+    #print(RLa)
+    #print(RLb)
+    #print(RE)
+    return RE
+        
   
   def makeBeauty(self, FanoutMax = 2) -> bool:
     if len(self._Config) <= 1:
