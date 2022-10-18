@@ -449,7 +449,7 @@ class Nlfsr(Lfsr):
       if Add:
         Result.append(n1)
     return Result
-  def toBooleanExpressionFromRing(self) -> str:
+  def toBooleanExpressionFromRing(self, Complementary = False, Reversed = False) -> str:
     if not self.isCrossingFree():
       return "Error: NLFSR must be crossing-free!"
     GlobalInv = False
@@ -462,23 +462,31 @@ class Nlfsr(Lfsr):
       D = D % self._size
       S = Tap[1]
       if Aio.isType(S, 0):
+        if Complementary:
+          S *= -1
         if S < 0:
           GlobalInv = not(GlobalInv)
           S = abs(S)
         S = S % self._size
         x = (self._size - S + D + 1) % self._size
+        if Reversed:
+          x = self._size - x
         ResultList.append(f'x{x}')
       else:
         AndList = []
         First = True
         for Si in S:
           Siinv = False
+          if Complementary:
+            Si *= -1
           if Si < 0:
             Siinv = True
             Si = abs(Si)
           Si = Si % self._size
           xi = (self._size - Si + D + 1) % self._size
           First = False
+          if Reversed:
+            xi = self._size - xi
           if Siinv:
             AndList.append([1, f'x{xi}'])
           else:
