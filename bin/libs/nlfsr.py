@@ -449,7 +449,7 @@ class Nlfsr(Lfsr):
       if Add:
         Result.append(n1)
     return Result
-  def toBooleanExpressionFromRing(self, Complementary = False, Reversed = False) -> str:
+  def toBooleanExpressionFromRing(self, Complementary = False, Reversed = False, Shorten = False) -> str:
     if not self.isCrossingFree():
       return "Error: NLFSR must be crossing-free!"
     GlobalInv = False
@@ -508,7 +508,10 @@ class Nlfsr(Lfsr):
                 newSubSum.append(t1)
               #  print(f'    newSubSum append {t1}')
               else:
-                newSubSum.append(f'{t1} & {t2}')
+                if Shorten:
+                  newSubSum.append(f'{t1}, {t2}')
+                else:
+                  newSubSum.append(f'{t1} & {t2}')
               #  print(f'    newSubSum append {t1} & {t2}')
               #print(f'   newSubSum {newSubSum}')
           SubSum = newSubSum
@@ -521,7 +524,10 @@ class Nlfsr(Lfsr):
     #print (ResultList, GlobalInv)
     RL2 = []
     if GlobalInv:
-      RL2.append('1')
+      if Shorten:
+        RL2.append('(I)0')
+      else:
+        RL2.append('1')
     for R in ResultList:
       if R in RL2:
         RL2.remove(R)
@@ -541,12 +547,18 @@ class Nlfsr(Lfsr):
     First = True
     for R in RLa:
       if not First:
-        RE += " + "
+        if Shorten:
+          RE += ", "
+        else:
+          RE += " + "
       First = False
       RE += str(R)  
     for R in RLb:
       if not First:
-        RE += " + "
+        if Shorten:
+          RE += ", "
+        else:
+          RE += " + "
       First = False
       RE += f'({str(R)})'
     #print(RLa)
