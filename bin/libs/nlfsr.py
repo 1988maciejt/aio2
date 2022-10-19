@@ -566,7 +566,9 @@ class Nlfsr(Lfsr):
     #print(RLb)
     #print(RE)
     if Shorten:
-      RE = f'NOT ( {RE.replace("x", "")} )'
+      RE = RE.replace("x", "")
+      if GlobalInv:
+        RE = f'NOT ( {RE} )'
     return RE
         
   
