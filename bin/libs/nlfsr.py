@@ -524,9 +524,7 @@ class Nlfsr(Lfsr):
     #print (ResultList, GlobalInv)
     RL2 = []
     if GlobalInv:
-      if Shorten:
-        RL2.append('(I)0')
-      else:
+      if not Shorten:
         RL2.append('1')
     for R in ResultList:
       if R in RL2:
@@ -568,7 +566,7 @@ class Nlfsr(Lfsr):
     #print(RLb)
     #print(RE)
     if Shorten:
-      RE = RE.replace('x', '')
+      RE = f'NOT ( {RE.replace("x", "")} )'
     return RE
         
   
