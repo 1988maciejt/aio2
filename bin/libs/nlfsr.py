@@ -535,8 +535,11 @@ class Nlfsr(Lfsr):
         RL2.append(R)
     RLa = []
     RLb = []
+    MLen = 7
+    if Shorten:
+      MLen = 6
     for R in RL2:
-      if len(str(R)) < 7:
+      if len(str(R)) < MLen:
         RLa.append(str(R))
       else:
         RLb.append(str(R))  
@@ -564,6 +567,8 @@ class Nlfsr(Lfsr):
     #print(RLa)
     #print(RLb)
     #print(RE)
+    if Shorten:
+      RE = RE.replace('x', '')
     return RE
         
   
