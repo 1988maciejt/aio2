@@ -385,12 +385,12 @@ class Nlfsr(Lfsr):
 #          break
 #      if Add:
       Results.append(newR)
-    if Filter:
-      Results = Nlfsr.filterInverted(Results)
     if BeautifullOnly:
       Pool = multiprocessing.Pool()
       Results = Pool.map(_nlfsr_find_spec_period_helper2, Results)
       Results = list(filter(lambda x: x is not None, Results))
+    if Filter:
+      Results = Nlfsr.filter(Results)
     return Results
   def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False):
     #Pool = multiprocessing.Pool()
