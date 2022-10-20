@@ -581,7 +581,7 @@ class Nlfsr(Lfsr):
     return RE
         
   
-  def makeBeauty(self, FanoutMax = 2) -> bool:
+  def makeBeauty(self, FanoutMax = 2, CheckMaximum = True) -> bool:
     if len(self._Config) <= 1:
       return True
     LastFanout = self.getFanout('max')
@@ -594,21 +594,21 @@ class Nlfsr(Lfsr):
 #        print(self._Config)
         self._Config[i] = self._shiftTap(self._Config[i], -1)
 #        print(self._Config, self.getFanout('max'))
-        if self.getFanout() < LastFanout and self.isCrossingFree() and self.isMaximum():
+        if self.getFanout() < LastFanout and self.isCrossingFree() and (not CheckMaximum or self.isMaximum()):
           LastFanout = self.getFanout('max')
 #          print("ShiftedLeft!")
           continue
-        if self.getFanout() == LastFanout and self.isCrossingFree() and (not WasCrossingFree) and self.isMaximum():
+        if self.getFanout() == LastFanout and self.isCrossingFree() and (not WasCrossingFree) and (not CheckMaximum or self.isMaximum()):
           LastFanout = self.getFanout('max')
 #          print("ShiftedLeft!")
           continue
         self._Config[i] = self._shiftTap(self._Config[i], 2)
 #        print(self._Config, self.getFanout('max'))
-        if self.getFanout() < LastFanout and self.isCrossingFree() and self.isMaximum():
+        if self.getFanout() < LastFanout and self.isCrossingFree() and (not CheckMaximum or self.isMaximum()):
           LastFanout = self.getFanout('max')
 #          print("ShiftedRight!")
           continue
-        if self.getFanout() == LastFanout and self.isCrossingFree() and (not WasCrossingFree) and self.isMaximum():
+        if self.getFanout() == LastFanout and self.isCrossingFree() and (not WasCrossingFree) and (not CheckMaximum or self.isMaximum()):
           LastFanout = self.getFanout('max')
 #          print("ShiftedRight!")
           continue
@@ -630,8 +630,8 @@ def _nlfsr_find_spec_period_helper(nlrg : Nlfsr) -> int:
 #  print(repr(nlrg), "\t", p)
   return p
 def _nlfsr_find_spec_period_helper2(nlrg : Nlfsr) -> int:
-  if nlrg.makeBeauty():
-    return nlrg.copy()
+  if nlrg.makeBeauty(CheckMaximum=0):
+    return nlrg
   return None
 
 
