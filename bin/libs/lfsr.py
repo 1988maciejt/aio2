@@ -1,4 +1,4 @@
-from pydoc import cli
+from libs.utils_bitarray import *
 from libs.binstr import *
 from libs.aio import *
 from libs.database import *
@@ -12,6 +12,36 @@ import multiprocessing
 import copy
 import gc
 from bitarray import *
+
+
+
+
+class MSequencesReport:
+  _xor2 = False
+  _xor3 = False
+  _dict = {}
+  def _psmaxlevel(self) -> int:
+    if self._xor3:
+      return 3
+    elif self._xor2:
+      return 2
+    return 2
+  def getUniqueCount(self, PhaseShifterGatesInputs = 0):
+    if PhaseShifterGatesInputs <= 0 or PhaseShifterGatesInputs > 3:
+      PhaseShifterGatesInputs = self._psmaxlevel()
+    return self._dict[PhaseShifterGatesInputs]["unique_count"]
+  def printReport(self, PhaseShifterGatesInputs = 0):
+    if PhaseShifterGatesInputs <= 0 or PhaseShifterGatesInputs > 3:
+      PhaseShifterGatesInputs = self._psmaxlevel()
+    SDict = self._dict[PhaseShifterGatesInputs]
+    keys = list(SDict.keys())
+    keys.sort()
+    for key in keys:
+      if key == "unique_count":
+        continue
+      Aio.print(f'{key}{" " * (18 - len(key))}=>  {SDict[key]}')
+
+
 
 
 # POLYNOMIAL CLASS ================
@@ -1257,6 +1287,98 @@ endmodule'''
         return index - LowerSize
       return index + LowerSize
     return index
+  def analyseSequences(self, Reset = True, WithXor2 = True, WithXor3 = True) -> MSequencesReport:
+    Values = self.getValues(reset=True)
+    Sequences = [bitarray() for i in range(self._size)]
+    for word_index in range(len(Values)):
+      Word = Values[word_index]
+      for flop_index in range(self._size):
+        Sequences[flop_index].append(Word[flop_index])
+    Results = {}
+    BaseDict = {}
+    BaseUniques = {}
+    FlopIndex = 0
+    for Sequence in reversed(Sequences):
+      Found = 0
+      for key in BaseUniques.keys():
+        Shift = Bitarray.getShiftBetweenSequences(BaseUniques[key], Sequence)
+        if Shift is not None:
+          BaseDict[f'Q{FlopIndex}'] = f'{key}{" " * (18-len(key))}delayed by {Shift}'
+          Found = 1
+        else:
+          NotShift = Bitarray.getShiftBetweenSequences(~BaseUniques[key], Sequence)
+          if NotShift is not None:
+            BaseDict[f'Q{FlopIndex}'] = f'~{key}{" " * (17-len(key))}delayed by {NotShift}'
+            Found = 1
+      if not Found:        
+        BaseDict[f'Q{FlopIndex}'] = "Unique"
+        BaseUniques[f'Q{FlopIndex}'] = Sequence
+      FlopIndex += 1      
+    BaseDict["unique_count"] = len(BaseUniques)
+    Results[1] = BaseDict.copy()
+    Xor2Sequences = {}
+    Xor3Sequences = {}
+    if WithXor2 or WithXor3:
+      for q1 in range(self._size-1):
+        for q2 in range(1, self._size):
+          if q1 < q2:
+            q1r = self._size - q1 - 1
+            q2r = self._size - q2 - 1
+            Name2 = f'Q{q1}+Q{q2}'
+            Sequence2 = Sequences[q1r] ^ Sequences[q2r]
+            Xor2Sequences[Name2] = Sequence2
+            if WithXor3:
+              for q3 in range(2, self._size):
+                if q2 < q3:
+                  q3r = self._size - q3 - 1
+                  Name3 = f'Q{q1}+Q{q2}+Q{q3}'
+                  Sequence3 = Sequence2 ^ Sequences[q3r]
+                  Xor3Sequences[Name3] = Sequence3
+    if WithXor2:
+      for SequenceName in Xor2Sequences.keys():
+        Sequence = Xor2Sequences[SequenceName]
+        Found = 0
+        for key in BaseUniques.keys():
+          Shift = Bitarray.getShiftBetweenSequences(BaseUniques[key], Sequence)
+          if Shift is not None:
+            BaseDict[SequenceName] = f'{key}{" " * (18-len(key))}delayed by {Shift}'
+            Found = 1
+          else:
+            NotShift = Bitarray.getShiftBetweenSequences(~BaseUniques[key], Sequence)
+            if NotShift is not None:
+              BaseDict[SequenceName] = f'~({key}){" " * (15-len(key))}delayed by {NotShift}'
+              Found = 1
+        if not Found:        
+          BaseDict[SequenceName] = "Unique"
+          BaseUniques[SequenceName] = Sequence
+      BaseDict["unique_count"] = len(BaseUniques)
+      Results[2] = BaseDict.copy()
+    if WithXor3:
+      for SequenceName in Xor3Sequences.keys():
+        Sequence = Xor3Sequences[SequenceName]
+        Found = 0
+        for key in BaseUniques.keys():
+          Shift = Bitarray.getShiftBetweenSequences(BaseUniques[key], Sequence)
+          if Shift is not None:
+            BaseDict[SequenceName] = f'{key}{" " * (18-len(key))}delayed by {Shift}'
+            Found = 1
+          else:
+            NotShift = Bitarray.getShiftBetweenSequences(~BaseUniques[key], Sequence)
+            if NotShift is not None:
+              BaseDict[SequenceName] = f'~({key}{" " * (15-len(key))}) delayed by {NotShift}'
+              Found = 1
+        if not Found:        
+          BaseDict[SequenceName] = "Unique"
+          BaseUniques[SequenceName] = Sequence
+      BaseDict["unique_count"] = len(BaseUniques)
+      Results[3] = BaseDict.copy()
+    Report = MSequencesReport()
+    Report._xor2 = WithXor2
+    Report._xor3 = WithXor3
+    Report._dict = Results
+    return Report
+  
+    
     
 # LFSR END ========================
   
