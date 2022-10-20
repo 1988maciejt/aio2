@@ -339,6 +339,12 @@ class Nlfsr(Lfsr):
       if str(FF).lower().startswith("ma"):
         return max(FFs)
     return sum(FFs) / self._size
+  def _nlfsr_find_spec_period_helper2(l):
+    R = Nlfsr(Nlfsr._SizeG, l)
+    if Nlfsr._BeautifullOnlyG:
+      if not R.makeBeauty():
+        return None
+    return R
     
   def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0, BeautifullOnly = False) -> list:
     RG = Lfsr(Poly, RING_GENERATOR)
@@ -382,7 +388,7 @@ class Nlfsr(Lfsr):
     Pool = multiprocessing.Pool()
     Nlfsr._BeautifullOnlyG = BeautifullOnly
     Nlfsr._SizeG = Size
-    Results = Pool.map(_nlfsr_find_spec_period_helper2, Permutations)
+    Results = Pool.map(Nlfsr._nlfsr_find_spec_period_helper2, Permutations)
     Pool.close()
     Pool.join()
     Results = list(filter(lambda x: x is not None, Results))
@@ -639,12 +645,6 @@ def _nlfsr_find_spec_period_helper(nlrg : Nlfsr) -> int:
 #  print(repr(nlrg), "\t", p)
   return p
 
-def _nlfsr_find_spec_period_helper2(l):
-  R = Nlfsr(Nlfsr._SizeG, l)
-  if Nlfsr._BeautifullOnlyG:
-    if not R.makeBeauty():
-      return None
-  return R
 
 
   
