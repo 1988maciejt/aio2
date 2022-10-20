@@ -337,7 +337,7 @@ class Nlfsr(Lfsr):
         return max(FFs)
     return sum(FFs) / self._size
     
-  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0, BeautiFullOnly = 0) -> list:
+  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0, BeautifullOnly = False) -> list:
     RG = Lfsr(Poly, RING_GENERATOR)
     Taps = RG._taps
     Size = RG._size
@@ -384,7 +384,7 @@ class Nlfsr(Lfsr):
 #          Add = 0
 #          break
 #      if Add:
-      if BeautiFullOnly:
+      if BeautifullOnly:
         if not newR.makeBeauty():
           continue
       Results.append(newR)
