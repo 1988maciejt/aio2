@@ -337,7 +337,7 @@ class Nlfsr(Lfsr):
         return max(FFs)
     return sum(FFs) / self._size
     
-  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0, BeautifullOnly = False, FilterEquivalent = False) -> list:
+  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> list:
     RG = Lfsr(Poly, RING_GENERATOR)
     Taps = RG._taps
     Size = RG._size
@@ -385,14 +385,14 @@ class Nlfsr(Lfsr):
 #          break
 #      if Add:
       Results.append(newR)
-    if FilterEquivalent:
-      Results = Nlfsr.filterEquivalent(Results)
+    if Filter:
+      Results = Nlfsr.filter(Results)
     if BeautifullOnly:
       Pool = multiprocessing.Pool()
       Results = Pool.map(_nlfsr_find_spec_period_helper2, Results)
       Results = list(filter(lambda x: x is not None, Results))
     return Results
-  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, FilterEquivalent = True, MaxAndCount = 0, BeautifullOnly = False):
+  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False):
     #Pool = multiprocessing.Pool()
     if InvertersAllowed:
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
@@ -402,7 +402,7 @@ class Nlfsr(Lfsr):
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounter.Compiled:
 #        CppPrograms.NLSFRPeriodCounter.compile()
-    InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, InvertersAllowed, MaxAndCount, BeautifullOnly, FilterEquivalent)
+    InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
     for i in range(len(InputSet)):
       InputSet[i]._exename = exename
     Periods = process_map(_nlfsr_find_spec_period_helper, InputSet, chunksize=10)
@@ -450,6 +450,20 @@ class Nlfsr(Lfsr):
       Add = 1
       for n2 in Result:
         if n1.isInverted(n2):
+          Add = 0
+          break
+      if Add:
+        Result.append(n1)
+    return Result
+  def filter(NlfsrList : list) -> list:
+    Result = []
+    iList = []
+    for nlfsr in NlfsrList:
+      iList.append(nlfsr.copy())
+    for n1 in iList:
+      Add = 1
+      for n2 in Result:
+        if n1.isInverted(n2) or n1.isEquivalent(n2):
           Add = 0
           break
       if Add:
