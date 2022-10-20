@@ -386,7 +386,7 @@ class Nlfsr(Lfsr):
 #      if Add:
       Results.append(newR)
     if Filter:
-      Results = Nlfsr.filter(Results)
+      Results = Nlfsr.filterInverted(Results)
     if BeautifullOnly:
       Pool = multiprocessing.Pool()
       Results = Pool.map(_nlfsr_find_spec_period_helper2, Results)
