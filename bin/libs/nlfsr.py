@@ -386,7 +386,9 @@ class Nlfsr(Lfsr):
 #      if Add:
       Results.append(newR)
     if BeautifullOnly:
-      Results = list(filter(lambda x: x.makeBeauty(), Results))
+      Pool = multiprocessing.Pool()
+      Results = Pool.map(_nlfsr_find_spec_period_helper2, Results)
+      Results = list(filter(lambda x: x is not None, Results))
     return Results
   def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, FilterEquivalent = True, MaxAndCount = 0, BeautifullOnly = False):
     #Pool = multiprocessing.Pool()
@@ -627,7 +629,10 @@ def _nlfsr_find_spec_period_helper(nlrg : Nlfsr) -> int:
   p = nlrg.getPeriod()
 #  print(repr(nlrg), "\t", p)
   return p
-
+def _nlfsr_find_spec_period_helper2(nlrg : Nlfsr) -> int:
+  if nlrg.makeBeauty():
+    return nlrg
+  return None
 
 
   
