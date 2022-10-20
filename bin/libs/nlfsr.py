@@ -631,7 +631,7 @@ def _nlfsr_find_spec_period_helper(nlrg : Nlfsr) -> int:
   return p
 def _nlfsr_find_spec_period_helper2(nlrg : Nlfsr) -> int:
   if nlrg.makeBeauty():
-    return nlrg
+    return nlrg.copy()
   return None
 
 
