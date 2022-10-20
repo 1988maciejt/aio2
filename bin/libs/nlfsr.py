@@ -9,9 +9,6 @@ import multiprocessing
 from random import uniform
 from tqdm.contrib.concurrent import process_map
 
-class _NlfsrVars:
-  _SizeG = 0
-  _BeautifullOnlyG = 0
   
 class Nlfsr(Lfsr):
   _baValue = None
@@ -339,13 +336,6 @@ class Nlfsr(Lfsr):
       if str(FF).lower().startswith("ma"):
         return max(FFs)
     return sum(FFs) / self._size
-  def _nlfsr_find_spec_period_helper2(l):
-    print(_NlfsrVars._SizeG)
-    R = Nlfsr(_NlfsrVars._SizeG, l)
-    if Nlfsr._BeautifullOnlyG:
-      if not R.makeBeauty():
-        return None
-    return R
     
   def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0, BeautifullOnly = False) -> list:
     RG = Lfsr(Poly, RING_GENERATOR)
@@ -386,25 +376,17 @@ class Nlfsr(Lfsr):
       AOptionsList.append(ProposedTaps)
     Permutations = List.getPermutationsPfManyLists(AOptionsList, MaximumNonBaseElements=MaxAndCount)[1:]
     Results = []
-    Pool = multiprocessing.Pool()
-    _NlfsrVars._BeautifullOnlyG = BeautifullOnly
-    _NlfsrVars._SizeG = Size
-    Results = Pool.map(Nlfsr._nlfsr_find_spec_period_helper2, Permutations)
-    Pool.close()
-    Pool.join()
-    Results = list(filter(lambda x: x is not None, Results))
-#    for P in Permutations:
-#      newR = Nlfsr(Size, P)
-##      Add = 1
-##      for R in Results:
-##        if newR.isInverted(R):
-##          Add = 0
-##          break
-##      if Add:
-#      if BeautifullOnly:
-#        if not newR.makeBeauty():
-#          continue
-#      Results.append(newR)
+    for P in Permutations:
+      newR = Nlfsr(Size, P)
+#      Add = 1
+#      for R in Results:
+#        if newR.isInverted(R):
+#          Add = 0
+#          break
+#      if Add:
+      Results.append(newR)
+    if BeautifullOnly:
+      Results = list(filter(lambda x: x.makeBeauty(), Results))
     return Results
   def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, FilterEquivalent = True, MaxAndCount = 0, BeautifullOnly = False):
     #Pool = multiprocessing.Pool()
