@@ -10,7 +10,8 @@ from random import uniform
 from tqdm.contrib.concurrent import process_map
 
 
-global SizeG, BeautifullOnlyG
+SizeG = 0
+BeautifullOnlyG = 0
   
 class Nlfsr(Lfsr):
   _baValue = None
