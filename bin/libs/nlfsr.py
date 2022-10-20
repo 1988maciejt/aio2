@@ -337,7 +337,7 @@ class Nlfsr(Lfsr):
         return max(FFs)
     return sum(FFs) / self._size
     
-  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0, BeautifullOnly = False) -> list:
+  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0, BeautifullOnly = False, FilterEquivalent = False) -> list:
     RG = Lfsr(Poly, RING_GENERATOR)
     Taps = RG._taps
     Size = RG._size
@@ -385,6 +385,8 @@ class Nlfsr(Lfsr):
 #          break
 #      if Add:
       Results.append(newR)
+    if FilterEquivalent:
+      Results = Nlfsr.filterEquivalent(Results)
     if BeautifullOnly:
       Pool = multiprocessing.Pool()
       Results = Pool.map(_nlfsr_find_spec_period_helper2, Results)
@@ -400,7 +402,7 @@ class Nlfsr(Lfsr):
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounter.Compiled:
 #        CppPrograms.NLSFRPeriodCounter.compile()
-    InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, InvertersAllowed, MaxAndCount, BeautifullOnly)
+    InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, InvertersAllowed, MaxAndCount, BeautifullOnly, FilterEquivalent)
     for i in range(len(InputSet)):
       InputSet[i]._exename = exename
     Periods = process_map(_nlfsr_find_spec_period_helper, InputSet, chunksize=10)
@@ -420,8 +422,8 @@ class Nlfsr(Lfsr):
         continue
       Results.append(nlrg)
 #      print([nlrg, p, ratio])
-    if FilterEquivalent:
-      Results = Nlfsr.filterEquivalent(Results)
+#    if FilterEquivalent:
+#      Results = Nlfsr.filterEquivalent(Results)
 #    print(f'Found {len(Results)}')
     return Results
   
