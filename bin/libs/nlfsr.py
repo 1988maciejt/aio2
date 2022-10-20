@@ -376,18 +376,29 @@ class Nlfsr(Lfsr):
       AOptionsList.append(ProposedTaps)
     Permutations = List.getPermutationsPfManyLists(AOptionsList, MaximumNonBaseElements=MaxAndCount)[1:]
     Results = []
-    for P in Permutations:
-      newR = Nlfsr(Size, P)
-#      Add = 1
-#      for R in Results:
-#        if newR.isInverted(R):
-#          Add = 0
-#          break
-#      if Add:
+    def ff(l):
+      R = Nlfsr(Size, l)
       if BeautifullOnly:
-        if not newR.makeBeauty():
-          continue
-      Results.append(newR)
+        if not R.makeBeauty():
+          return None
+      return R
+    Pool = multiprocessing.Pool()
+    Results = Pool.map(ff, Permutations)
+    Pool.close()
+    Pool.join()
+    Results = list(filter(lambda x: x is not None, Results))
+#    for P in Permutations:
+#      newR = Nlfsr(Size, P)
+##      Add = 1
+##      for R in Results:
+##        if newR.isInverted(R):
+##          Add = 0
+##          break
+##      if Add:
+#      if BeautifullOnly:
+#        if not newR.makeBeauty():
+#          continue
+#      Results.append(newR)
     return Results
   def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, FilterEquivalent = True, MaxAndCount = 0, BeautifullOnly = False):
     #Pool = multiprocessing.Pool()
