@@ -10,10 +10,10 @@ from random import uniform
 from tqdm.contrib.concurrent import process_map
 
 
-SizeG = 0
-BeautifullOnlyG = 0
   
 class Nlfsr(Lfsr):
+  _SizeG = 0
+  _BeautifullOnlyG = 0
   _baValue = None
   _size = 0
   _Config = []
@@ -341,7 +341,6 @@ class Nlfsr(Lfsr):
     return sum(FFs) / self._size
     
   def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0, BeautifullOnly = False) -> list:
-    global SizeG, BeautifullOnlyG
     RG = Lfsr(Poly, RING_GENERATOR)
     Taps = RG._taps
     Size = RG._size
@@ -381,9 +380,8 @@ class Nlfsr(Lfsr):
     Permutations = List.getPermutationsPfManyLists(AOptionsList, MaximumNonBaseElements=MaxAndCount)[1:]
     Results = []
     Pool = multiprocessing.Pool()
-    BeautifullOnlyG = BeautifullOnly
-    SizeG = Size
-    print(BeautifullOnlyG, SizeG)
+    Nlfsr._BeautifullOnlyG = BeautifullOnly
+    Nlfsr._SizeG = Size
     Results = Pool.map(_nlfsr_find_spec_period_helper2, Permutations)
     Pool.close()
     Pool.join()
@@ -642,10 +640,8 @@ def _nlfsr_find_spec_period_helper(nlrg : Nlfsr) -> int:
   return p
 
 def _nlfsr_find_spec_period_helper2(l):
-  global SizeG, BeautifullOnlyG
-  print(BeautifullOnlyG, SizeG)
-  R = Nlfsr(SizeG, l)
-  if BeautifullOnlyG:
+  R = Nlfsr(Nlfsr._SizeG, l)
+  if Nlfsr._BeautifullOnlyG:
     if not R.makeBeauty():
       return None
   return R
