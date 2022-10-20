@@ -340,6 +340,7 @@ class Nlfsr(Lfsr):
         return max(FFs)
     return sum(FFs) / self._size
   def _nlfsr_find_spec_period_helper2(l):
+    print(Nlfsr._SizeG)
     R = Nlfsr(Nlfsr._SizeG, l)
     if Nlfsr._BeautifullOnlyG:
       if not R.makeBeauty():
