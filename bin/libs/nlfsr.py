@@ -383,6 +383,7 @@ class Nlfsr(Lfsr):
     Pool = multiprocessing.Pool()
     BeautifullOnlyG = BeautifullOnly
     SizeG = Size
+    print(BeautifullOnlyG, SizeG)
     Results = Pool.map(_nlfsr_find_spec_period_helper2, Permutations)
     Pool.close()
     Pool.join()
@@ -642,6 +643,7 @@ def _nlfsr_find_spec_period_helper(nlrg : Nlfsr) -> int:
 
 def _nlfsr_find_spec_period_helper2(l):
   global SizeG, BeautifullOnlyG
+  print(BeautifullOnlyG, SizeG)
   R = Nlfsr(SizeG, l)
   if BeautifullOnlyG:
     if not R.makeBeauty():
