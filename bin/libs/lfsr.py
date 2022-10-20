@@ -1,3 +1,4 @@
+from pydoc import cli
 from libs.binstr import *
 from libs.aio import *
 from libs.database import *
@@ -108,6 +109,38 @@ Polynomial ("size,HexNumber", balancing=0)
     raise StopIteration  
   def __str__(self) -> str:
     return str(self._coefficients_list)
+  def getAllHavingSpecifiedCoeffs(CoefficientList : list, CoeffsCount = 0, DontTouchBounds = 1):
+    CList = CoefficientList.copy()
+    CList.sort()
+    CMax = CList[-1]
+    if Aio.isType(CoeffsCount, 0):
+      if CoeffsCount <= 0:
+        CCList = [i for i in range(1, len(CList)+1)]
+      else:
+        CCList = [CoeffsCount]
+    else:
+      CCList = [i for i in CoeffsCount]
+    nMax = 1 << len(CList)
+    Result = []
+    for n in range(1, nMax):
+      PT = []
+      bsn = BinString(len(CList), n)
+      i = 0
+      for b in bsn:
+        if b: 
+          PT.append(CList[i])
+        i += 1
+      #print(n, bsn, PT)
+      if not (len(PT) in CCList):
+        #print("Bad length")
+        continue
+      if DontTouchBounds:
+        if (not (CList[0] in PT)) or (not (CList[-1] in PT)):
+          #print("Bad coeff")
+          continue     
+      Result.append(Polynomial(PT.copy()))
+      #print(n, bsn, PT)
+    return Result
   def toKassabStr(self) -> str:
     result = "add_polynomial("
     first = True

@@ -337,7 +337,7 @@ class Nlfsr(Lfsr):
         return max(FFs)
     return sum(FFs) / self._size
     
-  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0) -> list:
+  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0, BeautiFullOnly = 0) -> list:
     RG = Lfsr(Poly, RING_GENERATOR)
     Taps = RG._taps
     Size = RG._size
@@ -384,6 +384,9 @@ class Nlfsr(Lfsr):
 #          Add = 0
 #          break
 #      if Add:
+      if BeautiFullOnly:
+        if not newR.makeBeauty():
+          continue
       Results.append(newR)
     return Results
   def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, FilterEquivalent = True, MaxAndCount = 0):
@@ -462,6 +465,8 @@ class Nlfsr(Lfsr):
       D = D % self._size
       S = Tap[1]
       if Aio.isType(S, 0):
+        if S == 0:
+          S = self._size
         if Complementary:
           S *= -1
         if S < 0:
@@ -477,8 +482,11 @@ class Nlfsr(Lfsr):
         First = True
         for Si in S:
           Siinv = False
+          if Si == 0:
+            Si = self._size
           if Complementary:
             Si *= -1
+          #print(Si)
           if Si < 0:
             Siinv = True
             Si = abs(Si)
@@ -503,16 +511,16 @@ class Nlfsr(Lfsr):
                 pass
               elif t1 == 1:
                 newSubSum.append(t2)
-              #  print(f'    newSubSum append {t2}')
+                #print(f'    newSubSum append {t2}')
               elif t2 == 1:
                 newSubSum.append(t1)
-              #  print(f'    newSubSum append {t1}')
+                #print(f'    newSubSum append {t1}')
               else:
                 if Shorten:
                   newSubSum.append(f'{t1}, {t2}')
                 else:
                   newSubSum.append(f'{t1} & {t2}')
-              #  print(f'    newSubSum append {t1} & {t2}')
+                #print(f'    newSubSum append {t1} & {t2}')
               #print(f'   newSubSum {newSubSum}')
           SubSum = newSubSum
         for SS in SubSum:
