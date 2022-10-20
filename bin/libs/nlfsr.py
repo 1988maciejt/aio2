@@ -9,11 +9,11 @@ import multiprocessing
 from random import uniform
 from tqdm.contrib.concurrent import process_map
 
-
-  
-class Nlfsr(Lfsr):
+class _NlfsrVars:
   _SizeG = 0
   _BeautifullOnlyG = 0
+  
+class Nlfsr(Lfsr):
   _baValue = None
   _size = 0
   _Config = []
@@ -340,8 +340,8 @@ class Nlfsr(Lfsr):
         return max(FFs)
     return sum(FFs) / self._size
   def _nlfsr_find_spec_period_helper2(l):
-    print(Nlfsr._SizeG)
-    R = Nlfsr(Nlfsr._SizeG, l)
+    print(_NlfsrVars._SizeG)
+    R = Nlfsr(_NlfsrVars._SizeG, l)
     if Nlfsr._BeautifullOnlyG:
       if not R.makeBeauty():
         return None
@@ -387,8 +387,8 @@ class Nlfsr(Lfsr):
     Permutations = List.getPermutationsPfManyLists(AOptionsList, MaximumNonBaseElements=MaxAndCount)[1:]
     Results = []
     Pool = multiprocessing.Pool()
-    Nlfsr._BeautifullOnlyG = BeautifullOnly
-    Nlfsr._SizeG = Size
+    _NlfsrVars._BeautifullOnlyG = BeautifullOnly
+    _NlfsrVars._SizeG = Size
     Results = Pool.map(Nlfsr._nlfsr_find_spec_period_helper2, Permutations)
     Pool.close()
     Pool.join()
