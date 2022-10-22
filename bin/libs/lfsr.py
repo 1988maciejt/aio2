@@ -78,6 +78,9 @@ class Polynomial:
   _CoeffsCount = []
   _DontTouchBounds = 1
   _OddOnly = 1
+  def _getAllPrimitivesHavingSpecifiedCoeffsHelper(self, FromTo : list):
+    Polys = self._getAllHavingSpecifiedCoeffsHelper(FromTo)
+    return Polynomial.checkPrimitives(Polys)
   def _getAllHavingSpecifiedCoeffsHelper(self, FromTo : list):
     CList = self._CoefficientList.copy()
     CList.sort()
@@ -197,13 +200,62 @@ Polynomial ("size,HexNumber", balancing=0)
     raise StopIteration  
   def __str__(self) -> str:
     return str(self._coefficients_list)
+  def listAllPrimitivesHavingSpecifiedCoeffs(CoefficientList : list, CoeffsCount = 0, DontTouchBounds = 1, OddOnly = 1) -> list:
+    CList = CoefficientList.copy()
+    CList.sort()
+    CMax = CList[-1]
+    if Aio.isType(CoeffsCount, 0):
+      if CoeffsCount <= 0:
+        CCList = [i for i in range(3, len(CList)+1)]
+      else:
+        CCList = [CoeffsCount]
+    else:
+      CCList = [i for i in CoeffsCount]
+    if len(CCList) > 1 and OddOnly:
+      CCList = list(filter(lambda x: x&1==1, CCList))
+    nMax = 1 << len(CList)
+    nMin = 1
+    Result = []
+    Step = 1
+    if DontTouchBounds:
+      Step = 2
+      nMin = (nMax >> 1) | 1
+    Results = []
+    FromToList = []
+    Step =  100000
+    From = nMin
+    To = From + Step-1
+    Break = 0
+    if To >= nMax:
+      To = nMax-1
+      Break = 1
+    while 1:
+      FromToList.append([From, To])
+      if Break:
+        break
+      From += Step
+      To += Step
+      if To >= nMax:
+        To = nMax-1
+        Break = 1
+      if To < From:
+        break
+    px = Polynomial([0])
+    px._CoefficientList = CList
+    px._CoeffsCount = CCList
+    px._DontTouchBounds = DontTouchBounds
+    px._OddOnly = OddOnly
+    for FT in FromToList:
+      print(f'Generating polynomials basing on integer counter from {FT[0]} to {FT[1]}...')
+      Results += px._getAllPrimitivesHavingSpecifiedCoeffsHelper(FT)
+    return Results
   def getAllHavingSpecifiedCoeffs(CoefficientList : list, CoeffsCount = 0, DontTouchBounds = 1, OddOnly = 1):
     CList = CoefficientList.copy()
     CList.sort()
     CMax = CList[-1]
     if Aio.isType(CoeffsCount, 0):
       if CoeffsCount <= 0:
-        CCList = [i for i in range(1, len(CList)+1)]
+        CCList = [i for i in range(3, len(CList)+1)]
       else:
         CCList = [CoeffsCount]
     else:
@@ -223,6 +275,9 @@ Polynomial ("size,HexNumber", balancing=0)
       From = nMin
       To = From + Step-1
       Break = 0
+      if To >= nMax:
+        To = nMax-1
+        Break = 1
       while 1:
         FromToList.append([From, To])
         if Break:
@@ -568,7 +623,7 @@ Polynomial ("size,HexNumber", balancing=0)
       r = r[0:n]
     Aio.printTemp(" " * (Aio.getTerminalColumns()-1))
     return r
-  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, n = 0, quiet = True, MaxSetSize=10000000, ExcludeList = [], ReturnAlsoAllCandidaes = False) -> list:
+  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, n = 0, quiet = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
