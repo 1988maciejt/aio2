@@ -1,3 +1,4 @@
+from sys import dont_write_bytecode
 from libs.utils_bitarray import *
 from libs.binstr import *
 from libs.aio import *
@@ -69,6 +70,41 @@ class Polynomial:
   _positions = False
   _ctemp = True
   _lf = False
+  _coeffs_on_list__list = None
+  _coeffs_on_list__maxnum = None
+  _coeffs_on_list__num = None
+  _notes = ""
+  _CoefficientList = []
+  _CoeffsCount = []
+  _DontTouchBounds = 1
+  _OddOnly = 1
+  def _getAllHavingSpecifiedCoeffsHelper(self, FromTo : list):
+    CList = self._CoefficientList.copy()
+    CList.sort()
+    CCList = self._CoeffsCount.copy()
+    DontTouchBounds = self._DontTouchBounds
+    OddOnly = self._OddOnly
+    if DontTouchBounds and ((1<<(len(CList)-1)) & FromTo[1]) == 0:
+      return []
+    Result = []
+    for n in range(FromTo[0], FromTo[1]):
+      PT = []
+      bsn = BinString(len(CList), n)
+      i = 0
+      for b in bsn:
+        if b: 
+          PT.append(CList[i])
+        i += 1
+      #print(n, bsn, PT)
+      if not (len(PT) in CCList):
+        #print("Bad length")
+        continue
+      if DontTouchBounds:
+        if (not (CList[0] in PT)) or (not (CList[-1] in PT)):
+          #print("Bad coeff")
+          continue     
+      Result.append(Polynomial(PT.copy()))
+    return Result
   def _check(p):
     if (Polynomial._n > 0) and  (len(Polynomial._result) >= Polynomial._n):
       return
@@ -80,6 +116,8 @@ class Polynomial:
   def __del__(self):
     if self._positions != False:
       self._positions.clear()
+  def copy(self) -> Polynomial:
+    return Polynomial(self)
   def __init__(self, coefficients_list : list, balancing = 0):
     """ Polynomial (Polynomial, balancing=0)
 Polynomial (coefficients_list, balancing=0)
@@ -94,6 +132,10 @@ Polynomial ("size,HexNumber", balancing=0)
       self._bmax = coefficients_list._bmax
       self._positions = coefficients_list._positions
       self._lf = coefficients_list._lf
+      self._notes = coefficients_list._notes
+      self._coeffs_on_list__list = coefficients_list._coeffs_on_list__list
+      self._coeffs_on_list__maxnum = coefficients_list._coeffs_on_list__maxnum
+      self._coeffs_on_list__num = coefficients_list._coeffs_on_list__num
     elif "int" in str(type(coefficients_list)):
       cntr = 0
       self._coefficients_list = []
@@ -166,24 +208,53 @@ Polynomial ("size,HexNumber", balancing=0)
       CCList = list(filter(lambda x: x&1==1, CCList))
     nMax = 1 << len(CList)
     Result = []
-    for n in range(1, nMax):
-      PT = []
-      bsn = BinString(len(CList), n)
-      i = 0
-      for b in bsn:
-        if b: 
-          PT.append(CList[i])
-        i += 1
-      #print(n, bsn, PT)
-      if not (len(PT) in CCList):
-        #print("Bad length")
-        continue
-      if DontTouchBounds:
-        if (not (CList[0] in PT)) or (not (CList[-1] in PT)):
-          #print("Bad coeff")
-          continue     
-      Result.append(Polynomial(PT.copy()))
-      #print(n, bsn, PT)
+    if nMax > 110000:
+      FromToList = []
+      Step =  100000
+      From = 1
+      To = Step
+      Break = 0
+      while 1:
+        FromToList.append([From, To])
+        if Break:
+          break
+        From = To+1
+        To += Step
+        if To >= nMax:
+          To = nMax-1
+          Break = 1
+        if To < From:
+          break
+#      print(FromToList)
+      px = Polynomial([0])
+      px._CoefficientList = CList
+      px._CoeffsCount = CCList
+      px._DontTouchBounds = DontTouchBounds
+      px._OddOnly = OddOnly
+      R = process_map(px._getAllHavingSpecifiedCoeffsHelper, FromToList)
+      #print(len(R))
+      for Ri in R:
+        #print(len(Ri))
+        Result += Ri
+    else:
+      for n in range(1, nMax):
+        PT = []
+        bsn = BinString(len(CList), n)
+        i = 0
+        for b in bsn:
+          if b: 
+            PT.append(CList[i])
+          i += 1
+        #print(n, bsn, PT)
+        if not (len(PT) in CCList):
+          #print("Bad length")
+          continue
+        if DontTouchBounds:
+          if (not (CList[0] in PT)) or (not (CList[-1] in PT)):
+            #print("Bad coeff")
+            continue     
+        Result.append(Polynomial(PT.copy()))
+        #print(n, bsn, PT)
     return Result
   def toKassabStr(self) -> str:
     result = "add_polynomial("
@@ -385,6 +456,8 @@ Polynomial ("size,HexNumber", balancing=0)
       if (this-right) <= 1:
         return False
     return True
+#  def createBasingOnCoeffsList(CoeffsList : list) -> Polynomial:
+#    pass 
   def createPolynomial(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False) -> Polynomial:
     """Returns a polynomial, usefull for LFSRs.
 
@@ -715,6 +788,7 @@ class Lfsr:
   _taps = []
   _baValue = bitarray(0)
   _bamask = bitarray(0)
+  _notes = ""
   def __del__(self):
     self.clear()
     self._taps.clear()
@@ -753,6 +827,7 @@ class Lfsr:
         self._bamask = copy.deepcopy(polynomial._bamask)
         self._ba_fast_sim_array = copy.deepcopy(polynomial._ba_fast_sim_array)
         self._taps = copy.deepcopy(polynomial._taps)
+        self._notes = copy.deepcopy(polynomial._notes)
         return
     if type(Polynomial([0])) != type(polynomial):
       if lfsr_type == LfsrType.RingWithSpecifiedTaps:
@@ -1406,6 +1481,9 @@ class LfsrList:
     return Lfsr.analyseSequencesBatch(LfsrsList)
 
 # LFSR END ========================
+  
+  
+  
   
 
   
