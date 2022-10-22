@@ -560,7 +560,7 @@ Polynomial ("size,HexNumber", balancing=0)
       process_map(Polynomial._check, PList, chunksize=10)      
     else:
       pool = multiprocessing.Pool()   
-      pool.map_async(Polynomial._check, PList)
+      pool.map(Polynomial._check, PList)
       pool.close()
       pool.join()
     r = list(Polynomial._result)
