@@ -84,10 +84,13 @@ class Polynomial:
     CCList = self._CoeffsCount.copy()
     DontTouchBounds = self._DontTouchBounds
     OddOnly = self._OddOnly
-    if DontTouchBounds and ((1<<(len(CList)-1)) & FromTo[1]) == 0:
-      return []
+#    if DontTouchBounds and ((1<<(len(CList)-1)) & FromTo[1]) == 0:
+#      return []
     Result = []
-    for n in range(FromTo[0], FromTo[1]):
+    Step = 1
+    if DontTouchBounds:
+      Step = 2
+    for n in range(FromTo[0], FromTo[1]+1, Step):
       PT = []
       bsn = BinString(len(CList), n)
       i = 0
@@ -99,10 +102,10 @@ class Polynomial:
       if not (len(PT) in CCList):
         #print("Bad length")
         continue
-      if DontTouchBounds:
-        if (not (CList[0] in PT)) or (not (CList[-1] in PT)):
-          #print("Bad coeff")
-          continue     
+#      if DontTouchBounds:
+#        if (not (CList[0] in PT)) or (not (CList[-1] in PT)):
+#          print("Bad coeff", CList, PT)
+#          continue     
       Result.append(Polynomial(PT.copy()))
     return Result
   def _check(p):
@@ -207,25 +210,29 @@ Polynomial ("size,HexNumber", balancing=0)
     if len(CCList) > 1 and OddOnly:
       CCList = list(filter(lambda x: x&1==1, CCList))
     nMax = 1 << len(CList)
+    nMin = 1
     Result = []
-    if nMax > 110000:
+    Step = 1
+    if DontTouchBounds:
+      Step = 2
+      nMin = (nMax >> 1) | 1
+    if (nMax-nMin) > 110000:
       FromToList = []
       Step =  100000
-      From = 1
-      To = Step
+      From = nMin
+      To = From + Step-1
       Break = 0
       while 1:
         FromToList.append([From, To])
         if Break:
           break
-        From = To+1
+        From += Step
         To += Step
         if To >= nMax:
           To = nMax-1
           Break = 1
         if To < From:
           break
-#      print(FromToList)
       px = Polynomial([0])
       px._CoefficientList = CList
       px._CoeffsCount = CCList
@@ -237,7 +244,7 @@ Polynomial ("size,HexNumber", balancing=0)
         #print(len(Ri))
         Result += Ri
     else:
-      for n in range(1, nMax):
+      for n in range(nMin, nMax, Step):
         PT = []
         bsn = BinString(len(CList), n)
         i = 0
@@ -249,10 +256,10 @@ Polynomial ("size,HexNumber", balancing=0)
         if not (len(PT) in CCList):
           #print("Bad length")
           continue
-        if DontTouchBounds:
-          if (not (CList[0] in PT)) or (not (CList[-1] in PT)):
-            #print("Bad coeff")
-            continue     
+#        if DontTouchBounds:
+#          if (not (CList[0] in PT)) or (not (CList[-1] in PT)):
+#            print("Bad coeff")
+#            continue     
         Result.append(Polynomial(PT.copy()))
         #print(n, bsn, PT)
     return Result
