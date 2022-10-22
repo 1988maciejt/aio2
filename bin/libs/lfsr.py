@@ -111,7 +111,8 @@ class Polynomial:
   def _check(p):
     if (Polynomial._n > 0) and  (len(Polynomial._result) >= Polynomial._n):
       return
-    Aio.printTemp("Checking " + str(p))
+    if not Polynomial._quiet:
+      Aio.printTemp("Checking " + str(p))
     if p.isPrimitive():
       Polynomial._result.append(p)
       if not Polynomial._quiet:
@@ -535,7 +536,7 @@ Polynomial ("size,HexNumber", balancing=0)
         if not p.makeNext():
           return None
     return p
-  def checkPrimitives(Candidates : list, n = 0, quiet = False) -> list:
+  def checkPrimitives(Candidates : list, n = 0, quiet = True) -> list:
     """Returns a list of primitive polynomials (over GF(2)) found on a given list.
 
     Args:
@@ -555,16 +556,19 @@ Polynomial ("size,HexNumber", balancing=0)
     Polynomial._result = manager.list()
     Polynomial._n = n
     Polynomial._quiet = quiet
-    pool = multiprocessing.Pool()   
-    pool.map_async(Polynomial._check, PList)
-    pool.close()
-    pool.join()
+    if quiet:
+      process_map(Polynomial._check, PList, chunksize=10)      
+    else:
+      pool = multiprocessing.Pool()   
+      pool.map_async(Polynomial._check, PList)
+      pool.close()
+      pool.join()
     r = list(Polynomial._result)
     if n > 0 and len(r) > n:
       r = r[0:n]
     Aio.printTemp(" " * (Aio.getTerminalColumns()-1))
     return r
-  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, n = 0, quiet = False, MaxSetSize=1024, ExcludeList = [], ReturnAlsoAllCandidaes = False) -> list:
+  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, n = 0, quiet = True, MaxSetSize=10000000, ExcludeList = [], ReturnAlsoAllCandidaes = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -650,7 +654,7 @@ Polynomial ("size,HexNumber", balancing=0)
     if len(result) > 0:
       return result[0]
     return None
-  def listEveryNTaps(Degree : int, EveryN : int, n = 0, quiet = False) -> list:
+  def listEveryNTaps(Degree : int, EveryN : int, n = 0, quiet = True) -> list:
     ccount = int(round(Degree / EveryN, 0)) | 1
     if ccount < 3: ccount = 3
     results = []
@@ -672,7 +676,7 @@ Polynomial ("size,HexNumber", balancing=0)
     if len(r) > 0:
       return r[0]
     return None
-  def listDense(Degree, n=0, quiet = False) -> list:
+  def listDense(Degree, n=0, quiet = True) -> list:
     Half = int(Degree / 2) | 1
     c = Half
     result = []
@@ -725,7 +729,7 @@ Polynomial ("size,HexNumber", balancing=0)
     if len(result) > n > 0:
       return result[0:n-1]      
     return result
-  def listTapsFromTheLeft(degree : int, coeffs_count : int, max_distance = 3, n=0, quiet = False) -> list:
+  def listTapsFromTheLeft(degree : int, coeffs_count : int, max_distance = 3, n=0, quiet = True) -> list:
     clist = [degree]
     davg = degree // coeffs_count
     distance = max_distance
@@ -741,7 +745,7 @@ Polynomial ("size,HexNumber", balancing=0)
     while poly.makeNext():
       plist.append(poly.copy())
     return Polynomial.checkPrimitives(plist, n, quiet)
-  def firstTapsFromTheLeft(degree : int, coeffs_count : int, max_distance = 3, quiet = False) -> list:
+  def firstTapsFromTheLeft(degree : int, coeffs_count : int, max_distance = 3, quiet = True) -> list:
     lst = Polynomial.listTapsFromTheLeft(degree, coeffs_count, max_distance, quiet)
     if len(lst) > 0:
       return lst[0]
