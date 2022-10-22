@@ -27,3 +27,5 @@ pip3 install rshell
 pip3 install pydbus
 pip3 install bitarray
 pip3 install pyeda
+
+pip3 install pyqt5 pyqt5-tools

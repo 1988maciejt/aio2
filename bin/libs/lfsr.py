@@ -805,6 +805,14 @@ Polynomial ("size,HexNumber", balancing=0)
     if len(lst) > 0:
       return lst[0]
     return None
+  def decodeUsingBerlekampMassey(Sequence) -> Polynomial:
+    seq = []
+    for S in Sequence:
+      if int(S):
+        seq.append(1)
+      else:
+        seq.append(0)
+    return _BerlekampMassey(seq).getPolynomial().getReversed()
   def derivativeGF2(self) -> Polynomial:
     result = self.copy();
     coeffs = result._coefficients_list
@@ -1132,21 +1140,25 @@ class Lfsr:
     for i in range(n):
       Aio.print(self)
       self.next(step)
-  def getMSequence(self, bitIndex = 0, reset = True) -> bitarray:
-    """Returns a string containing the M-Sequence of the LFSR.
+  def getMSequence(self, BitIndex = 0, Reset = True):
+    return self.getSequence(BitIndex, Reset, 0)
+  def getSequence(self, BitIndex = 0, Reset = True, Length = 0) -> bitarray:
+    """Returns a bitarray containing the Sequence of the LFSR.
 
     Args:
         bitIndex (int, optional): At this bit the sequence is observed. Defaults to 0.
         reset (bool, optional): If True, then the LFSR is resetted to the 0x1 value before simulation. Defaults to True.
-
+        length (int, optional): returns specified count of bits of sequence
     Returns:
         str: M-Sequence
     """
     result = bitarray()
-    bindex = -bitIndex-1
-    if reset:
+    bindex = -BitIndex-1
+    if Reset:
       self.reset()
-    n = self.getPeriod()
+    n = Length
+    if n <= 0:
+      n = self.getPeriod()
     for i in range(n):
       result.append(self._baValue[bindex])
       self.next()
@@ -1548,7 +1560,67 @@ class LfsrList:
 
 # LFSR END ========================
   
+
   
+class _BerlekampMassey:
+    def __init__(self, sequence):
+        n = len(sequence)
+        s = sequence.copy()
+
+        k = 0
+        for k in range(n):
+            if s[k] == 1:
+                break
+        self._f = {k + 1, 0}
+        self._l = k + 1
+
+        g = {0}
+        a = k
+        b = 0
+
+        for n in range(k + 1, n):
+            d = 0
+            for item in self._f:
+                d ^= s[item + n - self._l]
+
+            if d == 0:
+                b += 1
+            else:
+                if 2 * self._l > n:
+                    self._f ^= set([a - b + item for item in g])
+                    b += 1
+                else:
+                    temp = self._f.copy()
+                    self._f = set([b - a + item for item in self._f]) ^ g
+                    self._l = n + 1 - self._l
+                    g = temp
+                    a = b
+                    b = n - self._l + 1
+
+    def _get_polynomial_string(self):
+        result = ''
+        lis = sorted(self._f, reverse=True)
+        for i in lis:
+            if i == 0:
+                result += '1'
+            else:
+                result += 'x^%s' % str(i)
+
+            if i != lis[-1]:
+                result += ' + '
+        return result
+
+    def getPolynomial(self):
+        return Polynomial(list(self._f))
+
+    def getDegree(self):
+        return self._l
+
+    def __str__(self):
+        return self._get_polynomial_string()
+
+    def __repr__(self):
+        return "<%s polynomial=%s>" % (self.__class__.__name__, self._get_polynomial_string())
   
   
 
