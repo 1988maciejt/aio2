@@ -239,7 +239,7 @@ Polynomial ("size,HexNumber", balancing=0)
       px._CoeffsCount = CCList
       px._DontTouchBounds = DontTouchBounds
       px._OddOnly = OddOnly
-      R = process_map(px._getAllHavingSpecifiedCoeffsHelper, FromToList)
+      R = process_map(px._getAllHavingSpecifiedCoeffsHelper, FromToList, desc="Polynomials creating")
       #print(len(R))
       for Ri in R:
         #print(len(Ri))
@@ -557,7 +557,7 @@ Polynomial ("size,HexNumber", balancing=0)
     Polynomial._n = n
     Polynomial._quiet = quiet
     if quiet:
-      process_map(Polynomial._check, PList, chunksize=10)      
+      process_map(Polynomial._check, PList, chunksize=10, desc="Primitivity checking")      
     else:
       pool = multiprocessing.Pool()   
       pool.map(Polynomial._check, PList)
@@ -1388,7 +1388,7 @@ endmodule'''
       return index + LowerSize
     return index
   def analyseSequencesBatch(ListOfObjects) -> list:
-    return process_map(_analyseSequences_helper, ListOfObjects)
+    return process_map(_analyseSequences_helper, ListOfObjects, chunkside=2, desc="Sequences analysis")
   def analyseSequences(self, Reset = True, WithXor2 = True, WithXor3 = True) -> MSequencesReport:
     Values = self.getValues(reset=True)
     Sequences = [bitarray() for i in range(self._size)]
