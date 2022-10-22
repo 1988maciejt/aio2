@@ -12,6 +12,7 @@ import multiprocessing
 import copy
 import gc
 from bitarray import *
+from tqdm.contrib.concurrent import process_map
 
 
 
@@ -20,6 +21,12 @@ class MSequencesReport:
   _xor2 = False
   _xor3 = False
   _dict = {}
+  _title = ""
+  SourceObject = None
+  def __str__(self) -> str:
+    return self.getReport() 
+  def getTitle(self) -> str:
+    return self._title
   def _psmaxlevel(self) -> int:
     if self._xor3:
       return 3
@@ -30,16 +37,21 @@ class MSequencesReport:
     if PhaseShifterGatesInputs <= 0 or PhaseShifterGatesInputs > 3:
       PhaseShifterGatesInputs = self._psmaxlevel()
     return self._dict[PhaseShifterGatesInputs]["unique_count"]
-  def printReport(self, PhaseShifterGatesInputs = 0):
+  def getReport(self, PhaseShifterGatesInputs = 0):
+    Lines = ""
     if PhaseShifterGatesInputs <= 0 or PhaseShifterGatesInputs > 3:
       PhaseShifterGatesInputs = self._psmaxlevel()
     SDict = self._dict[PhaseShifterGatesInputs]
     keys = list(SDict.keys())
     keys.sort()
+    Lines += f'UNIQUE SEQUENCES: {SDict["unique_count"]}'
     for key in keys:
       if key == "unique_count":
         continue
-      Aio.print(f'{key}{" " * (18 - len(key))}=>  {SDict[key]}')
+      Lines += (f'\n{key}{" " * (18 - len(key))}=>  {SDict[key]}')
+    return Lines
+  def printReport(self, PhaseShifterGatesInputs = 0):
+    Aio.print(self.getReport(PhaseShifterGatesInputs))
 
 
 
@@ -139,7 +151,7 @@ Polynomial ("size,HexNumber", balancing=0)
     raise StopIteration  
   def __str__(self) -> str:
     return str(self._coefficients_list)
-  def getAllHavingSpecifiedCoeffs(CoefficientList : list, CoeffsCount = 0, DontTouchBounds = 1):
+  def getAllHavingSpecifiedCoeffs(CoefficientList : list, CoeffsCount = 0, DontTouchBounds = 1, OddOnly = 1):
     CList = CoefficientList.copy()
     CList.sort()
     CMax = CList[-1]
@@ -150,6 +162,8 @@ Polynomial ("size,HexNumber", balancing=0)
         CCList = [CoeffsCount]
     else:
       CCList = [i for i in CoeffsCount]
+    if len(CCList) > 1 and OddOnly:
+      CCList = list(filter(lambda x: x&1==1, CCList))
     nMax = 1 << len(CList)
     Result = []
     for n in range(1, nMax):
@@ -1287,6 +1301,8 @@ endmodule'''
         return index - LowerSize
       return index + LowerSize
     return index
+  def analyseSequencesBatch(ListOfObjects) -> list:
+    return process_map(_analyseSequences_helper, ListOfObjects)
   def analyseSequences(self, Reset = True, WithXor2 = True, WithXor3 = True) -> MSequencesReport:
     Values = self.getValues(reset=True)
     Sequences = [bitarray() for i in range(self._size)]
@@ -1376,10 +1392,19 @@ endmodule'''
     Report._xor2 = WithXor2
     Report._xor3 = WithXor3
     Report._dict = Results
+    Report._title = repr(self)
+    Report.SourceObject = self
     return Report
   
     
+def _analyseSequences_helper(lfsr) -> MSequencesReport:
+  return lfsr.analyseSequences()
     
+    
+class LfsrList:
+  def analyseSequences(LfsrsList) -> list:      
+    return Lfsr.analyseSequencesBatch(LfsrsList)
+
 # LFSR END ========================
   
 

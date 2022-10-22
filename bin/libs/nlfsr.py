@@ -636,7 +636,11 @@ class Nlfsr(Lfsr):
     return ((self.getFanout('max') <= FanoutMax) and self.isCrossingFree()) 
         
         
-        
+
+    
+class NlfsrList:
+  def analyseSequences(NlfsrsList) -> list:      
+    return Nlfsr.analyseSequencesBatch(NlfsrsList)
         
       
     
