@@ -1,4 +1,3 @@
-from sys import dont_write_bytecode
 from libs.utils_bitarray import *
 from libs.binstr import *
 from libs.aio import *
@@ -69,6 +68,7 @@ class Polynomial:
   _bmin = 1
   _positions = False
   _ctemp = True
+  _mindist = 0
   _lf = False
   _coeffs_on_list__list = None
   _coeffs_on_list__maxnum = None
@@ -140,6 +140,7 @@ Polynomial ("size,HexNumber", balancing=0)
       self._positions = coefficients_list._positions
       self._lf = coefficients_list._lf
       self._notes = coefficients_list._notes
+      self._mindist = coefficients_list._mindist
       self._coeffs_on_list__list = coefficients_list._coeffs_on_list__list
       self._coeffs_on_list__maxnum = coefficients_list._coeffs_on_list__maxnum
       self._coeffs_on_list__num = coefficients_list._coeffs_on_list__num
@@ -178,7 +179,7 @@ Polynomial ("size,HexNumber", balancing=0)
       self._balancing = balancing
       self._bmax = self._coefficients_list[0]
   def __iter__(self):
-    self = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self._balancing, self._lf)
+    self = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self._balancing, self._lf, self._mindist)
     self._mnext = True
     self._first = True
     if self._balancing > 0:
@@ -192,11 +193,11 @@ Polynomial ("size,HexNumber", balancing=0)
     if self._mnext:  
       if self._first:
         self._first = False
-        return self
+        return self.copy()
       else:
         self._mnext = self.makeNext()
         if self._mnext:
-          return self
+          return self.copy()
     raise StopIteration  
   def __str__(self) -> str:
     return str(self._coefficients_list)
@@ -432,7 +433,7 @@ Polynomial ("size,HexNumber", balancing=0)
         self._coefficients_list[i] = vmin+1    
         left = vmin+1 
     return False  
-  def getTaps(self) -> int:
+  def getTapsCount(self) -> int:
     """Returns LFSR taps count in case of a LFSR created basing on this polynomial 
     """
     return len(self._coefficients_list)-2
@@ -521,7 +522,7 @@ Polynomial ("size,HexNumber", balancing=0)
     return True
 #  def createBasingOnCoeffsList(CoeffsList : list) -> Polynomial:
 #    pass 
-  def createPolynomial(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False) -> Polynomial:
+  def createPolynomial(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDIstane = 0) -> Polynomial:
     """Returns a polynomial, usefull for LFSRs.
 
     Args:
@@ -545,6 +546,8 @@ Polynomial ("size,HexNumber", balancing=0)
       bmin = avg - halfbal
       bmax = avg + halfbal
       result.insert(0,0);
+      if MinimumDIstane > 0:
+        bmin = MinimumDIstane * 1.0
       if bmin < 1.0:
         bmin = 1.0
         bmax = float(balancing + 1)
@@ -568,6 +571,14 @@ Polynomial ("size,HexNumber", balancing=0)
           except:
             pass
       result.append(degree)
+    elif MinimumDIstane > 0:
+      bmin = MinimumDIstane
+      result = [0]
+      c = MinimumDIstane
+      for i in range(2, coeffs_count):
+        result.append(c)
+        c += MinimumDIstane
+      result.append(degree)
     else:
       for i in range(coeffs_count-1):
         result.append(i)
@@ -582,6 +593,7 @@ Polynomial ("size,HexNumber", balancing=0)
     p._bmin = int(round(bmin,0))
     p._bmax = int(round(bmax,0))
     p._lf = LayoutFriendly
+    p._mindist = MinimumDIstane
 #    print(Aio.format(pos))
     if p._balancing > 0:
       if p.getBalancing() > p._balancing:
@@ -992,6 +1004,54 @@ class Lfsr:
           index += 1
         self._ba_fast_sim_array[r][c] = res.copy()
     self._baValue = oldVal
+  def reverseTap(self, TapIndex : int) -> bool:
+    if 0 <= TapIndex < len(self._taps):
+      Size = self._size
+      Tap = self._taps[TapIndex]
+      S = Tap[0]
+      D = Tap[1]
+      D2 = S - 1
+      while D2 < 0: 
+          D2 += Size
+      S2 = D + 1
+      while S2 >= Size: 
+          S2 -= Size
+      self._taps[TapIndex] = [S2, D2]
+      return True
+    return False
+  def getDual(self):
+    if self._type == LfsrType.Fibonacci:
+      return Lfsr(self._my_poly.copy(), LfsrType.Galois)
+    if self._type == LfsrType.Galois:
+      return Lfsr(self._my_poly.copy(), LfsrType.Fibonacci)
+    else:
+      Result = self.copy()
+      for i in range(len(Result._taps)):
+        Result.reverseTap(i)
+      return Result
+  def getTaps(self):
+    return self._taps
+  def getPhaseShiftIndexes(self, ListOfXoredOutputs : list, DelayedBy : int) -> list:
+    Dual = self.getDual()
+    Dual._baValue.setall(0)
+    if Aio.isType(ListOfXoredOutputs, 0):
+      ListOfXoredOutputs = [ListOfXoredOutputs]
+    if DelayedBy == 0:
+      return ListOfXoredOutputs.copy()
+    Max = Int.mersenne(self._size)
+    while DelayedBy < 0:
+      DelayedBy += Max
+    while DelayedBy > Max:
+      DelayedBy -= Max
+    for i in ListOfXoredOutputs:
+      Dual._baValue[-i-1] = 1
+    Dual.next(DelayedBy)
+    Result = []
+    for i in range(len(Dual._baValue)):
+      if Dual._baValue[i]:
+        Result.append(self._size - i - 1)
+    return Result
+
   def getValue(self) -> bitarray:
     """Returns current value of the LFSR
     """
