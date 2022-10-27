@@ -52,6 +52,7 @@ from libs.multi_process import *
 from libs.nlfsr import *
 from libs.nist import *
 from pyeda.inter import *
+from libs.phaseshifter import *
 from libs.polynomial import *
 from libs.preprocessor import *
 from libs.simplecommandparser import *
