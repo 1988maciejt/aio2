@@ -390,7 +390,18 @@ class Nlfsr(Lfsr):
     if Filter:
       Results = Nlfsr.filter(Results)
     return Results
-  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False):
+  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> list:
+    """Tries to find a specified type of NLFSR (Ring-like). Returns a list of found objects.
+
+    Args:
+        Poly (Polynomial): Polnomial or list of coefficients
+        PeriodLengthMinimumRatio (int, optional): Minimum satisfable period ratio. 0 < RATIO <= 1. Defaults to 1.
+        OnlyPrimePeriods (bool, optional): Returns only NLFSRs having period being prime number. Defaults to False.
+        InvertersAllowed (bool, optional): True, if inverters are allowed. Defaults to False.
+        MaxAndCount (int, optional): Maximum count of AND gates. Defaults to 0 (no limit).
+        BeautifullOnly (bool, optional): Considerates only NLFSRs being crossing-free and having fanout <= 2. Defaults to False.
+        Filter (bool, optional): If True, permorms equivalent and inverted-inputs filtering. Defaults to False.
+    """
     if InvertersAllowed:
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounterInvertersAllowed.Compiled:

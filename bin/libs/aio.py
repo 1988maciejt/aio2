@@ -262,4 +262,3 @@ class Tc:
     result = Aio.shellExecute("diff " + FileName + " ../references/" + FileName)
     print(result)
     
-

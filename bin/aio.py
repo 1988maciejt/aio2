@@ -83,6 +83,22 @@ from libs.utils_list import *
 pbar = tqdm
 sleep = time.sleep
 
+def printf(something):
+    """Prints formatted data.
+    Uses Aio.format() proc in the back.
+
+    EXAMPLE
+    
+    printf([10,20,30])
+    >>>
+    [
+        10
+        20
+        30
+    ]
+    """
+    print(Aio.format(something))
+
 def timeIt(Code : str, Iterations = 1):
     exec(Aio.timeItCode(Code, Iterations))
     
