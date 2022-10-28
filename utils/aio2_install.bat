@@ -30,3 +30,4 @@ pip3 install pyeda
 pip3 install p_tqdm
 
 pip3 install pyqt5 pyqt5-tools
+pip3 install python-qt5
