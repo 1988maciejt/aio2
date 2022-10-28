@@ -1,5 +1,4 @@
-#SCRIPT=$(readlink -f $0)
-SCRIPTPATH=`dirname $0`
+SCRIPTPATH=$( cd "$(dirname $0)" ; pwd )
 repo=$(cat ${SCRIPTPATH}/tc_repo)
 existing=$(${SCRIPTPATH}/tls $1)
 tc="$1"

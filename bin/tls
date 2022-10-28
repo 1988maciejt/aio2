@@ -1,5 +1,4 @@
-#SCRIPT=$(readlink -f $0)
-SCRIPTPATH=`dirname $0`
+SCRIPTPATH=$( cd "$(dirname $0)" ; pwd )
 repo=$(cat ${SCRIPTPATH}/tc_repo)
 resp=$(git ls-remote --heads --refs -q $repo $1)
 tab="	"

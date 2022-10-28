@@ -1,6 +1,5 @@
 #! /bin/bash
-#SCRIPT=$(readlink -f $0)
-SCRIPTPATH=`dirname $0`
+SCRIPTPATH=$( cd "$(dirname $0)" ; pwd )
 THIS=`pwd`
 cd ${SCRIPTPATH}
 ptpython3 aio2.py $THIS driver.py
