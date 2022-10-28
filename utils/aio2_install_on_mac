@@ -36,4 +36,5 @@ pip3 install pyeda
 
 mkdir -p ~/.config/ptpython/
 cp ~/.config/ptpython/config.py ~/.config/ptpython/config.py.bak
+echo "Copying PTPYTHON config ${SCRIPTPATH}/ptpython_config.py   ->   ~/.config/ptpython/config.py"
 cp -r ${SCRIPTPATH}/ptpython_config.py ~/.config/ptpython/config.py
