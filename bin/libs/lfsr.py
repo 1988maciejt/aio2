@@ -1052,20 +1052,18 @@ class Lfsr:
       if Dual._baValue[i]:
         Result.append(self._size - i - 1)
     return Result
-  def getPhaseShifter(self, OutputCount : int, MinimumSeparation = 100, MaxXorInputs = 3, MinXorInputs = 1, FirstXor = None) -> PhaseShifter:
+  def createPhaseShifter(self, OutputCount : int, MinimumSeparation = 100, MaxXorInputs = 3, MinXorInputs = 1, FirstXor = None) -> PhaseShifter:
     if 0 < MinXorInputs <= MaxXorInputs:
       if FirstXor is None:
         FirstXor = [i for i in range(MinXorInputs)]
       XorList = []
       ActualXor = FirstXor
       XorList.append(ActualXor.copy())
-      print(ActualXor)
       for i in range(OutputCount-1):
         ActualXor = self.getPhaseShiftIndexes(ActualXor, MinimumSeparation)
         while len(ActualXor) < MinXorInputs or len(ActualXor) > MaxXorInputs:
           ActualXor = self.getPhaseShiftIndexes(ActualXor, 1)
         XorList.append(ActualXor.copy())
-        print(ActualXor)
       PS = PhaseShifter(self, XorList)
       return PS
     return None

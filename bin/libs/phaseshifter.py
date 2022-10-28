@@ -24,6 +24,20 @@ class PhaseShifter:
         return str(self._bavalue)[10:-2]   
     def __repr__(self) -> str:
         return f'PhaseShifter({repr(self._my_source)}, {self._size})'     
+    def __iter__(self):
+        self._my_source.reset()
+        self._v0 = self._my_source._baValue.copy()
+        self._next_iteration = False
+        return self
+    def __next__(self):
+        val = self._my_source._baValue
+        self.next()
+        if self._next_iteration:    
+            if val == self._v0:
+                raise StopIteration
+        else:
+            self._next_iteration = True
+        return self._bavalue
     def reset(self) -> bitarray:
         self._bavalue.setall(0)
         return self._bavalue

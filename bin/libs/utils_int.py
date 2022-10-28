@@ -1,3 +1,4 @@
+from curses.ascii import isprint
 import re
 from math import sqrt
 from libs.utils_str import *
@@ -20,6 +21,39 @@ class Int:
         Prime = False
         break
     return Prime
+  
+  def nextPrime(value : int) -> int:
+    if value < 0:
+      return -Int.prevPrime(abs(value))
+    if value in [0, 1]:
+      return 2
+    v2 = value + 1
+    if not (v2 & 1):
+      v2 += 1
+    while not Int.isPrime(v2):
+      v2 += 2
+    return v2
+  
+  def prevPrime(value : int) -> int:
+    if value == 3:
+      return 2
+    elif value in [1, 2]:
+      return -2
+    elif value <= 0:
+      return -Int.nextPrime(abs(value))
+    v2 = value - 1
+    if not (v2 & 1):
+      v2 -= 1
+    while not Int.isPrime(v2):
+      v2 -= 2
+    return v2
+  
+  def primesGenerator(From : int, To : int):
+    v = From - 1
+    v = Int.nextPrime(v)
+    while v <= To:
+      yield v
+      v = Int.nextPrime(v)
   
   def shiftLeft(value : int, bitsize : int, steps=1) -> int:
     if (steps < 0):
