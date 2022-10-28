@@ -1,6 +1,5 @@
-SCRIPT=$(readlink -f $0)
+SCRIPT=$( cd "$(dirname "$0")" ; pwd -P )
 SCRIPTPATH=`dirname $0SCRIPT`
 
 echo "0 = $0"
-echo "SCRIPT = $SCRIPT"
 echo "SCRIPTPATH = $SCRIPTPATH"
