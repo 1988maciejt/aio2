@@ -1,5 +1,5 @@
-SCRIPT=$(readlink -f $0)
-SCRIPTPATH=`dirname $SCRIPT`
+#SCRIPT=$(readlink -f $0)
+SCRIPTPATH=`dirname $0`
 repo=$(cat ${SCRIPTPATH}/tc_repo)
 if [ "$1" == "" ];
 then

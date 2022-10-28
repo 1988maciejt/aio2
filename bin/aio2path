@@ -1,4 +1,4 @@
 #! /bin/bash
-SCRIPT=$(readlink -f $0)
-SCRIPTPATH=`dirname $SCRIPT`
+#SCRIPT=$(readlink -f $0)
+SCRIPTPATH=`dirname $0`
 echo "$SCRIPTPATH"
