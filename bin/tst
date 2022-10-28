@@ -1,0 +1,6 @@
+SCRIPT=$(readlink -f $0)
+SCRIPTPATH=`dirname $0SCRIPT`
+
+echo "0 = $0"
+echo "SCRIPT = $SCRIPT"
+echo "SCRIPTPATH = $SCRIPTPATH"
