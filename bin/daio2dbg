@@ -2,4 +2,4 @@
 SCRIPTPATH=$( cd "$(dirname $0)" ; pwd )
 THIS=`pwd`
 cd ${SCRIPTPATH}
-ptpython3 -i aio2.py $THIS driver.py
+ptpython3 -i --config-file ${SCRIPTPATH}/ptpython_config.py aio2.py $THIS driver.py

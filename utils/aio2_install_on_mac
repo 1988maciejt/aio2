@@ -30,10 +30,6 @@ pip3 install rshell
 pip3 install pydbus
 pip3 install bitarray
 pip3 install pyeda
+pip3 install p_tqdm
 
 # pip3 install pyqt5 pyqt5-tools
-
-mkdir -p ~/.config/ptpython/
-cp ~/.config/ptpython/config.py ~/.config/ptpython/config.py.bak
-echo "Copying PTPYTHON config ${SCRIPTPATH}/ptpython_config.py   ->   ~/.config/ptpython/config.py"
-cp -r ${SCRIPTPATH}/ptpython_config.py ~/.config/ptpython/config.py

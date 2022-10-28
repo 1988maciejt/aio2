@@ -4,10 +4,9 @@ from libs.utils_list import *
 from libs.utils_bitarray import *
 from libs.asci_drawing import *
 from pyeda.inter import *
+from p_tqdm import p_map
 from bitarray import *
-import multiprocessing
 from random import uniform
-from tqdm.contrib.concurrent import process_map
 
   
 class Nlfsr(Lfsr):
@@ -386,14 +385,12 @@ class Nlfsr(Lfsr):
 #      if Add:
       Results.append(newR)
     if BeautifullOnly:
-      Pool = multiprocessing.Pool()
-      Results = Pool.map(_nlfsr_find_spec_period_helper2, Results)
+      Results = p_map(_nlfsr_find_spec_period_helper2, Results)
       Results = list(filter(lambda x: x is not None, Results))
     if Filter:
       Results = Nlfsr.filter(Results)
     return Results
   def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False):
-    #Pool = multiprocessing.Pool()
     if InvertersAllowed:
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounterInvertersAllowed.Compiled:
@@ -405,10 +402,7 @@ class Nlfsr(Lfsr):
     InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
     for i in range(len(InputSet)):
       InputSet[i]._exename = exename
-    Periods = process_map(_nlfsr_find_spec_period_helper, InputSet, chunksize=10)
-    #Periods = Pool.map(_nlfsr_find_spec_period_helper, InputSet)
-    #Pool.close()
-    #Pool.join()
+    Periods = p_map(_nlfsr_find_spec_period_helper, InputSet)
     Results = []
     eps = 0.0
     PMR = PeriodLengthMinimumRatio - eps

@@ -3,4 +3,4 @@ SCRIPTPATH=$( cd "$(dirname $0)" ; pwd )
 THIS=`pwd`
 PSCR=`realpath $1`
 cd ${SCRIPTPATH}
-ptpython3 aio2.py $THIS $PSCR
+ptpython3 --config-file ${SCRIPTPATH}/ptpython_config.py aio2.py $THIS $PSCR

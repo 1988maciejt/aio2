@@ -34,6 +34,7 @@ sudo pip3 install rshell
 sudo pip3 install pydbus
 sudo pip3 install bitarray
 sudo pip3 install pyeda
+sudo pip3 install p_tqdm
 pip3 install ipython
 pip3 install ptpython
 pip3 install pyserial
@@ -57,6 +58,7 @@ pip3 install pydbus
 pip3 install bitarray
 pip3 install pyeda
 pip3 install pyqt5 pyqt5-tools
+pip3 install p_tqdm
 sudo pip3 install jupyter
 sudo pip3 install notebook
 sudo pip3 install jupyterlab --ignore-installed pyzmq
@@ -76,9 +78,9 @@ cd ../
 sudo make
 sudo make install
 
-mkdir -p ~/.config/ptpython/
-cp ~/.config/ptpython/config.py ~/.config/ptpython/config.py.bak
-cp -r ${SCRIPTPATH}/ptpython_config.py ~/.config/ptpython/config.py
+#mkdir -p ~/.config/ptpython/
+#cp ~/.config/ptpython/config.py ~/.config/ptpython/config.py.bak
+#cp -r ${SCRIPTPATH}/ptpython_config.py ~/.config/ptpython/config.py
 
 cd /tmp
 git clone https://github.com/stefanhaustein/TerminalImageViewer.git

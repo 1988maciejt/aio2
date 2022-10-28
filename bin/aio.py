@@ -5,7 +5,8 @@ import gc
 import os
 import inspect
 import collections
-import multiprocessing
+import multiprocess
+from p_tqdm import p_map
 import imp
 #import numba
 from asyncore import ExitNow

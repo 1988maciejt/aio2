@@ -9,11 +9,12 @@ from libs.asci_drawing import *
 from libs.phaseshifter import *
 import math
 from tqdm import *
-import multiprocessing
+import multiprocess
+from p_tqdm import p_map
 import copy
 import gc
 from bitarray import *
-from tqdm.contrib.concurrent import process_map
+#from tqdm.contrib.concurrent import process_map
 
 
 
@@ -296,8 +297,8 @@ Polynomial ("size,HexNumber", balancing=0)
       px._CoeffsCount = CCList
       px._DontTouchBounds = DontTouchBounds
       px._OddOnly = OddOnly
-      R = process_map(px._getAllHavingSpecifiedCoeffsHelper, FromToList, desc="Polynomials creating")
-      #print(len(R))
+      #, desc="Polynomials creating")
+      R = p_map(px._getAllHavingSpecifiedCoeffsHelper, FromToList)
       for Ri in R:
         #print(len(Ri))
         Result += Ri
@@ -620,14 +621,15 @@ Polynomial ("size,HexNumber", balancing=0)
     PList = []
     for p in Candidates:
       PList.append(Polynomial(p))
-    manager = multiprocessing.Manager()
+    manager = multiprocess.Manager()
     Polynomial._result = manager.list()
     Polynomial._n = n
     Polynomial._quiet = quiet
     if quiet:
-      process_map(Polynomial._check, PList, chunksize=10, desc="Primitivity checking")      
+      #process_map(Polynomial._check, PList, chunksize=10, desc="Primitivity checking")    
+      p_map(Polynomial._check, PList)
     else:
-      pool = multiprocessing.Pool()   
+      pool = multiprocess.Pool()   
       pool.map(Polynomial._check, PList)
       pool.close()
       pool.join()
@@ -670,6 +672,7 @@ Polynomial ("size,HexNumber", balancing=0)
       cntr += 1
       if (cntr >= MaxSetSize):
         result += Polynomial.checkPrimitives(candidates, n, quiet)
+        print("Found so far:", len(result))
         candidates.clear()
         cntr = 0
         if len(result) >= n > 0:
@@ -746,14 +749,17 @@ Polynomial ("size,HexNumber", balancing=0)
     return None
   def listDense(Degree, n=0, quiet = True) -> list:
     Half = int(Degree / 2) | 1
-    c = Half
+    c = Half - 4
     result = []
     exclude = []
+    if n < 0:
+      n = 0
     n2 = n
     Cont = True
-    minc = Half * 0.8
+    minc = Half * 0.7
     while (c >= 3) & Cont & (c >= minc):
-      resultAux = Polynomial.listPrimitives(Degree, c, 1, False, n2, quiet, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
+      print (f'Found so far: {len(result)}. Looking for {c} coefficients')
+      resultAux = Polynomial.listPrimitives(Degree, c, 2, True, n2, quiet, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
       result += resultAux[0]
       exclude += resultAux[1]
       if n > 0:
@@ -761,41 +767,12 @@ Polynomial ("size,HexNumber", balancing=0)
         if n2 <= 0:
           break
       else:
-        if len(result) > 0:
+        if len(result) >= n:
           Cont = False
       c -= 2
-    if len(result) == 0:
-      c = Half-2
-      Cont = True
-      while (c >= 3) & Cont & (c >= minc):
-        resultAux = Polynomial.listPrimitives(Degree, c, 2, True, n2, quiet, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
-        result += resultAux[0]
-        exclude += resultAux[1]
-        if n > 0:
-          n2 -= len(result)
-          if n2 <= 0:
-            break
-        else:
-          if len(result) > 0:
-            Cont = False
-        c -= 2
-    if len(result) == 0:
-      c = Half-4
-      Cont = True
-      while (c >= 3) & Cont & (c >= minc):
-        resultAux = Polynomial.listPrimitives(Degree, c, 3, True, n2, quiet, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
-        result += resultAux[0]
-        exclude += resultAux[1]
-        if n > 0:
-          n2 -= len(result)
-          if n2 <= 0:
-            break
-        else:
-          if len(result) > 0:
-            Cont = False
-        c -= 2
     if len(result) > n > 0:
-      return result[0:n-1]      
+      return result[0:n-1]   
+    print (f'Found: {len(result)}')   
     return result
   def listTapsFromTheLeft(degree : int, coeffs_count : int, max_distance = 3, n=0, quiet = True) -> list:
     clist = [degree]
@@ -1259,15 +1236,13 @@ class Lfsr:
     return res
   def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = None, quiet=False) -> int:
     if "list" in str(type(Sequence)):
-      pool = multiprocessing.Pool()
       self._N = len(Sequence)
       self._IBit = InjectionAtBit
       self._Start = StartValue
-      man = multiprocessing.Manager()
+      man = multiprocess.Manager()
       self._C = man.list()
-      results = pool.map(self._simplySim, Sequence)
-      pool.close()
-      pool.join()
+      #results = pool.map(self._simplySim, Sequence)
+      results = p_map(self._simplySim, Sequence)
       Aio.printTemp("                                    ")
       del self._C
       return results
@@ -1530,7 +1505,9 @@ endmodule'''
       return index + LowerSize
     return index
   def analyseSequencesBatch(ListOfObjects) -> list:
-    return process_map(_analyseSequences_helper, ListOfObjects, chunkside=2, desc="Sequences analysis")
+    #return process_map(_analyseSequences_helper, ListOfObjects, chunkside=2, desc="Sequences analysis")
+    R = p_map(_analyseSequences_helper, ListOfObjects)
+    return R
   def analyseSequences(self, Reset = True, WithXor2 = True, WithXor3 = True) -> MSequencesReport:
     Values = self.getValues(reset=True)
     Sequences = [bitarray() for i in range(self._size)]
