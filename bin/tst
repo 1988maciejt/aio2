@@ -1,5 +1,6 @@
-SCRIPT=$( cd "$(dirname "$0")" ; pwd -P )
+SCRIPT=$( cd "$(dirname $0)" ; pwd )
 SCRIPTPATH=`dirname $0SCRIPT`
 
 echo "0 = $0"
+echo "0SCRIPT = $SCRIPT"
 echo "SCRIPTPATH = $SCRIPTPATH"
