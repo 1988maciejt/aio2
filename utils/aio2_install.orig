@@ -1,0 +1,96 @@
+#! /bin/bash
+SCRIPT=$(readlink -f $0)
+SCRIPTPATH=`dirname $SCRIPT`
+sudo apt update
+sudo apt upgrade -y
+sudo apt install -y -f python3 python3-pip python3-tk dos2unix
+sudo apt install -y -f texlive-xetex texlive-fonts-recommended texlive-plain-generic
+sudo apt install -y -f zlib1g pandoc
+sudo apt install -y -f pyqt5-dev-tools
+sudo apt install -y -f bat
+sudo pip3 install --upgrade pip
+#sudo pip3 install pyqt5
+#sudo pip3 install pyqtwebengine -U
+sudo pip3 install ipython
+sudo pip3 install ptpython
+sudo pip3 install pyserial
+sudo pip3 install plotext
+sudo pip3 install percol
+sudo pip3 install tqdm
+sudo pip3 install line_profiler
+sudo pip3 install openpyxl
+sudo pip3 install xlsxwriter
+sudo pip3 install ansi2html
+sudo pip3 install pathos
+sudo pip3 install numpy
+sudo pip3 install numba
+sudo pip3 install scipy
+sudo pip3 install multiprocess
+sudo pip3 install sympy
+sudo pip3 install matplotlib
+sudo pip3 install latex
+sudo pip3 install simple_term_menu 
+sudo pip3 install esptool
+sudo pip3 install rshell 
+sudo pip3 install pydbus
+sudo pip3 install bitarray
+sudo pip3 install pyeda
+sudo pip3 install p_tqdm
+pip3 install ipython
+pip3 install ptpython
+pip3 install pyserial
+pip3 install plotext
+pip3 install percol
+pip3 install tqdm
+pip3 install line_profiler
+pip3 install openpyxl
+pip3 install xlsxwriter
+pip3 install ansi2html
+pip3 install pathos
+pip3 install numpy
+pip3 install numba
+pip3 install scipy
+pip3 install multiprocess
+pip3 install sympy
+pip3 install matplotlib
+pip3 install latex
+pip3 install simple_term_menu 
+pip3 install pydbus
+pip3 install bitarray
+pip3 install pyeda
+pip3 install pyqt5 pyqt5-tools
+<<<<<<< HEAD
+pip3 install p_tqdm
+=======
+pip3 install python-qt5
+>>>>>>> 1ca3016 (gui - start)
+sudo pip3 install jupyter
+sudo pip3 install notebook
+sudo pip3 install jupyterlab --ignore-installed pyzmq
+sudo pip3 install ipywidgets
+
+cd iverilog
+sudo apt install -y gtkwave gperf flex bison yosys covered 
+tar -zxvf verilog-11.0.tar.gz
+rm -rf ~/iverilog
+mv verilog-11.0 ~/iverilog
+cd ~/iverilog
+git clone https://github.com/steveicarus/iverilog.git
+cd iverilog
+git checkout --track -b v11-branch origin/v11-branch
+cd ../
+./configure
+sudo make
+sudo make install
+
+#mkdir -p ~/.config/ptpython/
+#cp ~/.config/ptpython/config.py ~/.config/ptpython/config.py.bak
+#cp -r ${SCRIPTPATH}/ptpython_config.py ~/.config/ptpython/config.py
+
+cd /tmp
+git clone https://github.com/stefanhaustein/TerminalImageViewer.git
+cd TerminalImageViewer/src/main/cpp
+make
+sudo make install
+cd /tmp
+rm -rf TerminalImageViewer
