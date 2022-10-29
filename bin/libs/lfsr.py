@@ -113,11 +113,11 @@ class Polynomial:
   def _check(p):
     if (Polynomial._n > 0) and  (len(Polynomial._result) >= Polynomial._n):
       return
-    if not Polynomial._quiet:
+    if not Polynomial._Silent:
       Aio.printTemp("Checking " + str(p))
     if p.isPrimitive():
       Polynomial._result.append(p)
-      if not Polynomial._quiet:
+      if not Polynomial._Silent:
         print("Found " + str(p) + " " * 30)
   def copy(self) -> Polynomial:
     return Polynomial(self)
@@ -489,7 +489,7 @@ Polynomial ("size,HexNumber", balancing=0)
 ##    PersistentCache.store(self, result)
 #    Cache.store(self.toInt(), result)
     return result
-  def nextPrimitive(self, quiet=False) -> bool:
+  def nextPrimitive(self, Silent=False) -> bool:
     """Looks for the next primitive polynomial.
 
     Returns:
@@ -498,10 +498,10 @@ Polynomial ("size,HexNumber", balancing=0)
     while True:
       if not self.makeNext():
         return False
-      if not quiet:
+      if not Silent:
         Aio.printTemp("Testing",self)
       if self.isPrimitive():
-        if not quiet:
+        if not Silent:
           Aio.printTemp(str(" ")*100)
         return True
   def copy(self):
@@ -596,13 +596,13 @@ Polynomial ("size,HexNumber", balancing=0)
         if not p.makeNext():
           return None
     return p
-  def checkPrimitives(Candidates : list, n = 0, quiet = True) -> list:
+  def checkPrimitives(Candidates : list, n = 0, Silent = True) -> list:
     """Returns a list of primitive polynomials (over GF(2)) found on a given list.
 
     Args:
         PList (list): list of candidate polynomials 
         m (int, optional): stop checking if n polynomials is found. Defaults to 0 (don't stop)
-        quiet (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
+        Silent (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
 
     Returns:
         list: list of polynomial objects
@@ -615,8 +615,8 @@ Polynomial ("size,HexNumber", balancing=0)
     manager = multiprocess.Manager()
     Polynomial._result = manager.list()
     Polynomial._n = n
-    Polynomial._quiet = quiet
-    if quiet:
+    Polynomial._Silent = Silent
+    if Silent:
       #process_map(Polynomial._check, PList, chunksize=10, desc="Primitivity checking")    
       p_map(Polynomial._check, PList)
     else:
@@ -629,22 +629,40 @@ Polynomial ("size,HexNumber", balancing=0)
       r = r[0:n]
     Aio.printTemp(" " * (Aio.getTerminalColumns()-1))
     return r
-  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, n = 0, quiet = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False) -> list:
+  def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDIstance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False) -> None:
+    """Prints a list of primitive polynomials (over GF(2)).
+
+    Args:
+        degree (int): polynomial degree (i.e. LFSR size)
+        coeffs_count (int): coefficients count (i.e. LFSR taps count + 2)
+        balancing (int, optional): balancing factor. Defaults to 0 (no balance checking)
+        MinimumDIstance (int, optional): Minimum distance between consecutive coefficients. Default: 0 (no restriction)
+        LayoutFriendly (bool, optional): like MinimumDistance=2. Defaults to False.
+        n (int, optional): stop searching if n polynomials is found. Defaults to 0 (don't stop)
+        Silent (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
+        ExcludeList (list, optional): list of polynomials excluded from checking
+        ReturnAlsoAllCandidaes (bool, optional): if true, then it returns list: [polynomials_found, all_tested_polynomials]
+    """
+    for p in Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDIstance, n, Silent, MaxSetSize, ExcludeList, ReturnAlsoAllCandidaes):
+      Aio.print(p.getCoefficients())
+  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDIstance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
         degree (int): polynomial degree (i.e. LFSR size)
         coeffs_count (int): coefficients count (i.e. LFSR taps count + 2)
         balancing (int, optional): balancing factor. Defaults to 0 (no balance checking)
+        MinimumDIstance (int, optional): Minimum distance between consecutive coefficients. Default: 0 (no restriction)
+        LayoutFriendly (bool, optional): like MinimumDistance=2. Defaults to False.
         n (int, optional): stop searching if n polynomials is found. Defaults to 0 (don't stop)
-        quiet (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
+        Silent (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
         ExcludeList (list, optional): list of polynomials excluded from checking
         ReturnAlsoAllCandidaes (bool, optional): if true, then it returns list: [polynomials_found, all_tested_polynomials]
 
     Returns:
         list: list of polynomial objects
     """
-    polys = Polynomial.createPolynomial(degree, coeffs_count, balancing, LayoutFriendly)
+    polys = Polynomial.createPolynomial(degree, coeffs_count, balancing, LayoutFriendly, MinimumDIstance)
     if type(polys) == type(None):
       if ReturnAlsoAllCandidaes:
         return [[], []]
@@ -662,18 +680,18 @@ Polynomial ("size,HexNumber", balancing=0)
         AllCandidates.append(p.copy())
       cntr += 1
       if (cntr >= MaxSetSize):
-        result += Polynomial.checkPrimitives(candidates, n, quiet)
+        result += Polynomial.checkPrimitives(candidates, n, Silent)
         print("Found so far:", len(result))
         candidates.clear()
         cntr = 0
         if len(result) >= n > 0:
           break    
     if (cntr > 0):
-      result += Polynomial.checkPrimitives(candidates, n, quiet)
+      result += Polynomial.checkPrimitives(candidates, n, Silent)
       candidates.clear()
     Polynomial._ctemp = True
     if cntr != 0:
-        result += Polynomial.checkPrimitives(candidates, n, quiet)
+        result += Polynomial.checkPrimitives(candidates, n, Silent)
         candidates.clear()      
     if n > 0 and len(result) > n:
       result = result[0:n]
@@ -682,7 +700,7 @@ Polynomial ("size,HexNumber", balancing=0)
     if ReturnAlsoAllCandidaes:
       return [result, AllCandidates]
     return result
-  def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, quiet=True) -> Polynomial:
+  def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, Silent=True) -> Polynomial:
     """Returns a first found primitive (over GF(2)) polynomial.
 
     Args:
@@ -693,36 +711,39 @@ Polynomial ("size,HexNumber", balancing=0)
     Returns:
         list: _description_
     """
-    lp = Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, 1, quiet)
+    lp = Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, 1, Silent)
     if len(lp) > 0:
       return lp[0]
 #    p = Polynomial.createPolynomial(degree, coeffs_count, balancing)
 #    if p.isPrimitive():
 #      return p
-#    elif p.nextPrimitive(quiet):
+#    elif p.nextPrimitive(Silent):
 #      return p
     return None
-  def firstMostBalancedPrimitive(degree : int, coeffs_count : int, StartBalancing=1, EndBalancing=10, LayoutFriendly = False, quiet = True) -> Polynomial:
+  def firstMostBalancedPrimitive(degree : int, coeffs_count : int, StartBalancing=1, EndBalancing=10, LayoutFriendly = False, Silent = True) -> Polynomial:
     bal = EndBalancing
     if bal > (degree-coeffs_count):
       bal = (degree-coeffs_count)
     for b in range(StartBalancing, bal):
-      fp = Polynomial.firstPrimitive(degree, coeffs_count, b, LayoutFriendly, quiet)
+      fp = Polynomial.firstPrimitive(degree, coeffs_count, b, LayoutFriendly, Silent)
       if type(fp) != type(None):
         return fp
     return None
-  def firstEveryNTaps(Degree : int, EveryN : int, quiet = True) -> Polynomial:
-    result = Polynomial.listEveryNTaps(Degree, EveryN, 1, quiet)
+  def firstEveryNTapsPrimitive(Degree : int, EveryN : int, Silent = True) -> Polynomial:
+    result = Polynomial.listEveryNTapsPrimitives(Degree, EveryN, 1, Silent)
     if len(result) > 0:
       return result[0]
     return None
-  def listEveryNTaps(Degree : int, EveryN : int, n = 0, quiet = True) -> list:
+  def printEveryNTapsPrimitives(Degree : int, EveryN : int, n = 0, Silent = True) -> None:
+    for p in Polynomial.listEveryNTapsPrimitives(Degree, EveryN, n, Silent):
+      Aio.print(p.getCoefficients())
+  def listEveryNTapsPrimitives(Degree : int, EveryN : int, n = 0, Silent = True) -> list:
     ccount = int(round(Degree / EveryN, 0)) | 1
     if ccount < 3: ccount = 3
     results = []
     exclude = []
     for b in range(1, EveryN):
-      resultsAux = Polynomial.listPrimitives(Degree, ccount, b, True, n, quiet, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
+      resultsAux = Polynomial.listPrimitives(Degree, ccount, b, True, n, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
       exclude += resultsAux[1]
       for pol in resultsAux[0]:
         results.append(pol.copy())
@@ -733,12 +754,15 @@ Polynomial ("size,HexNumber", balancing=0)
       if len(results) > n:
         results = results[0:n]
     return results
-  def firstDense(Degree : int, quiet = True) -> Polynomial:
-    r = Polynomial.listDense(Degree, 1, quiet)
+  def firstDensePrimitive(Degree : int, Silent = True) -> Polynomial:
+    r = Polynomial.listDensePrimitives(Degree, 1, Silent)
     if len(r) > 0:
       return r[0]
     return None
-  def listDense(Degree, n=0, quiet = True) -> list:
+  def printDensePrimitives(Degree, n=0, Silent = True) -> None:
+    for p in Polynomial.listDensePrimitives(Degree, n, Silent):
+      Aio.print(p.getCoefficients())
+  def listDensePrimitives(Degree, n=0, Silent = True) -> list:
     Half = int(Degree / 2) | 1
     c = Half - 4
     result = []
@@ -746,26 +770,25 @@ Polynomial ("size,HexNumber", balancing=0)
     if n < 0:
       n = 0
     n2 = n
-    Cont = True
     minc = Half * 0.7
-    while (c >= 3) & Cont & (c >= minc):
+    while (c >= 3) & (c >= minc):
       print (f'Found so far: {len(result)}. Looking for {c} coefficients')
-      resultAux = Polynomial.listPrimitives(Degree, c, 2, True, n2, quiet, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
+      resultAux = Polynomial.listPrimitives(Degree, c, 2, True, n2, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
       result += resultAux[0]
       exclude += resultAux[1]
       if n > 0:
-        n2 -= len(result)
-        if n2 <= 0:
-          break
-      else:
         if len(result) >= n:
-          Cont = False
+          break
+        n2 = n - len(result)
       c -= 2
     if len(result) > n > 0:
-      return result[0:n-1]   
+      result = result[0:n-1]   
     print (f'Found: {len(result)}')   
     return result
-  def listTapsFromTheLeft(degree : int, coeffs_count : int, max_distance = 3, n=0, quiet = True) -> list:
+  def printTapsFromTheLeftPrimitives(degree : int, coeffs_count : int, max_distance = 3, n=0, Silent = True) -> None:
+    for p in Polynomial.listTapsFromTheLeftPrimitives(degree, coeffs_count, max_distance, n, Silent):
+      Aio.print(p.getCoefficients())
+  def listTapsFromTheLeftPrimitives(degree : int, coeffs_count : int, max_distance = 3, n=0, Silent = True) -> list:
     clist = [degree]
     davg = degree // coeffs_count
     distance = max_distance
@@ -780,9 +803,9 @@ Polynomial ("size,HexNumber", balancing=0)
     plist = [poly.copy()]
     while poly.makeNext():
       plist.append(poly.copy())
-    return Polynomial.checkPrimitives(plist, n, quiet)
-  def firstTapsFromTheLeft(degree : int, coeffs_count : int, max_distance = 3, quiet = True) -> list:
-    lst = Polynomial.listTapsFromTheLeft(degree, coeffs_count, max_distance, quiet)
+    return Polynomial.checkPrimitives(plist, n, Silent)
+  def firstTapsFromTheLeftPrimitive(degree : int, coeffs_count : int, max_distance = 3, Silent = True) -> list:
+    lst = Polynomial.listTapsFromTheLeftPrimitives(degree, coeffs_count, max_distance, Silent)
     if len(lst) > 0:
       return lst[0]
     return None
@@ -1225,7 +1248,7 @@ class Lfsr:
       perc = round(cnt * 100 / self._N, 1)
       Aio.printTemp("  Lfsr sim ", perc , "%             ")  
     return res
-  def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = None, quiet=False) -> int:
+  def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = None, Silent=False) -> int:
     if "list" in str(type(Sequence)):
       self._N = len(Sequence)
       self._IBit = InjectionAtBit
