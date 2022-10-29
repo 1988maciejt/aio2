@@ -805,7 +805,7 @@ Polynomial ("size,HexNumber", balancing=0)
     Returns:
         list: _description_
     """
-    lp = Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, 1, Silent)
+    lp = Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, 0, 1, Silent)
     if len(lp) > 0:
       return lp[0]
 #    p = Polynomial.createPolynomial(degree, coeffs_count, balancing)
