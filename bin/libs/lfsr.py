@@ -122,9 +122,6 @@ class Polynomial:
       Polynomial._result.append(p)
       if not Polynomial._quiet:
         print("Found " + str(p) + " " * 30)
-  def __del__(self):
-    if self._positions != False:
-      self._positions.clear()
   def copy(self) -> Polynomial:
     return Polynomial(self)
   def __init__(self, coefficients_list : list, balancing = 0):
