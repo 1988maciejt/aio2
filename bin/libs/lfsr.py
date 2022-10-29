@@ -20,6 +20,8 @@ from bitarray import *
 
 
 class MSequencesReport:
+  """This class is used to hold the result of MSequence analysis.
+  """
   _xor2 = False
   _xor3 = False
   _dict = {}
@@ -27,19 +29,35 @@ class MSequencesReport:
   SourceObject = None
   def __str__(self) -> str:
     return self.getReport() 
-  def getTitle(self) -> str:
-    return self._title
+  
   def _psmaxlevel(self) -> int:
     if self._xor3:
       return 3
     elif self._xor2:
       return 2
     return 2
-  def getUniqueCount(self, PhaseShifterGatesInputs = 0):
+  
+  def getTitle(self) -> str:
+    """Returns a string containing the report's title.
+    """
+    return self._title
+  
+  def getUniqueCount(self, PhaseShifterGatesInputs = 0) -> int:
+    """get the number ofunique sequences.
+
+    Args:
+        PhaseShifterGatesInputs (int, optional): maximum count of inputs of phase shifter's XORs.. Defaults to 0 (no limit).
+    """
     if PhaseShifterGatesInputs <= 0 or PhaseShifterGatesInputs > 3:
       PhaseShifterGatesInputs = self._psmaxlevel()
     return self._dict[PhaseShifterGatesInputs]["unique_count"]
-  def getReport(self, PhaseShifterGatesInputs = 0):
+  
+  def getReport(self, PhaseShifterGatesInputs = 0) -> str:
+    """returns a string containing the full report of MSequence analysis.
+
+    Args:
+        PhaseShifterGatesInputs (int, optional): maximum count of inputs of phase shifter's XORs.. Defaults to 0 (no limit).
+    """
     Lines = ""
     if PhaseShifterGatesInputs <= 0 or PhaseShifterGatesInputs > 3:
       PhaseShifterGatesInputs = self._psmaxlevel()
@@ -52,7 +70,13 @@ class MSequencesReport:
         continue
       Lines += (f'\n{key}{" " * (18 - len(key))}=>  {SDict[key]}')
     return Lines
+  
   def printReport(self, PhaseShifterGatesInputs = 0):
+    """Prints the full report of MSequence analysis.
+
+    Args:
+        PhaseShifterGatesInputs (int, optional): maximum count of inputs of phase shifter's XORs.. Defaults to 0 (no limit).
+    """
     Aio.print(self.getReport(PhaseShifterGatesInputs))
 
 
@@ -77,9 +101,11 @@ class Polynomial:
   _CoeffsCount = []
   _DontTouchBounds = 1
   _OddOnly = 1
+  
   def _getAllPrimitivesHavingSpecifiedCoeffsHelper(self, FromTo : list):
     Polys = self._getAllHavingSpecifiedCoeffsHelper(FromTo)
     return Polynomial.checkPrimitives(Polys)
+  
   def _getAllHavingSpecifiedCoeffsHelper(self, FromTo : list):
     CList = self._CoefficientList.copy()
     CList.sort()
@@ -119,8 +145,12 @@ class Polynomial:
       Polynomial._result.append(p)
       if not Polynomial._Silent:
         print("Found " + str(p) + " " * 30)
+        
   def copy(self) -> Polynomial:
+    """returns a full copy of the Polynomial object.
+    """
     return Polynomial(self)
+  
   def __init__(self, coefficients_list : list, balancing = 0):
     """ Polynomial (Polynomial, balancing=0)
 Polynomial (coefficients_list, balancing=0)
@@ -133,7 +163,10 @@ Polynomial ("size,HexNumber", balancing=0)
       self._balancing = coefficients_list._balancing + 0
       self._bmin = coefficients_list._bmin
       self._bmax = coefficients_list._bmax
-      self._positions = coefficients_list._positions.copy()
+      if Aio.isType(coefficients_list._positions, []):
+        self._positions = coefficients_list._positions.copy()
+      else:
+        self._positions = coefficients_list._positions
       self._lf = coefficients_list._lf
       self._notes = coefficients_list._notes
       self._mindist = coefficients_list._mindist
@@ -171,6 +204,7 @@ Polynomial ("size,HexNumber", balancing=0)
       self._coefficients_list.sort(reverse=True)
       self._balancing = balancing
       self._bmax = self._coefficients_list[0]
+      
   def __iter__(self):
     self = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self._balancing, self._lf, self._mindist)
     self._mnext = True
@@ -182,6 +216,7 @@ Polynomial ("size,HexNumber", balancing=0)
       if not self.isLayoutFriendly():
         self._mnext = False
     return self
+  
   def __next__(self):
     if self._mnext:  
       if self._first:
@@ -192,9 +227,33 @@ Polynomial ("size,HexNumber", balancing=0)
         if self._mnext:
           return self.copy()
     raise StopIteration  
+  
   def __str__(self) -> str:
     return str(self._coefficients_list)
+  
+  
+  def printAllPrimitivesHavingSpecifiedCoeffs(CoefficientList : list, CoeffsCount = 0, DontTouchBounds = 1, OddOnly = 1):
+    """Prints all primitive polynomials having coefficients included in a given list.
+
+    Args:
+        CoefficientList (list): list of all possible coefficients
+        CoeffsCount (int, optional): specifies coefficients count of the candidate polynomials Defaults to 0 (no limit).
+        DontTouchBounds (int, optional): If True, highest and lowest coefficients are not touched. Defaults to 1.
+        OddOnly (int, optional): If True, lists only polys having odd coefficients count. Defaults to 1.
+    """
+    Results = Polynomial.listAllPrimitivesHavingSpecifiedCoeffs(CoefficientList, CoeffsCount, DontTouchBounds, OddOnly)
+    for R in Results:
+      Aio.print(R._coefficients_list)
+    
   def listAllPrimitivesHavingSpecifiedCoeffs(CoefficientList : list, CoeffsCount = 0, DontTouchBounds = 1, OddOnly = 1) -> list:
+    """Returns a list containing all primitive polynomials having coefficients included in a given list.
+
+    Args:
+        CoefficientList (list): list of all possible coefficients
+        CoeffsCount (int, optional): specifies coefficients count of the candidate polynomials Defaults to 0 (no limit).
+        DontTouchBounds (int, optional): If True, highest and lowest coefficients are not touched. Defaults to 1.
+        OddOnly (int, optional): If True, lists only polys having odd coefficients count. Defaults to 1.
+    """
     CList = CoefficientList.copy()
     CList.sort()
     CMax = CList[-1]
@@ -243,7 +302,16 @@ Polynomial ("size,HexNumber", balancing=0)
       print(f'Generating polynomials basing on integer counter from {FT[0]} to {FT[1]}...')
       Results += px._getAllPrimitivesHavingSpecifiedCoeffsHelper(FT)
     return Results
+  
   def getAllHavingSpecifiedCoeffs(CoefficientList : list, CoeffsCount = 0, DontTouchBounds = 1, OddOnly = 1):
+    """Returns a list containing all  polynomials having coefficients included in a given list.
+
+    Args:
+        CoefficientList (list): list of all possible coefficients
+        CoeffsCount (int, optional): specifies coefficients count of the candidate polynomials Defaults to 0 (no limit).
+        DontTouchBounds (int, optional): If True, highest and lowest coefficients are not touched. Defaults to 1.
+        OddOnly (int, optional): If True, lists only polys having odd coefficients count. Defaults to 1.
+    """
     CList = CoefficientList.copy()
     CList.sort()
     CMax = CList[-1]
@@ -313,7 +381,10 @@ Polynomial ("size,HexNumber", balancing=0)
         Result.append(Polynomial(PT.copy()))
         #print(n, bsn, PT)
     return Result
+  
   def toKassabStr(self) -> str:
+    """Returns a string containing polynomial dexription consistent with Mark Kassab's C++ code.
+    """
     result = "add_polynomial("
     first = True
     for c in self._coefficients_list:
@@ -329,7 +400,10 @@ Polynomial ("size,HexNumber", balancing=0)
     return self._coefficients_list == other._coefficients_list
   def __ne__(self, other : Polynomial) -> bool:
     return self._coefficients_list != other._coefficients_list
+  
   def printFullInfo(self):
+    """Prints full information about the polynomial.
+    """
     title = "Polynomial  deg=" + str(self.getDegree()) + ", bal=" + str(self.getBalancing())
     Aio.transcriptSubsectionBegin(title)
     Aio.print("Degree            : ", self.getDegree())
@@ -340,7 +414,14 @@ Polynomial ("size,HexNumber", balancing=0)
     Aio.print("Is layout-friendly: ", self.isLayoutFriendly())
     Aio.print("Coefficients      : ", self.getCoefficients())
     Aio.transcriptSubsectionEnd()
-  def toHexString(self, IncludeDegree=True, shorten=True):
+    
+  def toHexString(self, IncludeDegree=True, shorten=True) -> str:
+    """Returns a string containing polynomial description in hexadecimal convention.
+    
+    Args:
+        IncludeDegree (bool, optional): if 1, the highest coefficients is included. Defaults to 1.
+        shorten (bool, optional): if 1, then uses such convention: 222 -> 2^3. Defaults to 1.
+    """
     ival = self.toInt()
     deg = self.getDegree()
     if not IncludeDegree:
@@ -348,6 +429,7 @@ Polynomial ("size,HexNumber", balancing=0)
       ival &= msk
     bs = BinString(deg+1, ival)
     return bs.toHexString(shorten)
+  
   def toBinString(self, IncludeDegree=True):
     ival = self.toInt()
     deg = self.getDegree()
@@ -363,8 +445,9 @@ Polynomial ("size,HexNumber", balancing=0)
     """Returns coefficients count.
     """
     return len(self._coefficients_list)
-  def getReversed(self) -> Polynomial:
-    """Gets 'reversed' version of polynomial.
+  
+  def getReciprocal(self) -> Polynomial:
+    """Gets reciprocal version of polynomial.
     
     For example:
     Polynomial([6,4,3,1,0]).getReversed() 
@@ -376,10 +459,17 @@ Polynomial ("size,HexNumber", balancing=0)
     for i in range(1, clen-1):
       result.append(deg - self._coefficients_list[i])
     return Polynomial(result)
+  
+  def getReversed(self) -> Polynomial:
+    """alias for getReciprocal to keep backward compatibility.
+    """
+    return self.getReciprocal()
+  
   def getDegree(self) -> int:
     """Returns polynomials degree.
     """
     return self._coefficients_list[0]
+  
   def makeNext(self) -> bool:
     """Moves the middle coefficients to obtain a next polynomial
     giving an LFSR having the sam count of taps.
@@ -398,6 +488,7 @@ Polynomial ("size,HexNumber", balancing=0)
       if s:
         return True
     return False
+  
   def _makeNext(self) -> bool:
     ccount = len(self._coefficients_list)
     degree = self._coefficients_list[0]
@@ -426,14 +517,17 @@ Polynomial ("size,HexNumber", balancing=0)
         self._coefficients_list[i] = vmin+1    
         left = vmin+1 
     return False  
+  
   def getTapsCount(self) -> int:
     """Returns LFSR taps count in case of a LFSR created basing on this polynomial 
     """
     return len(self._coefficients_list)-2
+  
   def getPolynomialsCount(self) -> int:
     """Returns a count of polynomials having the same parameters (obtained using .makeNext())  
     """
     return math.comb(self.getDegree()-1, self.getTaps())
+  
   def getBalancing(self) -> int:
     """Calculates and returns the balaning factor of the polynomial.
     """
@@ -743,7 +837,7 @@ Polynomial ("size,HexNumber", balancing=0)
     results = []
     exclude = []
     for b in range(1, EveryN):
-      resultsAux = Polynomial.listPrimitives(Degree, ccount, b, True, n, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
+      resultsAux = Polynomial.listPrimitives(Degree, ccount, b, True, 0, n, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
       exclude += resultsAux[1]
       for pol in resultsAux[0]:
         results.append(pol.copy())
@@ -773,7 +867,7 @@ Polynomial ("size,HexNumber", balancing=0)
     minc = Half * 0.7
     while (c >= 3) & (c >= minc):
       print (f'Found so far: {len(result)}. Looking for {c} coefficients')
-      resultAux = Polynomial.listPrimitives(Degree, c, 2, True, n2, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
+      resultAux = Polynomial.listPrimitives(Degree, c, 2, True, 0, n2, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
       result += resultAux[0]
       exclude += resultAux[1]
       if n > 0:
@@ -1185,7 +1279,9 @@ class Lfsr:
     if n <= 0:
       n = self.getPeriod()
     if reset:
-      self.reset()
+      val0 = self._baValue.copy()
+      n = self.getPeriod()
+      self._baValue = val0
     result = []
     for i in range(n):
       result.append(self._baValue.copy())
@@ -1200,7 +1296,9 @@ class Lfsr:
         reset (bool, optional): If True, then the LFSR is resetted to the 0x1 value before simulation. Defaults to True.
     """
     if n <= 0:
+      val0 = self._baValue.copy()
       n = self.getPeriod()
+      self._baValue = val0
     if reset:
       self.reset()
     for i in range(n):
