@@ -72,9 +72,6 @@ class Polynomial:
   _ctemp = True
   _mindist = 0
   _lf = False
-  _coeffs_on_list__list = None
-  _coeffs_on_list__maxnum = None
-  _coeffs_on_list__num = None
   _notes = ""
   _CoefficientList = []
   _CoeffsCount = []
@@ -136,13 +133,10 @@ Polynomial ("size,HexNumber", balancing=0)
       self._balancing = coefficients_list._balancing + 0
       self._bmin = coefficients_list._bmin
       self._bmax = coefficients_list._bmax
-      self._positions = coefficients_list._positions
+      self._positions = coefficients_list._positions.xopy()
       self._lf = coefficients_list._lf
-      self._notes = coefficients_list._notes
+      self._notes = coefficients_list._notes.xopy()
       self._mindist = coefficients_list._mindist
-      self._coeffs_on_list__list = coefficients_list._coeffs_on_list__list
-      self._coeffs_on_list__maxnum = coefficients_list._coeffs_on_list__maxnum
-      self._coeffs_on_list__num = coefficients_list._coeffs_on_list__num
     elif "int" in str(type(coefficients_list)):
       cntr = 0
       self._coefficients_list = []
