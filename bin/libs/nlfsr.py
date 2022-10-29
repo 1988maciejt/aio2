@@ -315,6 +315,8 @@ class Nlfsr(Lfsr):
 #          print("ARE!")
           b.remove(bi)
     return len(b) == 0
+  def getMaxFanout(self) -> int:
+    return self.getFanout('max')
   def getFanout(self, FF = -1) -> int:
     Sources = []
     FFs = [1 for i in range(self._size)]
@@ -390,6 +392,23 @@ class Nlfsr(Lfsr):
     if Filter:
       Results = Nlfsr.filter(Results)
     return Results
+  def printNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> None:
+    """Tries to find and prints a specified type of NLFSR (Ring-like). Returns a list of found objects.
+
+    Args:
+        Poly (Polynomial): Polnomial or list of coefficients
+        PeriodLengthMinimumRatio (int, optional): Minimum satisfable period ratio. 0 < RATIO <= 1. Defaults to 1.
+        OnlyPrimePeriods (bool, optional): Returns only NLFSRs having period being prime number. Defaults to False.
+        InvertersAllowed (bool, optional): True, if inverters are allowed. Defaults to False.
+        MaxAndCount (int, optional): Maximum count of AND gates. Defaults to 0 (no limit).
+        BeautifullOnly (bool, optional): Considerates only NLFSRs being crossing-free and having fanout <= 2. Defaults to False.
+        Filter (bool, optional): If True, permorms equivalent and inverted-inputs filtering. Defaults to False.
+    """
+    Result = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
+    if Filter:
+      Result = Nlfsr.filter(Result)
+    for R in Result:
+      Aio.print(f'{R._size}: \t{R._Config}')
   def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> list:
     """Tries to find a specified type of NLFSR (Ring-like). Returns a list of found objects.
 
@@ -402,6 +421,15 @@ class Nlfsr(Lfsr):
         BeautifullOnly (bool, optional): Considerates only NLFSRs being crossing-free and having fanout <= 2. Defaults to False.
         Filter (bool, optional): If True, permorms equivalent and inverted-inputs filtering. Defaults to False.
     """
+    if Aio.isType(Poly, []):
+      All = []
+      cntr = 1
+      max = len(Poly)
+      for P in Poly:
+        print(f'Looking for {P}    ({cntr}/{max})    Found so far: {len(All)}')
+        All += Nlfsr.findNLRGsWithSpecifiedPeriod(P, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
+        cntr += 1
+      return All
     if InvertersAllowed:
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounterInvertersAllowed.Compiled:
