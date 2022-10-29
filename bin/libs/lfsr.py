@@ -723,7 +723,7 @@ Polynomial ("size,HexNumber", balancing=0)
       r = r[0:n]
     Aio.printTemp(" " * (Aio.getTerminalColumns()-1))
     return r
-  def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDIstance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False) -> None:
+  def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDIstance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None) -> None:
     """Prints a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -736,10 +736,11 @@ Polynomial ("size,HexNumber", balancing=0)
         Silent (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
         ExcludeList (list, optional): list of polynomials excluded from checking
         ReturnAlsoAllCandidaes (bool, optional): if true, then it returns list: [polynomials_found, all_tested_polynomials]
+        FilteringCallback (procedure, optional): if specified, then will be used to filter acceptable polynomials (must return bool value: True means acceptable).
     """
-    for p in Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDIstance, n, Silent, MaxSetSize, ExcludeList, ReturnAlsoAllCandidaes):
+    for p in Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDIstance, n, Silent, MaxSetSize, ExcludeList, ReturnAlsoAllCandidaes, FilteringCallback):
       Aio.print(p.getCoefficients())
-  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDIstance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False) -> list:
+  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDIstance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -752,6 +753,7 @@ Polynomial ("size,HexNumber", balancing=0)
         Silent (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
         ExcludeList (list, optional): list of polynomials excluded from checking
         ReturnAlsoAllCandidaes (bool, optional): if true, then it returns list: [polynomials_found, all_tested_polynomials]
+        FilteringCallback (procedure, optional): if specified, then will be used to filter acceptable polynomials (must return bool value: True means acceptable).
 
     Returns:
         list: list of polynomial objects
@@ -769,6 +771,9 @@ Polynomial ("size,HexNumber", balancing=0)
     for p in polys:
       if p in ExcludeList:
         continue
+      if not (FilteringCallback is None):
+        if not FilteringCallback(p):
+          continue 
       candidates.append(p.copy())
       if ReturnAlsoAllCandidaes:
         AllCandidates.append(p.copy())
