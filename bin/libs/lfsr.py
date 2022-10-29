@@ -135,7 +135,7 @@ Polynomial ("size,HexNumber", balancing=0)
       self._bmax = coefficients_list._bmax
       self._positions = coefficients_list._positions.copy()
       self._lf = coefficients_list._lf
-      self._notes = coefficients_list._notes.copy()
+      self._notes = coefficients_list._notes
       self._mindist = coefficients_list._mindist
     elif "int" in str(type(coefficients_list)):
       cntr = 0
