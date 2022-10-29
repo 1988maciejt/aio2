@@ -133,9 +133,9 @@ Polynomial ("size,HexNumber", balancing=0)
       self._balancing = coefficients_list._balancing + 0
       self._bmin = coefficients_list._bmin
       self._bmax = coefficients_list._bmax
-      self._positions = coefficients_list._positions.xopy()
+      self._positions = coefficients_list._positions.copy()
       self._lf = coefficients_list._lf
-      self._notes = coefficients_list._notes.xopy()
+      self._notes = coefficients_list._notes.copy()
       self._mindist = coefficients_list._mindist
     elif "int" in str(type(coefficients_list)):
       cntr = 0
