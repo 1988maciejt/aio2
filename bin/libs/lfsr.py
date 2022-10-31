@@ -1738,6 +1738,7 @@ endmodule'''
     for Tap in TapsList:
       MainCounter.append(list(Tap.keys()))
     Permutations = List.getPermutationsPfManyLists(MainCounter)
+    ToReturn = []
     for P in Permutations:
       iTaps = []
       for i in range(len(TapsList)):
@@ -1748,8 +1749,13 @@ endmodule'''
         C = Lfsr(Size, LfsrType.RingWithSpecifiedTaps, iTaps)
         C.MuxConfig = P
         Candidates.append(C)
+        if len(Candidates) >= 10000:
+          Results = p_map(Lfsr.isMaximum, Candidates)
+          for i in range(len(Candidates)):
+            if Results[i]:
+              ToReturn.append(Candidates[i])
+          Candidates = []
     Results = p_map(Lfsr.isMaximum, Candidates)
-    ToReturn = []
     for i in range(len(Candidates)):
       if Results[i]:
         ToReturn.append(Candidates[i])
