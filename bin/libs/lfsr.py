@@ -1,3 +1,4 @@
+from lib2to3.pgen2.tokenize import TokenError
 from libs.utils_bitarray import *
 from libs.binstr import *
 from libs.aio import *
@@ -1068,7 +1069,7 @@ class Lfsr:
     if self._type == LfsrType.RingGenerator:
       result += "RingGenerator" 
     if self._type == LfsrType.RingWithSpecifiedTaps:
-      result += "RingWithSpecifiedTaps" 
+      result += "RingWithSpecifiedTaps, " + str(self._taps)
     result += ")"
     return result
   def _buildFastSimArray(self):
@@ -1717,6 +1718,43 @@ endmodule'''
     Report._title = repr(self)
     Report.SourceObject = self
     return Report
+  def listMaximumLfsrsHavingSpecifiedTaps(Size : int, TapsList : list) -> list:
+    """list Lfsrs of type RING_WITH_SPECIFIED_TAPS satisfying the given criteria.
+
+    Args:
+        Size (int): Size of the LFSRs
+        TapsList (list): list of taps. Each tap must be defined in dict struct, like a MUX. 
+        n (int, optional): _description_. Defaults to 0.
+        
+    Examples of taps:
+    
+    mandatory tap from 5 to 2:      { 0: [5,2] }
+    on/off from 3 to 6:             { 0: [3,6], 1: None }  // None means "off"
+    demux from 3 to 5 or 6:         { 0: {3,5], 1: [3,6] }}
+    ...the same with "off" option:  { 0: {3,5], 1: [3,6] }, 2: None }
+    """
+    Candidates = []
+    MainCounter = []
+    for Tap in TapsList:
+      MainCounter.append(list(Tap.keys()))
+    Permutations = List.getPermutationsPfManyLists(MainCounter)
+    for P in Permutations:
+      iTaps = []
+      for i in range(len(TapsList)):
+        Tap = TapsList[i][P[i]]
+        if Tap is not None:
+          iTaps.append(Tap)
+      if len(iTaps) > 0:
+        C = Lfsr(Size, LfsrType.RingWithSpecifiedTaps, iTaps)
+        C.MuxConfig = P
+        Candidates.append(C)
+    Results = p_map(Lfsr.isMaximum, Candidates)
+    ToReturn = []
+    for i in range(len(Candidates)):
+      if Results[i]:
+        ToReturn.append(Candidates[i])
+    return ToReturn
+      
   
     
 def _analyseSequences_helper(lfsr) -> MSequencesReport:
