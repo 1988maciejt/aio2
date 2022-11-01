@@ -3,39 +3,24 @@ SCRIPT=$(readlink -f $0)
 SCRIPTPATH=`dirname $SCRIPT`
 sudo apt update
 sudo apt upgrade -y
-sudo apt install -y -f python3 python3-pip python3-tk dos2unix
+sudo apt install -y wget build-essential libreadline-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev libffi-dev zlib1g-dev
+wget -c https://www.python.org/ftp/python/3.11.0/Python-3.11.0.tar.xz
+tar -Jxf Python-3.11.0.tar.xz
+cd Python-3.11.0
+./configure 
+make -j4 && sudo make install
+cd ../
+rm -rf Python-3.11.0
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.11 100
+sudo update-alternatives --config python3
+sudo apt install -y -f dos2unix
 sudo apt install -y -f texlive-xetex texlive-fonts-recommended texlive-plain-generic
 sudo apt install -y -f zlib1g pandoc
 sudo apt install -y -f pyqt5-dev-tools
 sudo apt install -y -f bat
 sudo pip3 install --upgrade pip
-#sudo pip3 install pyqt5
-#sudo pip3 install pyqtwebengine -U
-sudo pip3 install ipython
-sudo pip3 install ptpython
-sudo pip3 install pyserial
-sudo pip3 install plotext
-sudo pip3 install percol
-sudo pip3 install tqdm
-sudo pip3 install line_profiler
-sudo pip3 install openpyxl
-sudo pip3 install xlsxwriter
-sudo pip3 install ansi2html
-sudo pip3 install pathos
-sudo pip3 install numpy
-sudo pip3 install numba
-sudo pip3 install scipy
-sudo pip3 install multiprocess
-sudo pip3 install sympy
-sudo pip3 install matplotlib
-sudo pip3 install latex
-sudo pip3 install simple_term_menu 
-sudo pip3 install esptool
-sudo pip3 install rshell 
-sudo pip3 install pydbus
-sudo pip3 install bitarray
-sudo pip3 install pyeda
-sudo pip3 install p_tqdm
+# pip3 install pyqt5
+# pip3 install pyqtwebengine -U
 pip3 install ipython
 pip3 install ptpython
 pip3 install pyserial
@@ -60,10 +45,11 @@ pip3 install bitarray
 pip3 install pyeda
 pip3 install pyqt5 pyqt5-tools
 pip3 install p_tqdm
-sudo pip3 install jupyter
-sudo pip3 install notebook
-sudo pip3 install jupyterlab --ignore-installed pyzmq
-sudo pip3 install ipywidgets
+pip3 install ray
+pip3 install jupyter
+pip3 install notebook
+pip3 install jupyterlab --ignore-installed pyzmq
+pip3 install ipywidgets
 
 cd iverilog
 sudo apt install -y gtkwave gperf flex bison yosys covered 
