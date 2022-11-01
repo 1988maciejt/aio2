@@ -8,6 +8,12 @@ import multiprocessing
 
 class List:
   
+  def getPermutationsPfManyListsCount(lists) -> int:
+    Result = 1
+    for L in lists:
+      Result *= len(L)
+    return Result
+  
   def getPermutationsPfManyLists(lists, MaximumNonBaseElements = 0, UseAsGenerator_Chunk = 0) -> list:
     """gets some lists and returns a list of lists containing
     all possible permutations of elements of those lists.
@@ -42,9 +48,9 @@ class List:
         for i in range(N):
           Result.append(lists[i][Counter[i]])
         Results.append(Result)
-        if Generator and len(Results) > Chunk:
+        if Generator and len(Results) >= Chunk:
           yield Results
-          Results = []
+          Results.clear()
       for i in range(N):
         Counter[i] += 1
         if Counter[i] < MaxValues[i]:
@@ -56,6 +62,7 @@ class List:
     if Generator:
       if len(Results) >= 0:
         yield Results
+        Results.clear()
       return None
     return Results
   

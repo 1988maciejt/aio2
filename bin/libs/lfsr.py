@@ -1742,14 +1742,13 @@ endmodule'''
     ToReturn = []
     for Tap in TapsList:
       MainCounter.append(list(Tap.keys()))
-#    Permutations = List.getPermutationsPfManyLists(MainCounter)
-#    PermutationsSplitted = List.splitIntoSublists(Permutations, 10000)
-#    PisMax = len(PermutationsSplitted)
-
-    for Permutations in List.getPermutationsPfManyLists(MainCounter, UseAsGenerator_Chunk=10000):
-
-#    for Pis in range(len(PermutationsSplitted)):
+    ChunkSize = 10000
+    PermCount = List.getPermutationsPfManyListsCount(MainCounter)
+    SetCount = PermCount // ChunkSize + 1
+    SetCntr = 0
+    for Permutations in List.getPermutationsPfManyLists(MainCounter, UseAsGenerator_Chunk=ChunkSize):
       Candidates = []
+      SetCntr += 1
       for P in Permutations:
         iTaps = []
         for i in range(len(TapsList)):
@@ -1758,9 +1757,10 @@ endmodule'''
             iTaps.append(Tap)
         if len(iTaps) > 0:
           C = Lfsr(Size, LfsrType.RingWithSpecifiedTaps, iTaps)
-          C.MuxConfig = P
+          if not CountOnly:
+            C.MuxConfig = P
           Candidates.append(C)
-      Results = p_map(Lfsr._isMaximumAndClean, Candidates)
+      Results = p_map(Lfsr.isMaximum, Candidates, desc=f'{SetCntr}/{SetCount}')
       for i in range(len(Candidates)):
         if Results[i]:
           if CountOnly:
