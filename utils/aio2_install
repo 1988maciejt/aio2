@@ -4,15 +4,19 @@ SCRIPTPATH=`dirname $SCRIPT`
 sudo apt update
 sudo apt upgrade -y
 sudo apt install -y wget build-essential libreadline-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev libffi-dev zlib1g-dev
-wget -c https://www.python.org/ftp/python/3.11.0/Python-3.11.0.tar.xz
-tar -Jxf Python-3.11.0.tar.xz
-cd Python-3.11.0
-./configure 
-make -j4 && sudo make install
+cd /tmp
+#wget -c https://www.python.org/ftp/python/3.11.0/Python-3.11.0.tar.xz
+wget https://www.python.org/ftp/python/3.10.7/Python-3.10.7.tgz
+sudo tar -xzvf Python-3.10.7.tgz
+cd Python-3.10.7
+sudo ./configure 
+sudo make -j4 && sudo make install
 cd ../
-rm -rf Python-3.11.0
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.11 100
+rm -rf Python-3.10.7
+rm -rf Python-3.10.7.tgz
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.10 310
 sudo update-alternatives --config python3
+python3 -m pip install -U pip
 sudo apt install -y -f dos2unix
 sudo apt install -y -f texlive-xetex texlive-fonts-recommended texlive-plain-generic
 sudo apt install -y -f zlib1g pandoc
@@ -51,6 +55,8 @@ pip3 install notebook
 pip3 install jupyterlab --ignore-installed pyzmq
 pip3 install ipywidgets
 
+cd ~
+mkdir -p iverilog
 cd iverilog
 sudo apt install -y gtkwave gperf flex bison yosys covered 
 tar -zxvf verilog-11.0.tar.gz
@@ -69,10 +75,10 @@ sudo make install
 #cp ~/.config/ptpython/config.py ~/.config/ptpython/config.py.bak
 #cp -r ${SCRIPTPATH}/ptpython_config.py ~/.config/ptpython/config.py
 
-cd /tmp
-git clone https://github.com/stefanhaustein/TerminalImageViewer.git
-cd TerminalImageViewer/src/main/cpp
-make
-sudo make install
-cd /tmp
-rm -rf TerminalImageViewer
+#cd /tmp
+#git clone https://github.com/stefanhaustein/TerminalImageViewer.git
+#cd TerminalImageViewer/src/main/cpp
+#make
+#sudo make install
+#cd /tmp
+#rm -rf TerminalImageViewer
