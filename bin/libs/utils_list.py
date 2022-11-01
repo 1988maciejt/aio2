@@ -8,7 +8,7 @@ import multiprocessing
 
 class List:
   
-  def getPermutationsPfManyLists(lists, MaximumNonBaseElements = 0) -> list:
+  def getPermutationsPfManyLists(lists, MaximumNonBaseElements = 0, UseAsGenerator_Chunk = 0) -> list:
     """gets some lists and returns a list of lists containing
     all possible permutations of elements of those lists.
     
@@ -18,6 +18,11 @@ class List:
     Result:
     [[1, 'a'], [2, 'a'], [1, 'b'], [2, 'b'], [1, 'c'], [2, 'c']]
     """
+    Generator = 0
+    Chunk = 0
+    if UseAsGenerator_Chunk > 0:
+      Generator = 1
+      Chunk = UseAsGenerator_Chunk
     MaxValues = []
     for L in lists:
       MaxValues.append(len(L))
@@ -37,6 +42,9 @@ class List:
         for i in range(N):
           Result.append(lists[i][Counter[i]])
         Results.append(Result)
+        if Generator and len(Results) > Chunk:
+          yield Results
+          Results = []
       for i in range(N):
         Counter[i] += 1
         if Counter[i] < MaxValues[i]:
@@ -45,6 +53,10 @@ class List:
           Counter[i] = 0
       if Counter == Zeros:
         break
+    if Generator:
+      if len(Results) >= 0:
+        yield Results
+      return None
     return Results
   
   def randomSelect(List : list):

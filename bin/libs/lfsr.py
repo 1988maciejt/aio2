@@ -1737,43 +1737,36 @@ endmodule'''
     demux from 3 to 5 or 6:         { 0: {3,5], 1: [3,6] }}
     ...the same with "off" option:  { 0: {3,5], 1: [3,6] }, 2: None }
     """
-    Candidates = []
     MainCounter = []
     Count = 0
+    ToReturn = []
     for Tap in TapsList:
       MainCounter.append(list(Tap.keys()))
-    Permutations = List.getPermutationsPfManyLists(MainCounter)
-    ToReturn = []
-    PLen = len(Permutations)
-    Steps = PLen // 10000 + 1
-    for Pi in range(PLen):
-      P = Permutations[Pi]
-      iTaps = []
-      for i in range(len(TapsList)):
-        Tap = TapsList[i][P[i]]
-        if Tap is not None:
-          iTaps.append(Tap)
-      if len(iTaps) > 0:
-        C = Lfsr(Size, LfsrType.RingWithSpecifiedTaps, iTaps)
-        C.MuxConfig = P
-        Candidates.append(C)
-        if len(Candidates) >= 10000:
-          Step = Pi // 10000
-          Results = p_map(Lfsr._isMaximumAndClean, Candidates, desc=f'{Step}/{Steps}')
-          for i in range(len(Candidates)):
-            if Results[i]:
-              if CountOnly:
-                Count += 1
-              else:
-                ToReturn.append(Candidates[i])
-          Candidates = []
-    Results = p_map(Lfsr._isMaximumAndClean, Candidates, desc=f'{Steps}/{Steps}')
-    for i in range(len(Candidates)):
-      if Results[i]:
-        if CountOnly:
-          Count += 1
-        else:
-          ToReturn.append(Candidates[i])
+#    Permutations = List.getPermutationsPfManyLists(MainCounter)
+#    PermutationsSplitted = List.splitIntoSublists(Permutations, 10000)
+#    PisMax = len(PermutationsSplitted)
+
+    for Permutations in List.getPermutationsPfManyLists(MainCounter, UseAsGenerator_Chunk=10000):
+
+#    for Pis in range(len(PermutationsSplitted)):
+      Candidates = []
+      for P in Permutations:
+        iTaps = []
+        for i in range(len(TapsList)):
+          Tap = TapsList[i][P[i]]
+          if Tap is not None:
+            iTaps.append(Tap)
+        if len(iTaps) > 0:
+          C = Lfsr(Size, LfsrType.RingWithSpecifiedTaps, iTaps)
+          C.MuxConfig = P
+          Candidates.append(C)
+      Results = p_map(Lfsr._isMaximumAndClean, Candidates)
+      for i in range(len(Candidates)):
+        if Results[i]:
+          if CountOnly:
+            Count += 1
+          else:
+            ToReturn.append(Candidates[i])
     if CountOnly:
       return Count
     return ToReturn
