@@ -11,7 +11,7 @@ from libs.phaseshifter import *
 import math
 from tqdm import *
 import multiprocess
-from p_tqdm import p_map
+from p_tqdm import *
 import copy
 import gc
 from bitarray import *
@@ -1248,6 +1248,10 @@ class Lfsr:
     Result = self.isMaximum()
     self.clear()
     return Result
+  def _isMaximumAsync(self) -> bool:
+    if self.isMaximum():
+      return self
+    return None
   def isMaximum(self) -> bool:
     """Uses the fast-simulation method to determine if the LFSR's trajectory
     includes all possible (but 0) states. 
@@ -1760,13 +1764,20 @@ endmodule'''
           if not CountOnly:
             C.MuxConfig = P
           Candidates.append(C)
-      Results = p_map(Lfsr.isMaximum, Candidates, desc=f'{SetCntr}/{SetCount}')
-      for i in range(len(Candidates)):
-        if Results[i]:
+      ResultsIterator = p_uimap(Lfsr._isMaximumAsync, Candidates, desc=f'{SetCntr}/{SetCount}')
+      for Result in ResultsIterator:
+        if Result is not None:
           if CountOnly:
             Count += 1
           else:
-            ToReturn.append(Candidates[i])
+            ToReturn.append(Candidates[i])  
+#      Results = p_map(Lfsr.isMaximum, Candidates, desc=f'{SetCntr}/{SetCount}')
+#      for i in range(len(Candidates)):
+#        if Results[i]:
+#          if CountOnly:
+#            Count += 1
+#          else:
+#            ToReturn.append(Candidates[i])
     if CountOnly:
       return Count
     return ToReturn
