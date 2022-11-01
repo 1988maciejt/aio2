@@ -1764,7 +1764,7 @@ endmodule'''
           if not CountOnly:
             C.MuxConfig = P
           Candidates.append(C)
-      ResultsIterator = p_uimap(Lfsr._isMaximumAsync, Candidates, desc=f'{SetCntr}/{SetCount}')
+      ResultsIterator = p_uimap(Lfsr._isMaximumAsync, Candidates, desc=f'{SetCntr}/{SetCount}', num_cpus=10)
       for Result in ResultsIterator:
         if Result is not None:
           if CountOnly:
