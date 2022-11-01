@@ -1244,6 +1244,10 @@ class Lfsr:
       valuebefore = valuex
       valuex = self.next().copy()  
     return -1      
+  def _isMaximumAndClean(self) -> bool:
+    Result = self.isMaximum()
+    self.clear()
+    return Result
   def isMaximum(self) -> bool:
     """Uses the fast-simulation method to determine if the LFSR's trajectory
     includes all possible (but 0) states. 
@@ -1718,13 +1722,13 @@ endmodule'''
     Report._title = repr(self)
     Report.SourceObject = self
     return Report
-  def listMaximumLfsrsHavingSpecifiedTaps(Size : int, TapsList : list) -> list:
+  def listMaximumLfsrsHavingSpecifiedTaps(Size : int, TapsList : list, CountOnly = False) -> list:
     """list Lfsrs of type RING_WITH_SPECIFIED_TAPS satisfying the given criteria.
 
     Args:
         Size (int): Size of the LFSRs
         TapsList (list): list of taps. Each tap must be defined in dict struct, like a MUX. 
-        n (int, optional): _description_. Defaults to 0.
+        CountOnly (bool, optional): if True, counts results and returns the int. Defaults to 0.
         
     Examples of taps:
     
@@ -1735,11 +1739,15 @@ endmodule'''
     """
     Candidates = []
     MainCounter = []
+    Count = 0
     for Tap in TapsList:
       MainCounter.append(list(Tap.keys()))
     Permutations = List.getPermutationsPfManyLists(MainCounter)
     ToReturn = []
-    for P in Permutations:
+    PLen = len(Permutations)
+    Steps = PLen // 10000 + 1
+    for Pi in range(PLen):
+      P = Permutations[Pi]
       iTaps = []
       for i in range(len(TapsList)):
         Tap = TapsList[i][P[i]]
@@ -1750,15 +1758,24 @@ endmodule'''
         C.MuxConfig = P
         Candidates.append(C)
         if len(Candidates) >= 10000:
-          Results = p_map(Lfsr.isMaximum, Candidates)
+          Step = Pi // 10000
+          Results = p_map(Lfsr._isMaximumAndClean, Candidates, desc=f'{Step}/{Steps}')
           for i in range(len(Candidates)):
             if Results[i]:
-              ToReturn.append(Candidates[i])
+              if CountOnly:
+                Count += 1
+              else:
+                ToReturn.append(Candidates[i])
           Candidates = []
-    Results = p_map(Lfsr.isMaximum, Candidates)
+    Results = p_map(Lfsr._isMaximumAndClean, Candidates, desc=f'{Steps}/{Steps}')
     for i in range(len(Candidates)):
       if Results[i]:
-        ToReturn.append(Candidates[i])
+        if CountOnly:
+          Count += 1
+        else:
+          ToReturn.append(Candidates[i])
+    if CountOnly:
+      return Count
     return ToReturn
       
   
