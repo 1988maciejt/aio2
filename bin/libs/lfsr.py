@@ -1752,7 +1752,8 @@ endmodule'''
     ToReturn = []
     for Tap in TapsList:
       MainCounter.append(list(Tap.keys()))
-    ChunkSize = 10000
+    ChunkSize = 20000
+    SerialChunkSize = 20
     PermCount = List.getPermutationsPfManyListsCount(MainCounter)
     SetCount = PermCount // ChunkSize + 1
     SetCntr = 0
@@ -1770,7 +1771,7 @@ endmodule'''
           if not CountOnly:
             C.MuxConfig = P
           Candidates.append(C)
-      CandidatesSplitted = List.splitIntoSublists(Candidates, 10)
+      CandidatesSplitted = List.splitIntoSublists(Candidates, SerialChunkSize)
       ResultsIterator = p_uimap(Lfsr._isMaximumList, CandidatesSplitted, desc=f'{SetCntr}/{SetCount}')
       for Result in ResultsIterator:
         if CountOnly:
