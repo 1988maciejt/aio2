@@ -21,5 +21,7 @@ cd /tmp
 curl -O https://bootstrap.pypa.io/get-pip.py
 sudo /opt/python/${PYTHON_VERSION}/bin/python${PYTHON_MAJOR} get-pip.py
 
-#echo "export PATH=/opt/python/${PYTHON_VERSION}/bin/:$PATH" >  /etc/profile.d/python3_path
-#source /etc/profile.d/python3_path
+cd /tmp
+echo "export PATH=/opt/python/${PYTHON_VERSION}/bin/:\$PATH" >  python3_path.sh
+sudo mv python3_path.sh /etc/profile.d/python3_path.sh
+source /etc/profile.d/python3_path.sh
