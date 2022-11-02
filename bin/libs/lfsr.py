@@ -713,7 +713,7 @@ Polynomial ("size,HexNumber", balancing=0)
     Polynomial._Silent = Silent
     if Silent:
       #process_map(Polynomial._check, PList, chunksize=10, desc="Primitivity checking")    
-      p_map(Polynomial._check, PList)
+      p_umap(Polynomial._check, PList)
     else:
       pool = multiprocess.Pool()   
       pool.map(Polynomial._check, PList)
@@ -984,13 +984,13 @@ class Lfsr:
     self._next_iteration = False
     return self
   def __next__(self):
-    val = self._baValue
-    self.next()
+    val = self._baValue.copy()
     if self._next_iteration:    
       if val == self._v0:
         raise StopIteration
     else:
       self._next_iteration = True
+    self.next()
     return val
   def copy(self):
     return Lfsr(self)
