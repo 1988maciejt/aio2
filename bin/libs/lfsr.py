@@ -1248,6 +1248,12 @@ class Lfsr:
     Result = self.isMaximum()
     self.clear()
     return Result
+  def _isMaximumList(List : list) -> list:
+    Results = []
+    for L in List:
+      if L.isMaximum():
+        Results.append(L)
+    return Results
   def _isMaximumAsync(self) -> bool:
     if self.isMaximum():
       return self
@@ -1764,13 +1770,13 @@ endmodule'''
           if not CountOnly:
             C.MuxConfig = P
           Candidates.append(C)
-      ResultsIterator = p_uimap(Lfsr._isMaximumAsync, Candidates, desc=f'{SetCntr}/{SetCount}')
+      CandidatesSplitted = List.splitIntoSublists(Candidates, 10)
+      ResultsIterator = p_uimap(Lfsr._isMaximumList, CandidatesSplitted, desc=f'{SetCntr}/{SetCount}')
       for Result in ResultsIterator:
-        if Result is not None:
-          if CountOnly:
-            Count += 1
-          else:
-            ToReturn.append(Candidates[i])  
+        if CountOnly:
+          Count += len(Result)
+        else:
+          ToReturn += ResultsIterator
     if CountOnly:
       return Count
     return ToReturn
