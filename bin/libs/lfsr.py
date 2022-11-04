@@ -1773,12 +1773,13 @@ endmodule'''
           Candidates.append(C)
       CandidatesSplitted = List.splitIntoSublists(Candidates, SerialChunkSize)
       ResultsIterator = p_uimap(Lfsr._isMaximumList, CandidatesSplitted, desc=f'{SetCntr}/{SetCount}')
-      for Result in ResultsIterator:
-        if Result is not None:
-          if CountOnly:
-            Count += 1
-          else:
-            ToReturn.append(Result)  
+      for Results in ResultsIterator:
+        for Result in Results:
+          if Result is not None:
+            if CountOnly:
+              Count += 1
+            else:
+              ToReturn.append(Result)  
     if CountOnly:
       return Count
     return ToReturn
