@@ -68,3 +68,9 @@ sudo make install
 #sudo make install
 #cd /tmp
 #rm -rf TerminalImageViewer
+
+cd /tmp
+AIOPATH=`dirname $SCRIPTPATH`
+echo "export PATH=${AIOPATH}/bin/:\$PATH" >  aio2_path.sh
+sudo mv aio2_path.sh /etc/profile.d/aio2_path.sh
+source /etc/profile.d/aio2_path.sh

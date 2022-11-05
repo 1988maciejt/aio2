@@ -6,6 +6,7 @@ export PYTHON_VERSION=3.10.8
 export PYTHON_MAJOR=3
 
 cd /tmp
+CPUS=`nproc`
 curl -O https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz
 tar -xvzf Python-${PYTHON_VERSION}.tgz
 cd Python-${PYTHON_VERSION}
@@ -14,7 +15,7 @@ cd Python-${PYTHON_VERSION}
     --enable-shared \
     --enable-optimizations \
     LDFLAGS=-Wl,-rpath=/opt/python/${PYTHON_VERSION}/lib,--disable-new-dtags
-make
+make -j$CPUS
 sudo make install
 
 cd /tmp

@@ -44,9 +44,10 @@ echo "{
    \"metadata\": {},
    \"outputs\": [],
    \"source\": [
-    \"import sys\n\",
+    \"import sys, subprocess\n\",
     \"try:\n\",
-    \"    sys.path.append('../../bin')\n\",
+    \"    result = subprocess.run('aio2path', stdout=subprocess.PIPE)\n\",
+    \"    sys.path.append(result.stdout.decode('utf-8')[0:-1])\n\",
     \"    sys.path.append('./data')\n\",
     \"    from aio import *\n\",
     \"    print('AIO2 initialized successfully')\n\",
