@@ -206,6 +206,9 @@ Polynomial ("size,HexNumber", balancing=0)
       self._balancing = balancing
       self._bmax = self._coefficients_list[0]
       
+  def __hash__(self) -> int:
+    return self.toInt()
+      
   def __iter__(self):
     self = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self._balancing, self._lf, self._mindist)
     self._mnext = True
