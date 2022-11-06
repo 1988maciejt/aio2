@@ -109,7 +109,7 @@ class ProgrammableRingGenerator:
           MinimumUsedLfsrs = UsedLfsrs
       UnusedTaps = []
       for Tap in self._all_taps:
-        if not (Tap in UsedTaps):
+        if not (Tap in MinimumUsedTaps):
           UnusedTaps.append(Tap)
       self._optimized_used_taps = MinimumUsedTaps
       self._optimized_lfsrs = MinimumUsedLfsrs
