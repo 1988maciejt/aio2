@@ -18,6 +18,7 @@ class ProgrammableRingGenerator:
   _non_optimized_done = 0
   _non_optimized_used_taps = []
   _non_optimized_unused_taps = []
+  _taps_only = 0
   def __repr__(self) -> str:
     return f'ProgrammableRingGenerator({self._size}, {self._taps_list})'
   def __str__(self) -> str:
@@ -38,7 +39,7 @@ class ProgrammableRingGenerator:
     self._non_optimized_done = 0
     self._non_optimized_used_taps.clear()
     self._non_optimized_unused_taps.clear()
-  def __init__(self, Size : int, TapsList : list) -> None:
+  def __init__(self, Size : int, TapsList : list, OperateOnTapsOnly=False) -> None:
     self._taps_list = TapsList.copy()
     self._size = Size
     self._lfsrs = []
@@ -54,19 +55,23 @@ class ProgrammableRingGenerator:
     self._non_optimized_done = 0
     self._non_optimized_used_taps = []
     self._non_optimized_unused_taps = []
+    self._taps_only = OperateOnTapsOnly
     for Tap in TapsList:
       for TName in Tap.keys():
         if not (Tap[TName] is None):
           self._all_taps.append(Tap[TName])
   def _getLfsrs(self) -> list:
     if not self._lfsrs_done:
-      self._lfsrs = Lfsr.listMaximumLfsrsHavingSpecifiedTaps(self._size, self._taps_list)
+      self._lfsrs = Lfsr.listMaximumLfsrsHavingSpecifiedTaps(self._size, self._taps_list, GetTapsOnly=self._taps_only)
       self._lfsrs_done = 1
     return self._lfsrs
   def _polys_dict_calculation(self):
     if not self._polys_done:
       for lfsr in self.getLfsrs(False):
-        poly = Polynomial.decodeUsingBerlekampMassey(lfsr.getSequence(Length=lfsr._size*2+2))
+        if self._taps_only:
+          poly = Polynomial.decodeUsingBerlekampMassey(Lfsr(self._size, RING_WITH_SPECIFIED_TAPS, lfsr.copy()).getSequence(Length=self._size*2+2))
+        else:
+          poly = Polynomial.decodeUsingBerlekampMassey(lfsr.getSequence(Length=lfsr._size*2+2))   
         if poly in self._polys:
           self._polys[poly].append(lfsr)
         else:
@@ -100,7 +105,10 @@ class ProgrammableRingGenerator:
       MinimumUsedTaps = None
       MinimumUsedLfsrs = None
       for lfsr0 in dict[MinimumPoly]:
-        UsedTaps = lfsr0.getTaps().copy()
+        if self._taps_only:
+          UsedTaps = lfsr0.copy()
+        else:
+          UsedTaps = lfsr0.getTaps().copy()
         UsedLfsrs = [lfsr0]
         Polys = {}
         for p in polys:
@@ -111,7 +119,11 @@ class ProgrammableRingGenerator:
           MinimumLfsr = None
           for lfsr in dict[p]:
             NewCntr = 0
-            for Tap in lfsr.getTaps():
+            if self._taps_only:
+              XTaps = lfsr
+            else:
+              XTaps = lfsr.getTaps()
+            for Tap in XTaps:
               if not (Tap in UsedTaps):
                 NewCntr += 1
             if (MinimumLfsr is None) or (NewCntr < MinimumCount):
@@ -119,7 +131,11 @@ class ProgrammableRingGenerator:
               MinimumLfsr = lfsr
           UsedLfsrs.append(MinimumLfsr)
           Polys[p] = MinimumLfsr
-          for Tap in MinimumLfsr.getTaps():
+          if self._taps_only:
+            XTaps = MinimumLfsr
+          else:
+            XTaps = MinimumLfsr.getTaps()
+          for Tap in XTaps:
             if not (Tap in UsedTaps):
               UsedTaps.append(Tap)
         if (MinimumUsedTaps is None) or (len(UsedTaps) < len(MinimumUsedTaps)):
@@ -145,7 +161,11 @@ class ProgrammableRingGenerator:
         return
       for p in polys:
         for lfsr in dict[p]:
-          for Tap in lfsr.getTaps():
+          if self._taps_only:
+            XTaps = lfsr
+          else:
+            XTaps = lfsr.getTaps()
+          for Tap in XTaps:
             if not (Tap in UsedTaps):
               UsedTaps.append(Tap)
       UnusedTaps = []

@@ -1735,7 +1735,7 @@ endmodule'''
     Report._title = repr(self)
     Report.SourceObject = self
     return Report
-  def listMaximumLfsrsHavingSpecifiedTaps(Size : int, TapsList : list, CountOnly = False) -> list:
+  def listMaximumLfsrsHavingSpecifiedTaps(Size : int, TapsList : list, CountOnly = False, GetTapsOnly = False) -> list:
     """list Lfsrs of type RING_WITH_SPECIFIED_TAPS satisfying the given criteria.
 
     Args:
@@ -1784,6 +1784,8 @@ endmodule'''
           if Result is not None:
             if CountOnly:
               Count += 1
+            elif GetTapsOnly:
+              ToReturn.append(Result.getTaps().copy())  
             else:
               ToReturn.append(Result)  
       gc.collect()
