@@ -1755,7 +1755,7 @@ endmodule'''
     ToReturn = []
     for Tap in TapsList:
       MainCounter.append(list(Tap.keys()))
-    ChunkSize = 10000
+    ChunkSize = 50000
     SerialChunkSize = 50
     PermCount = List.getPermutationsPfManyListsCount(MainCounter)
     SetCount = PermCount // ChunkSize + 1
