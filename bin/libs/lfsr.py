@@ -1755,8 +1755,8 @@ endmodule'''
     ToReturn = []
     for Tap in TapsList:
       MainCounter.append(list(Tap.keys()))
-    ChunkSize = 10000
-    SerialChunkSize = 10
+    ChunkSize = 20000
+    SerialChunkSize = 20
     PermCount = List.getPermutationsPfManyListsCount(MainCounter)
     SetCount = PermCount // ChunkSize + 1
     SetCntr = 0
@@ -1783,6 +1783,7 @@ endmodule'''
               Count += 1
             else:
               ToReturn.append(Result)  
+      gc.collect()
     if CountOnly:
       return Count
     return ToReturn

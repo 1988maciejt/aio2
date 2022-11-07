@@ -1,5 +1,6 @@
 from libs.aio import *
 from libs.lfsr import *
+import gc
 
 class ProgrammableRingGenerator:
   _polys = {}
@@ -71,6 +72,7 @@ class ProgrammableRingGenerator:
         else:
           self._polys[poly] = [lfsr]
       self._polys_done = 1    
+      gc.collect()
   def getPolynomialsAndLfsrsDictionary(self, Optimization=True) -> dict:
     if Optimization:
       self._optimized_calculations()
@@ -132,6 +134,7 @@ class ProgrammableRingGenerator:
       self._optimized_unused_taps = UnusedTaps
       self._optimized_polys = Polys
       self._optimized_done = 1
+      gc.collect()
   def _non_optimized_calculations(self):
     if not self._non_optimized_done:
       UsedTaps = []
@@ -152,6 +155,7 @@ class ProgrammableRingGenerator:
       self._non_optimized_used_taps = UsedTaps
       self._non_optimized_unused_taps = UnusedTaps
       self._non_optimized_done = 1
+      gc.collect()
   def getUnusedTaps(self, Optimization=True) -> list:
     if Optimization:
       self._optimized_calculations()
