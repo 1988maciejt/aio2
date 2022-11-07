@@ -21,6 +21,22 @@ class ProgrammableRingGenerator:
     return f'ProgrammableRingGenerator({self._size}, {self._taps_list})'
   def __str__(self) -> str:
     return repr(self)
+  def __del__(self):
+    self.clear()
+  def clear(self):
+    self._lfsrs.clear()
+    self._polys.clear()
+    self._lfsrs_done = 0
+    self._polys_done = 0
+    self._all_taps.clear()
+    self._optimized_lfsrs.clear()
+    self._optimized_used_taps.clear()
+    self._optimized_unused_taps.clear()
+    self._optimized_polys.clear()
+    self._optimized_done = 0
+    self._non_optimized_done = 0
+    self._non_optimized_used_taps.clear()
+    self._non_optimized_unused_taps.clear()
   def __init__(self, Size : int, TapsList : list) -> None:
     self._taps_list = TapsList.copy()
     self._size = Size
