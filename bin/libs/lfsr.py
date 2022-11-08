@@ -15,6 +15,7 @@ from p_tqdm import *
 import copy
 import gc
 from bitarray import *
+from libs.programmable_lfsr_config import *
 #from tqdm.contrib.concurrent import process_map
 
 
@@ -1739,7 +1740,7 @@ endmodule'''
     Report._title = repr(self)
     Report.SourceObject = self
     return Report
-  def listMaximumLfsrsHavingSpecifiedTaps(Size : int, TapsList : list, CountOnly = False, GetTapsOnly = False) -> list:
+  def listMaximumLfsrsHavingSpecifiedTaps(SizeOrProgrammableLfsrConfiguration : int, TapsList = [], CountOnly = False, GetTapsOnly = False) -> list:
     """list Lfsrs of type RING_WITH_SPECIFIED_TAPS satisfying the given criteria.
 
     Args:
@@ -1754,6 +1755,11 @@ endmodule'''
     demux from 3 to 5 or 6:         { 0: {3,5], 1: [3,6] }}
     ...the same with "off" option:  { 0: {3,5], 1: [3,6] }, 2: None }
     """
+    if Aio.isType(SizeOrProgrammableLfsrConfiguration, "ProgrammableLfsrConfiguration"):
+      Size = SizeOrProgrammableLfsrConfiguration.getSize()
+      TapsList = SizeOrProgrammableLfsrConfiguration.getTaps()
+    else:
+      Size = int(SizeOrProgrammableLfsrConfiguration)
     MainCounter = []
     Count = 0
     ToReturn = []
@@ -1871,6 +1877,6 @@ class _BerlekampMassey:
     def __repr__(self):
         return "<%s polynomial=%s>" % (self.__class__.__name__, self._get_polynomial_string())
   
-  
+
 
   

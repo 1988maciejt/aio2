@@ -1,5 +1,6 @@
 from libs.aio import *
 from libs.lfsr import *
+from libs.programmable_lfsr_config import *
 import gc
 
 class ProgrammableRingGenerator:
@@ -39,7 +40,12 @@ class ProgrammableRingGenerator:
     self._non_optimized_done = 0
     self._non_optimized_used_taps.clear()
     self._non_optimized_unused_taps.clear()
-  def __init__(self, Size : int, TapsList : list, OperateOnTapsOnly=False) -> None:
+  def __init__(self, SizeOrProgrammableLfsrConfiguration : int, TapsList = [], OperateOnTapsOnly=False) -> None:
+    if Aio.isType(SizeOrProgrammableLfsrConfiguration, "ProgrammableLfsrConfiguration"):
+      Size = SizeOrProgrammableLfsrConfiguration.getSize()
+      TapsList = SizeOrProgrammableLfsrConfiguration.getTaps()
+    else:
+      Size = int(SizeOrProgrammableLfsrConfiguration)
     self._taps_list = TapsList.copy()
     self._size = Size
     self._lfsrs = []
@@ -78,7 +84,7 @@ class ProgrammableRingGenerator:
           self._polys[poly] = [lfsr]
       self._polys_done = 1    
       gc.collect()
-  def getPolynomialsAndLfsrsDictionary(self, Optimization=True) -> dict:
+  def getPolynomialsAndLfsrsDictionary(self, Optimization=False) -> dict:
     if Optimization:
       self._optimized_calculations()
       return self._optimized_polys
@@ -93,7 +99,7 @@ class ProgrammableRingGenerator:
     if not self._optimized_done:      
       dict = self.getPolynomialsAndLfsrsDictionary(False)
       polys = dict.keys()
-      if len(polys) <= 1:
+      if len(polys) < 1:
         self._optimized_done = 1
         return
       MinimumCount = 0
@@ -140,6 +146,7 @@ class ProgrammableRingGenerator:
               UsedTaps.append(Tap)
         if (MinimumUsedTaps is None) or (len(UsedTaps) < len(MinimumUsedTaps)):
           MinimumUsedTaps = UsedTaps
+          print ("HERE!", UsedLfsrs)
           MinimumUsedLfsrs = UsedLfsrs
       UnusedTaps = []
       for Tap in self._all_taps:
@@ -190,7 +197,7 @@ class ProgrammableRingGenerator:
     else:
       self._non_optimized_calculations()
       return self._non_optimized_used_taps
-  def getLfsrs(self, Optimization=True) -> list:
+  def getLfsrs(self, Optimization=False) -> list:
     if Optimization:
       self._optimized_calculations()
       return self._optimized_lfsrs

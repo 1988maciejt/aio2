@@ -1,68 +1,78 @@
 from libs.lfsr import *
-from simple_term_menu import TerminalMenu
+from libs.programmable_lfsr import *
+from prompt_toolkit.shortcuts import *
+import ast
 
-_menu_ppolys_degree = 64
-_menu_ppolys_coeffs = 5
-_menu_ppolys_balancing = 0
-_menu_ppolys_n = 0
-
-def menu_ppoly_settings(OnlyDegree = False):
-  global _menu_ppolys_degree, _menu_ppolys_coeffs, _menu_ppolys_balancing, _menu_ppolys_n
-  while True:
-    PPS = [ "OK", 
-            "Degree    : " + str(_menu_ppolys_degree)
-          ]
-    if not OnlyDegree:
-      PPS += [
-              "#Coeffs   : " + str(_menu_ppolys_coeffs),
-              "Balancing : " + str(_menu_ppolys_balancing)
-            ]
-    PPS += ["#Results  : " + str(_menu_ppolys_n)]
-    PPSMenu = TerminalMenu(PPS, title="Polynomials settings")
-    Res = PPSMenu.show()
-    if Res == 0:
-      return
-    elif Res == 1:
-      ans = input("Degree >> ")
+class MainMenu_static:
+  _main_menu = radiolist_dialog(
+    title="Main menu",
+    text="Choose category",
+    values=[
+      (1, "Primitive polynomials"),
+      (2, "Maximum Rungs")
+    ]
+  )
+  _prim_polys_menu = radiolist_dialog(
+    title="Primitive polynomials",
+    text="What you want to do:",
+    values=[
+      (1, "Check if a given polynomial is primitive"),
+      (2, "Print dense primitives")
+    ]
+  )
+  _input_polynomial = input_dialog(
+    title="Polynomial input",
+    text="Enter a list of polynomial coefficients, i.e.\n[5,4,0]\nIs it also possible to enter an integer number representing a polynomial, i.e.\n0b110001",
+  )
+  _input_polynomial_degree = input_dialog(
+    title="Polynomial degree",
+    text="Enter polynomial degree:"
+  )
+  def getPolynomial() -> Polynomial:
+    while 1:
+      Result = MainMenu_static._input_polynomial.run()
+      if Result is None:
+        return None
       try:
-        _menu_ppolys_degree = int(ans)
+        return Polynomial(ast.literal_eval(Result))
       except:
-        pass
-    elif Res == 2 and not OnlyDegree:
-      ans = input("# Coefficients >> ")
+        message_dialog(title="Error", text=f'The given text "{Result}" is not a polynomial.').run()
+  def getPolynomialDegree() -> int:
+    while 1:
+      Result = MainMenu_static._input_polynomial_degree.run()
+      if Result is None:
+        return None
       try:
-        _menu_ppolys_coeffs = int(ans)
+        return int(ast.literal_eval(Result))
       except:
-        pass
-    elif Res == 3:
-      ans = input("Balancing >> ")
-      try:
-        _menu_ppolys_balancing = int(ans)
-      except:
-        pass
-    elif Res == 4 or (Res == 2 and OnlyDegree):
-      ans = input("# Results (0 means 'no limit') >> ")
-      try:
-        _menu_ppolys_n = int(ans)
-      except:
-        pass
+        message_dialog(title="Error", text=f'The given text "{Result}" is not an integer number.').run()
+  
+  def run():
+    Category = -1
+    SubCategory = -1
+    Poly = -1
+    Degree = -1
+    while Category is not None:
+      Category = MainMenu_static._main_menu.run()
+      if Category == 1:
+        while SubCategory is not None:
+          SubCategory = MainMenu_static._prim_polys_menu.run()
+          if SubCategory == 1:
+            while Poly is not None:
+              Poly = MainMenu_static.getPolynomial()
+              if Poly is not None:
+                IsOrNot = "IS" if Poly.isPrimitive() else "IS NOT"
+                message_dialog(title="Result", text=f'Polynomial\n{str(Poly)}\n{IsOrNot} PRIMITIVE!').run()
+          if SubCategory == 2:
+            Degree = MainMenu_static.getPolynomialDegree()
+            if Degree is not None:
+              Polynomial.printDensePrimitives(Degree)
+              return
+            
+          
+      
+      
+      
 
 def menu():
-  global _menu_ppolys_degree, _menu_ppolys_coeffs, _menu_ppolys_balancing, _menu_ppolys_n
-  Categories = ["Cancel", "Primitive polynomials over GF(2)"]
-  CatMenu = TerminalMenu(Categories, title="Select category")
-  CatSelected = CatMenu.show()
-  if CatSelected == 1:
-    PrimPolys = ["Cancel", "Find any", "Find dense"]
-    PrimMenu = TerminalMenu(PrimPolys, title="Primitive polynomials over GF(2):")
-    sel = PrimMenu.show()
-    if sel == 0:
-      return None
-    elif sel == 1:
-      menu_ppoly_settings()
-      return Polynomial.listPrimitives(_menu_ppolys_degree, _menu_ppolys_coeffs, _menu_ppolys_balancing, False, _menu_ppolys_n)
-    elif sel == 2:
-      menu_ppoly_settings(True)
-      return Polynomial.listDense(_menu_ppolys_degree, _menu_ppolys_n)
-  return None
-  
+  MainMenu_static.run()
