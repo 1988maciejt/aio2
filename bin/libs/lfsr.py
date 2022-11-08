@@ -913,8 +913,12 @@ Polynomial ("size,HexNumber", balancing=0)
       return lst[0]
     return None
   def decodeUsingBerlekampMassey(Sequence) -> Polynomial:
+    if Aio.isType(Sequence, "Lfsr"):
+      Seq2 = Sequence.getSequence(Length=Sequence._size<<1+2)
+    else:
+      Seq2 = Sequence
     seq = []
-    for S in Sequence:
+    for S in Seq2:
       if int(S):
         seq.append(1)
       else:
@@ -1064,15 +1068,15 @@ class Lfsr:
   def __str__(self) -> str:
     return str(self._baValue)[10:-2]
   def __repr__(self) -> str:
-    result = "Lfsr(" + str(self._my_poly) + ", "
+    result = "Lfsr("
     if self._type == LfsrType.Galois:
-      result += "Galois"
+      result += str(self._my_poly) + ", LfsrType.Galois"
     if self._type == LfsrType.Fibonacci:
-      result += "Fibonacci" 
+      result += str(self._my_poly) + ", LfsrType.Fibonacci" 
     if self._type == LfsrType.RingGenerator:
-      result += "RingGenerator" 
+      result += str(self._my_poly) + ", LfsrType.RingGenerator" 
     if self._type == LfsrType.RingWithSpecifiedTaps:
-      result += "RingWithSpecifiedTaps, " + str(self._taps)
+      result += str(self._size) + ", LfsrType.RingWithSpecifiedTaps, " + str(self._taps)
     result += ")"
     return result
   def _buildFastSimArray(self):
