@@ -533,6 +533,15 @@ Polynomial ("size,HexNumber", balancing=0)
     """
     return math.comb(self.getDegree()-1, self.getTaps())
   
+  def getMinimumDistance(self) -> int:
+    """Calculates and returns the minimum distance between successive coefficients.
+    """
+    Result = self._coefficients_list[0]
+    for i in range(1, len(self._coefficients_list)):
+      d = self._coefficients_list[i-1] - self._coefficients_list[i]
+      if d < Result:
+        Result = d
+    return Result
   def getBalancing(self) -> int:
     """Calculates and returns the balaning factor of the polynomial.
     """
@@ -614,13 +623,14 @@ Polynomial ("size,HexNumber", balancing=0)
     return True
 #  def createBasingOnCoeffsList(CoeffsList : list) -> Polynomial:
 #    pass 
-  def createPolynomial(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDIstane = 0) -> Polynomial:
+  def createPolynomial(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0) -> Polynomial:
     """Returns a polynomial, usefull for LFSRs.
 
     Args:
         degree (int): polynomial degree (i.e. size of LFSR)
         coeffs_count (int): coefficients count (i.e. LFSRs taps count + 2)
         balancing (int, optional): balancing factor. Defaults to 0 (no balance checking).
+        MinimumDistance (int, optional): minimum distance between successive coefficients. Defaults to 0 (no matters)
         LayoutFriendly (bool, optional): only layout-friendly poly.
     """
     if coeffs_count < 1:
@@ -635,41 +645,38 @@ Polynomial ("size,HexNumber", balancing=0)
     if balancing > 0 and balancing < degree:
       avg = float(degree) / float(coeffs_count - 1)
       halfbal = float(balancing) / 2.0
-      bmin = avg - halfbal
-      bmax = avg + halfbal
-      result.insert(0,0);
-      if MinimumDIstane > 0:
-        bmin = MinimumDIstane * 1.0
-      if bmin < 1.0:
-        bmin = 1.0
-        bmax = float(balancing + 1)
+      bmin = int(avg - halfbal + 0.5)
+      bmax = int(avg + halfbal)
+      if MinimumDistance > bmin > 0:
+        bmin = MinimumDistance
+      if bmin < 1:
+        bmin = 1
+        bmax = balancing + 1
       if bmin < 2 and LayoutFriendly:
         bmin = 2
       result = [0]
-      rest = degree-1
+      rest = degree
       actual = bmin
       restcoeffs = coeffs_count-2
-      diff = round(bmin,0)
+      diff = bmin
+      diffmax = balancing + diff
       for i in range(2, coeffs_count):
-        coeff = int(round(actual, 0))
+        diffmin = diff
+        while (diffmin + ((restcoeffs-1) * diffmax)) < (rest-diff):
+          diffmin += 1
+        coeff = actual
         result.append(coeff)
-        rest -= diff
+        rest -= diffmin
         restcoeffs -= 1
-        actual += diff
-        if diff < bmax:
-          try:
-            if rest / restcoeffs >= bmax:
-              diff = bmax
-          except:
-            pass
+        actual += diffmin
       result.append(degree)
-    elif MinimumDIstane > 0:
-      bmin = MinimumDIstane
+    elif MinimumDistance > 0:
+      bmin = MinimumDistance
       result = [0]
-      c = MinimumDIstane
+      c = MinimumDistance
       for i in range(2, coeffs_count):
         result.append(c)
-        c += MinimumDIstane
+        c += MinimumDistance
       result.append(degree)
     else:
       for i in range(coeffs_count-1):
@@ -685,11 +692,12 @@ Polynomial ("size,HexNumber", balancing=0)
     p._bmin = int(round(bmin,0))
     p._bmax = int(round(bmax,0))
     p._lf = LayoutFriendly
-    p._mindist = MinimumDIstane
+    p._mindist = MinimumDistance
 #    print(Aio.format(pos))
-    if p._balancing > 0:
-      if p.getBalancing() > p._balancing:
-        return None
+    if p.getBalancing() > p._balancing > 0:
+      return None
+    if p.getMinimumDistance() < p._mindist > 0:
+      return None
     if p._lf:
       while not p.isLayoutFriendly():
         if not p.makeNext():
@@ -728,14 +736,14 @@ Polynomial ("size,HexNumber", balancing=0)
       r = r[0:n]
     Aio.printTemp(" " * (Aio.getTerminalColumns()-1))
     return r
-  def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDIstance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None) -> None:
+  def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None) -> None:
     """Prints a list of primitive polynomials (over GF(2)).
 
     Args:
         degree (int): polynomial degree (i.e. LFSR size)
         coeffs_count (int): coefficients count (i.e. LFSR taps count + 2)
         balancing (int, optional): balancing factor. Defaults to 0 (no balance checking)
-        MinimumDIstance (int, optional): Minimum distance between consecutive coefficients. Default: 0 (no restriction)
+        MinimumDistance (int, optional): Minimum distance between consecutive coefficients. Default: 0 (no restriction)
         LayoutFriendly (bool, optional): like MinimumDistance=2. Defaults to False.
         n (int, optional): stop searching if n polynomials is found. Defaults to 0 (don't stop)
         Silent (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
@@ -743,16 +751,16 @@ Polynomial ("size,HexNumber", balancing=0)
         ReturnAlsoAllCandidaes (bool, optional): if true, then it returns list: [polynomials_found, all_tested_polynomials]
         FilteringCallback (procedure, optional): if specified, then will be used to filter acceptable polynomials (must return bool value: True means acceptable).
     """
-    for p in Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDIstance, n, Silent, MaxSetSize, ExcludeList, ReturnAlsoAllCandidaes, FilteringCallback):
+    for p in Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n, Silent, MaxSetSize, ExcludeList, ReturnAlsoAllCandidaes, FilteringCallback):
       Aio.print(p.getCoefficients())
-  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDIstance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None) -> list:
+  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
         degree (int): polynomial degree (i.e. LFSR size)
         coeffs_count (int): coefficients count (i.e. LFSR taps count + 2)
         balancing (int, optional): balancing factor. Defaults to 0 (no balance checking)
-        MinimumDIstance (int, optional): Minimum distance between consecutive coefficients. Default: 0 (no restriction)
+        MinimumDistance (int, optional): Minimum distance between consecutive coefficients. Default: 0 (no restriction)
         LayoutFriendly (bool, optional): like MinimumDistance=2. Defaults to False.
         n (int, optional): stop searching if n polynomials is found. Defaults to 0 (don't stop)
         Silent (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
@@ -763,7 +771,7 @@ Polynomial ("size,HexNumber", balancing=0)
     Returns:
         list: list of polynomial objects
     """
-    polys = Polynomial.createPolynomial(degree, coeffs_count, balancing, LayoutFriendly, MinimumDIstance)
+    polys = Polynomial.createPolynomial(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance)
     if type(polys) == type(None):
       if ReturnAlsoAllCandidaes:
         return [[], []]
@@ -954,12 +962,14 @@ class LfsrType:
   Fibonacci = 2
   RingGenerator = 3
   RingWithSpecifiedTaps = 4
+  TigerRing = 5
 
 # Constants
 FIBONACCI = LfsrType.Fibonacci
 GALOIS = LfsrType.Galois
 RING_GENERATOR = LfsrType.RingGenerator
 RING_WITH_SPECIFIED_TAPS = LfsrType.RingWithSpecifiedTaps
+TIGER_RING = LfsrType.TigerRing
 
 # LFSR BEGIN ======================
 class Lfsr:
@@ -1030,7 +1040,7 @@ class Lfsr:
       self._bamask = (poly.toBitarray() >> 1)[1:]
     elif lfsr_type == LfsrType.Fibonacci:
       self._bamask = poly.toBitarray()[1:]
-    elif lfsr_type == LfsrType.RingGenerator:
+    elif lfsr_type == LfsrType.RingGenerator or lfsr_type == LfsrType.TigerRing:
       self._rg_table = []
       flist = self._my_poly
       flist_incr = flist.copy()
@@ -1060,10 +1070,22 @@ class Lfsr:
               To += 1
         taps.append([From, To])
       self._taps = taps
+      if lfsr_type == LfsrType.TigerRing:
+        for i in range(0, len(taps), 2):
+          self.reverseTap(i)
+        self._type = LfsrType.RingWithSpecifiedTaps
     else:
       Aio.printError("Unrecognised lfsr type '" + str(lfsr_type) + "'")
     self.reset()
     self._hval = 1 << (poly.getDegree()-1)
+  def getReciprocal(self):
+    Aio.print("NOT FINISHED!!!!")
+    if self._type == LfsrType.RingWithSpecifiedTaps:
+      L = self.copy()
+      
+    else:
+      Aio.printError("'getReciprocal' is available only for Lfsrs of type RING_WITH_SPECIFIED_TAPS")
+      return None
   def toBinString(self):
     return BinString(str(self))
   def __str__(self) -> str:
@@ -1803,7 +1825,13 @@ endmodule'''
       return Count
     return ToReturn
       
-  
+  def checkMaximum(LfsrsList : list) -> list:
+    Results = []
+    RList = p_map(Lfsr.isMaximum, LfsrsList)
+    for i in range(len(LfsrsList)):
+      if RList[i]:
+        Results.append(LfsrsList[i])
+    return Results
     
 def _analyseSequences_helper(lfsr) -> MSequencesReport:
   return lfsr.analyseSequences()
