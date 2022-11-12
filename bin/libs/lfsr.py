@@ -647,11 +647,11 @@ Polynomial ("size,HexNumber", balancing=0)
       halfbal = float(balancing) / 2.0
       bmin = int(avg - halfbal + 0.5)
       bmax = int(avg + halfbal)
-      if MinimumDistance > bmin > 0:
-        bmin = MinimumDistance
       if bmin < 1:
         bmin = 1
         bmax = balancing + 1
+      if MinimumDistance > bmin > 0:
+        bmin = MinimumDistance
       if bmin < 2 and LayoutFriendly:
         bmin = 2
       result = [0]
