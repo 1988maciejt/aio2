@@ -57,6 +57,24 @@ def _categoryPolynomial_printDense():
     String += f'{R}\n'
     Aio.print(R)
   message_dialog(title="Result", text=String).run()
+  
+def _categoryPolynomial_printEveryN():
+  Degree = MainMenu_static.getPolynomialDegree()
+  if Degree is None:
+    return
+  Section = MainMenu_static.getSectionSize()
+  if Section is None:
+    return
+  N = MainMenu_static.getN()
+  if N is None:
+    return
+  Result = Polynomial.listEveryNTapsPrimitives(Degree, Section, N)
+  String = "Found every-N taps polynomials:\n\n"
+  Aio.print(f'Found Every-N primitives ({Degree}, {Section}):')
+  for R in Result:
+    String += f'{R}\n'
+    Aio.print(R)
+  message_dialog(title="Result", text=String).run()
 
 def _categoryPolynomial_checkPrimitive():
   Poly = -1
@@ -267,11 +285,64 @@ def _categoryProgrammableRingGenerator_subDoCalculations():
     text=Text
   ).run()
   
-
 def _categoryProgrammableRingGenerator():
   SubCategory = -1
   while SubCategory is not None:
     SubCategory = MainMenu_static._programmable_ring_generator_menu.run()
+    if SubCategory is not None:
+      SubCategory()
+      
+
+def _categoryTigerRingGenerator_subFind():
+  Degree = MainMenu_static.getPolynomialDegree()
+  if Degree is None:
+    return
+  CCount = MainMenu_static.getCoeffsCount()
+  if CCount is None:
+    return
+  Balancing = MainMenu_static.getBalancing()
+  if Balancing is None:
+    return
+  MinDist = MainMenu_static.getMinDistance()
+  if MinDist is None:
+    return
+  Poly0 = Polynomial.createPolynomial(Degree, CCount, Balancing, MinimumDistance=MinDist)
+  lfsrs = []
+  for p in Poly0:
+    lfsrs.append(Lfsr(p, TIGER_RING))
+  Result = Lfsr.checkMaximum(lfsrs)
+  Aio.print("Found tiger rings:")
+  Text = ""
+  for R in Result:
+    P = list(reversed(R._my_poly))
+    RedTaps = len(P)-2
+    DP = Polynomial.decodeUsingBerlekampMassey(R)
+    FullTaps = DP.getCoefficientsCount()-2
+    Reduction = round(FullTaps / RedTaps, 2)
+    PBalancing = Polynomial(R._my_poly).getBalancing()
+    Line = ""
+    Minus = ""
+    for i in range(0, len(P)-1):
+      Line = " " + Minus + str(P[i]) + Line
+      if Minus == "":
+        Minus = "-"
+      else:
+        Minus = ""
+    Line = str(P[-1]) + Line
+    Line = f'TapsRed={Reduction} Balancing={PBalancing} \t{Line}  \t{DP}'
+    Aio.print(Line)
+    Text += Line + "\n"
+  message_dialog(
+    title="Found tiger rings",
+    text=Text
+  ).run()
+    
+  
+  
+def _categoryTigerRingGenerator():
+  SubCategory = -1
+  while SubCategory is not None:
+    SubCategory = MainMenu_static._tiger_ring_generator_menu.run()
     if SubCategory is not None:
       SubCategory()
   
@@ -285,7 +356,8 @@ class MainMenu_static:
     values=[
       (_categoryPolynomial,                 "Primitive polynomials"),
       (_categoryLfsrWithManualTaps,         "Ring generators with manually specified taps"),
-      (_categoryProgrammableRingGenerator,  "Programmavle ring renegrator")
+      (_categoryProgrammableRingGenerator,  "Programmavle ring renegrator"),
+      (_categoryTigerRingGenerator,         "Tiger Ring Generators")
     ]
   )
   _prim_polys_menu = radiolist_dialog(
@@ -294,6 +366,7 @@ class MainMenu_static:
     values=[
       (_categoryPolynomial_checkPrimitive,  "Check if a given polynomial is primitive"),
       (_categoryPolynomial_print,           "Print primitives"),
+      (_categoryPolynomial_printEveryN,     "Print Every-N primitives"),
       (_categoryPolynomial_printDense,      "Print dense primitives"),
       (_categoryPolynomial_decode,          "Decode using Berlekamp-Massey algorithm")
     ]
@@ -324,6 +397,13 @@ class MainMenu_static:
       (_categoryProgrammableRingGenerator_subDoCalculations,  "Stats")
     ]
   )
+  _tiger_ring_generator_menu = radiolist_dialog(
+    title="Tiger ring generators",
+    text="What you want to do:",
+    values=[
+      (_categoryTigerRingGenerator_subFind,    "Search for maximum tiger ring generators"),
+    ]
+  )
   _input_polynomial = input_dialog(
     title="Polynomial input",
     text="Enter a list of polynomial coefficients, i.e.\n[5,4,0]\nIs it also possible to enter an integer number representing a polynomial, i.e.\n0b110001",
@@ -331,6 +411,10 @@ class MainMenu_static:
   _input_polynomial_degree = input_dialog(
     title="Polynomial degree",
     text="Enter polynomial degree:"
+  )
+  _input_section_size = input_dialog(
+    title="Section size",
+    text="Enter section size (FFs between taps. Default: 4):"
   )
   _input_n_results = input_dialog(
     title="How many results?",
@@ -392,6 +476,20 @@ class MainMenu_static:
         return R
       except:
         return 3
+      
+
+  def getSectionSize() -> int:
+    while 1:
+      Result = MainMenu_static._input_section_size.run()
+      if Result is None:
+        return None
+      try:
+        R = int(ast.literal_eval(Result))
+        if R < 1: 
+          R = 1
+        return R
+      except:
+        return 4
     
   def getMinDistance() -> int:
     while 1:
