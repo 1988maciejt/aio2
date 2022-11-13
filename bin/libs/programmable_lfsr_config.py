@@ -11,7 +11,7 @@ class ProgrammableLfsrConfiguration:
     Dict = { f'{From}-{To}': [From, To] }
     self._taps.append(Dict)
     return Dict
-  def addOnOffTap(self, From : int, To : int) -> dict:
+  def addGated(self, From : int, To : int) -> dict:
     Dict = { f'{From}-{To}_off': None, f'{From}-{To}_on': [From, To] }
     self._taps.append(Dict)
     return Dict

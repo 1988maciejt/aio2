@@ -12,6 +12,7 @@ def _categoryPolynomial_decode():
     return
   try:
     Poly = Polynomial.decodeUsingBerlekampMassey(Sequence)
+    Aio.print(Poly)
     Is = "This polynomial IS primitibe" if Poly.isPrimitive() else "This polynomial IS NOT primitive."
     message_dialog(title="Decoded polynomial", text=f'{Poly}\n{Is}').run()
   except:
@@ -24,14 +25,17 @@ def _categoryPolynomial_print():
   CoeffsCount = MainMenu_static.getCoeffsCount()
   if CoeffsCount is None:
     return
+  Balancing = MainMenu_static.getBalancing()
+  if Balancing is None:
+    return
   MinDist = MainMenu_static.getMinDistance()
   if MinDist is None:
     return
   N = MainMenu_static.getN()
   if N is None:
     return
-  Result = Polynomial.listPrimitives(Degree, CoeffsCount, MinimumDIstance=MinDist, n=N)
-  String = "Found dense polynomials:\n\n"
+  Result = Polynomial.listPrimitives(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist, n=N)
+  String = "Found polynomials:\n\n"
   for R in Result:
     String += f'{R}\n'
     Aio.print(R)
@@ -92,7 +96,6 @@ def _categoryLfsrWithManualTaps_subInfoDisplay():
     text=Text
   ).run()
   
-
 def _categoryLfsrWithManualTaps_subCreate():
   global _GlobalLfsr
   Size = MainMenu_static.getLfsrSize()
@@ -119,6 +122,155 @@ def _categoryLfsrWithManualTaps():
       SubCategory()
 
 
+_GlobalProgrammableRingConfig = ProgrammableLfsrConfiguration(32)
+_GlobalProgrammable = None
+
+def _categoryProgrammableRingGenerator_subCreate():
+  global _GlobalProgrammableRingConfig, _GlobalProgrammable
+  Size = MainMenu_static.getLfsrSize()
+  if Size is None:
+    return
+  _GlobalProgrammableRingConfig = ProgrammableLfsrConfiguration(Size)
+  _GlobalProgrammable = None
+  
+def _categoryProgrammableRingGenerator_subStore():
+  global _GlobalProgrammableRingConfig, _GlobalProgrammable
+  Filename = input_dialog(
+    title="Store programmable ring config to file",
+    text="Enter file name"
+  ).run()
+  if Filename is None:
+    return
+  writeObjectToFile(Filename, _GlobalProgrammableRingConfig)
+    
+def _categoryProgrammableRingGenerator_subRestore():
+  global _GlobalProgrammableRingConfig, _GlobalProgrammable
+  Filename = pickFile()
+  try:
+    Obj = readObjectFromFile(Filename)
+    if Aio.isType(Obj, _GlobalProgrammableRingConfig):
+      _GlobalProgrammableRingConfig = Obj
+      _categoryProgrammableRingGenerator_subDisplay()
+    else:
+      message_dialog(
+        title="Error",
+        text=f'File "{Filename}" does not include programmable ring config.'
+      ).run()
+  except:
+    message_dialog(
+      title="Error",
+      text=f'Loading error.'
+    ).run()
+  
+def _categoryProgrammableRingGenerator_subDisplay():
+  global _GlobalProgrammableRingConfig, _GlobalProgrammable
+  Text = f'SIZE: {_GlobalProgrammableRingConfig.getSize()}\n'
+  for TapD in _GlobalProgrammableRingConfig.getTaps():
+    TapValues = list(TapD.values())
+    if len(TapValues) == 1: #<amdatory
+      Tap = TapValues[0]
+      Text += f'- Mandatory tap    : {Tap}\n'
+    elif len(TapValues) == 2 and None in TapValues: #gated
+      TapValues.remove(None)
+      Tap = TapValues[0]
+      Text += f'- Gated tap        : {Tap}\n'
+    elif None in TapValues: #muxed with off
+      TapValues.remove(None)
+      Text += f'- (de)mux with off : {TapValues}\n'
+    else: #muxed
+      Text += f'- (de)mux          : {TapValues}\n'
+  message_dialog(title="Programmable ring config", text=Text).run()
+  
+def _categoryProgrammableRingGenerator_subRemove():
+  global _GlobalProgrammableRingConfig, _GlobalProgrammable
+  RemList = []
+  for TapD in _GlobalProgrammableRingConfig.getTaps():
+    TapValues = list(TapD.values())
+    if len(TapValues) == 1: #<amdatory
+      Tap = TapValues[0]
+      RemList.append( (TapD, f'Mandatory tap    : {Tap}') )
+    elif len(TapValues) == 2 and None in TapValues: #gated
+      TapValues.remove(None)
+      Tap = TapValues[0]
+      RemList.append( (TapD, f'Gated tap        : {Tap}') )
+    elif None in TapValues: #muxed with off
+      TapValues.remove(None)
+      RemList.append( (TapD, f'(de)mux with off : {TapValues}') )
+    else: #muxed
+      RemList.append( (TapD, f'(de)mux          : {TapValues}') )
+  RT = radiolist_dialog(
+    title="Tap removing",
+    text="Which tap to remove?",
+    values=RemList
+  ).run()
+  if RT is None:
+    return
+  _GlobalProgrammableRingConfig.remove(RT)
+  _GlobalProgrammable = None
+  _categoryProgrammableRingGenerator_subDisplay()
+  
+def _categoryProgrammableRingGenerator_subAddMandatory():
+  global _GlobalProgrammableRingConfig, _GlobalProgrammable
+  Taps = MainMenu_static.getTaps(1)
+  if Taps is None:
+    return
+  for Tap in Taps:
+    _GlobalProgrammableRingConfig.addMandatory(Tap[0], Tap[1])
+  _GlobalProgrammable = None
+  _categoryProgrammableRingGenerator_subDisplay()
+  
+def _categoryProgrammableRingGenerator_subAddGated():
+  global _GlobalProgrammableRingConfig, _GlobalProgrammable
+  Taps = MainMenu_static.getTaps(1)
+  if Taps is None:
+    return
+  for Tap in Taps:
+    _GlobalProgrammableRingConfig.addGated(Tap[0], Tap[1])
+  _GlobalProgrammable = None
+  _categoryProgrammableRingGenerator_subDisplay()
+  
+def _categoryProgrammableRingGenerator_subAddMuxed():
+  global _GlobalProgrammableRingConfig, _GlobalProgrammable
+  Taps = MainMenu_static.getTaps(1)
+  if Taps is None:
+    return
+  _GlobalProgrammableRingConfig.addMux(*Taps)
+  _GlobalProgrammable = None
+  _categoryProgrammableRingGenerator_subDisplay()
+  
+def _categoryProgrammableRingGenerator_subAddMuxedWithOff():
+  global _GlobalProgrammableRingConfig, _GlobalProgrammable
+  Taps = MainMenu_static.getTaps(1)
+  if Taps is None:
+    return
+  _GlobalProgrammableRingConfig.addMux(None, *Taps)
+  _GlobalProgrammable = None
+  _categoryProgrammableRingGenerator_subDisplay()
+  
+def _categoryProgrammableRingGenerator_subDoCalculations():
+  global _GlobalProgrammableRingConfig, _GlobalProgrammable
+  if _GlobalProgrammable is None:
+    _GlobalProgrammable = ProgrammableRingGenerator(_GlobalProgrammableRingConfig.getSize(), _GlobalProgrammableRingConfig.getTaps(), 1)
+  Text  = f'Full count of maximum LFSRs       : {len(_GlobalProgrammable.getLfsrs(False))}\n'
+  Text += f'Full count of maximum polynomials : {len(_GlobalProgrammable.getPolynomials())}\n'
+  Text += f'OPTIMIZATION:\n'
+  Text += f'  Count of used taps   : {len(_GlobalProgrammable.getUsedTaps(True))}\n'
+  Text += f'       - used taps     : {_GlobalProgrammable.getUsedTaps(True)}\n'
+  Text += f'  Count of unused taps : {len(_GlobalProgrammable.getUnusedTaps(True))}\n'
+  Text += f'       - unused taps   : {_GlobalProgrammable.getUnusedTaps(True)}\n'
+  message_dialog(
+    title="Programmable ring generator stats",
+    text=Text
+  ).run()
+  
+
+def _categoryProgrammableRingGenerator():
+  SubCategory = -1
+  while SubCategory is not None:
+    SubCategory = MainMenu_static._programmable_ring_generator_menu.run()
+    if SubCategory is not None:
+      SubCategory()
+  
 
 
 
@@ -128,7 +280,8 @@ class MainMenu_static:
     text="Choose category",
     values=[
       (_categoryPolynomial,                 "Primitive polynomials"),
-      (_categoryLfsrWithManualTaps,         "Ring generators with manually specified taps")
+      (_categoryLfsrWithManualTaps,         "Ring generators with manually specified taps"),
+      (_categoryProgrammableRingGenerator,  "Programmavle ring renegrator")
     ]
   )
   _prim_polys_menu = radiolist_dialog(
@@ -151,6 +304,22 @@ class MainMenu_static:
       (_categoryLfsrWithManualTaps_subMakeDual,   "Make dual ring")
     ]
   )
+  _programmable_ring_generator_menu = radiolist_dialog(
+    title="Programmable ring generators",
+    text="What you want to do:",
+    values=[
+      (_categoryProgrammableRingGenerator_subDisplay,         "Display programmable ring"),
+      (_categoryProgrammableRingGenerator_subCreate,          "Create new (set size)"),
+      (_categoryProgrammableRingGenerator_subRestore,         "Read config from file"),
+      (_categoryProgrammableRingGenerator_subStore,           "Save config to file"),
+      (_categoryProgrammableRingGenerator_subAddMandatory,    "Add mandatory taps"),
+      (_categoryProgrammableRingGenerator_subAddGated,        "Add gated taps"),
+      (_categoryProgrammableRingGenerator_subAddMuxed,        "Add (de)muxed taps"),
+      (_categoryProgrammableRingGenerator_subAddMuxedWithOff, "Add (de)muxed taps with off"),
+      (_categoryProgrammableRingGenerator_subRemove,          "Remove tap"),
+      (_categoryProgrammableRingGenerator_subDoCalculations,  "Stats")
+    ]
+  )
   _input_polynomial = input_dialog(
     title="Polynomial input",
     text="Enter a list of polynomial coefficients, i.e.\n[5,4,0]\nIs it also possible to enter an integer number representing a polynomial, i.e.\n0b110001",
@@ -166,6 +335,10 @@ class MainMenu_static:
   _input_polynomial_minimum_distance = input_dialog(
     title="Minimum distance",
     text="What is the required minimum distance between successive coefficients?\nDefault : 1"
+  )
+  _input_polynomial_balancing = input_dialog(
+    title="Balancing",
+    text="What is the required maximum balancing?\nBalancing means the difference between furthest and closest distance between successive coefficients.\nDefaul is 0 (does not matter)."
   )
   _input_polynomial_coeffs_count = input_dialog(
     title="Coefficients count",
@@ -186,7 +359,9 @@ class MainMenu_static:
     ..which means two taps: from FF3 output to the XOR at FF6 input and the second tap from FF6 output to the XOR at FF2 input."""
   )
   
-  def getTaps() -> list:
+  def getTaps(Reset = False) -> list:
+    if Reset:
+      MainMenu_static._input_taps.reset()
     while 1:
       Result = MainMenu_static._input_taps.run()
       if Result is None:
@@ -197,7 +372,6 @@ class MainMenu_static:
       except:
         continue
     
-  
   def getBinSequence() -> str:
     Result = MainMenu_static._input_bin_sequence.run()
     return Result
@@ -227,6 +401,19 @@ class MainMenu_static:
         return R
       except:
         return 1
+      
+
+  def getBalancing() -> int:
+    while 1:
+      Result = MainMenu_static._input_polynomial_balancing.run()
+      if Result is None:
+        return None
+      try:
+        R = int(ast.literal_eval(Result))
+        R = abs(R)
+        return R
+      except:
+        return 0
     
   def getN() -> int:
     Result = MainMenu_static._input_n_results.run()

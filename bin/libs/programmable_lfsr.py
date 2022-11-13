@@ -146,7 +146,6 @@ class ProgrammableRingGenerator:
               UsedTaps.append(Tap)
         if (MinimumUsedTaps is None) or (len(UsedTaps) < len(MinimumUsedTaps)):
           MinimumUsedTaps = UsedTaps
-          print ("HERE!", UsedLfsrs)
           MinimumUsedLfsrs = UsedLfsrs
       UnusedTaps = []
       for Tap in self._all_taps:
