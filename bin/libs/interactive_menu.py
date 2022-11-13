@@ -12,6 +12,7 @@ def _categoryPolynomial_decode():
     return
   try:
     Poly = Polynomial.decodeUsingBerlekampMassey(Sequence)
+    Aio.print("Decoded polynomial:")
     Aio.print(Poly)
     Is = "This polynomial IS primitibe" if Poly.isPrimitive() else "This polynomial IS NOT primitive."
     message_dialog(title="Decoded polynomial", text=f'{Poly}\n{Is}').run()
@@ -36,6 +37,7 @@ def _categoryPolynomial_print():
     return
   Result = Polynomial.listPrimitives(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist, n=N)
   String = "Found polynomials:\n\n"
+  Aio.print(f'Found primitives({Degree}, {CoeffsCount}, Balancing={Balancing}, MinimumDoistance={MinDist}):')
   for R in Result:
     String += f'{R}\n'
     Aio.print(R)
@@ -50,6 +52,7 @@ def _categoryPolynomial_printDense():
     return
   Result = Polynomial.listDensePrimitives(Degree, N)
   String = "Found dense polynomials:\n\n"
+  Aio.print(f'Found dense primitives ({Degree}):')
   for R in Result:
     String += f'{R}\n'
     Aio.print(R)
@@ -258,6 +261,7 @@ def _categoryProgrammableRingGenerator_subDoCalculations():
   Text += f'       - used taps     : {_GlobalProgrammable.getUsedTaps(True)}\n'
   Text += f'  Count of unused taps : {len(_GlobalProgrammable.getUnusedTaps(True))}\n'
   Text += f'       - unused taps   : {_GlobalProgrammable.getUnusedTaps(True)}\n'
+  Aio.print(Text)
   message_dialog(
     title="Programmable ring generator stats",
     text=Text
