@@ -18,7 +18,7 @@ def _categoryPolynomial_decode():
     message_dialog(title="Decoded polynomial", text=f'{Poly}\n{Is}').run()
   except:
     message_dialog(title="Error", text=f'Incorrect sequence').run()
-  
+
 def _categoryPolynomial_print():
   Degree = MainMenu_static.getPolynomialDegree()
   if Degree is None:
@@ -41,6 +41,30 @@ def _categoryPolynomial_print():
   for R in Result:
     String += f'{R}\n'
     Aio.print(R)
+  message_dialog(title="Result", text=String).run()
+    
+def _categoryPolynomial_printTiger():
+  Degree = MainMenu_static.getPolynomialDegree()
+  if Degree is None:
+    return
+  CoeffsCount = MainMenu_static.getCoeffsCount()
+  if CoeffsCount is None:
+    return
+  Balancing = MainMenu_static.getBalancing()
+  if Balancing is None:
+    return
+  MinDist = MainMenu_static.getMinDistance()
+  if MinDist is None:
+    return
+  N = MainMenu_static.getN()
+  if N is None:
+    return
+  Result = Polynomial.listTigerPrimitives(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist, n=N)
+  String = "Found tiger polynomials:\n\n"
+  Aio.print(f'Found primitives({Degree}, {CoeffsCount}, Balancing={Balancing}, MinimumDoistance={MinDist}):')
+  for R in Result:
+    String += f'{R.toTigerStr()}\n'
+    Aio.print(R.toTigerStr())
   message_dialog(title="Result", text=String).run()
 
 def _categoryPolynomial_printDense():
@@ -292,51 +316,6 @@ def _categoryProgrammableRingGenerator():
     if SubCategory is not None:
       SubCategory()
       
-
-def _categoryTigerRingGenerator_subFind():
-  Degree = MainMenu_static.getPolynomialDegree()
-  if Degree is None:
-    return
-  CCount = MainMenu_static.getCoeffsCount()
-  if CCount is None:
-    return
-  Balancing = MainMenu_static.getBalancing()
-  if Balancing is None:
-    return
-  MinDist = MainMenu_static.getMinDistance()
-  if MinDist is None:
-    return
-  Poly0 = Polynomial.createPolynomial(Degree, CCount, Balancing, MinimumDistance=MinDist)
-  lfsrs = []
-  for p in Poly0:
-    lfsrs.append(Lfsr(p, TIGER_RING))
-  Result = Lfsr.checkMaximum(lfsrs)
-  Aio.print("Found tiger rings:")
-  Text = ""
-  for R in Result:
-    P = list(reversed(R._my_poly))
-    RedTaps = len(P)-2
-    DP = Polynomial.decodeUsingBerlekampMassey(R)
-    FullTaps = DP.getCoefficientsCount()-2
-    Reduction = round(FullTaps / RedTaps, 2)
-    PBalancing = Polynomial(R._my_poly).getBalancing()
-    Line = ""
-    Minus = ""
-    for i in range(0, len(P)-1):
-      Line = " " + Minus + str(P[i]) + Line
-      if Minus == "":
-        Minus = "-"
-      else:
-        Minus = ""
-    Line = str(P[-1]) + Line
-    Line = f'TapsRed={Reduction} Balancing={PBalancing} \t{Line}  \t{DP}'
-    Aio.print(Line)
-    Text += Line + "\n"
-  message_dialog(
-    title="Found tiger rings",
-    text=Text
-  ).run()
-    
   
   
 def _categoryTigerRingGenerator():
@@ -368,6 +347,7 @@ class MainMenu_static:
       (_categoryPolynomial_print,           "Print primitives"),
       (_categoryPolynomial_printEveryN,     "Print Every-N primitives"),
       (_categoryPolynomial_printDense,      "Print dense primitives"),
+      (_categoryPolynomial_printTiger,      "Print Tiger polynomials"),
       (_categoryPolynomial_decode,          "Decode using Berlekamp-Massey algorithm")
     ]
   )
@@ -401,7 +381,7 @@ class MainMenu_static:
     title="Tiger ring generators",
     text="What you want to do:",
     values=[
-      (_categoryTigerRingGenerator_subFind,    "Search for maximum tiger ring generators"),
+      (_categoryPolynomial_printTiger,    "Search for maximum tiger ring generators"),
     ]
   )
   _input_polynomial = input_dialog(

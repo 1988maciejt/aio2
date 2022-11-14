@@ -202,7 +202,10 @@ Polynomial ("size,HexNumber", balancing=0)
       self._balancing = balancing   
       self._bmax = self._coefficients_list[0]   
     else:
-      self._coefficients_list = coefficients_list
+      lst = []
+      for c in coefficients_list:
+        lst.append(abs(c))
+      self._coefficients_list = lst
       self._coefficients_list.sort(reverse=True)
       self._balancing = balancing
       self._bmax = self._coefficients_list[0]
@@ -736,7 +739,31 @@ Polynomial ("size,HexNumber", balancing=0)
       r = r[0:n]
     Aio.printTemp(" " * (Aio.getTerminalColumns()-1))
     return r
-  def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None) -> None:
+  def toTigerStr(self) -> str:
+    Coeffs = self._coefficients_list
+    Line = ""      
+    Minus = ""
+    for i in range(len(Coeffs)-1, 0 , -1):
+      c = Coeffs[i]
+      Line = ", " + Minus + str(c) + Line
+      Minus = "-" if Minus == "" else ""
+    Line = "[" + str(Coeffs[0]) + Line + "]"
+    return Line
+  def printTigerPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0) -> list:
+    Polys = Polynomial.listTigerPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n)
+    for p in Polys:
+      Aio.print(p.toTigerStr())
+  def listTigerPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0) -> list:
+    Poly0 = Polynomial.createPolynomial(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance)
+    lfsrs = []
+    for p in Poly0:
+      lfsrs.append(Lfsr(p, TIGER_RING))
+    Results = Lfsr.checkMaximum(lfsrs)
+    Polys = []
+    for l in Results:
+      Polys.append(Polynomial(l._my_poly.copy()))
+    return Polys
+  def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], FilteringCallback = None) -> None:
     """Prints a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -748,7 +775,6 @@ Polynomial ("size,HexNumber", balancing=0)
         n (int, optional): stop searching if n polynomials is found. Defaults to 0 (don't stop)
         Silent (bool, optional): if False (default) print to the sdtout every time a new prim poly is found
         ExcludeList (list, optional): list of polynomials excluded from checking
-        ReturnAlsoAllCandidaes (bool, optional): if true, then it returns list: [polynomials_found, all_tested_polynomials]
         FilteringCallback (procedure, optional): if specified, then will be used to filter acceptable polynomials (must return bool value: True means acceptable).
     """
     for p in Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n, Silent, MaxSetSize, ExcludeList, ReturnAlsoAllCandidaes, FilteringCallback):
