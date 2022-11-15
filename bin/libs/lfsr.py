@@ -487,9 +487,6 @@ Polynomial ("size,HexNumber", balancing=0)
     """
     while self._makeNext():
       s = True
-      if self._lf:
-        if not self.isLayoutFriendly():
-          s = False
       if self._balancing > 0:
         if self.getBalancing() > self._balancing:
           s = False
@@ -648,21 +645,22 @@ Polynomial ("size,HexNumber", balancing=0)
     if balancing > 0 and balancing < degree:
       avg = float(degree) / float(coeffs_count - 1)
       halfbal = float(balancing) / 2.0
-      bmin = int(avg - halfbal + 0.5)
-      bmax = int(avg + halfbal)
+      bmin = int(avg - halfbal)
       if bmin < 1:
         bmin = 1
-        bmax = balancing + 1
       if MinimumDistance > bmin > 0:
         bmin = MinimumDistance
       if bmin < 2 and LayoutFriendly:
         bmin = 2
+      bmax = bmin + balancing + 2
+      if bmax > degree-1:
+        bmax = degree-1
       result = [0]
       rest = degree
       actual = bmin
       restcoeffs = coeffs_count-2
       diff = bmin
-      diffmax = balancing + diff
+      diffmax = bmax
       for i in range(2, coeffs_count):
         diffmin = diff
         while (diffmin + ((restcoeffs-1) * diffmax)) < (rest-diff):
@@ -692,13 +690,15 @@ Polynomial ("size,HexNumber", balancing=0)
     for i in range(1, coeffs_count-1):
       pos[i] = [cp[i], cq[i]]
     p._positions = pos
-    p._bmin = int(round(bmin,0))
-    p._bmax = int(round(bmax,0))
+    p._bmin = bmin
+    p._bmax = bmax
     p._lf = LayoutFriendly
     p._mindist = MinimumDistance
 #    print(Aio.format(pos))
     if p.getBalancing() > p._balancing > 0:
-      return None
+      while p.getBalancing() > p._balancing:
+        if not p.makeNext():
+          return None
     if p.getMinimumDistance() < p._mindist > 0:
       return None
     if p._lf:
@@ -1851,12 +1851,18 @@ endmodule'''
       return Count
     return ToReturn
       
-  def checkMaximum(LfsrsList : list) -> list:
+  def _checkMaximumSerial(LfsrsList : list) -> list:
     Results = []
-    RList = p_map(Lfsr.isMaximum, LfsrsList)
-    for i in range(len(LfsrsList)):
-      if RList[i]:
-        Results.append(LfsrsList[i])
+    for lfsr in LfsrsList:
+      if lfsr.isMaximum():
+        Results.append(lfsr)
+    return Results
+  def checkMaximum(LfsrsList : list) -> list:
+    Candidates = List.splitIntoSublists(LfsrsList, 20)
+    Results = []
+    RList = p_map(Lfsr._checkMaximumSerial, Candidates, desc = "x20")
+    for RL in RList:
+      Results += RL
     return Results
     
 def _analyseSequences_helper(lfsr) -> MSequencesReport:
