@@ -758,7 +758,7 @@ Polynomial ("size,HexNumber", balancing=0)
     lfsrs = []
     for p in Poly0:
       lfsrs.append(Lfsr(p, TIGER_RING))
-    Results = Lfsr.checkMaximum(lfsrs)
+    Results = Lfsr.checkMaximum(lfsrs, n)
     Polys = []
     for l in Results:
       Polys.append(Polynomial(l._my_poly.copy()))
@@ -1002,6 +1002,8 @@ class Lfsr:
   """An LFSR object. Used for all 3 LFSR implementations, like 
   Galois, Fibonacci (default), RingGenerator.
   """
+  _maxfound = 0
+  _maxFoundN = 0
   _my_poly = []
   _type = LfsrType.Galois
   _hval = 0
@@ -1325,12 +1327,15 @@ class Lfsr:
     self.reset()
     value0 = self._baValue.copy()
     if self.next(Int.mersenne(index)) != value0:
+      self.clear()
       return False
     lst = DB.getPrimitiveTestingCyclesList(index)
     for num in lst:
       self.reset()
       if self.next(num) == value0:
+        self.clear()
         return False
+    self.clear()
     return True
   def reset(self) -> bitarray:
     """Resets the LFSR value to the 0b0...001
@@ -1852,17 +1857,24 @@ endmodule'''
     return ToReturn
       
   def _checkMaximumSerial(LfsrsList : list) -> list:
+    if Lfsr._maxfound >= Lfsr._maxFoundN > 0:
+      return []
     Results = []
     for lfsr in LfsrsList:
       if lfsr.isMaximum():
         Results.append(lfsr)
+    Lfsr._maxfound += len(Results)
     return Results
-  def checkMaximum(LfsrsList : list) -> list:
+  def checkMaximum(LfsrsList : list, n = 0) -> list:
+    Lfsr._maxfound = 0
+    Lfsr._maxFoundN = n
     Candidates = List.splitIntoSublists(LfsrsList, 20)
     Results = []
     RList = p_map(Lfsr._checkMaximumSerial, Candidates, desc = "x20")
     for RL in RList:
       Results += RL
+    if len(Results) > n > 0:
+      Results = Results[:n]
     return Results
     
 def _analyseSequences_helper(lfsr) -> MSequencesReport:
