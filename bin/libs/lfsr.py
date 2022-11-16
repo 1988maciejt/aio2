@@ -777,7 +777,7 @@ Polynomial ("size,HexNumber", balancing=0)
         ExcludeList (list, optional): list of polynomials excluded from checking
         FilteringCallback (procedure, optional): if specified, then will be used to filter acceptable polynomials (must return bool value: True means acceptable).
     """
-    for p in Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n, Silent, MaxSetSize, ExcludeList, ReturnAlsoAllCandidaes, FilteringCallback):
+    for p in Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n, Silent, MaxSetSize, ExcludeList, 0, FilteringCallback):
       Aio.print(p.getCoefficients())
   def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
@@ -1008,7 +1008,7 @@ class Lfsr:
   _type = LfsrType.Galois
   _hval = 0
   _size = 0
-  _ba_fast_sim_array = False
+  _ba_fast_sim_array = None
   _taps = []
   _baValue = bitarray(0)
   _bamask = bitarray(0)
@@ -1020,10 +1020,9 @@ class Lfsr:
   def clear(self):
     """Clears the fast-simulation array
     """
-    if self._ba_fast_sim_array != False:
-      self._ba_fast_sim_array.clear()
+    if self._ba_fast_sim_array is not None:
       del self._ba_fast_sim_array
-      self._ba_fast_sim_array = False
+      self._ba_fast_sim_array = None
   def __iter__(self):
     self.reset()
     self._v0 = self._baValue.copy()
@@ -1058,6 +1057,7 @@ class Lfsr:
         poly = Polynomial([int(polynomial),0])
       else:
         poly = Polynomial(polynomial)
+    self._ba_fast_sim_array = None
     self._my_poly = poly.getCoefficients()
     self._type = lfsr_type
     self._size = poly.getDegree()
@@ -1130,14 +1130,10 @@ class Lfsr:
       result += str(self._size) + ", LfsrType.RingWithSpecifiedTaps, " + str(self._taps)
     result += ")"
     return result
-  def _getFastSimArrayField(self, row : int, col : int):
-    if self._ba_fast_sim_array[row][col] is None:
-      
-    return self._ba_fast_sim_array[row][col]
   def _buildFastSimArray(self):
     oldVal = self._baValue
     size = self._size
-    self._ba_fast_sim_array = create2DArray(size, size)
+    self._ba_fast_sim_array = create2DArray(size, size, None)
     value0 = bitarray(size)
     value0.setall(0)
     value0[-1] = 1
@@ -1146,17 +1142,18 @@ class Lfsr:
       self.next()
       self._ba_fast_sim_array[0][i] = self._baValue.copy()
       value0 <<= 1 
-    res = bitarray(size)
+    zeros = bitarray(size)
+    zeros.setall(0)
     for r in range(1,size):
       rowm1 = self._ba_fast_sim_array[r-1]
       for c in range(size):
-        index = 0
-        res.setall(0)
-        for b in reversed(rowm1[c]):
+        index = size-1
+        res = zeros.copy()
+        for b in rowm1[c]:
           if b:
             res ^= rowm1[index]
-          index += 1
-        self._ba_fast_sim_array[r][c] = res.copy()
+          index -= 1
+        self._ba_fast_sim_array[r][c] = res
     self._baValue = oldVal
   def reverseTap(self, TapIndex : int) -> bool:
     if 0 <= TapIndex < len(self._taps):
@@ -1268,7 +1265,7 @@ class Lfsr:
         return self._baValue
       return bitarray(self._size).setall(0)
     else:
-      if self._ba_fast_sim_array == False:
+      if self._ba_fast_sim_array is None:
         self._buildFastSimArray()
       size = self._size
       RowIndex = 0
@@ -1276,11 +1273,11 @@ class Lfsr:
       while steps > 0: 
         if steps & 1:
           baresult.setall(0)
-          index = 0
-          for b in reversed(self._baValue):
+          index = size-1
+          for b in self._baValue:
             if b:
               baresult ^= self._ba_fast_sim_array[RowIndex][index]
-            index += 1
+            index -= 1
           self._baValue = baresult.copy()
         steps >>= 1
         RowIndex += 1
@@ -1339,7 +1336,6 @@ class Lfsr:
       if self.next(num) == value0:
         self.clear()
         return False
-    self.clear()
     return True
   def reset(self) -> bitarray:
     """Resets the LFSR value to the 0b0...001
@@ -1415,7 +1411,7 @@ class Lfsr:
   def printFastSimArray(self):
     """Prints the fast-simulation array.
     """
-    if self._ba_fast_sim_array == False:
+    if self._ba_fast_sim_array is None:
       self._buildFastSimArray()
     for r in self._ba_fast_sim_array:
       line = ""
