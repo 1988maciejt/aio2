@@ -16,6 +16,7 @@ import copy
 import gc
 from bitarray import *
 from libs.programmable_lfsr_config import *
+import numpy as np
 #from tqdm.contrib.concurrent import process_map
 
 
@@ -758,10 +759,17 @@ Polynomial ("size,HexNumber", balancing=0)
     lfsrs = []
     for p in Poly0:
       lfsrs.append(Lfsr(p, TIGER_RING))
-    Results = Lfsr.checkMaximum(lfsrs, n)
+    SerialChunkSize = 20
+    if degree >= 512:
+      SerialChunkSize = 1
+    elif degree >= 256:
+      SerialChunkSize = 5
+    elif degree >= 128:
+      SerialChunkSize = 10
+    Results = Lfsr.checkMaximum(lfsrs, n, SerialChunkSize)
     Polys = []
     for l in Results:
-      Polys.append(Polynomial(l._my_poly))
+      Polys.append(Polynomial(l._my_poly.copy()))
     return Polys
   def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], FilteringCallback = None) -> None:
     """Prints a list of primitive polynomials (over GF(2)).
@@ -1021,6 +1029,7 @@ class Lfsr:
     """Clears the fast-simulation array
     """
     if self._ba_fast_sim_array is not None:
+      #self._ba_fast_sim_array.clear()
       del self._ba_fast_sim_array
       self._ba_fast_sim_array = None
   def __iter__(self):
@@ -1062,6 +1071,7 @@ class Lfsr:
     self._type = lfsr_type
     self._size = poly.getDegree()
     self._baValue = bitarray(self._size)
+    self._ba_fast_sim_array = None
     if lfsr_type == LfsrType.RingWithSpecifiedTaps:
       self._taps = manual_taps
     elif lfsr_type == LfsrType.Galois:
@@ -1336,6 +1346,7 @@ class Lfsr:
       if self.next(num) == value0:
         self.clear()
         return False
+    self.clear()
     return True
   def reset(self) -> bitarray:
     """Resets the LFSR value to the 0b0...001
@@ -1861,16 +1872,18 @@ endmodule'''
       return []
     Results = []
     for lfsr in LfsrsList:
-      if lfsr.isMaximum():
+      if lfsr._isMaximumAndClean():
         Results.append(lfsr)
+        if Lfsr._maxfound+len(Results) >= Lfsr._maxFoundN > 0:
+          break
     Lfsr._maxfound += len(Results)
     return Results
-  def checkMaximum(LfsrsList : list, n = 0) -> list:
+  def checkMaximum(LfsrsList : list, n = 0, SerialChunkSize = 20) -> list:
     Lfsr._maxfound = 0
     Lfsr._maxFoundN = n
-    Candidates = List.splitIntoSublists(LfsrsList, 20)
+    Candidates = List.splitIntoSublists(LfsrsList, SerialChunkSize)
     Results = []
-    RList = p_map(Lfsr._checkMaximumSerial, Candidates, desc = "x20")
+    RList = p_map(Lfsr._checkMaximumSerial, Candidates, desc = f'x{SerialChunkSize}')
     for RL in RList:
       Results += RL
     if len(Results) > n > 0:
