@@ -765,7 +765,7 @@ Polynomial ("size,HexNumber", balancing=0)
     elif degree >= 256:
       SerialChunkSize = 5
     elif degree >= 128:
-      SerialChunkSize = 10
+      SerialChunkSize = 10 
     Results = Lfsr.checkMaximum(lfsrs, n, SerialChunkSize)
     Polys = []
     for l in Results:
