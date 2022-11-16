@@ -761,7 +761,7 @@ Polynomial ("size,HexNumber", balancing=0)
     Results = Lfsr.checkMaximum(lfsrs, n)
     Polys = []
     for l in Results:
-      Polys.append(Polynomial(l._my_poly.copy()))
+      Polys.append(Polynomial(l._my_poly))
     return Polys
   def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], FilteringCallback = None) -> None:
     """Prints a list of primitive polynomials (over GF(2)).
