@@ -1167,12 +1167,9 @@ class Lfsr:
     for r in range(1,size):
       rowm1 = self._ba_fast_sim_array[r-1]
       for c in range(size):
-        index = size-1
         res = zeros.copy()
-        for b in rowm1[c]:
-          if b:
-            res ^= rowm1[index]
-          index -= 1
+        for index in rowm1[c].search(1):
+          res ^= rowm1[index]
         self._ba_fast_sim_array[r][c] = res
     self._baValue = oldVal
   def reverseTap(self, TapIndex : int) -> bool:
