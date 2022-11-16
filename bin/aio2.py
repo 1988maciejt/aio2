@@ -4,6 +4,7 @@ from aio import *
 print()
 print("Maciej Trawka's".center(Aio.getTerminalColumns()>>1))
 print("All-In-One v2".center(Aio.getTerminalColumns()>>1))
+print(f'Python: {sys.version}'.center(Aio.getTerminalColumns()>>1))
 print()
 
 if len(sys.argv) > 1:

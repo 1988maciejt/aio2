@@ -16,7 +16,6 @@ import copy
 import gc
 from bitarray import *
 from libs.programmable_lfsr_config import *
-from numba import *
 #from tqdm.contrib.concurrent import process_map
 
 
@@ -756,9 +755,6 @@ Polynomial ("size,HexNumber", balancing=0)
       Aio.print(p.toTigerStr())
   def listTigerPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0) -> list:
     Poly0 = Polynomial.createPolynomial(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance)
-    lfsrs = []
-    for p in Poly0:
-      lfsrs.append(Lfsr(p, TIGER_RING))
     SerialChunkSize = 20
     if degree >= 512:
       SerialChunkSize = 1
@@ -766,7 +762,22 @@ Polynomial ("size,HexNumber", balancing=0)
       SerialChunkSize = 5
     elif degree >= 128:
       SerialChunkSize = 10 
-    Results = Lfsr.checkMaximum(lfsrs, n, SerialChunkSize)
+    aux = 100000 // degree
+    if aux < 100:
+      aux = 100
+    ParallelChunk = aux * SerialChunkSize
+    lfsrs = []
+    Results = []
+    for p in Poly0:
+      lfsrs.append(Lfsr(p, TIGER_RING))
+      if len(lfsrs) >= ParallelChunk:
+        Results += Lfsr.checkMaximum(lfsrs, n-len(Results), SerialChunkSize)
+        print(f'Found so far: {len(Results)}')
+        lfsrs = []
+        if len(Results) >= n > 0:
+          break
+    if len(lfsrs) > 0 and (len(Results) < n or n <= 0):
+      Results += Lfsr.checkMaximum(lfsrs, n-len(Results), SerialChunkSize)
     Polys = []
     for l in Results:
       Polys.append(Polynomial(l._my_poly.copy()))
