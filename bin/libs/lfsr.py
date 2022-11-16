@@ -1162,20 +1162,18 @@ class Lfsr:
       self.next()
       self._ba_fast_sim_array[0][i] = self._baValue.copy()
       value0 >>= 1 
-    _buildFastSimArrayFinisher(self._ba_fast_sim_array, size)
-    if 0:
-      zeros = bitarray(size)
-      zeros.setall(0)
-      for r in range(1,size):
-        rowm1 = self._ba_fast_sim_array[r-1]
-        for c in range(size):
-          index = size-1
-          res = zeros.copy()
-          for b in rowm1[c]:
-            if b:
-              res ^= rowm1[index]
-            index -= 1
-          self._ba_fast_sim_array[r][c] = res
+    zeros = bitarray(size)
+    zeros.setall(0)
+    for r in range(1,size):
+      rowm1 = self._ba_fast_sim_array[r-1]
+      for c in range(size):
+        index = size-1
+        res = zeros.copy()
+        for b in rowm1[c]:
+          if b:
+            res ^= rowm1[index]
+          index -= 1
+        self._ba_fast_sim_array[r][c] = res
     self._baValue = oldVal
   def reverseTap(self, TapIndex : int) -> bool:
     if 0 <= TapIndex < len(self._taps):
@@ -1272,13 +1270,9 @@ class Lfsr:
           self._baValue ^= self._bamask
         return self._baValue
       elif self._type == LfsrType.RingGenerator or self._type == LfsrType.RingWithSpecifiedTaps:
-        lbit = self._baValue[-1]
-        nval = self._baValue >> 1
-        nval[0] = lbit
+        nval = Bitarray.rotl(self._baValue)
         for tap in self._taps:
-          From = tap[0]
-          To = tap[1]
-          nval[To] = nval[To] ^ self._baValue[From]
+          nval[tap[1]] ^= self._baValue[tap[0]]
         self._baValue = nval
         return self._baValue
       return bitarray(self._size).setall(0)
@@ -1900,18 +1894,6 @@ class LfsrList:
     return Lfsr.analyseSequencesBatch(LfsrsList)
   
 
-def _buildFastSimArrayFinisher(FSArray, size):
-  zeros = bitarray(size)
-  zeros.setall(0)
-  row = FSArray[0]
-  for r in range(1,size):
-    rowm1 = row
-    row = FSArray[r]
-    for c in range(size):
-      res = zeros.copy()
-      for index in rowm1[c].search(1):
-          res ^= rowm1[index]
-      row[c] = res
 
 # LFSR END ========================
   
