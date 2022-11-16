@@ -16,7 +16,7 @@ import copy
 import gc
 from bitarray import *
 from libs.programmable_lfsr_config import *
-import numpy as np
+from numba import *
 #from tqdm.contrib.concurrent import process_map
 
 
@@ -572,7 +572,7 @@ Polynomial ("size,HexNumber", balancing=0)
     result = bitarray(self.getDegree()+1)
     result.setall(0)
     for coeff in clist:
-      result[-coeff-1] = 1
+      result[coeff] = 1
     return result
   def isPrimitive(self) -> bool:
     """Check if the polynomial is primitive over GF(2).
@@ -1071,13 +1071,12 @@ class Lfsr:
     self._type = lfsr_type
     self._size = poly.getDegree()
     self._baValue = bitarray(self._size)
-    self._ba_fast_sim_array = None
     if lfsr_type == LfsrType.RingWithSpecifiedTaps:
       self._taps = manual_taps
     elif lfsr_type == LfsrType.Galois:
-      self._bamask = (poly.toBitarray() >> 1)[1:]
+      self._bamask = (poly.toBitarray() << 1)[:-1]
     elif lfsr_type == LfsrType.Fibonacci:
-      self._bamask = poly.toBitarray()[1:]
+      self._bamask = poly.toBitarray()[:-1]
     elif lfsr_type == LfsrType.RingGenerator or lfsr_type == LfsrType.TigerRing:
       self._rg_table = []
       flist = self._my_poly
@@ -1127,7 +1126,7 @@ class Lfsr:
   def toBinString(self):
     return BinString(str(self))
   def __str__(self) -> str:
-    return str(self._baValue)[10:-2]
+    return Bitarray.toString(self._baValue)
   def __repr__(self) -> str:
     result = "Lfsr("
     if self._type == LfsrType.Galois:
@@ -1146,24 +1145,26 @@ class Lfsr:
     self._ba_fast_sim_array = create2DArray(size, size, None)
     value0 = bitarray(size)
     value0.setall(0)
-    value0[-1] = 1
+    value0[0] = 1
     for i in range(size):
       self._baValue = value0.copy()
       self.next()
       self._ba_fast_sim_array[0][i] = self._baValue.copy()
-      value0 <<= 1 
-    zeros = bitarray(size)
-    zeros.setall(0)
-    for r in range(1,size):
-      rowm1 = self._ba_fast_sim_array[r-1]
-      for c in range(size):
-        index = size-1
-        res = zeros.copy()
-        for b in rowm1[c]:
-          if b:
-            res ^= rowm1[index]
-          index -= 1
-        self._ba_fast_sim_array[r][c] = res
+      value0 >>= 1 
+    _buildFastSimArrayFinisher(self._ba_fast_sim_array, size)
+    if 0:
+      zeros = bitarray(size)
+      zeros.setall(0)
+      for r in range(1,size):
+        rowm1 = self._ba_fast_sim_array[r-1]
+        for c in range(size):
+          index = size-1
+          res = zeros.copy()
+          for b in rowm1[c]:
+            if b:
+              res ^= rowm1[index]
+            index -= 1
+          self._ba_fast_sim_array[r][c] = res
     self._baValue = oldVal
   def reverseTap(self, TapIndex : int) -> bool:
     if 0 <= TapIndex < len(self._taps):
@@ -1205,13 +1206,9 @@ class Lfsr:
     while DelayedBy > Max:
       DelayedBy -= Max
     for i in ListOfXoredOutputs:
-      Dual._baValue[-i-1] = 1
+      Dual._baValue[i] = 1
     Dual.next(DelayedBy)
-    Result = []
-    for i in range(len(Dual._baValue)):
-      if Dual._baValue[i]:
-        Result.append(self._size - i - 1)
-    return Result
+    return Dual._baValue.search(1)
   def createPhaseShifter(self, OutputCount : int, MinimumSeparation = 100, MaxXorInputs = 3, MinXorInputs = 1, FirstXor = None) -> PhaseShifter:
     if 0 < MinXorInputs <= MaxXorInputs:
       if FirstXor is None:
@@ -1253,13 +1250,13 @@ class Lfsr:
     elif steps == 1:
       if self._type == LfsrType.Fibonacci:
         ParityBit = (self._baValue & self._bamask).count(1) & 1
-        self._baValue >>= 1
+        self._baValue <<= 1
         if ParityBit:
-          self._baValue[0] = 1
+          self._baValue[-1] = 1
         return self._baValue
       elif self._type == LfsrType.Galois:
-        lbit = self._baValue[-1]
-        self._baValue >>= 1
+        lbit = self._baValue[0]
+        self._baValue <<= 1
         if lbit:
           self._baValue ^= self._bamask
         return self._baValue
@@ -1268,8 +1265,8 @@ class Lfsr:
         nval = self._baValue >> 1
         nval[0] = lbit
         for tap in self._taps:
-          From = -tap[0]-1
-          To = -tap[1]-1
+          From = tap[0]
+          To = tap[1]
           nval[To] = nval[To] ^ self._baValue[From]
         self._baValue = nval
         return self._baValue
@@ -1283,11 +1280,8 @@ class Lfsr:
       while steps > 0: 
         if steps & 1:
           baresult.setall(0)
-          index = size-1
-          for b in self._baValue:
-            if b:
-              baresult ^= self._ba_fast_sim_array[RowIndex][index]
-            index -= 1
+          for index in self._baValue.search(1):
+            baresult ^= self._ba_fast_sim_array[RowIndex][index]
           self._baValue = baresult.copy()
         steps >>= 1
         RowIndex += 1
@@ -1338,15 +1332,12 @@ class Lfsr:
     self.reset()
     value0 = self._baValue.copy()
     if self.next(Int.mersenne(index)) != value0:
-      self.clear()
       return False
     lst = DB.getPrimitiveTestingCyclesList(index)
     for num in lst:
       self.reset()
       if self.next(num) == value0:
-        self.clear()
         return False
-    self.clear()
     return True
   def reset(self) -> bitarray:
     """Resets the LFSR value to the 0b0...001
@@ -1355,7 +1346,7 @@ class Lfsr:
         bitarray: The new value
     """
     self._baValue.setall(0)
-    self._baValue[-1] = 1
+    self._baValue[0] = 1
     return self._baValue
   def getValues(self, n = 0, step = 1, reset = True) -> list:
     """Returns a list containing consecutive values of the LFSR.
@@ -1409,14 +1400,13 @@ class Lfsr:
         str: M-Sequence
     """
     result = bitarray()
-    bindex = -BitIndex-1
     if Reset:
       self.reset()
     n = Length
     if n <= 0:
       n = self.getPeriod()
     for i in range(n):
-      result.append(self._baValue[bindex])
+      result.append(self._baValue[BitIndex])
       self.next()
     return result
   def printFastSimArray(self):
@@ -1427,16 +1417,16 @@ class Lfsr:
     for r in self._ba_fast_sim_array:
       line = ""
       for c in r:
-        line += str(str(c)[10:-2]) + "\t"
+        line += Bitarray.toString(c) + "\t"
       Aio.print(line)
   def _simplySim(self, sequence):
     rm = Lfsr(self)
     res = rm.simulateForDataString(sequence, self._IBit, self._Start)
     self._C.append(0)
-    cnt = len(self._C)
-    if cnt % 100 == 0:
-      perc = round(cnt * 100 / self._N, 1)
-      Aio.printTemp("  Lfsr sim ", perc , "%             ")  
+#    cnt = len(self._C)
+#    if cnt % 100 == 0:
+#      perc = round(cnt * 100 / self._N, 1)
+#      Aio.printTemp("  Lfsr sim ", perc , "%             ")  
     return res
   def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = None, Silent=False) -> int:
     if "list" in str(type(Sequence)):
@@ -1452,7 +1442,7 @@ class Lfsr:
       return results
     if not Aio.isType(StartValue, None):
       self._baValue = StartValue
-    Index = -InjectionAtBit-1
+    Index = InjectionAtBit
     for Bit in Sequence:
       self.next()
       if Bit:
@@ -1713,7 +1703,7 @@ endmodule'''
     R = p_map(_analyseSequences_helper, ListOfObjects)
     return R
   def analyseSequences(self, Reset = True, WithXor2 = True, WithXor3 = True) -> MSequencesReport:
-    Values = self.getValues(reset=True)
+    Values = self.getValues(reset=Reset)
     Sequences = [bitarray() for i in range(self._size)]
     for word_index in range(len(Values)):
       Word = Values[word_index]
@@ -1723,7 +1713,7 @@ endmodule'''
     BaseDict = {}
     BaseUniques = {}
     FlopIndex = 0
-    for Sequence in reversed(Sequences):
+    for Sequence in Sequences:
       Found = 0
       for key in BaseUniques.keys():
         Shift = Bitarray.getShiftBetweenSequences(BaseUniques[key], Sequence)
@@ -1834,7 +1824,7 @@ endmodule'''
     PermCount = List.getPermutationsPfManyListsCount(MainCounter)
     SetCount = PermCount // ChunkSize + 1
     SetCntr = 0
-    for Permutations in List.getPermutationsPfManyLists(MainCounter, UseAsGenerator_Chunk=ChunkSize):
+    for Permutations in List.getPermutationsPfManyListsGenerator(MainCounter, UseAsGenerator_Chunk=ChunkSize):
       Candidates = []
       SetCntr += 1
       for P in Permutations:
@@ -1897,6 +1887,20 @@ def _analyseSequences_helper(lfsr) -> MSequencesReport:
 class LfsrList:
   def analyseSequences(LfsrsList) -> list:      
     return Lfsr.analyseSequencesBatch(LfsrsList)
+  
+
+def _buildFastSimArrayFinisher(FSArray, size):
+  zeros = bitarray(size)
+  zeros.setall(0)
+  row = FSArray[0]
+  for r in range(1,size):
+    rowm1 = row
+    row = FSArray[r]
+    for c in range(size):
+      res = zeros.copy()
+      for index in rowm1[c].search(1):
+          res ^= rowm1[index]
+      row[c] = res
 
 # LFSR END ========================
   

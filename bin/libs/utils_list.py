@@ -14,7 +14,7 @@ class List:
       Result *= len(L)
     return Result
   
-  def getPermutationsPfManyLists(lists, MaximumNonBaseElements = 0, UseAsGenerator_Chunk = 0) -> list:
+  def getPermutationsPfManyLists(lists, MaximumNonBaseElements = 0) -> list:
     """gets some lists and returns a list of lists containing
     all possible permutations of elements of those lists.
     
@@ -24,10 +24,48 @@ class List:
     Result:
     [[1, 'a'], [2, 'a'], [1, 'b'], [2, 'b'], [1, 'c'], [2, 'c']]
     """
-    Generator = 0
-    Chunk = 0
+    MaxValues = []
+    for L in lists:
+      MaxValues.append(len(L))
+    Size = len(MaxValues)
+    Zeros = [0 for _ in range(Size)]
+    Counter = Zeros.copy()
+    N = len(MaxValues)
+    Results = []
+    while 1:
+      Result = []
+      ZeroElements = 0
+      for c in Counter:
+        if c == 0:
+          ZeroElements += 1
+      NonZeroElements = Size - ZeroElements
+      if MaximumNonBaseElements <= 0 or NonZeroElements <= MaximumNonBaseElements:
+        for i in range(N):
+          Result.append(lists[i][Counter[i]])
+        Results.append(Result)
+      for i in range(N):
+        Counter[i] += 1
+        if Counter[i] < MaxValues[i]:
+          break
+        else:
+          Counter[i] = 0
+      if Counter == Zeros:
+        break
+    return Results
+  
+  
+  def getPermutationsPfManyListsGenerator(lists, MaximumNonBaseElements = 0, UseAsGenerator_Chunk = 1) -> list:
+    """gets some lists and returns a list of lists containing
+    all possible permutations of elements of those lists.
+    
+    Examplecall:
+    List.getPermutationsPfManyLists( [ [1,2], ['a', 'b', 'c'] ] )
+    
+    Result:
+    [[1, 'a'], [2, 'a'], [1, 'b'], [2, 'b'], [1, 'c'], [2, 'c']]
+    """
+    Chunk = 1
     if UseAsGenerator_Chunk > 0:
-      Generator = 1
       Chunk = UseAsGenerator_Chunk
     MaxValues = []
     for L in lists:
@@ -48,7 +86,7 @@ class List:
         for i in range(N):
           Result.append(lists[i][Counter[i]])
         Results.append(Result)
-        if Generator and len(Results) >= Chunk:
+        if len(Results) >= Chunk:
           yield Results
           Results.clear()
       for i in range(N):
@@ -59,12 +97,10 @@ class List:
           Counter[i] = 0
       if Counter == Zeros:
         break
-    if Generator:
-      if len(Results) >= 0:
-        yield Results
-        Results.clear()
-      return None
-    return Results
+    if len(Results) >= 0:
+      yield Results
+      Results.clear()
+    return None
   
   def randomSelect(List : list):
     if len(List) > 0:

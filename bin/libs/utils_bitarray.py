@@ -23,3 +23,9 @@ class Bitarray:
                     return Res - len(A)
                 return Res
         return None
+    
+    def toString(X : bitarray) -> str:
+        Result = ""
+        for b in reversed(X):
+            Result += str(b)
+        return Result

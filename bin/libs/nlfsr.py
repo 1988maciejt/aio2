@@ -128,21 +128,21 @@ class Nlfsr(Lfsr):
     result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ")"
     return result
   def _next1(self):
-    NewVal = Bitarray.rotr(self._baValue)
+    NewVal = Bitarray.rotl(self._baValue)
     for Tap in self._Config:
       D = Tap[0]
       S = Tap[1]
-      DIndex = -(abs(D) % self._size)-1
+      DIndex = (abs(D) % self._size)
       AndResult = 1
       if Aio.isType(S, 0):
-        SIndex = -(abs(S) % self._size)-1
+        SIndex = (abs(S) % self._size)
         Bit = self._baValue[SIndex]
         if S < 0:
           Bit = 1 - Bit
         AndResult = Bit
       else:
         for Si in S:
-          SIndex = -(abs(Si) % self._size)-1
+          SIndex = (abs(Si) % self._size)
           Bit = self._baValue[SIndex]
           if Si < 0:
             Bit = 1 - Bit
@@ -338,32 +338,24 @@ class Nlfsr(Lfsr):
         return max(FFs)
     return sum(FFs) / self._size
     
-  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, InvertersAllowed = 0, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> list:
+  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, LeftRightAllowedShift = 2, InvertersAllowed = 0, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> list:
     RG = Lfsr(Poly, RING_GENERATOR)
     Taps = RG._taps
     Size = RG._size
-    Bounds = []
-    for Tap in Taps:
-      Bounds.append(Tap[0])
-      Bounds.append(Tap[1])
-    Bounds += [Size>>1, (Size>>1)-1, 1, 2, 0]
     AOptionsList = []
     for Tap in Taps:
       AOptions = []
       S = Tap[0]
       D = Tap[1]
-      A = (S-1)%Size
-      while 1:
+      for ai in range(S-LeftRightAllowedShift, S+LeftRightAllowedShift+1):
+        if ai == S:
+          continue
+        A = ai
+        while A <= 0: 
+          A += Size
+        while A > Size:
+          A -= Size
         AOptions.append(A)
-        if A in Bounds:
-          break
-        A = (A-1)%Size
-      A = (S+1)%Size
-      while 1:
-        AOptions.append(A)
-        if A in Bounds:
-          break
-        A = (A+1)%Size
       ProposedTaps = [ [D, [S]] ]
       for AIn in AOptions:
         if D == 0:
@@ -379,12 +371,6 @@ class Nlfsr(Lfsr):
     Results = []
     for P in Permutations:
       newR = Nlfsr(Size, P)
-#      Add = 1
-#      for R in Results:
-#        if newR.isInverted(R):
-#          Add = 0
-#          break
-#      if Add:
       Results.append(newR)
     if BeautifullOnly:
       Results = p_map(_nlfsr_find_spec_period_helper2, Results)
@@ -392,11 +378,12 @@ class Nlfsr(Lfsr):
     if Filter:
       Results = Nlfsr.filter(Results)
     return Results
-  def printNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> None:
+  def printNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 2, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> None:
     """Tries to find and prints a specified type of NLFSR (Ring-like). Returns a list of found objects.
 
     Args:
         Poly (Polynomial): Polnomial or list of coefficients
+        LeftRightAllowedShift (int): left/right shift of the second AND's input
         PeriodLengthMinimumRatio (int, optional): Minimum satisfable period ratio. 0 < RATIO <= 1. Defaults to 1.
         OnlyPrimePeriods (bool, optional): Returns only NLFSRs having period being prime number. Defaults to False.
         InvertersAllowed (bool, optional): True, if inverters are allowed. Defaults to False.
@@ -404,16 +391,17 @@ class Nlfsr(Lfsr):
         BeautifullOnly (bool, optional): Considerates only NLFSRs being crossing-free and having fanout <= 2. Defaults to False.
         Filter (bool, optional): If True, permorms equivalent and inverted-inputs filtering. Defaults to False.
     """
-    Result = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
+    Result = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
     if Filter:
       Result = Nlfsr.filter(Result)
     for R in Result:
       Aio.print(f'{R._size}: \t{R._Config}')
-  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> list:
+  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 2, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> list:
     """Tries to find a specified type of NLFSR (Ring-like). Returns a list of found objects.
 
     Args:
         Poly (Polynomial): Polnomial or list of coefficients
+        LeftRightAllowedShift (int): left/right shift of the second AND's input
         PeriodLengthMinimumRatio (int, optional): Minimum satisfable period ratio. 0 < RATIO <= 1. Defaults to 1.
         OnlyPrimePeriods (bool, optional): Returns only NLFSRs having period being prime number. Defaults to False.
         InvertersAllowed (bool, optional): True, if inverters are allowed. Defaults to False.
@@ -427,7 +415,7 @@ class Nlfsr(Lfsr):
       max = len(Poly)
       for P in Poly:
         print(f'Looking for {P}    ({cntr}/{max})    Found so far: {len(All)}')
-        All += Nlfsr.findNLRGsWithSpecifiedPeriod(P, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
+        All += Nlfsr.findNLRGsWithSpecifiedPeriod(P, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
         cntr += 1
       return All
     if InvertersAllowed:
@@ -438,7 +426,7 @@ class Nlfsr(Lfsr):
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounter.Compiled:
 #        CppPrograms.NLSFRPeriodCounter.compile()
-    InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
+    InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, LeftRightAllowedShift, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
     for i in range(len(InputSet)):
       InputSet[i]._exename = exename
     Periods = p_map(_nlfsr_find_spec_period_helper, InputSet)
@@ -454,10 +442,6 @@ class Nlfsr(Lfsr):
       if OnlyPrimePeriods and (not Int.isPrime(p)):
         continue
       Results.append(nlrg)
-#      print([nlrg, p, ratio])
-#    if FilterEquivalent:
-#      Results = Nlfsr.filterEquivalent(Results)
-#    print(f'Found {len(Results)}')
     return Results
   
   def filterEquivalent(NlfsrList : list) -> list:
