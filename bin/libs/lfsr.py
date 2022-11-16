@@ -1130,6 +1130,10 @@ class Lfsr:
       result += str(self._size) + ", LfsrType.RingWithSpecifiedTaps, " + str(self._taps)
     result += ")"
     return result
+  def _getFastSimArrayField(self, row : int, col : int):
+    if self._ba_fast_sim_array[row][col] is None:
+      
+    return self._ba_fast_sim_array[row][col]
   def _buildFastSimArray(self):
     oldVal = self._baValue
     size = self._size
