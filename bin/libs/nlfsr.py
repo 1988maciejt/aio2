@@ -258,15 +258,19 @@ class Nlfsr(Lfsr):
   def isCrossingFree(self) -> bool:
     Branches = []
     for Tap in self._Config:
+      SList = []
       D = abs(Tap[0]) % self._size
       S = Tap[1]
       if Aio.isType(S, 0):
         S = abs(S) % self._size
+        SList.append(S)
         Branches.append([S, D])
       else:
         for Si in reversed(S):
-          Si = abs(Si) % self._size
+          Sin = abs(Si) % self._size
+          SList.append(Sin)
           Branches.append([Si, D])
+      SList.sort()
     LastS = self._size
     for B in Branches:
       if B[0] > LastS:
@@ -487,8 +491,8 @@ class Nlfsr(Lfsr):
         Result.append(n1)
     return Result
   def toBooleanExpressionFromRing(self, Complementary = False, Reversed = False, Shorten = False) -> str:
-    if not self.isCrossingFree():
-      return "Error: NLFSR must be crossing-free!"
+#    if not self.isCrossingFree():
+#      return "Error: NLFSR must be crossing-free!"
     GlobalInv = False
     ResultList = []
     for Tap in self._Config:

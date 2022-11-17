@@ -71,6 +71,7 @@ from libs.verilog import *
 from tqdm import *
 from simple_term_menu import *
 import pathos
+import pandas
 from sympy import *
 import matplotlib
 #import matplotlib_inline

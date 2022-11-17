@@ -15,6 +15,7 @@ from p_tqdm import *
 import copy
 import gc
 from bitarray import *
+import bitarray.util as bau
 from libs.programmable_lfsr_config import *
 #from tqdm.contrib.concurrent import process_map
 
@@ -1255,7 +1256,7 @@ class Lfsr:
       return self._baValue
     elif steps == 1:
       if self._type == LfsrType.Fibonacci:
-        ParityBit = (self._baValue & self._bamask).count(1) & 1
+        ParityBit = bau.count_and(self._baValue, self._bamask) & 1
         self._baValue <<= 1
         if ParityBit:
           self._baValue[-1] = 1

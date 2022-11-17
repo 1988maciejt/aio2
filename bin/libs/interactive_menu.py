@@ -1,4 +1,5 @@
 from libs.lfsr import *
+from libs.nlfsr import *
 from libs.programmable_lfsr import *
 from prompt_toolkit.shortcuts import *
 import ast
@@ -317,7 +318,6 @@ def _categoryProgrammableRingGenerator():
       SubCategory()
       
   
-  
 def _categoryTigerRingGenerator():
   SubCategory = -1
   while SubCategory is not None:
@@ -325,7 +325,85 @@ def _categoryTigerRingGenerator():
     if SubCategory is not None:
       SubCategory()
   
-
+  
+_GlobalNlfsr = Nlfsr(8, [])
+  
+def _categoryNlfsrs_createNlfsr():
+  global _GlobalNlfsr
+  Size = MainMenu_static.getRegisterSize()
+  if Size is None:
+    return
+  Config = MainMenu_static.getNlfsrTaps()
+  if Config is None:
+    return
+  _GlobalNlfsr = Nlfsr(Size, Config)
+  
+def _categoryNlfsrs_check_period():
+  global _GlobalNlfsr
+  Period = _GlobalNlfsr.getPeriod()
+  MaxPeriod = Int.mersenne(_GlobalNlfsr._size)
+  IsMaximum = "MAXIMUM" if Period == MaxPeriod else f'NOT MAXIMUM ({round(Period * 100. / MaxPeriod, 2)}% of max)'
+  Text = f'Period:  {Period}\n\n'
+  Text += f'  {IsMaximum}\n'
+  if Int.isPrime(Period):
+    Text += f'  IS PRIME\n'
+  message_dialog(title="Nlfsr - period", text=Text).run()
+  
+def _categoryNlfsrs_info():
+  global _GlobalNlfsr
+  Text =  f'Polynomial:          {_GlobalNlfsr.toBooleanExpressionFromRing(Shorten=1)}\n'
+  Text += f'Polynomial REV:      {_GlobalNlfsr.toBooleanExpressionFromRing(Reversed=1, Shorten=1)}\n'
+  Text += f'Polynomial COMP:     {_GlobalNlfsr.toBooleanExpressionFromRing(Complementary=1, Shorten=1)}\n'
+  Text += f'Polynomial REV,COMP: {_GlobalNlfsr.toBooleanExpressionFromRing(Complementary=1, Reversed=1, Shorten=1)}\n'
+  Text += f'CROSSING-FREE: {_GlobalNlfsr.isCrossingFree()}\n'
+  Text += _GlobalNlfsr.getFullInfo()
+  message_dialog(title="Nlfsr - info", text=Text).run()
+  
+def _categoryNlfsrs_searchForMaximum():
+  Degree = MainMenu_static.getPolynomialDegree()
+  if Degree is None:
+    return
+  CoeffsCount = MainMenu_static.getCoeffsCount()
+  if CoeffsCount is None:
+    return
+  Balancing = MainMenu_static.getBalancing()
+  if Balancing is None:
+    return
+  MinDist = MainMenu_static.getMinDistance()
+  if MinDist is None:
+    return
+  AndShift = MainMenu_static.getAndShift()
+  if AndShift is None:
+    return
+  N = MainMenu_static.getN()
+  if N is None:
+    return
+  Poly0 = Polynomial.createPolynomial(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist)
+  Results = []
+  for p in Poly0:
+    Results += Nlfsr.findNLRGsWithSpecifiedPeriod(p, AndShift, 1, InvertersAllowed=1)
+    if len(Results) >= N > 0:
+      break
+  Text = ""
+  Len = len(Results)
+  if Len > N > 0:
+    Len = N
+  for i in range(Len):
+    R = Results[i]
+    Text += R.toBooleanExpressionFromRing(Shorten=1) + "\t" + repr(R) + "\n"
+  Aio.print("NLFSRs found:")
+  Aio.print(Text)
+  message_dialog(title="Found NLFSRs", text=Text).run()
+  
+  
+  
+def _categoryNlfsrs():
+  SubCategory = -1
+  while SubCategory is not None:
+    SubCategory = MainMenu_static._nlfsrs_menu.run()
+    if SubCategory is not None:
+      SubCategory()
+  
 
 
 class MainMenu_static:
@@ -336,7 +414,8 @@ class MainMenu_static:
       (_categoryPolynomial,                 "Primitive polynomials"),
       (_categoryLfsrWithManualTaps,         "Ring generators with manually specified taps"),
       (_categoryProgrammableRingGenerator,  "Programmavle ring renegrator"),
-      (_categoryTigerRingGenerator,         "Tiger Ring Generators")
+      (_categoryTigerRingGenerator,         "Tiger Ring Generators"),
+      (_categoryNlfsrs,                     "Non-linear shift registers"),
     ]
   )
   _prim_polys_menu = radiolist_dialog(
@@ -384,6 +463,16 @@ class MainMenu_static:
       (_categoryPolynomial_printTiger,    "Search for maximum tiger ring generators"),
     ]
   )
+  _nlfsrs_menu = radiolist_dialog(
+    title="Programmable ring generators",
+    text="What you want to do:",
+    values=[
+      (_categoryNlfsrs_createNlfsr,          "Create NLFSR"),
+      (_categoryNlfsrs_info,                 "Show info"),
+      (_categoryNlfsrs_check_period,         "Check period of the NLFSR"),
+      (_categoryNlfsrs_searchForMaximum,     "Search for maximum NLFSRs"),
+    ]
+  )
   _input_polynomial = input_dialog(
     title="Polynomial input",
     text="Enter a list of polynomial coefficients, i.e.\n[5,4,0]\nIs it also possible to enter an integer number representing a polynomial, i.e.\n0b110001",
@@ -391,6 +480,10 @@ class MainMenu_static:
   _input_polynomial_degree = input_dialog(
     title="Polynomial degree",
     text="Enter polynomial degree:"
+  )
+  _input_register_size = input_dialog(
+    title="Register size",
+    text="Enter register size:"
   )
   _input_section_size = input_dialog(
     title="Section size",
@@ -420,11 +513,25 @@ class MainMenu_static:
     title="Lfsr size",
     text="Enter size of the Lfsr:"
   )
+  _input_nlfsr_and_shift = input_dialog(
+    title="AND gates",
+    text="Allowed left/right shift for the second AND input (default:1):"
+  )
   _input_taps = input_dialog(
     title="Taps list",
     text="""Enter taps. Example string:
     [3,6], [6,2]
     ..which means two taps: from FF3 output to the XOR at FF6 input and the second tap from FF6 output to the XOR at FF2 input."""
+  )
+  _input_nlfsr_taps = input_dialog(
+    title="Taps list",
+    text="""Enter non-linear taps. Each tap is a list: [<Destination> [Source0>, <Source1>, ..., <SourceN>]]
+    [4, [6]]     - simple tap: output of the FF6 goes to the XOR at the input of FF4
+    [3, [1,2]]   - AND(FF1, FF2) goes to the XOR at FF3 input
+    [-8, [2,-3]] - NOT(AND(2, NOT(3))) goes to the XOR at FF8 input
+    Example string of taps:
+    [1, [6,7]], [4, [4,-5]]
+    """
   )
   
   def getTaps(Reset = False) -> list:
@@ -432,6 +539,17 @@ class MainMenu_static:
       MainMenu_static._input_taps.reset()
     while 1:
       Result = MainMenu_static._input_taps.run()
+      if Result is None:
+        return None
+      try:
+        R = list(ast.literal_eval(f'[{Result}]'))
+        return R
+      except:
+        continue
+  
+  def getNlfsrTaps() -> list:
+    while 1:
+      Result = MainMenu_static._input_nlfsr_taps.run()
       if Result is None:
         return None
       try:
@@ -456,6 +574,19 @@ class MainMenu_static:
         return R
       except:
         return 3
+  
+  def getAndShift() -> int:
+    while 1:
+      Result = MainMenu_static._input_nlfsr_and_shift.run()
+      if Result is None:
+        return None
+      try:
+        R = int(ast.literal_eval(Result))
+        if R < 1: 
+          R = 1
+        return R
+      except:
+        return 1
       
 
   def getSectionSize() -> int:
@@ -470,6 +601,17 @@ class MainMenu_static:
         return R
       except:
         return 4
+
+  def getRegisterSize() -> int:
+    while 1:
+      Result = MainMenu_static._input_register_size.run()
+      if Result is None:
+        return None
+      try:
+        R = int(ast.literal_eval(Result))
+        return R
+      except:
+        continue
     
   def getMinDistance() -> int:
     while 1:
