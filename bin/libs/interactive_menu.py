@@ -420,7 +420,7 @@ class MainMenu_static:
   )
   _prim_polys_menu = radiolist_dialog(
     title="Primitive polynomials",
-    text="What you want to do:",
+    text="What do you want to do:",
     values=[
       (_categoryPolynomial_checkPrimitive,  "Check if a given polynomial is primitive"),
       (_categoryPolynomial_print,           "Print primitives"),
@@ -432,7 +432,7 @@ class MainMenu_static:
   )
   _lfsr_manual_taps_menu = radiolist_dialog(
     title="Ring generators with manually specified taps",
-    text="What you want to do:",
+    text="What do you want to do:",
     values=[
       (_categoryLfsrWithManualTaps_subDisplay,  "Display ring generator"),
       (_categoryLfsrWithManualTaps_subCreate,   "Define ring generator"),
@@ -442,7 +442,7 @@ class MainMenu_static:
   )
   _programmable_ring_generator_menu = radiolist_dialog(
     title="Programmable ring generators",
-    text="What you want to do:",
+    text="What do you want to do:",
     values=[
       (_categoryProgrammableRingGenerator_subDisplay,         "Display programmable ring"),
       (_categoryProgrammableRingGenerator_subCreate,          "Create new (set size)"),
@@ -458,14 +458,14 @@ class MainMenu_static:
   )
   _tiger_ring_generator_menu = radiolist_dialog(
     title="Tiger ring generators",
-    text="What you want to do:",
+    text="What do you want to do:",
     values=[
       (_categoryPolynomial_printTiger,    "Search for maximum tiger ring generators"),
     ]
   )
   _nlfsrs_menu = radiolist_dialog(
     title="Programmable ring generators",
-    text="What you want to do:",
+    text="What do you want to do:",
     values=[
       (_categoryNlfsrs_createNlfsr,          "Create NLFSR"),
       (_categoryNlfsrs_info,                 "Show info"),
@@ -475,7 +475,7 @@ class MainMenu_static:
   )
   _input_polynomial = input_dialog(
     title="Polynomial input",
-    text="Enter a list of polynomial coefficients, i.e.\n[5,4,0]\nIs it also possible to enter an integer number representing a polynomial, i.e.\n0b110001",
+    text="Enter a list of polynomial coefficients, i.e.\n[5,4,0]\nIs it also possible to enter an integer representing a polynomial, i.e.\n0b110001",
   )
   _input_polynomial_degree = input_dialog(
     title="Polynomial degree",
@@ -526,7 +526,7 @@ class MainMenu_static:
   _input_nlfsr_taps = input_dialog(
     title="Taps list",
     text="""Enter non-linear taps. Each tap is a list: [<Destination> [Source0>, <Source1>, ..., <SourceN>]]
-    [4, [6]]     - simple tap: output of the FF6 goes to the XOR at the input of FF4
+    [4, 6]     - simple tap: output of the FF6 goes to the XOR at the input of FF4
     [3, [1,2]]   - AND(FF1, FF2) goes to the XOR at FF3 input
     [-8, [2,-3]] - NOT(AND(2, NOT(3))) goes to the XOR at FF8 input
     Example string of taps:
@@ -676,7 +676,7 @@ class MainMenu_static:
       try:
         return int(ast.literal_eval(Result))
       except:
-        message_dialog(title="Error", text=f'The given text "{Result}" is not an integer number.').run()
+        message_dialog(title="Error", text=f'The given text "{Result}" is not an integer.').run()
 
   def run():
     Category = -1

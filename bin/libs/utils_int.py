@@ -6,7 +6,12 @@ from libs.utils_str import *
 class Int:
   
   _primes = [2,3,5,7,11,13,17,19,23,29,31,37,41,43,47,53,59,61,67,71,73,79,83,89,97]
-  def isPrime(value : int) -> bool:
+  def isPrime(Value : int) -> bool:
+    value = abs(Value)
+    if value <= 1:
+      return False
+    if value == 2:
+      return True
     DMax = int(sqrt(value))+1
     Prime = True
     NM = Int._primes[-1]

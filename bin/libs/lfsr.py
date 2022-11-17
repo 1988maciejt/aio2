@@ -584,6 +584,8 @@ Polynomial ("size,HexNumber", balancing=0)
     """
     if len(self._coefficients_list) % 2 == 0: 
       return False
+    if len(self._coefficients_list) == 3 and self.getDegree() % 8 == 0: 
+      return False
 ##    cached = PersistentCache.recall(self)
 #    cached = Cache.recall(self.toInt())
 #    if cached != None:

@@ -256,26 +256,45 @@ class Nlfsr(Lfsr):
     t2s = self._shiftTap(t2, 0)
     return (t2s == t1s)
   def isCrossingFree(self) -> bool:
-    Branches = []
+    Branches = {}
     for Tap in self._Config:
       SList = []
       D = abs(Tap[0]) % self._size
       S = Tap[1]
       if Aio.isType(S, 0):
         S = abs(S) % self._size
-        SList.append(S)
-        Branches.append([S, D])
+        if S >= D:
+          Lst = Branches.get(D, [])
+          Lst.append(S)
+          Branches[D] = Lst
+        else:
+          Lst = Branches.get(S, [])
+          Lst.append(D)
+          Branches[S] = Lst
       else:
-        for Si in reversed(S):
+        for Si in S:
           Sin = abs(Si) % self._size
-          SList.append(Sin)
-          Branches.append([Si, D])
-      SList.sort()
+          if Sin >= D:
+            Lst = Branches.get(D, [])
+            Lst.append(Sin)
+            Branches[D] = Lst
+          else:
+            Lst = Branches.get(Sin, [])
+            Lst.append(D)
+            Branches[Sin] = Lst
+    SOrtedD = list(Branches.keys())
+    SOrtedD.sort()
+    LastD = 0
     LastS = self._size
-    for B in Branches:
-      if B[0] > LastS:
-        return False
-      LastS = B[0]
+    for D in SOrtedD:
+      Branches[D].sort(reverse=1)
+      for S in Branches[D]:
+        print("LAST:",LastD, LastS)
+        print("Analysis of", D, S)
+        if D < LastD or S > LastS:
+          return False
+        LastS = S
+      LastD = D
     return True
   def isInverted(self, Another) -> bool:
     taps1 = self._Config
