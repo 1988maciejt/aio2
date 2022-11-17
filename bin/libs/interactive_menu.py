@@ -337,6 +337,7 @@ def _categoryNlfsrs_createNlfsr():
   if Config is None:
     return
   _GlobalNlfsr = Nlfsr(Size, Config)
+  _categoryNlfsrs_info()
   
 def _categoryNlfsrs_check_period():
   global _GlobalNlfsr
@@ -378,16 +379,30 @@ def _categoryNlfsrs_searchForMaximum():
   N = MainMenu_static.getN()
   if N is None:
     return
+  Details = radiolist_dialog(
+    title="Details",
+    text="",
+    values=[
+      (2, "Maximum periods, beautifull only"),
+      (0, "Maximum periods - all (takes more time!)"),
+      (3, "Prime periods > 50%, beautifull only)"),
+      (1, "Prime periods > 50% - all (takes more time!)"),
+    ]
+  ).run()
+  if Details is None:
+    return
   Poly0 = Polynomial.createPolynomial(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist)
   Results = []
-  for p in Poly0:
-    Results += Nlfsr.findNLRGsWithSpecifiedPeriod(p, AndShift, 1, InvertersAllowed=1)
-    if len(Results) >= N > 0:
-      break
+  if Details == 0:
+    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, Filter=1, Iterate=1, n=N)
+  elif Details == 2:
+    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, BeautifullOnly=1, Filter=1, Iterate=1, n=N)
+  elif Details == 1:
+    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, OnlyPrimePeriods=1, PeriodLengthMinimumRatio=0.5, Iterate=1, n=N)
+  elif Details == 3:
+    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, BeautifullOnly=1, OnlyPrimePeriods=1, PeriodLengthMinimumRatio=0.5, Iterate=1, n=N)
   Text = ""
   Len = len(Results)
-  if Len > N > 0:
-    Len = N
   for i in range(Len):
     R = Results[i]
     Text += R.toBooleanExpressionFromRing(Shorten=1) + "\t" + repr(R) + "\n"
@@ -475,7 +490,7 @@ class MainMenu_static:
   )
   _input_polynomial = input_dialog(
     title="Polynomial input",
-    text="Enter a list of polynomial coefficients, i.e.\n[5,4,0]\nIs it also possible to enter an integer representing a polynomial, i.e.\n0b110001",
+    text="Enter a list of polynomial coefficients (#taps = #coefficients - 2), i.e.\n[5,4,0]\nIt is also possible to enter an integer representing a polynomial, i.e.\n0b110001",
   )
   _input_polynomial_degree = input_dialog(
     title="Polynomial degree",

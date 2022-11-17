@@ -289,8 +289,6 @@ class Nlfsr(Lfsr):
     for D in SOrtedD:
       Branches[D].sort(reverse=1)
       for S in Branches[D]:
-        print("LAST:",LastD, LastS)
-        print("Analysis of", D, S)
         if D < LastD or S > LastS:
           return False
         LastS = S
@@ -396,12 +394,12 @@ class Nlfsr(Lfsr):
       newR = Nlfsr(Size, P)
       Results.append(newR)
     if BeautifullOnly:
-      Results = p_map(_nlfsr_find_spec_period_helper2, Results)
+      Results = p_map(_nlfsr_find_spec_period_helper2, Results, desc="Filtering beautifull")
       Results = list(filter(lambda x: x is not None, Results))
     if Filter:
       Results = Nlfsr.filter(Results)
     return Results
-  def printNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 2, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> None:
+  def printNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 2, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False, Iterate = True, n = 0) -> None:
     """Tries to find and prints a specified type of NLFSR (Ring-like). Returns a list of found objects.
 
     Args:
@@ -413,13 +411,15 @@ class Nlfsr(Lfsr):
         MaxAndCount (int, optional): Maximum count of AND gates. Defaults to 0 (no limit).
         BeautifullOnly (bool, optional): Considerates only NLFSRs being crossing-free and having fanout <= 2. Defaults to False.
         Filter (bool, optional): If True, permorms equivalent and inverted-inputs filtering. Defaults to False.
+        Iterate (bool, optional): iterate through all polynomials. Defaults to True.
+        n (int, optional): enough count of results. Defaults to 0 (no limit).
     """
-    Result = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
+    Result = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, Iterate, n)
     if Filter:
       Result = Nlfsr.filter(Result)
     for R in Result:
       Aio.print(f'{R._size}: \t{R._Config}')
-  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 2, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> list:
+  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 2, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False, Iterate = True, n = 0) -> list:
     """Tries to find a specified type of NLFSR (Ring-like). Returns a list of found objects.
 
     Args:
@@ -430,7 +430,9 @@ class Nlfsr(Lfsr):
         InvertersAllowed (bool, optional): True, if inverters are allowed. Defaults to False.
         MaxAndCount (int, optional): Maximum count of AND gates. Defaults to 0 (no limit).
         BeautifullOnly (bool, optional): Considerates only NLFSRs being crossing-free and having fanout <= 2. Defaults to False.
-        Filter (bool, optional): If True, permorms equivalent and inverted-inputs filtering. Defaults to False.
+        Filter (bool, optional): If True, permorms equivalent and inverted-inputs filtering. Defaults to False
+        Iterate (bool, optional): iterate through all polynomials. Defaults to True.
+        n (int, optional): enough count of results. Defaults to 0 (no limit)..
     """
     if Aio.isType(Poly, []):
       All = []
@@ -440,7 +442,21 @@ class Nlfsr(Lfsr):
         print(f'Looking for {P}    ({cntr}/{max})    Found so far: {len(All)}')
         All += Nlfsr.findNLRGsWithSpecifiedPeriod(P, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
         cntr += 1
+      if Filter and len(All) > 0:
+        return Nlfsr.filter(All)
       return All
+    elif Iterate and Aio.isType(Poly, "Polynomial"):
+      Results = []
+      for p in Poly:
+        print(f'Looking for {p}     Found so far: {len(Results)}')
+        Results += Nlfsr.findNLRGsWithSpecifiedPeriod(Poly, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, False, n-len(Results))
+        if Filter and len(Results) > 0:
+          Results = Nlfsr.filter(Results)
+        if len(Results) >= n > 0:
+          break
+      if len(Results) > n > 0:
+        Results = Results[:n]
+      return Results
     if InvertersAllowed:
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounterInvertersAllowed.Compiled:
@@ -449,10 +465,10 @@ class Nlfsr(Lfsr):
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounter.Compiled:
 #        CppPrograms.NLSFRPeriodCounter.compile()
-    InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, LeftRightAllowedShift, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
+    InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, LeftRightAllowedShift, InvertersAllowed, MaxAndCount, BeautifullOnly, False)
     for i in range(len(InputSet)):
       InputSet[i]._exename = exename
-    Periods = p_map(_nlfsr_find_spec_period_helper, InputSet)
+    Periods = p_map(_nlfsr_find_spec_period_helper, InputSet, desc="Simulating NLFSRs")
     Results = []
     eps = 0.0
     PMR = PeriodLengthMinimumRatio - eps
@@ -465,6 +481,8 @@ class Nlfsr(Lfsr):
       if OnlyPrimePeriods and (not Int.isPrime(p)):
         continue
       Results.append(nlrg)
+    if Filter and len(Results) > 0:
+      return Nlfsr.filter(Results)
     return Results
   
   def filterEquivalent(NlfsrList : list) -> list:
@@ -472,7 +490,7 @@ class Nlfsr(Lfsr):
     iList = []
     for nlfsr in NlfsrList:
       iList.append(nlfsr.copy())
-    for n1 in iList:
+    for n1 in tqdm(iList, desc="Filtering equivalent"):
       Add = 1
       for n2 in Result:
         if n1.isEquivalent(n2):
@@ -482,11 +500,12 @@ class Nlfsr(Lfsr):
         Result.append(n1)
     return Result
   def filterInverted(NlfsrList : list) -> list:
+    Manager = multiprocessing.Manager()
     Result = []
     iList = []
     for nlfsr in NlfsrList:
       iList.append(nlfsr.copy())
-    for n1 in iList:
+    for n1 in tqdm(iList, desc="Filtering inverted"):
       Add = 1
       for n2 in Result:
         if n1.isInverted(n2):
@@ -495,12 +514,16 @@ class Nlfsr(Lfsr):
       if Add:
         Result.append(n1)
     return Result
+  
   def filter(NlfsrList : list) -> list:
+#    Result = Nlfsr.filterInverted(NlfsrList)
+#    Result = Nlfsr.filterEquivalent(Result)
+#    return Result
     Result = []
     iList = []
     for nlfsr in NlfsrList:
       iList.append(nlfsr.copy())
-    for n1 in iList:
+    for n1 in tqdm(iList, desc="Filtering"):
       Add = 1
       for n2 in Result:
         if n1.isInverted(n2) or n1.isEquivalent(n2):
