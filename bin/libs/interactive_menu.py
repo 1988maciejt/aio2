@@ -3,6 +3,7 @@ from libs.nlfsr import *
 from libs.programmable_lfsr import *
 from prompt_toolkit.shortcuts import *
 import ast
+import pandas
 
 
 
@@ -401,15 +402,64 @@ def _categoryNlfsrs_searchForMaximum():
     Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, OnlyPrimePeriods=1, PeriodLengthMinimumRatio=0.5, Iterate=1, n=N)
   elif Details == 3:
     Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, BeautifullOnly=1, OnlyPrimePeriods=1, PeriodLengthMinimumRatio=0.5, Iterate=1, n=N)
-  Text = ""
+  Canonical = "Canonical"
+  NlfsrObject = "Python Object"
+  Equations = "Taps"
+  RC = "Rev/Compl"
+  FullDict = {
+    RC: [],
+    Canonical: [],
+    Equations: [],
+    NlfsrObject: [],
+  }
+  SmallDict = {
+    Canonical: [],
+    NlfsrObject: [],
+  }
   Len = len(Results)
   for i in range(Len):
     R = Results[i]
-    Text += R.toBooleanExpressionFromRing(Shorten=1) + "\t" + repr(R) + "\n"
-  Aio.print("NLFSRs found:")
-  Aio.print(Text)
-  message_dialog(title="Found NLFSRs", text=Text).run()
-  
+    SmallDict[Canonical].append(R.toBooleanExpressionFromRing(Shorten=1))
+    SmallDict[NlfsrObject].append(repr(R))
+    
+    for k in FullDict.keys():
+      FullDict[k].append(" ")
+    
+    InfoLines = R.getFullInfo(Header=0)
+    Cntr = 0
+    for L in InfoLines.split("\n"):
+      FullDict[Equations].append(L)
+      Cntr += 1
+    while Cntr < 4:
+      FullDict[Equations].append(" ")
+      Cntr += 1
+      
+    FullDict[RC].append("  ")
+    FullDict[RC].append("Complement")
+    FullDict[RC].append("Reversed")
+    FullDict[RC].append("Rev.,Compl.")
+    
+    FullDict[Canonical].append(R.toBooleanExpressionFromRing(Shorten=1))
+    FullDict[Canonical].append(R.toBooleanExpressionFromRing(Complementary=1, Shorten=1))
+    FullDict[Canonical].append(R.toBooleanExpressionFromRing(Reversed=1, Shorten=1))
+    FullDict[Canonical].append(R.toBooleanExpressionFromRing(Reversed=1, Complementary=1, Shorten=1))
+    
+    if Cntr > 4:
+      for _ in range(4, Cntr):
+        FullDict[Canonical].append(" ")
+        FullDict[RC].append(" ")
+        
+    FullDict[NlfsrObject].append(repr(R))
+    for _ in range(1, Cntr):
+      FullDict[NlfsrObject].append(" ")
+    
+  df = pandas.DataFrame.from_dict(FullDict)
+  sdf = pandas.DataFrame.from_dict(SmallDict)
+  Aio.print()
+  Aio.print(df.to_string(index=0))
+  Aio.print()
+  message_dialog(title="Found NLFSRs", text=sdf.to_string(index=0)).run()
+
   
   
 def _categoryNlfsrs():
@@ -490,7 +540,7 @@ class MainMenu_static:
   )
   _input_polynomial = input_dialog(
     title="Polynomial input",
-    text="Enter a list of polynomial coefficients (#taps = #coefficients - 2), i.e.\n[5,4,0]\nIt is also possible to enter an integer representing a polynomial, i.e.\n0b110001",
+    text="Enter a list of polynomial coefficients, i.e.\n[5,4,0]\nIt is also possible to enter an integer representing a polynomial, i.e.\n0b110001",
   )
   _input_polynomial_degree = input_dialog(
     title="Polynomial degree",
@@ -518,7 +568,7 @@ class MainMenu_static:
   )
   _input_polynomial_coeffs_count = input_dialog(
     title="Coefficients count",
-    text="Coefficients count?\nDefault : 3"
+    text="Coefficients count? (#taps = #coefficients - 2)\nDefault : 3"
   )
   _input_bin_sequence = input_dialog(
     title="Sequence?", 
