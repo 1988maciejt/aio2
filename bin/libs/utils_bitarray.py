@@ -29,3 +29,9 @@ class Bitarray:
         for b in reversed(X):
             Result += str(b)
         return Result
+    
+    def mapBits(Source : bitarray, IndexesList : list) -> bitarray:
+        Result = bitarray(len(IndexesList))
+        for i in range(len(IndexesList)):
+            Result[i] = Source[IndexesList[i]]
+        return Result

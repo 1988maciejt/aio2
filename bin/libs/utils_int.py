@@ -139,3 +139,9 @@ class Int:
   def toggleBit(Value : int, BitIndex : int) -> int:
     bit = 1 << BitIndex
     return Value ^ bit
+
+  def iterateFromLsb(Value : int, BitCount : int):
+    Mask = 1
+    for _ in range(BitCount):
+      yield 1 if (Value & Mask) else 0
+      Mask <<= 1
