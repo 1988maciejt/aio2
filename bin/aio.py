@@ -55,6 +55,7 @@ from libs.nlfsr import *
 from libs.nist import *
 from pyeda.inter import *
 from libs.phaseshifter import *
+from libs.pandas_table import *
 from libs.polynomial import *
 from libs.preprocessor import *
 from libs.programmable_lfsr import *
