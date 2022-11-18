@@ -4,7 +4,7 @@ from libs.utils_list import *
 from libs.utils_bitarray import *
 from libs.asci_drawing import *
 from pyeda.inter import *
-from p_tqdm import p_map
+from p_tqdm import *
 from bitarray import *
 from random import uniform
 
