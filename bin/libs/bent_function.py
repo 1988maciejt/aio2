@@ -3,11 +3,12 @@ import bitarray.util as bau
 from libs.utils_bitarray import *
 from libs.utils_int import *
 from libs.aio import *
-from multiprocessing import *
-from p_tqdm import *
+from tqdm import *
 
 _BF_List = []
 _BF_Results = []
+_BF_Len = 0
+_BF_Min_Dist = 0
 
 class BentFunction:
   __slots__ = ("_source", "_map_list", "_lut")
@@ -50,15 +51,9 @@ class BentFunction:
       List.append(Res)
     MinDistance = (1 << (InputCount-1)) - (1 << ((InputCount>>1) - 1))
     MaxDistance = Len
-    #for W in List:
-    #  print(W)
-    global _BF_Results, _BF_List
-    _BF_List = List
-    #Manager = multiprocess
-    
     Results = []
     LowestDistance = None
-    for Counter in range(1, (1<<Len)-1):
+    for Counter in range(1, (1<<(Len-1))):
       Break = 0
       Candidate = bau.int2ba(Counter, Len)
       #print("CANDIDATE =", Candidate)
@@ -76,9 +71,13 @@ class BentFunction:
         if Break:
           break
       if LowestDistance >= MinDistance:
-        Results.append([Candidate, LowestDistance])
+        NCandidate = Candidate.copy()
+        NCandidate.invert()
+        Results.append(Candidate)
+        Results.append(NCandidate)
       if len(Results) >= n > 0:
         break
     return Results
     for R in Results:
       print(R)
+      

@@ -399,7 +399,7 @@ class Nlfsr(Lfsr):
     if Filter:
       Results = Nlfsr.filter(Results)
     return Results
-  def printNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 2, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False, Iterate = True, n = 0) -> None:
+  def printNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 1, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False, Iterate = True, n = 0) -> None:
     """Tries to find and prints a specified type of NLFSR (Ring-like). Returns a list of found objects.
 
     Args:
@@ -419,7 +419,7 @@ class Nlfsr(Lfsr):
       Result = Nlfsr.filter(Result)
     for R in Result:
       Aio.print(f'{R._size}: \t{R._Config}')
-  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 2, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False, Iterate = True, n = 0) -> list:
+  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 1, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False, Iterate = True, n = 0) -> list:
     """Tries to find a specified type of NLFSR (Ring-like). Returns a list of found objects.
 
     Args:
@@ -434,26 +434,17 @@ class Nlfsr(Lfsr):
         Iterate (bool, optional): iterate through all polynomials. Defaults to True.
         n (int, optional): enough count of results. Defaults to 0 (no limit)..
     """
-    if Aio.isType(Poly, []):
-      All = []
-      cntr = 1
-      max = len(Poly)
-      for P in Poly:
-        print(f'Looking for {P}    ({cntr}/{max})    Found so far: {len(All)}')
-        All += Nlfsr.findNLRGsWithSpecifiedPeriod(P, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter)
-        cntr += 1
-      if Filter and len(All) > 0:
-        return Nlfsr.filter(All)
-      return All
-    elif Iterate and Aio.isType(Poly, "Polynomial"):
+    if Iterate and Aio.isType(Poly, "Polynomial"):
       Results = []
+      LastLen = 0
       for p in Poly:
         print(f'Looking for {p}     Found so far: {len(Results)}')
-        Results += Nlfsr.findNLRGsWithSpecifiedPeriod(Poly, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, False, n-len(Results))
-        if Filter and len(Results) > 0:
+        Results += Nlfsr.findNLRGsWithSpecifiedPeriod(p, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, False, n-len(Results))
+        if Filter and len(Results) > LastLen > 0:
           Results = Nlfsr.filter(Results)
         if len(Results) >= n > 0:
           break
+        LastLen = len(Results)
       if len(Results) > n > 0:
         Results = Results[:n]
       return Results
