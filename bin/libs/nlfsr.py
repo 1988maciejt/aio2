@@ -6,7 +6,7 @@ from libs.asci_drawing import *
 from pyeda.inter import *
 from p_tqdm import *
 from bitarray import *
-from random import uniform
+from libs.generators import *
 
   
 class Nlfsr(Lfsr):
@@ -17,6 +17,7 @@ class Nlfsr(Lfsr):
   _start = bitarray()
   _offset = 0
   _exename = ""
+  _period = 0
   def clear(self):
     pass
   def copy(self):
@@ -394,8 +395,15 @@ class Nlfsr(Lfsr):
       newR = Nlfsr(Size, P)
       Results.append(newR)
     if BeautifullOnly:
-      Results = p_map(_nlfsr_find_spec_period_helper2, Results, desc="Filtering beautifull")
-      Results = list(filter(lambda x: x is not None, Results))
+      Results2 = []
+      Generator = Generators()
+      Chunk = 50
+      Total = len(Results) // Chunk + 1
+      Iter = p_uimap(_nlfsr_find_spec_period_helper2, Generator.subLists(Results, Chunk), total=Total, desc=f'Filtering beautifull (x{Chunk})')
+      for I in Iter:
+        Results2 += I
+      Results = Results2  
+      del Generator
     if Filter:
       Results = Nlfsr.filter(Results)
     return Results
@@ -457,21 +465,35 @@ class Nlfsr(Lfsr):
 #      if not CppPrograms.NLSFRPeriodCounter.Compiled:
 #        CppPrograms.NLSFRPeriodCounter.compile()
     InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, LeftRightAllowedShift, InvertersAllowed, MaxAndCount, BeautifullOnly, False)
+    Size = Poly.getDegree()
+    Chunk = 20
+    if Size >= 20:
+      Chunl = 1
+    if Size >= 16:
+      Chunk = 2
+    if Size >= 14:
+      Chunk = 5
+    if Size >= 10:
+      Chunk = 10
     for i in range(len(InputSet)):
       InputSet[i]._exename = exename
-    Periods = p_map(_nlfsr_find_spec_period_helper, InputSet, desc="Simulating NLFSRs")
+    Generator = Generators()
+    Total = len(InputSet) // Chunk + 1
+    Iter = p_uimap(_nlfsr_find_spec_period_helper, Generator.subLists(InputSet, Chunk), total=Total, desc=f'Simulating NLFSRs (x{Chunk})')
+    pmax = Int.mersenne(Size)
     Results = []
     eps = 0.0
     PMR = PeriodLengthMinimumRatio - eps
-    for i in range(len(InputSet)):
-      p, nlrg = Periods[i], InputSet[i]
-      pmax = Int.mersenne(nlrg._size)
-      ratio = p / pmax
-      if (ratio < PMR):
-        continue
-      if OnlyPrimePeriods and (not Int.isPrime(p)):
-        continue
-      Results.append(nlrg)
+    for I in Iter:
+      for nlrg in I:
+        p = nlrg._period
+        ratio = p / pmax
+        if (ratio < PMR):
+          continue
+        if OnlyPrimePeriods and (not Int.isPrime(p)):
+          continue
+        Results.append(nlrg)
+    del Generator
     if Filter and len(Results) > 0:
       return Nlfsr.filter(Results)
     return Results
@@ -699,14 +721,17 @@ class NlfsrList:
       
     
     
-def _nlfsr_find_spec_period_helper(nlrg : Nlfsr) -> int:
-  p = nlrg.getPeriod()
-#  print(repr(nlrg), "\t", p)
-  return p
-def _nlfsr_find_spec_period_helper2(nlrg : Nlfsr) -> int:
-  if nlrg.makeBeauty(CheckMaximum=0):
-    return nlrg
-  return None
+def _nlfsr_find_spec_period_helper(nlrglist : Nlfsr) -> int:
+  for nlrg in nlrglist:
+    p = nlrg.getPeriod()
+    nlrg._period = p
+  return nlrglist
+def _nlfsr_find_spec_period_helper2(nlrglist : Nlfsr) -> int:
+  Results = []
+  for nlrg in nlrglist:
+    if nlrg.makeBeauty(CheckMaximum=0):
+      Results.append(nlrg)
+  return Results
 
 
   

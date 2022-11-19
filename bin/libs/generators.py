@@ -36,6 +36,12 @@ class Generators:
         break
       StartIt = StopIt
       
+  def subLists(self, lst : list, SublistSize : int):
+    for i in range(0, len(lst), SublistSize):
+      if not self._enabled:
+        break
+      yield lst[i:(i+SublistSize)]
+      
   def wrapper(self, iterator):
     for x in iterator:
       if not self._enabled:
