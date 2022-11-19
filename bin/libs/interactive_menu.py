@@ -410,13 +410,6 @@ def _categoryNlfsrs_searchForMaximum():
   RC = "Rev/Compl"
   SmallPT = PandasTable([Canonical, NlfsrObject], AutoId=1)
   FullPT = PandasTable([RC, Canonical, Equations, NlfsrObject], AutoId=1, AddVerticalSpaces=1)
-  
-  FullDict = {
-    RC: [],
-    Canonical: [],
-    Equations: [],
-    NlfsrObject: [],
-  }
   for R in Results:
     SmallPT.add([
       R.toBooleanExpressionFromRing(Shorten=1),

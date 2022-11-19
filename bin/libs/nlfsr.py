@@ -3,6 +3,7 @@ from libs.lfsr import *
 from libs.utils_list import *
 from libs.utils_bitarray import *
 from libs.asci_drawing import *
+from libs.pandas_table import *
 from pyeda.inter import *
 from p_tqdm import *
 from bitarray import *
@@ -360,7 +361,7 @@ class Nlfsr(Lfsr):
         return max(FFs)
     return sum(FFs) / self._size
     
-  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, LeftRightAllowedShift = 2, InvertersAllowed = 0, MaxAndCount = 0, BeautifullOnly = False, Filter = False) -> list:
+  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, LeftRightAllowedShift = 2, InvertersAllowed = 1, MaxAndCount = 0, BeautifullOnly = False, Filter = True) -> list:
     RG = Lfsr(Poly, RING_GENERATOR)
     Taps = RG._taps
     Size = RG._size
@@ -407,7 +408,7 @@ class Nlfsr(Lfsr):
     if Filter:
       Results = Nlfsr.filter(Results)
     return Results
-  def printNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 1, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False, Iterate = True, n = 0) -> None:
+  def printNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 1, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = True, MaxAndCount = 0, BeautifullOnly = False, Filter = True, Iterate = True, n = 0, BreakIfNoResultAfterNIterations = 0) -> int:
     """Tries to find and prints a specified type of NLFSR (Ring-like). Returns a list of found objects.
 
     Args:
@@ -415,19 +416,36 @@ class Nlfsr(Lfsr):
         LeftRightAllowedShift (int): left/right shift of the second AND's input
         PeriodLengthMinimumRatio (int, optional): Minimum satisfable period ratio. 0 < RATIO <= 1. Defaults to 1.
         OnlyPrimePeriods (bool, optional): Returns only NLFSRs having period being prime number. Defaults to False.
-        InvertersAllowed (bool, optional): True, if inverters are allowed. Defaults to False.
+        InvertersAllowed (bool, optional): True, if inverters are allowed. Defaults to True.
         MaxAndCount (int, optional): Maximum count of AND gates. Defaults to 0 (no limit).
         BeautifullOnly (bool, optional): Considerates only NLFSRs being crossing-free and having fanout <= 2. Defaults to False.
         Filter (bool, optional): If True, permorms equivalent and inverted-inputs filtering. Defaults to False.
         Iterate (bool, optional): iterate through all polynomials. Defaults to True.
         n (int, optional): enough count of results. Defaults to 0 (no limit).
+        BreakIfNoResultAfterNIterations (int, optional): if > 0 (default 0), breaks iterating if no results after given #iterations
     """
-    Result = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, Iterate, n)
-    if Filter:
-      Result = Nlfsr.filter(Result)
-    for R in Result:
-      Aio.print(f'{R._size}: \t{R._Config}')
-  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 1, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = False, MaxAndCount = 0, BeautifullOnly = False, Filter = False, Iterate = True, n = 0) -> list:
+    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, Iterate, n, BreakIfNoResultAfterNIterations)
+    Canonical = "Canonical"
+    NlfsrObject = "Python Object"
+    Equations = "Taps"
+    RC = "Rev/Compl"
+    FullPT = PandasTable([RC, Canonical, Equations, NlfsrObject], AutoId=1, AddVerticalSpaces=1)
+    for R in Results:
+      FullPT.add([
+        f'  \nComplement\nReversed\nRev.,Compl.',
+        f'{R.toBooleanExpressionFromRing(Shorten=1)}\n\
+  {R.toBooleanExpressionFromRing(Complementary=1, Shorten=1)}\n\
+  {R.toBooleanExpressionFromRing(Reversed=1, Shorten=1)}\n\
+  {R.toBooleanExpressionFromRing(Reversed=1, Complementary=1, Shorten=1)}',
+        R.getFullInfo(Header=0),
+        repr(R)
+      ])     
+    Aio.print()
+    FullPT.print()
+    Aio.print()
+    return len(FullPT)
+    
+  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 1, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = True, MaxAndCount = 0, BeautifullOnly = False, Filter = True, Iterate = True, n = 0, BreakIfNoResultAfterNIterations = 0) -> list:
     """Tries to find a specified type of NLFSR (Ring-like). Returns a list of found objects.
 
     Args:
@@ -435,19 +453,26 @@ class Nlfsr(Lfsr):
         LeftRightAllowedShift (int): left/right shift of the second AND's input
         PeriodLengthMinimumRatio (int, optional): Minimum satisfable period ratio. 0 < RATIO <= 1. Defaults to 1.
         OnlyPrimePeriods (bool, optional): Returns only NLFSRs having period being prime number. Defaults to False.
-        InvertersAllowed (bool, optional): True, if inverters are allowed. Defaults to False.
+        InvertersAllowed (bool, optional): True, if inverters are allowed. Defaults to True.
         MaxAndCount (int, optional): Maximum count of AND gates. Defaults to 0 (no limit).
         BeautifullOnly (bool, optional): Considerates only NLFSRs being crossing-free and having fanout <= 2. Defaults to False.
         Filter (bool, optional): If True, permorms equivalent and inverted-inputs filtering. Defaults to False
         Iterate (bool, optional): iterate through all polynomials. Defaults to True.
-        n (int, optional): enough count of results. Defaults to 0 (no limit)..
+        n (int, optional): enough count of results. Defaults to 0 (no limit).
+        BreakIfNoResultAfterNIterations (int, optional): if > 0 (default 0), breaks iterating if no results after given #iterations
     """
     if Iterate and Aio.isType(Poly, "Polynomial"):
       Results = []
-      LastLen = 0
+      NoResultCounter = 0
       for p in Poly:
         print(f'Looking for {p}     Found so far: {len(Results)}')
         ResultsSub = Nlfsr.findNLRGsWithSpecifiedPeriod(p, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, False, n-len(Results))
+        if len(ResultsSub) == 0:
+          NoResultCounter += 1
+          if NoResultCounter >= BreakIfNoResultAfterNIterations > 0:
+            break
+          continue
+        NoResultCounter = 0
         if Filter and len(ResultsSub) > 0 and len(Results) > 0:
           ResultsSub2 = []
           for R in tqdm(ResultsSub, desc="Filtering all results"):
