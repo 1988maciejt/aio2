@@ -58,20 +58,22 @@ class BentFunction:
       Res2.invert()
       List.append(Res2)
     Stop = (1<<(Len-1))
-    if (InputCount >= 4) and not (30000 >= n > 0):
+    if (InputCount >= 4) and not (15000 >= n > 0):
       global _BF_STATE
       _BF_STATE = None
       _BF_STATE = Value('i', 0)
       with _BF_STATE.get_lock():
         _BF_STATE.value = 0
-      Chunk = 100000
-      PResults = p_uimap(partial(_bent_searcher_helper, Listx=List, Len=Len, InputCount=InputCount, N=n), Generators.subRanges(1, Stop, Chunk), desc=f'{Chunk} checks per iteration')
+      Chunk = 5000
+      Total = Stop // Chunk + 1
+      Generator = Generators()
+      PResults = p_uimap(partial(_bent_searcher_helper, Listx=List, Len=Len, InputCount=InputCount, N=n), Generator.subRanges(1, Stop, Chunk), total=Total, desc=f'{Chunk} checks per iteration')
       Results = []
       for PR in PResults:
         Results += PR
         if len(Results) >= n > 0:
-          Generators.disable()
-      Generators.enable()
+          Generator.disable()
+      del Generator
       if len(Results) > n > 0:
         Results = Results[:n]
       _BF_STATE = None

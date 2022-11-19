@@ -12,6 +12,7 @@ import math
 from tqdm import *
 import multiprocess
 from p_tqdm import *
+from libs.generators import *
 import copy
 import gc
 from bitarray import *
@@ -92,8 +93,6 @@ class Polynomial:
 class Polynomial:
   _coefficients_list = []
   _balancing = 0    
-  _result = None
-  _n = 0
   _bmin = 1
   _positions = False
   _ctemp = True
@@ -140,14 +139,9 @@ class Polynomial:
       Result.append(Polynomial(PT.copy()))
     return Result
   def _check(p):
-    if (Polynomial._n > 0) and  (len(Polynomial._result) >= Polynomial._n):
-      return
-    if not Polynomial._Silent:
-      Aio.printTemp("Checking " + str(p))
     if p.isPrimitive():
-      Polynomial._result.append(p)
-      if not Polynomial._Silent:
-        print("Found " + str(p) + " " * 30)
+      return p
+    return None
         
   def copy(self) -> Polynomial:
     """returns a full copy of the Polynomial object.
@@ -725,23 +719,20 @@ Polynomial ("size,HexNumber", balancing=0)
     PList = []
     for p in Candidates:
       PList.append(Polynomial(p))
-    manager = multiprocess.Manager()
-    Polynomial._result = manager.list()
-    Polynomial._n = n
-    Polynomial._Silent = Silent
-    if Silent:
-      #process_map(Polynomial._check, PList, chunksize=10, desc="Primitivity checking")    
-      p_umap(Polynomial._check, PList)
-    else:
-      pool = multiprocess.Pool()   
-      pool.map(Polynomial._check, PList)
-      pool.close()
-      pool.join()
-    r = list(Polynomial._result)
-    if n > 0 and len(r) > n:
-      r = r[0:n]
-    Aio.printTemp(" " * (Aio.getTerminalColumns()-1))
-    return r
+    Generator = Generators()
+    Results = []
+    Iter = p_uimap(Polynomial._check, Generator.wrapper(PList), total=len(PList))
+    for I in Iter:
+      if I is not None:
+        Results.append(I)
+        if not Silent:
+          print(f'Found {str(I)}')
+      if len(Results) >= n > 0:
+        Generator.disable()
+    del Generator    
+    if len(Results) > n > 0:
+      Results = Results[:n]
+    return Results
   def toTigerStr(self) -> str:
     Coeffs = self._coefficients_list
     Line = ""      
@@ -1878,9 +1869,13 @@ endmodule'''
     Lfsr._maxFoundN = n
     Candidates = List.splitIntoSublists(LfsrsList, SerialChunkSize)
     Results = []
-    RList = p_map(Lfsr._checkMaximumSerial, Candidates, desc = f'x{SerialChunkSize}')
-    for RL in RList:
+    Generator = Generators()
+    Iter = p_uimap(Lfsr._checkMaximumSerial, Generator.wrapper(Candidates), total=len(Candidates), desc = f'x{SerialChunkSize}')
+    for RL in Iter:
       Results += RL
+      if len(Results) >= n > 0:
+        Generator.disable()
+    del Generator
     if len(Results) > n > 0:
       Results = Results[:n]
     return Results
