@@ -65,7 +65,7 @@ class BentFunction:
       with _BF_STATE.get_lock():
         _BF_STATE.value = 0
       Chunk = 5000
-      Total = Stop // Chunk + 1
+      Total = Stop // Chunk + (1 if Stop % Chunk > 0 else 0)
       Generator = Generators()
       PResults = p_uimap(partial(_bent_searcher_helper, Listx=List, Len=Len, InputCount=InputCount, N=n), Generator.subRanges(1, Stop, Chunk), total=Total, desc=f'{Chunk} checks per iteration')
       Results = []

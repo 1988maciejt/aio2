@@ -398,7 +398,7 @@ class Nlfsr(Lfsr):
       Results2 = []
       Generator = Generators()
       Chunk = 50
-      Total = len(Results) // Chunk + 1
+      Total = len(Results) // Chunk +  + (1 if len(Results) % Chunk > 0 else 0)
       Iter = p_uimap(_nlfsr_find_spec_period_helper2, Generator.subLists(Results, Chunk), total=Total, desc=f'Filtering beautifull (x{Chunk})')
       for I in Iter:
         Results2 += I
@@ -447,9 +447,20 @@ class Nlfsr(Lfsr):
       LastLen = 0
       for p in Poly:
         print(f'Looking for {p}     Found so far: {len(Results)}')
-        Results += Nlfsr.findNLRGsWithSpecifiedPeriod(p, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, False, n-len(Results))
-        if Filter and len(Results) > LastLen > 0:
-          Results = Nlfsr.filter(Results)
+        ResultsSub = Nlfsr.findNLRGsWithSpecifiedPeriod(p, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, False, n-len(Results))
+        if Filter and len(ResultsSub) > 0 and len(Results) > 0:
+          ResultsSub2 = []
+          for R in tqdm(ResultsSub, desc="Filtering all results"):
+            Add = 1
+            for Ref in Results:
+              if R.isEquivalent(Ref):
+                Add = 0
+                break
+            if Add:
+              ResultsSub2.append(R)
+          Results += ResultsSub2  
+        else:
+          Results += ResultsSub
         if len(Results) >= n > 0:
           break
         LastLen = len(Results)
@@ -468,7 +479,7 @@ class Nlfsr(Lfsr):
     Size = Poly.getDegree()
     Chunk = 20
     if Size >= 20:
-      Chunl = 1
+      Chunk = 1
     if Size >= 16:
       Chunk = 2
     if Size >= 14:
@@ -478,7 +489,7 @@ class Nlfsr(Lfsr):
     for i in range(len(InputSet)):
       InputSet[i]._exename = exename
     Generator = Generators()
-    Total = len(InputSet) // Chunk + 1
+    Total = len(InputSet) // Chunk + (1 if len(InputSet) % Chunk > 0 else 0)
     Iter = p_uimap(_nlfsr_find_spec_period_helper, Generator.subLists(InputSet, Chunk), total=Total, desc=f'Simulating NLFSRs (x{Chunk})')
     pmax = Int.mersenne(Size)
     Results = []
@@ -536,7 +547,7 @@ class Nlfsr(Lfsr):
     iList = []
     for nlfsr in NlfsrList:
       iList.append(nlfsr.copy())
-    for n1 in tqdm(iList, desc="Filtering"):
+    for n1 in tqdm(iList, desc="Filtering NLFSRs"):
       Add = 1
       for n2 in Result:
         if n1.isInverted(n2) or n1.isEquivalent(n2):

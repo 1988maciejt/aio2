@@ -408,59 +408,33 @@ def _categoryNlfsrs_searchForMaximum():
   NlfsrObject = "Python Object"
   Equations = "Taps"
   RC = "Rev/Compl"
+  SmallPT = PandasTable([Canonical, NlfsrObject], AutoId=1)
+  FullPT = PandasTable([RC, Canonical, Equations, NlfsrObject], AutoId=1, AddVerticalSpaces=1)
+  
   FullDict = {
     RC: [],
     Canonical: [],
     Equations: [],
     NlfsrObject: [],
   }
-  SmallDict = {
-    Canonical: [],
-    NlfsrObject: [],
-  }
-  Len = len(Results)
-  for i in range(Len):
-    R = Results[i]
-    SmallDict[Canonical].append(R.toBooleanExpressionFromRing(Shorten=1))
-    SmallDict[NlfsrObject].append(repr(R))
-    
-    for k in FullDict.keys():
-      FullDict[k].append(" ")
-    
-    InfoLines = R.getFullInfo(Header=0)
-    Cntr = 0
-    for L in InfoLines.split("\n"):
-      FullDict[Equations].append(L)
-      Cntr += 1
-    while Cntr < 4:
-      FullDict[Equations].append(" ")
-      Cntr += 1
-      
-    FullDict[RC].append("  ")
-    FullDict[RC].append("Complement")
-    FullDict[RC].append("Reversed")
-    FullDict[RC].append("Rev.,Compl.")
-    
-    FullDict[Canonical].append(R.toBooleanExpressionFromRing(Shorten=1))
-    FullDict[Canonical].append(R.toBooleanExpressionFromRing(Complementary=1, Shorten=1))
-    FullDict[Canonical].append(R.toBooleanExpressionFromRing(Reversed=1, Shorten=1))
-    FullDict[Canonical].append(R.toBooleanExpressionFromRing(Reversed=1, Complementary=1, Shorten=1))
-    
-    if Cntr > 4:
-      for _ in range(4, Cntr):
-        FullDict[Canonical].append(" ")
-        FullDict[RC].append(" ")
-        
-    FullDict[NlfsrObject].append(repr(R))
-    for _ in range(1, Cntr):
-      FullDict[NlfsrObject].append(" ")
-    
-  df = pandas.DataFrame.from_dict(FullDict)
-  sdf = pandas.DataFrame.from_dict(SmallDict)
+  for R in Results:
+    SmallPT.add([
+      R.toBooleanExpressionFromRing(Shorten=1),
+      repr(R)
+    ])    
+    FullPT.add([
+      f'  \nComplement\nReversed\nRev.,Compl.',
+      f'{R.toBooleanExpressionFromRing(Shorten=1)}\n\
+{R.toBooleanExpressionFromRing(Complementary=1, Shorten=1)}\n\
+{R.toBooleanExpressionFromRing(Reversed=1, Shorten=1)}\n\
+{R.toBooleanExpressionFromRing(Reversed=1, Complementary=1, Shorten=1)}',
+      R.getFullInfo(Header=0),
+      repr(R)
+    ])
   Aio.print()
-  Aio.print(df.to_string(index=0))
+  FullPT.print()
   Aio.print()
-  message_dialog(title="Found NLFSRs", text=sdf.to_string(index=0)).run()
+  message_dialog(title="Found NLFSRs", text=SmallPT.toString()).run()
 
 def _categoryNlfsrs():
   SubCategory = -1
