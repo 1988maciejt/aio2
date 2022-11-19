@@ -145,3 +145,6 @@ class Int:
     for _ in range(BitCount):
       yield 1 if (Value & Mask) else 0
       Mask <<= 1
+      
+  def toGray(Value : int) -> int:
+    return (Value ^ (Value>>1))

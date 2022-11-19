@@ -58,7 +58,7 @@ class BentFunction:
       Res2.invert()
       List.append(Res2)
     Stop = (1<<(Len-1))
-    if (InputCount >= 4) and not (10000 >= n > 0):
+    if (InputCount >= 4) and not (30000 >= n > 0):
       global _BF_STATE
       _BF_STATE = None
       _BF_STATE = Value('i', 0)
@@ -80,9 +80,15 @@ class BentFunction:
       MinDistance = (1 << (InputCount-1)) - (1 << ((InputCount>>1) - 1))
       MaxDistance = Len
       Results = []
+      Half = Len>>1
       LowestDistance = None
       for Counter in range(1, Stop):
+        #Counter = Int.toGray(CounterI)
         Candidate = bau.int2ba(Counter, Len)
+        if Candidate.count(1) > Half:
+          continue
+        if Candidate in List:
+          continue
         #print("CANDIDATE =", Candidate)
         LowestDistance = MaxDistance
         if Candidate in List:
@@ -95,10 +101,16 @@ class BentFunction:
             if Distance < MinDistance:
               break
         if LowestDistance >= MinDistance:
-          NCandidate = Candidate.copy()
-          NCandidate.invert()
+          InvCandidate = Candidate.copy()
+          InvCandidate.invert()
+          RevCandidate = Candidate.copy()
+          RevCandidate.reverse()
+          RevInvCandidate = RevCandidate.copy()
+          RevInvCandidate.invert()
           Results.append(Candidate)
-          Results.append(NCandidate)
+          Results.append(InvCandidate)
+          Results.append(RevCandidate)
+          Results.append(RevInvCandidate)
         if len(Results) >= n > 0:
           break
       return Results
@@ -113,9 +125,12 @@ def _bent_searcher_helper(rng, Listx, Len, InputCount, N) -> list:
   Results = []
   LowestDistance = None
   Found = 0
+  Half = Len>>1
   for Counter in rng:
-    Break = 0
+    #Counter = Int.toGray(CounterI)
     Candidate = bau.int2ba(Counter, Len)
+    if Candidate.count(1) > Half:
+      continue
     if Candidate in List:
       continue
     LowestDistance = MaxDistance
@@ -127,10 +142,16 @@ def _bent_searcher_helper(rng, Listx, Len, InputCount, N) -> list:
         if Distance < MinDistance:
           break
     if LowestDistance >= MinDistance:
-      NCandidate = Candidate.copy()
-      NCandidate.invert()
+      InvCandidate = Candidate.copy()
+      InvCandidate.invert()
+      RevCandidate = Candidate.copy()
+      RevCandidate.reverse()
+      RevInvCandidate = RevCandidate.copy()
+      RevInvCandidate.invert()
       Results.append(Candidate)
-      Results.append(NCandidate)
+      Results.append(InvCandidate)
+      Results.append(RevCandidate)
+      Results.append(RevInvCandidate)
       Found += 2
     if _BF_STATE.value + Found > N > 0:
       with _BF_STATE.get_lock():
