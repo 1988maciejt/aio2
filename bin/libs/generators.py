@@ -47,3 +47,15 @@ class Generators:
       if not self._enabled:
         break
       yield x
+      
+  def subListsFromIterator(self, Iterator, ChunkSize : int):
+    Result = []
+    for I in Iterator:
+      if not self._enabled:
+        return
+      Result.append(I)
+      if len(Result) >= ChunkSize:
+        yield Result
+        Result = []
+    if len(Result) > 0:
+      yield Result
