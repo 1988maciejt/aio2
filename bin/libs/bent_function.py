@@ -103,16 +103,20 @@ class BentFunction:
             if Distance < MinDistance:
               break
         if LowestDistance >= MinDistance:
+          SubResults = []
           InvCandidate = Candidate.copy()
           InvCandidate.invert()
           RevCandidate = Candidate.copy()
           RevCandidate.reverse()
           RevInvCandidate = RevCandidate.copy()
           RevInvCandidate.invert()
-          Results.append(Candidate)
-          Results.append(InvCandidate)
-          Results.append(RevCandidate)
-          Results.append(RevInvCandidate)
+          SubResults.append(Candidate)
+          SubResults.append(InvCandidate)
+          if RevCandidate not in SubResults:
+            SubResults.append(RevCandidate)
+          if RevInvCandidate not in SubResults:
+            SubResults.append(RevInvCandidate)
+          Results += SubResults
         if len(Results) >= n > 0:
           break
       return Results
@@ -144,17 +148,21 @@ def _bent_searcher_helper(rng, Listx, Len, InputCount, N) -> list:
         if Distance < MinDistance:
           break
     if LowestDistance >= MinDistance:
+      SubResults = []
       InvCandidate = Candidate.copy()
       InvCandidate.invert()
       RevCandidate = Candidate.copy()
       RevCandidate.reverse()
       RevInvCandidate = RevCandidate.copy()
       RevInvCandidate.invert()
-      Results.append(Candidate)
-      Results.append(InvCandidate)
-      Results.append(RevCandidate)
-      Results.append(RevInvCandidate)
-      Found += 2
+      SubResults.append(Candidate)
+      SubResults.append(InvCandidate)
+      if RevCandidate not in SubResults:
+        SubResults.append(RevCandidate)
+      if RevInvCandidate not in SubResults:
+        SubResults.append(RevInvCandidate)
+      Results += SubResults
+      Found += len(SubResults)
     if _BF_STATE.value + Found > N > 0:
       with _BF_STATE.get_lock():
         _BF_STATE.value += Found

@@ -1,9 +1,11 @@
 from libs.lfsr import *
 from libs.nlfsr import *
+from libs.bent_function import *
 from libs.programmable_lfsr import *
 from prompt_toolkit.shortcuts import *
 import ast
 import pandas
+from libs.pandas_table import *
 
 
 
@@ -460,12 +462,35 @@ def _categoryNlfsrs_searchForMaximum():
   Aio.print()
   message_dialog(title="Found NLFSRs", text=sdf.to_string(index=0)).run()
 
-  
-  
 def _categoryNlfsrs():
   SubCategory = -1
   while SubCategory is not None:
     SubCategory = MainMenu_static._nlfsrs_menu.run()
+    if SubCategory is not None:
+      SubCategory()
+  
+  
+def _categoryBent_printLuts():
+  InputCount = MainMenu_static.getBentInputs()
+  if InputCount is None:
+    return
+  N = MainMenu_static.getN()
+  if N is None:
+    return
+  pt = PandasTable(["Sequence (LUT)"], AutoId=1)
+  for x in BentFunction.listBentFunctionLuts(InputCount, N):
+    pt.add([x.to01()])
+  S = pt.toString()
+  Aio.print(S)
+  if len(pt) <= 100:
+    message_dialog(title="Found bent sequences (LUTs)", text=S).run()
+  else:
+    message_dialog(title="Found bent sequences (LUTs)", text="Too many results.\nClose the menu to see all results.").run()
+
+def _categoryBent():
+  SubCategory = -1
+  while SubCategory is not None:
+    SubCategory = MainMenu_static._bent_menu.run()
     if SubCategory is not None:
       SubCategory()
   
@@ -481,6 +506,7 @@ class MainMenu_static:
       (_categoryProgrammableRingGenerator,  "Programmavle ring renegrator"),
       (_categoryTigerRingGenerator,         "Tiger Ring Generators"),
       (_categoryNlfsrs,                     "Non-linear shift registers"),
+      (_categoryBent,                       "Bent functions"),
     ]
   )
   _prim_polys_menu = radiolist_dialog(
@@ -538,6 +564,17 @@ class MainMenu_static:
       (_categoryNlfsrs_searchForMaximum,     "Search for maximum NLFSRs"),
     ]
   )
+  _bent_menu = radiolist_dialog(
+    title="Bent functions",
+    text="What do you want to do:",
+    values=[
+      (_categoryBent_printLuts,             "Search for bent sequences (LUTs)"),
+    ]
+  )
+  _input_bent_inputs = input_dialog(
+    title="Bent function inputs",
+    text="How many inpits? (Must be even; default: 2)",
+  )
   _input_polynomial = input_dialog(
     title="Polynomial input",
     text="Enter a list of polynomial coefficients, i.e.\n[5,4,0]\nIt is also possible to enter an integer representing a polynomial, i.e.\n0b110001",
@@ -572,7 +609,7 @@ class MainMenu_static:
   )
   _input_bin_sequence = input_dialog(
     title="Sequence?", 
-    text="Enter a sequence of 1s and 0s:"
+    text="Enter a sequence of 1s and 0s:",
   )
   _input_lfsr_size = input_dialog(
     title="Lfsr size",
@@ -598,6 +635,18 @@ class MainMenu_static:
     [1, [6,7]], [4, [4,-5]]
     """
   )
+  
+  def getBentInputs() -> list:
+    while 1:
+      Result = MainMenu_static._input_bent_inputs.run()
+      if Result is None:
+        return None
+      try:
+        R = int(ast.literal_eval(f'{Result}'))
+        if R > 0 and (R & 1) == 0:
+          return R
+      except:
+        continue
   
   def getTaps(Reset = False) -> list:
     if Reset:
