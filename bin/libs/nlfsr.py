@@ -391,7 +391,7 @@ class Nlfsr(Lfsr):
             ProposedTaps.append([DS * D, [-S, -AIn]])
       AOptionsList.append(ProposedTaps)
     First = 1
-    for Permutations in List.getPermutationsPfManyListsGenerator(AOptionsList, MaximumNonBaseElements=MaxAndCount, UseAsGenerator_Chunk=50000):
+    for Permutations in List.getPermutationsPfManyListsGenerator(AOptionsList, MaximumNonBaseElements=MaxAndCount, UseAsGenerator_Chunk=100000):
       if First:
         Permutations = Permutations[1:]
         First = 0
