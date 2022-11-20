@@ -361,7 +361,7 @@ class Nlfsr(Lfsr):
         return max(FFs)
     return sum(FFs) / self._size
     
-  def makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, LeftRightAllowedShift = 2, InvertersAllowed = 1, MaxAndCount = 0, BeautifullOnly = False, Filter = True) -> list:
+  def _makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, LeftRightAllowedShift = 2, InvertersAllowed = 1, MaxAndCount = 0, BeautifullOnly = False, Filter = True) -> list:
     RG = Lfsr(Poly, RING_GENERATOR)
     Taps = RG._taps
     Size = RG._size
@@ -390,24 +390,29 @@ class Nlfsr(Lfsr):
             ProposedTaps.append([DS * D, [S, -AIn]])
             ProposedTaps.append([DS * D, [-S, -AIn]])
       AOptionsList.append(ProposedTaps)
-    Permutations = List.getPermutationsPfManyLists(AOptionsList, MaximumNonBaseElements=MaxAndCount)[1:]
-    Results = []
-    for P in Permutations:
-      newR = Nlfsr(Size, P)
-      Results.append(newR)
-    if BeautifullOnly:
-      Results2 = []
-      Generator = Generators()
-      Chunk = 50
-      Total = len(Results) // Chunk +  + (1 if len(Results) % Chunk > 0 else 0)
-      Iter = p_uimap(_nlfsr_find_spec_period_helper2, Generator.subLists(Results, Chunk), total=Total, desc=f'Filtering beautifull (x{Chunk})')
-      for I in Iter:
-        Results2 += I
-      Results = Results2  
-      del Generator
-    if Filter:
-      Results = Nlfsr.filter(Results)
-    return Results
+    First = 1
+    for Permutations in List.getPermutationsPfManyListsGenerator(AOptionsList, MaximumNonBaseElements=MaxAndCount, UseAsGenerator_Chunk=50000):
+      if First:
+        Permutations = Permutations[1:]
+        First = 0
+      Results = []
+      for P in Permutations:
+        newR = Nlfsr(Size, P)
+        Results.append(newR)
+      if BeautifullOnly:
+        Results2 = []
+        Generator = Generators()
+        Chunk = 50
+        Total = len(Results) // Chunk +  + (1 if len(Results) % Chunk > 0 else 0)
+        Iter = p_uimap(_nlfsr_find_spec_period_helper2, Generator.subLists(Results, Chunk), total=Total, desc=f'Filtering beautifull (x{Chunk})')
+        for I in Iter:
+          Results2 += I
+        Results = Results2  
+        del Generator
+      if Filter:
+        Results = Nlfsr.filter(Results)
+      yield Results
+  
   def printNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 1, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = True, MaxAndCount = 0, BeautifullOnly = False, Filter = True, Iterate = True, n = 0, BreakIfNoResultAfterNIterations = 0) -> int:
     """Tries to find and prints a specified type of NLFSR (Ring-like). Returns a list of found objects.
 
@@ -463,8 +468,12 @@ class Nlfsr(Lfsr):
     """
     if Iterate and Aio.isType(Poly, "Polynomial"):
       Results = []
+      Exclude = []
       NoResultCounter = 0
       for p in Poly:
+        if p in Exclude:
+          continue
+        Exclude.append(p.getReciprocal())
         print(f'Looking for {p}     Found so far: {len(Results)}')
         ResultsSub = Nlfsr.findNLRGsWithSpecifiedPeriod(p, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, False, n-len(Results))
         if len(ResultsSub) == 0:
@@ -500,7 +509,6 @@ class Nlfsr(Lfsr):
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounter.Compiled:
 #        CppPrograms.NLSFRPeriodCounter.compile()
-    InputSet = Nlfsr.makeNLRingGeneratorsFromPolynomial(Poly, LeftRightAllowedShift, InvertersAllowed, MaxAndCount, BeautifullOnly, False)
     Size = Poly.getDegree()
     Chunk = 20
     if Size >= 20:
@@ -511,25 +519,26 @@ class Nlfsr(Lfsr):
       Chunk = 5
     if Size >= 10:
       Chunk = 10
-    for i in range(len(InputSet)):
-      InputSet[i]._exename = exename
-    Generator = Generators()
-    Total = len(InputSet) // Chunk + (1 if len(InputSet) % Chunk > 0 else 0)
-    Iter = p_uimap(_nlfsr_find_spec_period_helper, Generator.subLists(InputSet, Chunk), total=Total, desc=f'Simulating NLFSRs (x{Chunk})')
-    pmax = Int.mersenne(Size)
     Results = []
+    pmax = Int.mersenne(Size)
     eps = 0.0
     PMR = PeriodLengthMinimumRatio - eps
-    for I in Iter:
-      for nlrg in I:
-        p = nlrg._period
-        ratio = p / pmax
-        if (ratio < PMR):
-          continue
-        if OnlyPrimePeriods and (not Int.isPrime(p)):
-          continue
-        Results.append(nlrg)
-    del Generator
+    for InputSet in Nlfsr._makeNLRingGeneratorsFromPolynomial(Poly, LeftRightAllowedShift, InvertersAllowed, MaxAndCount, BeautifullOnly, False):
+      for i in range(len(InputSet)):
+        InputSet[i]._exename = exename
+      Generator = Generators()
+      Total = len(InputSet) // Chunk + (1 if len(InputSet) % Chunk > 0 else 0)
+      Iter = p_uimap(_nlfsr_find_spec_period_helper, Generator.subLists(InputSet, Chunk), total=Total, desc=f'Simulating NLFSRs (x{Chunk})')
+      for I in Iter:
+        for nlrg in I:
+          p = nlrg._period
+          ratio = p / pmax
+          if (ratio < PMR):
+            continue
+          if OnlyPrimePeriods and (not Int.isPrime(p)):
+            continue
+          Results.append(nlrg)
+      del Generator
     if Filter and len(Results) > 0:
       return Nlfsr.filter(Results)
     return Results

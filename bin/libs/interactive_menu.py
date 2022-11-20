@@ -379,6 +379,9 @@ def _categoryNlfsrs_searchForMaximum():
   AndShift = MainMenu_static.getAndShift()
   if AndShift is None:
     return
+  MaxAndCount = MainMenu_static.getMaxAndCount()
+  if MaxAndCount is None:
+    return
   N = MainMenu_static.getN()
   if N is None:
     return
@@ -397,13 +400,13 @@ def _categoryNlfsrs_searchForMaximum():
   Poly0 = Polynomial.createPolynomial(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist)
   Results = []
   if Details == 0:
-    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, Filter=1, Iterate=1, n=N)
+    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, Filter=1, Iterate=1, n=N, MaxAndCount=MaxAndCount)
   elif Details == 2:
-    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, BeautifullOnly=1, Filter=1, Iterate=1, n=N)
+    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, BeautifullOnly=1, Filter=1, Iterate=1, n=N, MaxAndCount=MaxAndCount)
   elif Details == 1:
-    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, OnlyPrimePeriods=1, PeriodLengthMinimumRatio=0.5, Iterate=1, n=N)
+    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, OnlyPrimePeriods=1, PeriodLengthMinimumRatio=0.5, Iterate=1, n=N, MaxAndCount=MaxAndCount)
   elif Details == 3:
-    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, BeautifullOnly=1, OnlyPrimePeriods=1, PeriodLengthMinimumRatio=0.5, Iterate=1, n=N)
+    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, BeautifullOnly=1, OnlyPrimePeriods=1, PeriodLengthMinimumRatio=0.5, Iterate=1, n=N, MaxAndCount=MaxAndCount)
   Canonical = "Canonical"
   NlfsrObject = "Python Object"
   Equations = "Taps"
@@ -562,6 +565,10 @@ class MainMenu_static:
     title="How many results?",
     text="Enter the required count of results (0 = no limit):"
   )
+  _input_max_and_count = input_dialog(
+    title="Max AND count?",
+    text="Enter the required maximum count of AND gates (default: 0 = no limit):"
+  )
   _input_polynomial_minimum_distance = input_dialog(
     title="Minimum distance",
     text="What is the required minimum distance between successive coefficients?\nDefault : 1"
@@ -669,7 +676,6 @@ class MainMenu_static:
       except:
         return 1
       
-
   def getSectionSize() -> int:
     while 1:
       Result = MainMenu_static._input_section_size.run()
@@ -683,16 +689,16 @@ class MainMenu_static:
       except:
         return 4
 
-  def getRegisterSize() -> int:
+  def getMaxAndCount() -> int:
     while 1:
-      Result = MainMenu_static._input_register_size.run()
+      Result = MainMenu_static._input_max_and_count.run()
       if Result is None:
         return None
       try:
         R = int(ast.literal_eval(Result))
         return R
       except:
-        continue
+        return 0
     
   def getMinDistance() -> int:
     while 1:
