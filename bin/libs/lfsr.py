@@ -1147,24 +1147,25 @@ class Lfsr:
   def _buildFastSimArray(self):
     oldVal = self._baValue
     size = self._size
-    self._ba_fast_sim_array = create2DArray(size, size, None)
+    FSA = create2DArray(size, size, None)
     value0 = bitarray(size)
     value0.setall(0)
     value0[0] = 1
     for i in range(size):
       self._baValue = value0.copy()
       self.next()
-      self._ba_fast_sim_array[0][i] = self._baValue.copy()
+      FSA[0][i] = self._baValue.copy()
       value0 >>= 1 
     zeros = bitarray(size)
     zeros.setall(0)
     for r in range(1,size):
-      rowm1 = self._ba_fast_sim_array[r-1]
+      rowm1 = FSA[r-1]
       for c in range(size):
         res = zeros.copy()
         for index in rowm1[c].search(1):
           res ^= rowm1[index]
-        self._ba_fast_sim_array[r][c] = res
+        FSA[r][c] = res
+    self._ba_fast_sim_array = FSA
     self._baValue = oldVal
   def reverseTap(self, TapIndex : int) -> bool:
     if 0 <= TapIndex < len(self._taps):

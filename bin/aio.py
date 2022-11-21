@@ -73,6 +73,8 @@ from libs.utils_str import *
 from libs.verilog import *
 from tqdm import *
 from simple_term_menu import *
+import bitarray.util
+from bitarray import *
 import pathos
 import pandas
 from sympy import *
