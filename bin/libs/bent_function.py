@@ -39,20 +39,23 @@ class BentFunction:
       return
     Len = (1 << InputCount)
     Zeros = bau.zeros(Len)
-    List = [bitarray(Len) for _ in range(InputCount)]
+    Ones = bitarray(Len)
+    Ones.setall(1)
+    List0 = [bitarray(Len) for _ in range(InputCount)]
     for Counter in range(Len):
       Bindex = 0
       for Bit in Int.iterateFromLsb(Counter, InputCount):
-        List[Bindex][Counter] = Bit
+        List0[Bindex][Counter] = Bit
         Bindex += 1
-    for Counter in range(2,Len):
+    List = []
+    List.append(Zeros)
+    List.append(Ones)
+    for Counter in range(1,Len):
       BACounter = bau.int2ba(Counter, InputCount)
-      if BACounter.count(1) < 2:
-        continue
       Indexes = BACounter.search(1)
       Res = Zeros.copy()
       for Index in Indexes:
-        Res ^= List[Index]
+        Res ^= List0[Index]
       List.append(Res)
       Res2 = Res.copy()
       Res2.invert()
@@ -80,43 +83,24 @@ class BentFunction:
       return Results
     else:
       MinDistance = (1 << (InputCount-1)) - (1 << ((InputCount>>1) - 1))
-      MaxDistance = Len
       Results = []
-      Half = Len>>1
-      LowestDistance = None
       for Counter in range(1, Stop):
-        #Counter = Int.toGray(CounterI)
         Candidate = bau.int2ba(Counter, Len)
-        if Candidate.count(1) > Half:
+        if Candidate in List:
           continue
         if Candidate in List:
           continue
-        #print("CANDIDATE =", Candidate)
-        LowestDistance = MaxDistance
-        if Candidate in List:
-          continue
+        Add = 1
         for K in List:
           Distance = bau.count_xor(Candidate, K)
-          #print("        K =", K, Distance)
-          if Distance < LowestDistance:
-            LowestDistance = Distance
-            if Distance < MinDistance:
-              break
-        if LowestDistance >= MinDistance:
-          SubResults = []
+          if Distance < MinDistance:
+            Add = 0
+            break
+        if Add:
           InvCandidate = Candidate.copy()
           InvCandidate.invert()
-          RevCandidate = Candidate.copy()
-          RevCandidate.reverse()
-          RevInvCandidate = RevCandidate.copy()
-          RevInvCandidate.invert()
-          SubResults.append(Candidate)
-          SubResults.append(InvCandidate)
-          if RevCandidate not in SubResults:
-            SubResults.append(RevCandidate)
-          if RevInvCandidate not in SubResults:
-            SubResults.append(RevInvCandidate)
-          Results += SubResults
+          Results.append(Candidate)
+          Results.append(InvCandidate)
         if len(Results) >= n > 0:
           break
       return Results
@@ -127,42 +111,24 @@ def _bent_searcher_helper(rng, Listx, Len, InputCount, N) -> list:
     return []
   List = Listx
   MinDistance = (1 << (InputCount-1)) - (1 << ((InputCount>>1) - 1))
-  MaxDistance = Len
   Results = []
-  LowestDistance = None
   Found = 0
-  Half = Len>>1
   for Counter in rng:
-    #Counter = Int.toGray(CounterI)
     Candidate = bau.int2ba(Counter, Len)
-    if Candidate.count(1) > Half:
-      continue
     if Candidate in List:
       continue
-    LowestDistance = MaxDistance
+    Add = 1
     for K in List:
       Distance = bau.count_xor(Candidate, K)
-      #print("        K =", K, Distance)
-      if Distance < LowestDistance:
-        LowestDistance = Distance
-        if Distance < MinDistance:
-          break
-    if LowestDistance >= MinDistance:
-      SubResults = []
+      if Distance < MinDistance:
+        Add = 0
+        break
+    if Add:
       InvCandidate = Candidate.copy()
       InvCandidate.invert()
-      RevCandidate = Candidate.copy()
-      RevCandidate.reverse()
-      RevInvCandidate = RevCandidate.copy()
-      RevInvCandidate.invert()
-      SubResults.append(Candidate)
-      SubResults.append(InvCandidate)
-      if RevCandidate not in SubResults:
-        SubResults.append(RevCandidate)
-      if RevInvCandidate not in SubResults:
-        SubResults.append(RevInvCandidate)
-      Results += SubResults
-      Found += len(SubResults)
+      Results.append(Candidate)
+      Results.append(InvCandidate)
+      Found += 2
     if _BF_STATE.value + Found > N > 0:
       with _BF_STATE.get_lock():
         _BF_STATE.value += Found
