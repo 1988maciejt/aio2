@@ -527,6 +527,7 @@ class Nlfsr(Lfsr):
       for i in range(len(InputSet)):
         InputSet[i]._exename = exename
       Generator = Generators()
+      WasResult = 0
       Total = len(InputSet) // Chunk + (1 if len(InputSet) % Chunk > 0 else 0)
       Iter = p_uimap(_nlfsr_find_spec_period_helper, Generator.subLists(InputSet, Chunk), total=Total, desc=f'Simulating NLFSRs (x{Chunk})')
       for I in Iter:
@@ -538,9 +539,12 @@ class Nlfsr(Lfsr):
           if OnlyPrimePeriods and (not Int.isPrime(p)):
             continue
           Results.append(nlrg)
+          WasResult = 1        
+      if Filter and WasResult:
+        return Nlfsr.filter(Results)
       del Generator
-    if Filter and len(Results) > 0:
-      return Nlfsr.filter(Results)
+      if len(Results) >= n > 0:
+        break
     return Results
   
   def filterEquivalent(NlfsrList : list) -> list:
