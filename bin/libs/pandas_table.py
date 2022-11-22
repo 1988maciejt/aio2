@@ -41,6 +41,8 @@ class PandasTable:
       Index += 1
     self._autoFill()
   def toString(self):
+    if self._len < 1:
+      return "<no data>"
     df = pandas.DataFrame.from_dict(self._main_dict)
     return df.to_string(index=0)
   def print(self):

@@ -383,12 +383,17 @@ class Nlfsr(Lfsr):
       for AIn in AOptions:
         if D == 0:
           D = Size
-        for DS in range(1, -2 if InvertersAllowed else 0, -2):
-          ProposedTaps.append([DS * D, [S, AIn]])
-          if InvertersAllowed:
-            ProposedTaps.append([DS * D, [-S, AIn]])
-            ProposedTaps.append([DS * D, [S, -AIn]])
-            ProposedTaps.append([DS * D, [-S, -AIn]])
+        ProposedTaps.append([D, [S, AIn]])
+        if InvertersAllowed:
+          ProposedTaps.append([-D, [S, AIn]])
+          ProposedTaps.append([D, [-S, AIn]])
+          ProposedTaps.append([D, [S, -AIn]])
+#        for DS in range(1, -2 if InvertersAllowed else 0, -2):
+#          ProposedTaps.append([DS * D, [S, AIn]])
+#          if InvertersAllowed:
+#            ProposedTaps.append([DS * D, [-S, AIn]])
+#            ProposedTaps.append([DS * D, [S, -AIn]])
+#            ProposedTaps.append([DS * D, [-S, -AIn]])
       AOptionsList.append(ProposedTaps)
     First = 1
     for Permutations in List.getPermutationsPfManyListsGenerator(AOptionsList, MaximumNonBaseElements=MaxAndCount, UseAsGenerator_Chunk=100000):
@@ -397,6 +402,13 @@ class Nlfsr(Lfsr):
         First = 0
       Results = []
       for P in Permutations:
+        cntr = 1
+        for T in P:
+          D = T[0]
+          if D < 0:
+            cntr -= 1 
+        if cntr < 0:
+          continue
         newR = Nlfsr(Size, P)
         Results.append(newR)
       if BeautifullOnly:
@@ -758,6 +770,24 @@ class Nlfsr(Lfsr):
 #        print(self._Config)
       if FirstFanout <= LastFanout:
         break
+      # Additional check:
+      Dests = []
+      for T in self._Config:
+        D = T[0]
+        Neg = (D < 0)
+        D = abs(D) % self._size
+        if Neg and (D in Dests):
+          return False
+        S = T[1]
+        if not Aio.isType(S, []):
+          S = [S]
+        Add = 1
+        for Si in S:
+          if Si < 0:
+            Add = 0
+            break
+        if Add:
+          Dests.append(D)
     return ((self.getFanout('max') <= FanoutMax) and self.isCrossingFree()) 
         
         
