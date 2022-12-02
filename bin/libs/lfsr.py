@@ -696,7 +696,6 @@ Polynomial ("size,HexNumber", balancing=0)
       return None
     if p.getBalancing() > p._balancing > 0:
       while p.getBalancing() > p._balancing:
-        print("HERE", p)
         if not p._makeNext():
           return None
     return p
