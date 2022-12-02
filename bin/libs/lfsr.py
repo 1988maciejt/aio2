@@ -649,7 +649,7 @@ Polynomial ("size,HexNumber", balancing=0)
         bmin = MinimumDistance
       if bmin < 2 and LayoutFriendly:
         bmin = 2
-      bmax = bmin + balancing + 2
+      bmax = bmin + balancing
       if bmax > degree-1:
         bmax = degree-1
       result = [0]
@@ -658,8 +658,8 @@ Polynomial ("size,HexNumber", balancing=0)
       restcoeffs = coeffs_count-2
       diff = bmin
       diffmax = bmax
+      diffmin = diff
       for i in range(2, coeffs_count):
-        diffmin = diff
         while (diffmin + ((restcoeffs-1) * diffmax)) < (rest-diff):
           diffmin += 1
         coeff = actual
@@ -692,15 +692,12 @@ Polynomial ("size,HexNumber", balancing=0)
     p._lf = LayoutFriendly
     p._mindist = MinimumDistance
 #    print(Aio.format(pos))
-    if p.getBalancing() > p._balancing > 0:
-      while p.getBalancing() > p._balancing:
-        if not p.makeNext():
-          return None
     if p.getMinimumDistance() < p._mindist > 0:
       return None
-    if p._lf:
-      while not p.isLayoutFriendly():
-        if not p.makeNext():
+    if p.getBalancing() > p._balancing > 0:
+      while p.getBalancing() > p._balancing:
+        print("HERE", p)
+        if not p._makeNext():
           return None
     return p
   def checkPrimitives(Candidates : list, n = 0, Silent = True) -> list:
@@ -743,12 +740,14 @@ Polynomial ("size,HexNumber", balancing=0)
       Minus = "-" if Minus == "" else ""
     Line = "[" + str(Coeffs[0]) + Line + "]"
     return Line
-  def printTigerPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0) -> list:
-    Polys = Polynomial.listTigerPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n)
+  def printTigerPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, NoResultsSkippingIteration = 0) -> list:
+    Polys = Polynomial.listTigerPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n, NoResultsSkippingIteration)
     for p in Polys:
       Aio.print(p.toTigerStr())
-  def listTigerPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0) -> list:
+  def listTigerPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, NoResultsSkippingIteration = 0) -> list:
     Poly0 = Polynomial.createPolynomial(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance)
+    if Poly0 is None:
+      return []
     SerialChunkSize = 20
     if degree >= 512:
       SerialChunkSize = 1
@@ -762,21 +761,31 @@ Polynomial ("size,HexNumber", balancing=0)
     ParallelChunk = aux * SerialChunkSize
     lfsrs = []
     Results = []
+    SkippingCounter = NoResultsSkippingIteration
     for p in Poly0:
       lfsrs.append(Lfsr(p, TIGER_RING))
+      Aux = []
       if len(lfsrs) >= ParallelChunk:
-        Results += Lfsr.checkMaximum(lfsrs, n-len(Results), SerialChunkSize)
+        Aux = Lfsr.checkMaximum(lfsrs, n-len(Results), SerialChunkSize)
+        Results += Aux
         print(f'Found so far: {len(Results)}')
         lfsrs = []
         if len(Results) >= n > 0:
           break
+        if NoResultsSkippingIteration > 0:
+          if len(Aux) > 0:
+            SkippingCounter = NoResultsSkippingIteration
+          else:
+            SkippingCounter -= 1
+          if SkippingCounter <= 0:
+            break
     if len(lfsrs) > 0 and (len(Results) < n or n <= 0):
       Results += Lfsr.checkMaximum(lfsrs, n-len(Results), SerialChunkSize)
     Polys = []
     for l in Results:
       Polys.append(Polynomial(l._my_poly.copy()))
     return Polys
-  def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], FilteringCallback = None) -> None:
+  def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], FilteringCallback = None, NoResultsSkippingIteration = 0) -> None:
     """Prints a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -790,9 +799,9 @@ Polynomial ("size,HexNumber", balancing=0)
         ExcludeList (list, optional): list of polynomials excluded from checking
         FilteringCallback (procedure, optional): if specified, then will be used to filter acceptable polynomials (must return bool value: True means acceptable).
     """
-    for p in Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n, Silent, MaxSetSize, ExcludeList, 0, FilteringCallback):
+    for p in Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n, Silent, MaxSetSize, ExcludeList, 0, FilteringCallback, NoResultsSkippingIteration):
       Aio.print(p.getCoefficients())
-  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None) -> list:
+  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None, NoResultsSkippingIteration = 0) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -820,6 +829,7 @@ Polynomial ("size,HexNumber", balancing=0)
     AllCandidates = []
     cntr = 0
     Polynomial._ctemp = False
+    SkippingCounter = NoResultsSkippingIteration
     for p in polys:
       if p in ExcludeList:
         continue
@@ -831,12 +841,20 @@ Polynomial ("size,HexNumber", balancing=0)
         AllCandidates.append(p.copy())
       cntr += 1
       if (cntr >= MaxSetSize):
-        result += Polynomial.checkPrimitives(candidates, n, Silent)
+        Aux = Polynomial.checkPrimitives(candidates, n, Silent)
+        result += Aux
         print("Found so far:", len(result))
         candidates.clear()
         cntr = 0
         if len(result) >= n > 0:
           break    
+        if NoResultsSkippingIteration > 0:
+          if len(Aux) > 0:
+            SkippingCounter = NoResultsSkippingIteration
+          else:
+            SkippingCounter -= 1
+          if SkippingCounter <= 0:
+            break
     if (cntr > 0):
       result += Polynomial.checkPrimitives(candidates, n, Silent)
       candidates.clear()

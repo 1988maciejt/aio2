@@ -6,17 +6,54 @@ from libs.files import *
 
 
 class VerilogSignalDirection(Enum):
-  INPUT = 1
-  OUTPUT = 2
-  INOUT = 3
-  INTERNAL = 4
+  INPUT     = 1
+  OUTPUT    = 2
+  INOUT     = 3
+  INTERNAL  = 4
   UNDEFINED = 255
-
   
+VERILOG_SIGNAL_DIRECTION_INPUT      = VerilogSignalDirection.INPUT
+VERILOG_SIGNAL_DIRECTION_OUTPUT     = VerilogSignalDirection.OUTPUT
+VERILOG_SIGNAL_DIRECTION_INOUT      = VerilogSignalDirection.INOUT
+VERILOG_SIGNAL_DIRECTION_INTERNAL   = VerilogSignalDirection.INTERNAL
+VERILOG_SIGNAL_DIRECTION_UNDEFINED  = VerilogSignalDirection.UNDEFINED
+
+
 class VerilogSignalType(Enum):
-  WIRE = 1
-  REG = 2
+  WIRE      = 1
+  REG       = 2
   UNDEFINED = 255
+  
+VERILOG_SIGNAL_TYPE_WIRE      = VerilogSignalType.WIRE
+VERILOG_SIGNAL_TYPE_REG       = VerilogSignalType.REG
+VERILOG_SIGNAL_TYPE_UNDEFINED = VerilogSignalType.UNDEFINED
+
+
+class VerilogConstraints:
+  __slots__ = ("_clist")
+  def __init__(self) -> None:
+    self._clist = []
+  def __str__(self) -> str:
+    return self.toString()
+  def __repr__(self) -> str:
+    return f'VerilogCInstraints({len(self._clist)})'
+  def __len__(self) -> int:
+    return len(self._clist)
+  def __iter__(self):
+    return self._clist.__iter__()
+  def __next__(self):
+    return self.__next__()
+  def add(self, LineString : str):
+    if LineString not in self._clist:
+      self._clist.append(LineString)
+  def getAll(self) -> list:
+    return self._clist
+  def toString(self) -> str:
+    Results = ""
+    for c in self._clist:
+      Results += c + "\n"
+    return Results
+  
 
 
 class VerilogParameter:
@@ -376,20 +413,23 @@ class VerilogModule:
   def __init__(self, Content : str) -> None:
     # Parse module name, parameters, nets
     self._content = Content
+    CContent = ""
+    for l in Content.split("\n"):
+      CContent += re.sub(r'^(.*)\(\*.*\*\)(.*)$', r'\1\2', l) + "\n"
     ios = ""
     params = ""
-    R = re.search("module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\;",Content,re.MULTILINE)
+    R = re.search("module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\;",CContent,re.MULTILINE)
     if R:
       self._name = R.group(1)
       ios = R.group(2)
     else:
-      R = re.search("module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\s*\#\s*\(([^)]*)\);",Content,re.MULTILINE)
+      R = re.search("module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\s*\#\s*\(([^)]*)\);",CContent,re.MULTILINE)
       if R:
         self._name = R.group(1)
         params = R.group(2)
         ios = R.group(3)
       else:
-        Aio.printError("The given string:\n\r"+Content+"\n\r is not a valid Verilog module")
+        Aio.printError("The given string:\n\r"+CContent+"\n\r is not a valid Verilog module")
         return
     ios_list = ios.split(",")
     params_list = params.split(",")
@@ -431,7 +471,7 @@ class VerilogModule:
       self._signals.add(Sig)
     # parse instances with params
     RegexInstanceWithParam = r'(\w+)\s+\#\s*\((.*?)\)\s+(\w+)\s*\((.*?)\);'
-    Strings = re.findall(RegexInstanceWithParam,Content,re.DOTALL)
+    Strings = re.findall(RegexInstanceWithParam,CContent,re.DOTALL)
     for S in Strings:
       Instance = VerilogInstance(S[2], S[0])
       ParamStrings = S[1].split("\n")
@@ -449,7 +489,7 @@ class VerilogModule:
       self._instances.addInstance(Instance)
     # parse instances without params
     RegexInstanceWithParam = r'^\s*(\w+)\s+(\w+)\s*\(([^#]*?)\);'
-    Strings = re.findall(RegexInstanceWithParam,Content,re.DOTALL+re.MULTILINE)
+    Strings = re.findall(RegexInstanceWithParam,CContent,re.DOTALL+re.MULTILINE)
     for S in Strings:
       Instance = VerilogInstance(S[1], S[0])
       ConStrings = S[2].split("\n")
@@ -513,8 +553,7 @@ class VerilogModule:
   
   
 class VerilogModules:
-  _modules = []
-  IndentationString = ""
+  __slots__ = ("_modules", "IndentationString")
   def __bool__(self) -> bool:
     if len(self._modules) > 0:
       return True
@@ -525,6 +564,9 @@ class VerilogModules:
     elif isinstance(item, (VerilogModule)):
       return (item in self._modules)
     return False
+  def __init__(self) -> None:
+    self._modules = []
+    self.IndentationString = ""
   def __len__(self) -> int:
     return len(self._modules)
   def __getitem__(self, key) -> VerilogModule:
@@ -585,11 +627,13 @@ class VerilogModules:
 class Verilog:
   pass    
 class Verilog:
-  Modules = VerilogModules()
-  IndentationString = ""
-  _top = ""
+  __slots__ = ("Modules", "IndentationString", "_top", "Constraints")
   def __init__(self, Content = "") -> None:
+    self.Modules = VerilogModules()
     self.Modules.addFromString(Content)
+    self.IndentationString = ""
+    self._top = ""
+    self.Constraints = VerilogConstraints()
   def __bool__(self) -> bool:
     return bool(self.Modules)
   def __contains__(self, item) -> bool:
@@ -612,8 +656,10 @@ class Verilog:
     return result
   def addContent(self, Content : str) -> None:
     self.Modules.addFromString(Content)
-  def read(self,FileName : str) -> None:
-    return 
+  def addConstraint(self, LineString : str) -> None:
+    self.Constraints.add(LineString)
+  def addContentFromFile(self, FileName : str) -> None:
+    self.addContent(readFile(FileName))
   def read(FileName : str) -> Verilog:
     V = Verilog()
     V.read(FileName)
@@ -637,8 +683,13 @@ class Verilog:
     return result
   def getContent(self) -> str:
     return self.Modules.getContent()
-  def writeToFile(self, FileName : str):
+  def writeToFile(self, FileName = "top.v"):
     writeFile(FileName, self.getContent())
+  def writeConstraintsToFile(self, FileName = "constraints.xdc"):
+    Text = ""
+    for C in self.Constraints:
+      Text += C + "\n"
+    writeFile(FileName, Text)
   def setTopModuleName(self, ModuleName : str) -> bool:
     if self.Modules.getModuleByName(ModuleName):
       self._top = ModuleName

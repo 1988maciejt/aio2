@@ -12,12 +12,12 @@ def preprocessTextToPythonCode(Text : str, *args, **kwargs) -> str:
   for Line in Lines:
     if len(Line) == 0:
       continue
-    if re.match(r'^`\s*end\s*\S*$', Line):
+    if re.match(r'^\s*`\s*end\s*\S*$', Line):
       if len(Spaces) > 0:
         Spaces = Spaces[0:-1]
       continue
-    if (len(Line) >= 2) and (Line[0] == "`" and Line[1] != '('):
-      Result += f'{Line[1::]}\n'
+    if (len(Line) >= 2) and re.match(r'^\s*`[^\(].*$', Line):
+      Result += f'{Spaces}{Line.replace("`", "").strip()}\n'
       if Line.strip().endswith(":"):
         Spaces += " "
     else:

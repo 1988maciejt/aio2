@@ -71,6 +71,7 @@ from libs.generators import *
 from libs.utils_serial import *
 from libs.utils_str import *
 from libs.verilog import *
+from libs.verilog_creator import *
 from tqdm import *
 from simple_term_menu import *
 import bitarray.util
