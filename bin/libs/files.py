@@ -6,7 +6,7 @@ import pathlib
 import random
 import shutil
 from tempfile import tempdir
-from simple_term_menu import TerminalMenu
+from prompt_toolkit.shortcuts import *
 
 FS = pathlib.Path(".")
 
@@ -138,16 +138,16 @@ def pickFile(Path = "", Title = "Choose a file:", Preview = False) -> str:
     Result = os.path.dirname(Result)
   while os.path.isdir(Result):
     Items = [".."] + os.listdir(Result)
-    if Preview:
-      PCommand = "batcat --color=never -p " + Result + "/{}"
-      Menu = TerminalMenu(Items, title=Title, preview_command=PCommand, preview_size=0.75)
-    else:
-      Menu = TerminalMenu(Items, title=Title)
-    Selected = Menu.show()
-    if Selected == 0:
+    Values = []
+    for I in Items:
+      Values.append((I, I))
+    Selected = radiolist_dialog(title="", text=Title, values=Values).run()
+    if Selected is None:
+      return None
+    elif Selected == "..":
       Result = os.path.dirname(Result)
     else:
-      Result += "/" + Items[Selected]
+      Result += "/" + Selected
   return Result
 
 def pickDirectory(Path = "", Title = "Choose a directory:", Preview = False) -> str:
@@ -157,15 +157,16 @@ def pickDirectory(Path = "", Title = "Choose a directory:", Preview = False) -> 
   Choosen = False
   while not Choosen:
     AllItems = os.listdir(Result)
-    Dirs = ["CHOOSE THIS", ".."]
+    Values = [(0, "CHOOSE THIS"), ("..", "..")]
     for Item in AllItems:
       if os.path.isdir(Result + "/" + Item):
-        Dirs.append(Item)
-      Menu = TerminalMenu(Dirs, title=Title + "\n[" + Result + "]")
-    Selected = Menu.show()
-    if Selected == 1:
+        Values.append((Item, Item))
+    Selected = radiolist_dialog(title=Title, text=f'[{Result}]', values=Values).run()
+    if Selected is None:
+      return None
+    elif Selected == "..":
       Result = os.path.dirname(Result)
     elif Selected == 0:
       return Result
     else:
-      Result += "/" + Dirs[Selected]
+      Result += "/" + Selected

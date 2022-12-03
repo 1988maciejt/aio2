@@ -1,0 +1,25 @@
+#! /bin/bash
+SCRIPTPATH=$( cd "$(dirname $0)" ; pwd )
+CURRENT_DIR=`pwd`
+
+cd $SCRIPTPATH
+cd ../../
+rm -rf aio2_linux
+mkdir aio2_linux
+
+cp -a aio2/bin aio2_linux/bin
+rm -rf aio2_linux/bin/__pycache__
+rm -rf aio2_linux/bin/libs/__pycache__
+python3 -m compileall -b ./aio2_linux/bin/libs
+rm -r aio2_linux/bin/libs/*.py
+
+mkdir aio2_linux/utils
+mkdir aio2_linux/utils/esp32_firmware
+mkdir aio2_linux/utils/esp8266_firmware
+cp -a aio2/utils/iverilog aio2_linux/utils/
+cp -a aio2/utils/jupyter_addons aio2_linux/utils/
+cp aio2/utils/python3.11_install aio2_linux/utils/
+cp aio2/utils/aio2_install aio2_linux/utils/
+
+
+

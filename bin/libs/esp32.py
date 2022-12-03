@@ -1,7 +1,7 @@
 from libs.files import *
 from libs.utils_serial import *
 from libs.aio import *
-from simple_term_menu import TerminalMenu
+from prompt_toolkit.shortcuts import *
 import subprocess
 
 class Esp32c3:
@@ -10,8 +10,8 @@ class Esp32c3:
   def __init__(self, Port = None) -> None:
     if Aio.isType(Port, None):
       SerialList = Serial.list()
-      PortMenu = TerminalMenu(SerialList, title="Select serial port")
-      Port = SerialList[PortMenu.show()]
+      Values = [(I, I) for I in SerialList]
+      Port = radiolist_dialog(title="ESP32", text="Select serial port:", values=Values)
     self.Port = Port
   def eraseFlash(self):
     subprocess.call(["esptool.py", "--chip", "esp32", "--port", self.Port, "erase_flash"])

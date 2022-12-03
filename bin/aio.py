@@ -53,7 +53,6 @@ from libs.logic import *
 from libs.multi_process import *
 from libs.nlfsr import *
 from libs.nist import *
-from pyeda.inter import *
 from libs.phaseshifter import *
 from libs.pandas_table import *
 from libs.polynomial import *
@@ -73,7 +72,6 @@ from libs.utils_str import *
 from libs.verilog import *
 from libs.verilog_creator import *
 from tqdm import *
-from simple_term_menu import *
 import bitarray.util
 from bitarray import *
 import pathos

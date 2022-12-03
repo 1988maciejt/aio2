@@ -39,7 +39,10 @@ def _categoryPolynomial_print():
   N = MainMenu_static.getN()
   if N is None:
     return
-  Result = Polynomial.listPrimitives(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist, n=N)
+  NS = MainMenu_static.getNoSuccess()
+  if NS is None:
+    return
+  Result = Polynomial.listPrimitives(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist, n=N, NoResultsSkippingIteration=NS)
   String = "Found polynomials:\n\n"
   Aio.print(f'Found primitives({Degree}, {CoeffsCount}, Balancing={Balancing}, MinimumDoistance={MinDist}):')
   for R in Result:
@@ -63,7 +66,10 @@ def _categoryPolynomial_printTiger():
   N = MainMenu_static.getN()
   if N is None:
     return
-  Result = Polynomial.listTigerPrimitives(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist, n=N)
+  NS = MainMenu_static.getNoSuccess()
+  if NS is None:
+    return
+  Result = Polynomial.listTigerPrimitives(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist, n=N, NoResultsSkippingIteration=NS)
   String = "Found tiger polynomials:\n\n"
   Aio.print(f'Found primitives({Degree}, {CoeffsCount}, Balancing={Balancing}, MinimumDoistance={MinDist}):')
   for R in Result:
@@ -593,6 +599,10 @@ class MainMenu_static:
     title="AND gates",
     text="Allowed left/right shift for the second AND input (default:1):"
   )
+  _input_no_success = input_dialog(
+    title="Break if no result??",
+    text="Enter number of iterations after which it breaks if no result (default: 0 = no limit):"
+  )
   _input_taps = input_dialog(
     title="Taps list",
     text="""Enter taps. Example string:
@@ -610,6 +620,18 @@ class MainMenu_static:
     """
   )
   
+  def getNoSuccess() -> list:
+    while 1:
+      Result = MainMenu_static._input_no_success.run()
+      if Result is None:
+        return None
+      try:
+        R = int(ast.literal_eval(f'{Result}'))
+        if R >= 0:
+          return R
+      except:
+        return 0
+      
   def getBentInputs() -> list:
     while 1:
       Result = MainMenu_static._input_bent_inputs.run()

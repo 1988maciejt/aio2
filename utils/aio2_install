@@ -29,7 +29,6 @@ pip3 install multiprocess
 pip3 install sympy
 pip3 install matplotlib
 pip3 install latex
-pip3 install simple_term_menu 
 pip3 install pydbus
 pip3 install bitarray
 pip3 install pyeda

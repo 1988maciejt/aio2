@@ -1,7 +1,7 @@
 from libs.files import *
 from libs.utils_serial import *
 from libs.aio import *
-from simple_term_menu import TerminalMenu
+from prompt_toolkit.shortcuts import *
 import subprocess
 import re
 
@@ -14,8 +14,8 @@ class Esp8266:
   def __init__(self, Port = None) -> None:
     if Aio.isType(Port, None):
       SerialList = Serial.list()
-      PortMenu = TerminalMenu(SerialList, title="Select serial port")
-      Port = SerialList[PortMenu.show()]
+      Values = [(I, I) for I in SerialList]
+      Port = radiolist_dialog(title="ESP8266", text="Select serial port:", values=Values)
     self.Port = Port
   def getChipId(self):
     return Aio.shellExecute(f'esptool.py --port {self.Port} chip_id')
