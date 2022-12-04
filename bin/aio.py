@@ -29,6 +29,7 @@ import tempfile
 import shelve
 import dbm
 from ansi2html import *
+from libs.aio_help import *
 from libs.asci_drawing import *
 from libs.bent_function import *
 from libs.binstr import *

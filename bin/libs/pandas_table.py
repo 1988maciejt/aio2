@@ -40,11 +40,11 @@ class PandasTable:
         self._main_dict[k].append(Line)
       Index += 1
     self._autoFill()
-  def toString(self):
+  def toString(self, justify='right'):
     if self._len < 1:
       return "<no data>"
     df = pandas.DataFrame.from_dict(self._main_dict)
-    return df.to_string(index=0)
+    return df.to_string(index=0, justify=justify)
   def print(self):
     Aio.print(self.toString())
   def _addVSpace(self):
