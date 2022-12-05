@@ -1,5 +1,5 @@
 import pandas
-from aio import *
+from libs.aio import *
 
 class PandasTable:
   __slots__ = ("_vspaces", "_main_dict", "_auto_id", "_id_num", "_len")

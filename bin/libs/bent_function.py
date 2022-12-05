@@ -61,7 +61,7 @@ class BentFunction:
       Res2.invert()
       List.append(Res2)
     Stop = (1<<(Len-1))
-    if (InputCount >= 4) and not (15000 >= n > 0):
+    if (InputCount > 4) or ((n >= 15000) and (InputCount > 2)):
       global _BF_STATE
       _BF_STATE = None
       _BF_STATE = Value('i', 0)
@@ -86,8 +86,6 @@ class BentFunction:
       Results = []
       for Counter in range(1, Stop):
         Candidate = bau.int2ba(Counter, Len)
-        if Candidate in List:
-          continue
         if Candidate in List:
           continue
         Add = 1
