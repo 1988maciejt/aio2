@@ -224,8 +224,6 @@ class Aio:
     if StdErr:
       Result += stderr.decode('utf-8')
     return Result
-    stream = os.popen(ShellCommand)
-    return stream.read()
   def numToCompressedString(num : int) -> str:
     result = ""
     n = abs(num)

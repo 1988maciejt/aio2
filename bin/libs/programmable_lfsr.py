@@ -182,15 +182,15 @@ class ProgrammableRingGenerator:
       self._non_optimized_unused_taps = UnusedTaps
       self._non_optimized_done = 1
       gc.collect()
-  def getUnusedTaps(self, Optimization=True) -> list:
-    if Optimization:
+  def getUnusedTaps(self, optimization=True) -> list:
+    if optimization:
       self._optimized_calculations()
       return self._optimized_unused_taps
     else:
       self._non_optimized_calculations()
       return self._non_optimized_unused_taps
-  def getUsedTaps(self, Optimization=True) -> list:
-    if Optimization:
+  def getUsedTaps(self, optimization=True) -> list:
+    if optimization:
       self._optimized_calculations()
       return self._optimized_used_taps
     else:

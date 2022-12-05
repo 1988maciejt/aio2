@@ -271,7 +271,6 @@ Polynomial ("size,HexNumber", balancing=0)
       CCList = list(filter(lambda x: x&1==1, CCList))
     nMax = 1 << len(CList)
     nMin = 1
-    Result = []
     Step = 1
     if DontTouchBounds:
       Step = 2
@@ -599,8 +598,6 @@ Polynomial ("size,HexNumber", balancing=0)
         if not Silent:
           Aio.printTemp(str(" ")*100)
         return True
-  def copy(self):
-    return Polynomial(self)
   def isLayoutFriendly(self) -> bool:
     for i in range(len(self._coefficients_list)-1):
       this = self._coefficients_list[i]
@@ -1300,7 +1297,6 @@ class Lfsr:
     MaxResult = Int.mersenne(self._size) + 1
     self.reset()
     value0 = self._baValue.copy()
-    result = 1
     valuebefore = self._baValue.copy()
     valuex = self.next().copy()
     for i in range(MaxResult+1):
@@ -1432,7 +1428,7 @@ class Lfsr:
 #      perc = round(cnt * 100 / self._N, 1)
 #      Aio.printTemp("  Lfsr sim ", perc , "%             ")  
     return res
-  def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = None, Silent=False) -> int:
+  def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = None) -> int:
     if "list" in str(type(Sequence)):
       self._N = len(Sequence)
       self._IBit = InjectionAtBit
