@@ -12,12 +12,17 @@ class AioHelpArgument:
   
 class AioHelpCategory:
   __slots__ = ("Name", "Description", "Items", "Arguments", "Parent")
-  def __init__(self, Name : str, Description : str, Parent = None, Arguments = {}):
+  def __init__(self, Name : str, Description : str, Parent = None, Arguments = None):
     self.Name = Name
     self.Description = Description
     self.Items = []
-    self.Arguments = Arguments
+    if Arguments is None:
+      self.Arguments = {}
+    else:
+      self.Arguments = Arguments
     self.Parent = Parent
+  def sortKey(self):
+    return f'_{self.Name}'
   def showSearch(self, Text):
     Values = self.search(Text)
     if len(Values) < 1:
@@ -32,9 +37,9 @@ class AioHelpCategory:
   def search(self, Text, ParentNames = ""):
     PNames = ""
     if len(self.Name) > 0:
-      PNames = f'{self.Name}.'
+      PNames = f'{self.Name} >> '
     if len(ParentNames) > 0:
-      PNames = f'{ParentNames}.{PNames}'
+      PNames = f'{ParentNames} >> {PNames}'
     Results = []
     ltext = str(Text).lower()
     if ltext in self.Name.lower():
@@ -69,6 +74,7 @@ class AioHelpCategory:
           Result()
   def addItem(self, Item):
     self.Items.append(Item)
+    self.Items.sort(key=lambda x: x.sortKey())
     Item.Parent = self
   def addArgument(self, Arg : AioHelpArgument):
     self.Arguments[Arg.Name] = Arg
@@ -90,6 +96,8 @@ class AioHelpProc:
     self.Parent = Parent
   def show(self):
     message_dialog(title=self.Name, text=self.getFullString()).run()
+  def sortKey(self):
+    return f'proc_{self.Name}'
   def addArgument(self, ArgName : str):
     self.Arguments.append(ArgName)
   def getRadioListItem(self, ParentNames=""):
@@ -125,30 +133,36 @@ class AioHelpProc:
                 Aux += f'{T}'
               First = 0
             Type = Aux
-      Usage = ""
-      First = 1
-      for A in ArgList:
-        if First:
-          Usage += f'{A}'
-          First = 0
-        else:
-          Usage += f', {A}'
-      Usage = f'{self.Name} ({Usage})'
-      ArgTable.add([Name, Type, Default, Description])
-      Result = f'{Usage}\n\n{self.Description}\n\n{ArgTable.toString("left")}'
-      return Result
+        ArgTable.add([Name, Type, Default, Description])
+    Usage = ""
+    First = 1
+    for A in ArgList:
+      if First:
+        Usage += f'{A}'
+        First = 0
+      else:
+        Usage += f', {A}'
+    Usage = f'{self.Name} ({Usage})'
+    Args = ArgTable.toString("left") if len(ArgTable) > 0 else ""
+    Result = f'{Usage}\n\n{self.Description}\n\n{Args}'
+    return Result
           
 if 'AioHelpGlobal' not in locals():
   AioHelpGlobal = AioHelpCategory("", "Maciej Trawka's All-In-One v2")
   
-def addAioHelpCategory(Category : AioHelpCategory):
+  
+def aioHelpCatExists(Name):
   global AioHelpGlobal
   Exists = 0
   for I in AioHelpGlobal.Items:
-    if I.Name == Category.Name:
+    if I.Name == Name:
       Exists = 1
       break
-  if not Exists:
+  return Exists
+  
+def addAioHelpCategory(Category : AioHelpCategory):
+  global AioHelpGlobal
+  if not aioHelpCatExists(Category.Name):
     AioHelpGlobal.addItem(Category)
   
 def aiohelp(Pattern = ""):
@@ -159,3 +173,48 @@ def aiohelp(Pattern = ""):
     AioHelpGlobal.show()
   
     
+    
+    
+
+if not aioHelpCatExists("AIO"):
+  AioGroup = AioHelpCategory("AIO", "All-In-One v2 related classes and procs.")
+  AioCat = AioHelpCategory("class Aio", "Includes general All-In-One helper procs.")
+  AioCat.addArgument(AioHelpArgument("Object", "Any object"))
+  AioCat.addArgument(AioHelpArgument("object", "Any data", ["list","dict","any"]))
+  AioCat.addArgument(AioHelpArgument("ItsType", "Reference object or string containing type name", ["any", "string"]))
+  AioCat.addArgument(AioHelpArgument("indent", "How many indentation spaces to add", ["int"], 0))
+  AioCat.addArgument(AioHelpArgument("Repr", "If True, use 'repr' method instead of 'str'", ["bool"], False))
+  AioCat.addItem(AioHelpProc(
+    Name="Aio.isType",
+    Description="""Returns True, if an Object's type is equal to the referenced type.
+    
+    EXAMPLE:
+    Aio.isType([1,2,3], []) -> True
+    Aio.isType([1,2,3], "list") -> True
+    Aio.isType([1,2,3], 123) -> False""",
+    Arguments=["Object", "ItsType"]
+  ))
+  AioCat.addItem(AioHelpProc(
+    Name="Aio.format",
+    Description="""Returns a multiline string containing formatted data, especially list or dictionary.""",
+    Arguments=["object", "indent", "Repr"]
+  ))
+  AioCat.addItem(AioHelpProc(
+    Name="Aio.getTerminalColumns",
+    Description="""Returns count of terminal columns.""",
+    Arguments=[]
+  ))
+  AioCat.addItem(AioHelpProc(
+    Name="Aio.getTerminalRows",
+    Description="""Returns count of terminal rows.""",
+    Arguments=[]
+  ))
+  AioCat.addItem(AioHelpProc(
+    Name="Aio.getPath",
+    Description="""Returns absolute path to the AIO bin directory.""",
+    Arguments=[]
+  ))
+  
+  AioGroup.addItem(AioCat)
+  addAioHelpCategory(AioGroup)
+  
