@@ -578,21 +578,11 @@ Polynomial ("size,HexNumber", balancing=0)
     """
     if len(self._coefficients_list) % 2 == 0: 
       return False
-    if len(self._coefficients_list) == 3 and self.getDegree() % 8 == 0: 
+    Degree = self.getDegree()
+    if len(self._coefficients_list) == 3 and Degree % 8 == 0: 
       return False
-##    cached = PersistentCache.recall(self)
-#    cached = Cache.recall(self.toInt())
-#    if cached != None:
-#      return cached
-##    cached = PersistentCache.recall(self.getReversed())
-#    cached = Cache.recall(self.getReversed().toInt())
-#    if cached != None:
-#      return cached
     l = Lfsr(self.copy(), LfsrType.Galois)
     result = l.isMaximum()
-    del l
-##    PersistentCache.store(self, result)
-#    Cache.store(self.toInt(), result)
     return result
   def nextPrimitive(self, Silent=False) -> bool:
     """Looks for the next primitive polynomial.
