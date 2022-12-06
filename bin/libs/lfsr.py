@@ -103,6 +103,7 @@ class Polynomial:
   _CoeffsCount = []
   _DontTouchBounds = 1
   _OddOnly = 1
+  _IterationStartingPoint = None
   
   def _getAllPrimitivesHavingSpecifiedCoeffsHelper(self, FromTo : list):
     Polys = self._getAllHavingSpecifiedCoeffsHelper(FromTo)
@@ -148,6 +149,37 @@ class Polynomial:
     """
     return Polynomial(self)
   
+  def setStartingPointForIterator(self, StartingPolynomial = None) -> bool:
+    if StartingPolynomial is None:
+      self._IterationStartingPoint = None
+    else:
+      NewPoly = Polynomial(StartingPolynomial)
+      NewDegree = NewPoly.getDegree()
+      SelfDegree = self.getDegree()
+      if NewDegree != SelfDegree:
+        Aio.printError(f"The starting polynomial '{StartingPolynomial}' has degree = '{NewDegree}', while it should be '{SelfDegree}'.")
+        return False
+      NewCoeffsCount = NewPoly.getCoefficientsCount()
+      SelfCoeffsCount = self.getCoefficientsCount()
+      if NewCoeffsCount != SelfCoeffsCount:
+        Aio.printError(f"The starting polynomial '{StartingPolynomial}' has '{NewCoeffsCount}' coefficients, while it should have '{SelfCoeffsCount}'.")
+        return False
+      NewBalancing = NewPoly.getBalancing()
+      if NewBalancing > self._balancing > 0:
+        Aio.printError(f"The starting polynomial '{StartingPolynomial}' has balancing '{NewBalancing}' which is greater than allowed '{self._balancing}'.")
+        return False
+      NewMinDistance = NewPoly.getMinimumDistance()
+      if NewMinDistance > self._mindist > 0:
+        Aio.printError(f"The starting polynomial '{StartingPolynomial}' has minimum distance '{NewMinDistance}' which is greater than allowed '{self._mindist}'.")
+        return False
+      NewLF = NewPoly.isLayoutFriendly()
+      if self._lf and (not NewLF):
+        Aio.printError(f"The starting polynomial '{StartingPolynomial}' is not layout-friendly, while it should be.")
+        return False
+      self._IterationStartingPoint = NewPoly._coefficients_list
+    return True
+
+  
   def __init__(self, coefficients_list : list, balancing = 0):
     """ Polynomial (Polynomial, balancing=0)
 Polynomial (coefficients_list, balancing=0)
@@ -167,6 +199,7 @@ Polynomial ("size,HexNumber", balancing=0)
       self._lf = coefficients_list._lf
       self._notes = coefficients_list._notes
       self._mindist = coefficients_list._mindist
+      self._IterationStartingPoint = coefficients_list._IterationStartingPoint
     elif "int" in str(type(coefficients_list)):
       cntr = 0
       self._coefficients_list = []
@@ -178,6 +211,7 @@ Polynomial ("size,HexNumber", balancing=0)
       self._coefficients_list.sort(reverse=True)
       self._balancing = balancing
       self._bmax = self._coefficients_list[0] 
+      self._IterationStartingPoint = None
     elif "str" in str(type(coefficients_list)):
       lst = coefficients_list.split(",")
       num = lst[0]
@@ -196,6 +230,7 @@ Polynomial ("size,HexNumber", balancing=0)
       self._coefficients_list.sort(reverse=True)
       self._balancing = balancing   
       self._bmax = self._coefficients_list[0]   
+      self._IterationStartingPoint = None
     else:
       lst = []
       for c in coefficients_list:
@@ -204,12 +239,17 @@ Polynomial ("size,HexNumber", balancing=0)
       self._coefficients_list.sort(reverse=True)
       self._balancing = balancing
       self._bmax = self._coefficients_list[0]
+      self._IterationStartingPoint = None
+    
       
   def __hash__(self) -> int:
     return self.toInt()
       
   def __iter__(self):
-    self = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self._balancing, self._lf, self._mindist)
+    if self._IterationStartingPoint is None:
+      self._coefficients_list = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self._balancing, self._lf, self._mindist)._coefficients_list
+    else:
+      self._coefficients_list = self._IterationStartingPoint
     self._mnext = True
     self._first = True
     if self._balancing > 0:
@@ -229,11 +269,34 @@ Polynomial ("size,HexNumber", balancing=0)
         self._mnext = self.makeNext()
         if self._mnext:
           return self.copy()
+    if self._IterationStartingPoint is None:
+      self._coefficients_list = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self._balancing, self._lf, self._mindist)._coefficients_list
+    else:
+      self._coefficients_list = self._IterationStartingPoint
     raise StopIteration  
   
   def __str__(self) -> str:
     return str(self._coefficients_list)
   
+  def getDifferentTapCount(self, AnotherPolynomial) -> int:
+    Second = Polynomial(AnotherPolynomial)
+    MyTaps = self._coefficients_list[1:-1]
+    SecondTaps = Second._coefficients_list[1:-1]
+    Result = 0
+    for Tap in MyTaps:
+      if Tap not in SecondTaps:
+        Result += 1
+    return Result
+  
+  def getDifferentTaps(self, AnotherPolynomial) -> list:
+    Second = Polynomial(AnotherPolynomial)
+    MyTaps = self._coefficients_list[1:-1]
+    SecondTaps = Second._coefficients_list[1:-1]
+    Result = []
+    for Tap in MyTaps:
+      if Tap not in SecondTaps:
+        Result.append(Tap)
+    return Result
   
   def printAllPrimitivesHavingSpecifiedCoeffs(CoefficientList : list, CoeffsCount = 0, DontTouchBounds = 1, OddOnly = 1):
     """Prints all primitive polynomials having coefficients included in a given list.
@@ -607,6 +670,7 @@ Polynomial ("size,HexNumber", balancing=0)
     return True
 #  def createBasingOnCoeffsList(CoeffsList : list) -> Polynomial:
 #    pass 
+
   def createPolynomial(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0) -> Polynomial:
     """Returns a polynomial, usefull for LFSRs.
 
@@ -726,13 +790,15 @@ Polynomial ("size,HexNumber", balancing=0)
       Minus = "-" if Minus == "" else ""
     Line = "[" + str(Coeffs[0]) + Line + "]"
     return Line
-  def printTigerPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, NoResultsSkippingIteration = 0) -> list:
-    Polys = Polynomial.listTigerPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n, NoResultsSkippingIteration)
+  def printTigerPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0):
+    Polys = Polynomial.listTigerPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n, NoResultsSkippingIteration, StartingPolynomial, MinNotMatchingTapsCount)
     for p in Polys:
       Aio.print(p.toTigerStr())
-  def listTigerPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, NoResultsSkippingIteration = 0) -> list:
+  def listTigerPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0) -> list:
     Poly0 = Polynomial.createPolynomial(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance)
     if Poly0 is None:
+      return []
+    if not Poly0.setStartingPointForIterator(StartingPolynomial):
       return []
     SerialChunkSize = 20
     if degree >= 512:
@@ -746,32 +812,93 @@ Polynomial ("size,HexNumber", balancing=0)
       aux = 100
     ParallelChunk = aux * SerialChunkSize
     lfsrs = []
-    Results = []
     SkippingCounter = NoResultsSkippingIteration
-    for p in Poly0:
-      lfsrs.append(Lfsr(p, TIGER_RING))
-      Aux = []
-      if len(lfsrs) >= ParallelChunk:
-        Aux = Lfsr.checkMaximum(lfsrs, n-len(Results), SerialChunkSize)
-        Results += Aux
-        print(f'Found so far: {len(Results)}')
-        lfsrs = []
-        if len(Results) >= n > 0:
-          break
-        if NoResultsSkippingIteration > 0:
-          if len(Aux) > 0:
-            SkippingCounter = NoResultsSkippingIteration
-          else:
-            SkippingCounter -= 1
-          if SkippingCounter <= 0:
-            break
-    if len(lfsrs) > 0 and (len(Results) < n or n <= 0):
-      Results += Lfsr.checkMaximum(lfsrs, n-len(Results), SerialChunkSize)
     Polys = []
-    for l in Results:
-      Polys.append(Polynomial(l._my_poly.copy()))
+    SkipFirst = 0
+    SkipPolysCOunterMax = 1000000
+    SkipPolysCOunter = SkipPolysCOunterMax
+    SkipAll = 0
+    if MinNotMatchingTapsCount > 0:
+      ParallelChunk >>= 4
+      PRefList = Polynomial.listTigerPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, 1, NoResultsSkippingIteration, StartingPolynomial, 0)
+      if len(PRefList) > 0:
+        PRef = PRefList[0]
+        Polys.append(PRef)
+        Polynomial.setStartingPointForIterator(PRef)
+        SkipFirst = 1
+      else:
+        SkipAll = 1
+    if (n <= 0) or (len(Polys) < n > 0) and not SkipAll:
+      for p in Poly0:
+        WasFound = 0
+        if SkipFirst:
+          SkipFirst = 0
+          continue
+        if MinNotMatchingTapsCount > 0:
+          MinDiffTapsOk = 1
+          for R in Polys:
+            if p.getDifferentTapCount(R) < MinNotMatchingTapsCount:
+              MinDiffTapsOk = 0
+              break
+          if not MinDiffTapsOk:
+            SkipPolysCOunter -= 1
+            if SkipPolysCOunter <= 0:
+              break
+            continue
+          SkipPolysCOunter = SkipPolysCOunterMax
+        lfsrs.append(Lfsr(p, TIGER_RING))
+        if len(lfsrs) >= ParallelChunk:
+          AuxComb = Lfsr.checkMaximum(lfsrs, n-len(Polys), SerialChunkSize, 1)
+          Aux = AuxComb[0]
+          lfsrs = AuxComb[1]
+          if MinNotMatchingTapsCount > 0:
+            MinDiffTapsOk = 1
+            for l in Aux:
+              lpol = Polynomial(l._my_poly.copy())
+              for R in Polys:
+                if lpol.getDifferentTapCount(R) < MinNotMatchingTapsCount:
+                  MinDiffTapsOk = 0
+                  break
+              if MinDiffTapsOk:
+                Polys.append(lpol)
+                WasFound = 1
+          else:
+            if len(Aux) > 0:
+              WasFound = 1
+              for l in Aux:
+                Polys.append(Polynomial(l._my_poly.copy()))
+          print(f'Found so far: {len(Polys)}')
+          if len(Polys) >= n > 0:
+            break
+          if NoResultsSkippingIteration > 0:
+            if WasFound:
+              SkippingCounter = NoResultsSkippingIteration
+            else:
+              SkippingCounter -= 1
+            if SkippingCounter <= 0:
+              break
+    while len(lfsrs) > 0 and (len(Polys) < n or n <= 0) and not SkipAll:
+      if NoResultsSkippingIteration > 0 and SkippingCounter <= 0:
+        break
+      AuxComb = Lfsr.checkMaximum(lfsrs, n-len(Polys), SerialChunkSize, 1)
+      Aux = AuxComb[0]
+      lfsrs = AuxComb[1]
+      if MinNotMatchingTapsCount > 0:
+        MinDiffTapsOk = 1
+        for l in Aux:
+          lpol = Polynomial(l._my_poly.copy())
+          for R in Polys:
+            if lpol.getDifferentTapCount(R) < MinNotMatchingTapsCount:
+              MinDiffTapsOk = 0
+              break
+          if MinDiffTapsOk:
+            Polys.append(lpol)
+      else:
+        for l in Aux:
+          Polys.append(Polynomial(l._my_poly.copy()))      
+      print(f'Found so far: {len(Polys)}')
     return Polys
-  def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], FilteringCallback = None, NoResultsSkippingIteration = 0) -> None:
+  def printPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], FilteringCallback = None, NoResultsSkippingIteration = 0, StartingPolynomial = None) -> None:
     """Prints a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -785,9 +912,9 @@ Polynomial ("size,HexNumber", balancing=0)
         ExcludeList (list, optional): list of polynomials excluded from checking
         FilteringCallback (procedure, optional): if specified, then will be used to filter acceptable polynomials (must return bool value: True means acceptable).
     """
-    for p in Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n, Silent, MaxSetSize, ExcludeList, 0, FilteringCallback, NoResultsSkippingIteration):
+    for p in Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance, n, Silent, MaxSetSize, ExcludeList, 0, FilteringCallback, NoResultsSkippingIteration, StartingPolynomial):
       Aio.print(p.getCoefficients())
-  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None, NoResultsSkippingIteration = 0) -> list:
+  def listPrimitives(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, MinimumDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None, NoResultsSkippingIteration = 0, StartingPolynomial = None) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -809,6 +936,8 @@ Polynomial ("size,HexNumber", balancing=0)
     if type(polys) == type(None):
       if ReturnAlsoAllCandidaes:
         return [[], []]
+      return []
+    if not polys.setStartingPointForIterator(StartingPolynomial):
       return []
     result = []
     candidates = []
@@ -855,7 +984,7 @@ Polynomial ("size,HexNumber", balancing=0)
     if ReturnAlsoAllCandidaes:
       return [result, AllCandidates]
     return result
-  def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, Silent=True) -> Polynomial:
+  def firstPrimitive(degree : int, coeffs_count : int, balancing = 0, LayoutFriendly = False, Silent=True, StartingPolynomial = None) -> Polynomial:
     """Returns a first found primitive (over GF(2)) polynomial.
 
     Args:
@@ -866,7 +995,7 @@ Polynomial ("size,HexNumber", balancing=0)
     Returns:
         list: _description_
     """
-    lp = Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, 0, 1, Silent)
+    lp = Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, 0, 1, Silent, StartingPolynomial)
     if len(lp) > 0:
       return lp[0]
 #    p = Polynomial.createPolynomial(degree, coeffs_count, balancing)
@@ -884,21 +1013,21 @@ Polynomial ("size,HexNumber", balancing=0)
       if type(fp) != type(None):
         return fp
     return None
-  def firstEveryNTapsPrimitive(Degree : int, EveryN : int, Silent = True) -> Polynomial:
-    result = Polynomial.listEveryNTapsPrimitives(Degree, EveryN, 1, Silent)
+  def firstEveryNTapsPrimitive(Degree : int, EveryN : int, Silent = True, StartingPolynomial = None) -> Polynomial:
+    result = Polynomial.listEveryNTapsPrimitives(Degree, EveryN, 1, Silent, StartingPolynomial)
     if len(result) > 0:
       return result[0]
     return None
-  def printEveryNTapsPrimitives(Degree : int, EveryN : int, n = 0, Silent = True) -> None:
-    for p in Polynomial.listEveryNTapsPrimitives(Degree, EveryN, n, Silent):
+  def printEveryNTapsPrimitives(Degree : int, EveryN : int, n = 0, Silent = True, StartingPolynomial = None) -> None:
+    for p in Polynomial.listEveryNTapsPrimitives(Degree, EveryN, n, Silent, StartingPolynomial):
       Aio.print(p.getCoefficients())
-  def listEveryNTapsPrimitives(Degree : int, EveryN : int, n = 0, Silent = True) -> list:
+  def listEveryNTapsPrimitives(Degree : int, EveryN : int, n = 0, Silent = True, StartingPolynomial = None) -> list:
     ccount = int(round(Degree / EveryN, 0)) | 1
     if ccount < 3: ccount = 3
     results = []
     exclude = []
     for b in range(1, EveryN):
-      resultsAux = Polynomial.listPrimitives(Degree, ccount, b, True, 0, n, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
+      resultsAux = Polynomial.listPrimitives(Degree, ccount, b, True, 0, n, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True, StartingPolynomial=StartingPolynomial)
       exclude += resultsAux[1]
       for pol in resultsAux[0]:
         results.append(pol.copy())
@@ -909,15 +1038,15 @@ Polynomial ("size,HexNumber", balancing=0)
       if len(results) > n:
         results = results[0:n]
     return results
-  def firstDensePrimitive(Degree : int, Silent = True) -> Polynomial:
-    r = Polynomial.listDensePrimitives(Degree, 1, Silent)
+  def firstDensePrimitive(Degree : int, Silent = True, StartingPolynomial = None) -> Polynomial:
+    r = Polynomial.listDensePrimitives(Degree, 1, Silent, StartingPolynomial)
     if len(r) > 0:
       return r[0]
     return None
-  def printDensePrimitives(Degree, n=0, Silent = True) -> None:
-    for p in Polynomial.listDensePrimitives(Degree, n, Silent):
+  def printDensePrimitives(Degree, n=0, Silent = True, StartingPolynomial = None) -> None:
+    for p in Polynomial.listDensePrimitives(Degree, n, Silent, StartingPolynomial):
       Aio.print(p.getCoefficients())
-  def listDensePrimitives(Degree, n=0, Silent = True) -> list:
+  def listDensePrimitives(Degree, n=0, Silent = True, StartingPolynomial = None) -> list:
     Half = int(Degree / 2) | 1
     c = Half - 4
     result = []
@@ -928,7 +1057,7 @@ Polynomial ("size,HexNumber", balancing=0)
     minc = Half * 0.7
     while (c >= 3) & (c >= minc):
       print (f'Found so far: {len(result)}. Looking for {c} coefficients')
-      resultAux = Polynomial.listPrimitives(Degree, c, 2, True, 0, n2, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True)
+      resultAux = Polynomial.listPrimitives(Degree, c, 2, True, 0, n2, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True, StartingPolynomial=StartingPolynomial)
       result += resultAux[0]
       exclude += resultAux[1]
       if n > 0:
@@ -1148,6 +1277,16 @@ class Lfsr:
       result += str(self._size) + ", LfsrType.RingWithSpecifiedTaps, " + str(self._taps)
     result += ")"
     return result
+  def __eq__(self, other) -> bool:
+    if self._type != other._type:
+      return False
+    if self._bamask != other._bamask:
+      return False
+    if self._taps != other._taps:
+      return False
+    return True
+  def __ne__(self, other) -> bool:
+    return not (self == other)
   def _buildFastSimArray(self):
     oldVal = self._baValue
     size = self._size
@@ -1868,7 +2007,7 @@ endmodule'''
           break
     Lfsr._maxfound += len(Results)
     return Results
-  def checkMaximum(LfsrsList : list, n = 0, SerialChunkSize = 20) -> list:
+  def checkMaximum(LfsrsList : list, n = 0, SerialChunkSize = 20, ReturnAlsoNotTested = 0) -> list:
     Lfsr._maxfound = 0
     Lfsr._maxFoundN = n
     Candidates = List.splitIntoSublists(LfsrsList, SerialChunkSize)
@@ -1882,7 +2021,16 @@ endmodule'''
     del Generator
     if len(Results) > n > 0:
       Results = Results[:n]
-    return Results
+    if ReturnAlsoNotTested:
+      if len(Results) > 0:
+        Last = Results[-1]
+        Index = LfsrsList.index(Last) + 1
+        NotTested = LfsrsList[Index:]
+        return [ Results, NotTested ]
+      else:
+        return [ [], [] ]    
+    else:
+      return Results
     
 def _analyseSequences_helper(lfsr) -> MSequencesReport:
   return lfsr.analyseSequences()

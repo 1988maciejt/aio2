@@ -66,12 +66,15 @@ def _categoryPolynomial_printTiger():
   N = MainMenu_static.getN()
   if N is None:
     return
+  NotMatchingTapsCount = MainMenu_static.getNotMatchingTapsCount()
+  if NotMatchingTapsCount is None:
+    return
   NS = MainMenu_static.getNoSuccess()
   if NS is None:
     return
-  Result = Polynomial.listTigerPrimitives(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist, n=N, NoResultsSkippingIteration=NS)
+  Result = Polynomial.listTigerPrimitives(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist, n=N, NoResultsSkippingIteration=NS, MinNotMatchingTapsCount=NotMatchingTapsCount)
   String = "Found tiger polynomials:\n\n"
-  Aio.print(f'Found primitives({Degree}, {CoeffsCount}, Balancing={Balancing}, MinimumDoistance={MinDist}):')
+  Aio.print(f'Found tiger primitives({Degree}, {CoeffsCount}, Balancing={Balancing}, MinimumDoistance={MinDist}):')
   for R in Result:
     String += f'{R.toTigerStr()}\n'
     Aio.print(R.toTigerStr())
@@ -555,6 +558,10 @@ class MainMenu_static:
     title="Polynomial input",
     text="Enter a list of polynomial coefficients, i.e.\n[5,4,0]\nIt is also possible to enter an integer representing a polynomial, i.e.\n0b110001",
   )
+  _input_not_matching_taps_count = input_dialog(
+    title="Various taps",
+    text="What is the minimum required count of not matching (various) taps in results? Default is 0 (does not matter)",
+  )
   _input_polynomial_degree = input_dialog(
     title="Polynomial degree",
     text="Enter polynomial degree:"
@@ -667,6 +674,17 @@ class MainMenu_static:
         return R
       except:
         continue
+  
+  def getNotMatchingTapsCount() -> list:
+    while 1:
+      Result = MainMenu_static._input_not_matching_taps_count.run()
+      if Result is None:
+        return None
+      try:
+        R = int(ast.literal_eval(Result))
+        return R
+      except:
+        return 0
     
   def getBinSequence() -> str:
     Result = MainMenu_static._input_bin_sequence.run()

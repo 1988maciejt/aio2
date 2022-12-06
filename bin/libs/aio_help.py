@@ -331,7 +331,7 @@ Returns a list of bitarray objects (LUTs).""",
   PolynomialCat.addArgument(AioHelpArgument("self", "Polynomial object", ["Polynomial"]))
   PolynomialCat.addArgument(AioHelpArgument("coefficients_list", "List of all polynomial's coefficients", ["list","Polynomial","int","hex_string"]))
   PolynomialCat.addArgument(AioHelpArgument("CoefficientList", "List of all polynomial's coefficients", ["list"]))
-  PolynomialCat.addArgument(AioHelpArgument("balancing", "Difference between farthest and closed distance between decreasing, successive coefficients", ["int"], 0))
+  PolynomialCat.addArgument(AioHelpArgument("balancing", "Difference between farthest and closed distance between successive coefficients", ["int"], 0))
   PolynomialCat.addArgument(AioHelpArgument("CoeffsCount", "Specifies coefficients count of the candidate polynomials (0 = no limit)", ["int"], 0))
   PolynomialCat.addArgument(AioHelpArgument("DontTouchBounds", "If True, highest and lowest coefficients are not touched", ["bool"], True))
   PolynomialCat.addArgument(AioHelpArgument("OddOnly", "If True, lists only polys having odd coefficients count", ["bool"], True))
@@ -352,10 +352,23 @@ Returns a list of bitarray objects (LUTs).""",
   PolynomialCat.addArgument(AioHelpArgument("EveryN", "Average distance between successive taps", ["int"]))
   PolynomialCat.addArgument(AioHelpArgument("max_distance", "Maximum distance between successive taps", ["int"], 3))
   PolynomialCat.addArgument(AioHelpArgument("Sequence", "Sequence of bits (any generator/iterator) or Lfsr object", ["bitarray,Lfsr,str,any"]))
+  PolynomialCat.addArgument(AioHelpArgument("StartingPolynomial", "Starting Polynomial of coefficients list", ["Polynomial,list"], "None"))
+  PolynomialCat.addArgument(AioHelpArgument("AnotherPolynomial", "Polynomial of coefficients list", ["Polynomial,list"]))
+  PolynomialCat.addArgument(AioHelpArgument("MinNotMatchingTapsCount", "Min count of different taps", ["int"], 0))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.__init__",
     Description="""Polynomial object constructor.""",
     Arguments=["self", "coefficients_list", "balancing"]
+  ))
+  PolynomialCat.addItem(AioHelpProc(
+    Name="Polynomial.getDifferentTapCount",
+    Description="""Returns a numbers meaning: how many taps in this Polynomial is different from taps in another one.""",
+    Arguments=["self", "AnotherPolynomial"]
+  ))
+  PolynomialCat.addItem(AioHelpProc(
+    Name="Polynomial.getDifferentTaps",
+    Description="""Returns a list of taps which are NOT a part of another Polynomial.""",
+    Arguments=["self", "AnotherPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.copy",
@@ -492,27 +505,27 @@ Such polynomial may be used as generator, for example:
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.listTigerPrimitives",
     Description="""Returns a list of tiger primitives (polys defining a tiger ring).""",
-    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "NoResultsSkippingIteration"]
+    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "NoResultsSkippingIteration","StartingPolynomial","MinNotMatchingTapsCount"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.printTigerPrimitives",
     Description="""Prints tiger primitives (polys defining a tiger ring).""",
-    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "NoResultsSkippingIteration"]
+    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "NoResultsSkippingIteration","StartingPolynomial","MinNotMatchingTapsCount"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.listPrimitives",
     Description="""Returns a list of primitive polynomials.""",
-    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "Silent", "MaxSetSize", "ExcludeList", "FilteringCallback", "ReturnAlsoAllCandidaes", "NoResultsSkippingIteration"]
+    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "Silent", "MaxSetSize", "ExcludeList", "FilteringCallback", "ReturnAlsoAllCandidaes", "NoResultsSkippingIteration","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.printPrimitives",
     Description="""Prints primitive polynomials.""",
-    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "Silent", "MaxSetSize", "ExcludeList", "FilteringCallback", "NoResultsSkippingIteration"]
+    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "Silent", "MaxSetSize", "ExcludeList", "FilteringCallback", "NoResultsSkippingIteration","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.firstPrimitive",
     Description="""Returns first found primitive polynomial.""",
-    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "Silent"]
+    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.firstMostBalancedPrimitive",
@@ -522,32 +535,32 @@ Such polynomial may be used as generator, for example:
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.firstEveryNTapsPrimitive",
     Description="""Returns first found primitive polynomial having specified, average distance between successive coefficients.""",
-    Arguments=["degree", "EveryN", "Silent"]
+    Arguments=["degree", "EveryN", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.listEveryNTapsPrimitives",
     Description="""Returns list of primitive polynomials having specified, average distance between successive coefficients.""",
-    Arguments=["degree", "EveryN", "n", "Silent"]
+    Arguments=["degree", "EveryN", "n", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.printEveryNTapsPrimitives",
     Description="""Prints primitive polynomials having specified, average distance between successive coefficients.""",
-    Arguments=["degree", "EveryN", "n", "Silent"]
+    Arguments=["degree", "EveryN", "n", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.firstDensePrimitive",
     Description="""Returns first found dense primitive polynomial.""",
-    Arguments=["degree", "Silent"]
+    Arguments=["degree", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.listDensePrimitives",
     Description="""Returns list of dense primitive polynomials.""",
-    Arguments=["degree", "n", "Silent"]
+    Arguments=["degree", "n", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.printDensePrimitives",
     Description="""Prints dense primitive polynomials.""",
-    Arguments=["degree", "n", "Silent"]
+    Arguments=["degree", "n", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.firstTapsFromTheLeftPrimitive",
@@ -574,6 +587,14 @@ Available argument for this proc is also Lfsr object.""",
     Name="Polynomial.derivativeGF2",
     Description="""Returns new Polynomial being a GF(2) derivative of the given one.""",
     Arguments=["self"]
+  ))
+  PolynomialCat.addItem(AioHelpProc(
+    Name="Polynomial.setStartingPointForIterator",
+    Description="""Sets starting point for using the Polynomial object as an iterator.
+Returns True, if the new starting point is set correctly, returns False if verification of the new one failed.
+
+To reset the starting point set StartingPolynomial=None.""",
+    Arguments=["self","StartingPolynomial"]
   ))
   
   LfsrTypeCat = AioHelpCategory("enum LfsrType", """Type of a Lfsr.\n
@@ -613,6 +634,7 @@ Available argument for this proc is also Lfsr object.""",
   LfsrCat.addArgument(AioHelpArgument("index", "FF index", ["int"]))
   LfsrCat.addArgument(AioHelpArgument("LfsrsList", "List of Lfsr objects", ["list"]))
   LfsrCat.addArgument(AioHelpArgument("SerialChunkSize", "How many Lfsrs test in series during multiprocess", ["int"], 20))
+  LfsrCat.addArgument(AioHelpArgument("ReturnAlsoNotTested", "If True, returns a list of lists: [Maximum, NotTested]", ["bool"], False))
   LfsrCat.addItem(AioHelpProc(
     Name="Lfsr.__init__",
     Description="""Lfsr object constructor.
@@ -729,8 +751,11 @@ Returns a final value (bitarray object) or a list of values, if Sequence is a li
   ))
   LfsrCat.addItem(AioHelpProc(
     Name="Lfsr.checkMaximum",
-    Description="""Returns a list of filtered Lfsr object producing M-Sequence.""",
-    Arguments=["LfsrsList","n","SerialChunkSize"]
+    Description="""Returns a list of filtered Lfsr object producing M-Sequence.
+If 'n' is specified, it is also possible to get a list Lfsr skipped from testing (due to N achieved)
+by specifying argument 'ReturnAlsoNotTested=True'. In such case returned is a list of two lists:
+  [ <found_masimum_Lfsrs>, <not_tested_Lfsrs> ]""",
+    Arguments=["LfsrsList","n","SerialChunkSize","ReturnAlsoNotTested"]
   ))
   
   ProgrammableRingGeneratorCat = AioHelpCategory("class ProgrammableRingGenerator", "Class used to analyse programmable ring generators.")
