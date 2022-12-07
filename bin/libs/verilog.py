@@ -836,14 +836,19 @@ class VerilogTestbenchClock:
     return Result  
   
 class VerilogTestbench:
-  _my_verilog = Verilog
-  Name = "tb"
-  Clocks = []
+  __slots__ = ("_my_verilog", "Name", "Clocks", "_code", "_forces", "_catchers")
+  
   def __init__(self, Name = "tb", MyVerilog = Verilog()) -> None:
     self._my_verilog = MyVerilog
     self.Name = Name
+    self.Clocks = []
+    self._code = []
+    self._forces = []
+    self._catchers = []
+    
   def __repr__(self) -> str:
     return "VerilogTestbench(" + self.Name + ", " + self._my_verilog.getTopModuleName() + ")"
+  
   def __str__(self) -> str:
     result = "VERILOG_TESTBENCH {\n"
     result += f'  Name = {self.Name}' + "\n"
@@ -853,10 +858,13 @@ class VerilogTestbench:
     result += str(self._my_verilog) + "\n"
     result += "}"
     return result
+  
   def setVerilog(self, MyVerilog : Verilog) -> None:
     self._my_verilog = MyVerilog
+    
   def getVerilog(self) -> Verilog:
     return self._my_verilog
+  
   def getBody(self) -> str:
     Result = f'module {self.Name} (' + "\n"
     Result += ");\n\n"
@@ -866,9 +874,35 @@ class VerilogTestbench:
       Result += "\n" + Clock.getBody() + "\n"
     Result += "\nendmodule"
     return Result
+  
   def addClock(self, TBClock : VerilogTestbenchClock):
     self.Clocks.append(TBClock)
+    
   def createClock(self, Name : str, Frequency = 1000, DutyCycle = 0.5, EnableInput = False) -> VerilogTestbenchClock:
     Clock = VerilogTestbenchClock(Name, Frequency, DutyCycle, EnableInput)
     self.Clocks.append(Clock)
-    return Clock
+    return Clock  
+  
+  def addVerilogCode(self, VerilogCode : str):
+    self._code.append(VerilogCode)
+  
+  def addSignalCatcher(self, SignalName : str, CatchingTime : int):
+    self._catchers.append([str(SignalName), CatchingTime])
+#  verilog_initial_add tb [list \
+#    "#${catch_result_time};"    \
+#    "fp = \$fopen(\"results/signature\", \"w\");" \
+#    "\$fdisplayh(fp, signature);"    \
+#    "\$fclose(fp);"         \
+#    ] 
+  
+  def addForce(self, ForceLine : str):
+    self._forces.append(ForceLine)
+  
+  def getForces(self) -> list:
+    return self._forces
+  
+  def removeForce(self, ForceLine : str):
+    self._forces.remove(ForceLine)
+
+  def clearForces(self):
+    self._forces.clear()
