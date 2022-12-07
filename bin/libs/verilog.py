@@ -599,6 +599,33 @@ class VerilogModule:
     return self._instances.getInstanceNames(RegexPattern)
   def getContent(self) -> str:
     return self._content
+  def countAllSubModules(self) -> int:
+    Counter = 0
+    SubModules = []
+    for i in self._instances:
+      MName = i.ModuleName
+      if MName not in SubModules:
+        Counter += 1
+        SubModules.append(MName)
+    for mname in SubModules:
+      m = self.MyModules.getModuleByName(mname)
+      Counter ++ m.countAllSubModules()
+    return Counter
+  def getInstantiationInfo(self):
+    Result = {}
+    Result["name"] = self._name
+    Result["inputs"] = self.getSignalNames(Direction=VerilogSignalDirection.INPUT, OfModule=self._name, GroupBuses=1)
+    Result["outputs"] = self.getSignalNames(Direction=VerilogSignalDirection.OUTPUT, OfModule=self._name, GroupBuses=1)
+    Result["inouts"] = self.getSignalNames(Direction=VerilogSignalDirection.INOUT, OfModule=self._name, GroupBuses=1)
+    Buses = {}
+    for i in Result["inputs"] + Result["outputs"] + Result["inouts"]:
+      bus = self._signals.getSignalByName(i).getBus()
+      if bus[0]-bus[1] <= 0:
+        Buses[i] = ""
+      else:
+        Buses[i] = f"[{bus[0]}:{bus[1]}]"
+    Result["buses"] = Buses
+    return Result
   
   
 class VerilogModules:
@@ -683,7 +710,8 @@ class Verilog:
   __slots__ = ("Modules", "IndentationString", "Constraints")
   def __init__(self, Content = "") -> None:
     self.Modules = VerilogModules()
-    self.Modules.addFromString(Content)
+    if len(Content) > 10:
+      self.addContent(Content)
     self.IndentationString = ""
     self.Constraints = VerilogConstraints()
   def __bool__(self) -> bool:
@@ -708,6 +736,9 @@ class Verilog:
     return result
   def addContent(self, Content : str) -> None:
     self.Modules.addFromString(Content)
+    NewTop = self.getBestTopModuleName()
+    Aio.print(f"// Top module automatically changed to '{NewTop}'.")
+    self.setTopModuleName(NewTop)
   def addConstraint(self, LineString : str) -> None:
     self.Constraints.add(LineString)
   def addContentFromFile(self, FileName : str) -> None:
@@ -792,6 +823,49 @@ endmodule"""
     result = Aio.shellExecute(f'yosys {ysFileName}')
     Aio.print(result)
     
+  def getTopModule(self) -> VerilogModule:
+    return self.Modules.getModuleByName(self.Modules.TopModuleName)
+    
+  def getModulesDependencyDict(self) -> dict:
+    Parents = {}
+    Children = {}
+    AllChildrenCount = {}
+    TopCandidates = []
+    for m in self.Modules:
+      MName = m.getName()
+      ChildList = []
+      for i in m.getInstances():
+        ChildList.append(i.ModuleName)
+      Parents[MName] = []
+      Children[MName] = ChildList
+      AllChildrenCount[MName] = m.countAllSubModules()
+    for parent in Children.keys():
+      for child in Children[parent]:
+        Parents[child].append(parent)
+    for child in Parents.keys():
+      if len(Parents[child]) == 0:
+        TopCandidates.append(child)
+    return { "parents" : Parents,
+            "children" : Children,
+            "top_candidates" : TopCandidates,
+            "all_children_count" : AllChildrenCount}
+    
+  def getBestTopModuleName(self):
+    dd = self.getModulesDependencyDict()
+    tops = dd["top_candidates"]
+    ccounts = dd["all_children_count"]
+    besttop = ""
+    bestcc = 0
+    for top in tops:
+      if ccounts[top] > bestcc:
+        bestcc = ccounts[top]
+        besttop = top
+    return besttop
+    
+    
+    
+    
+    
     
   
   
@@ -835,10 +909,13 @@ class VerilogTestbenchClock:
     Result += "end"
     return Result  
   
+  
+  
+  
 class VerilogTestbench:
   __slots__ = ("_my_verilog", "Name", "Clocks", "_code", "_forces", "_catchers")
   
-  def __init__(self, Name = "tb", MyVerilog = Verilog()) -> None:
+  def __init__(self, MyVerilog = Verilog(), Name = "tb", ) -> None:
     self._my_verilog = MyVerilog
     self.Name = Name
     self.Clocks = []
@@ -850,14 +927,7 @@ class VerilogTestbench:
     return "VerilogTestbench(" + self.Name + ", " + self._my_verilog.getTopModuleName() + ")"
   
   def __str__(self) -> str:
-    result = "VERILOG_TESTBENCH {\n"
-    result += f'  Name = {self.Name}' + "\n"
-    for Clock in self.Clocks:
-      result += "  " + str(Clock) + "\n"
-    self._my_verilog.IndentationString = "  "
-    result += str(self._my_verilog) + "\n"
-    result += "}"
-    return result
+    return self.getBody()
   
   def setVerilog(self, MyVerilog : Verilog) -> None:
     self._my_verilog = MyVerilog
@@ -868,10 +938,48 @@ class VerilogTestbench:
   def getBody(self) -> str:
     Result = f'module {self.Name} (' + "\n"
     Result += ");\n\n"
+    VII = self._my_verilog.getTopModule().getInstantiationInfo()
+    AllInputs = []
+    AllOutputs = []
     for Clock in self.Clocks:
       Result += Clock.getSignalDeclaration() + "\n"
+      AllInputs.append(Clock.Name)
+    for i in VII["inputs"]:
+      if i not in AllInputs:
+        Result += f'reg{VII["buses"][i]} {i};\n'
+        AllInputs.append(i)
+    for i in VII["inouts"] + VII["outputs"]:
+      if i not in AllOutputs:
+        Result += f'wire{VII["buses"][i]} {i};\n'
+        AllOutputs.append(i)
+    Result += f'\n'
+    Result += f'{VII["name"]} {VII["name"]}_inst (\n'
+    AllList = VII["inputs"] + VII["inouts"] + VII["outputs"]
+    for i in range(len(AllList)):
+      sname = AllList[i]
+      if i == len(AllList)-1:
+        Result += f'  .{sname} ({sname})\n'
+      else:
+        Result += f'  .{sname} ({sname}),\n'
+    Result += f');\n'
     for Clock in self.Clocks:
       Result += "\n" + Clock.getBody() + "\n"
+    if len(self._forces) > 0:
+      Result += "\ninitial begin\n"
+      for f in self._forces:
+        Result += f'  {f}\n'
+      Result += "end\n"
+    if len(self._catchers) > 0:
+      for c in self._catchers:
+        Result += "\ninitial begin"
+        sig = c[0]
+        time = c[1]
+        Result += f"""  
+  #{time};
+  f{sig} = $fopen("{sig}.catch", "w");
+  $fdisplayh(f{sig}, {sig});
+  $fclose(f{sig});\n"""
+        Result += "end\n"
     Result += "\nendmodule"
     return Result
   
@@ -888,12 +996,6 @@ class VerilogTestbench:
   
   def addSignalCatcher(self, SignalName : str, CatchingTime : int):
     self._catchers.append([str(SignalName), CatchingTime])
-#  verilog_initial_add tb [list \
-#    "#${catch_result_time};"    \
-#    "fp = \$fopen(\"results/signature\", \"w\");" \
-#    "\$fdisplayh(fp, signature);"    \
-#    "\$fclose(fp);"         \
-#    ] 
   
   def addForce(self, ForceLine : str):
     self._forces.append(ForceLine)
@@ -906,3 +1008,19 @@ class VerilogTestbench:
 
   def clearForces(self):
     self._forces.clear()
+    
+  def writeFullVerilog(self, FileName = "verilog_testbench_full.v"):
+    writeFile(FileName, str(self) + "\n\n" + self._my_verilog.getContent())
+    
+  def simulate(self) -> dict:
+    FileName = "full_tb.v"
+    self.writeFullVerilog(FileName)
+    # perform simulation here
+    Result = {}
+    for c in self._catchers:
+      name = c[0]
+      try:
+        Result[name] = readFile(f"{name}.catch")
+      except:
+        Result[name] = None
+    return Result
