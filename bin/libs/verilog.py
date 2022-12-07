@@ -183,8 +183,10 @@ class VerilogSignal:
 
   
 class VerilogSignals:
-  _signals = []
-  IndentationString = ""
+  __slots__ = ("_signals", "IndentationString")
+  def __init__(self) -> None:
+    self._signals = []
+    self.IndentationString = ""
   def __bool__(self) -> bool:
     if len(self._signals) > 0:
       return True
@@ -212,7 +214,7 @@ class VerilogSignals:
       if signal.Name == Name:
         return signal
     return VerilogSignal("")
-  def getSignalNames(self, RegexPattern = "", Direction = VerilogSignalDirection.UNDEFINED, Type = VerilogSignalType.UNDEFINED) -> list:
+  def getSignalNames(self, RegexPattern = "", Direction = VerilogSignalDirection.UNDEFINED, Type = VerilogSignalType.UNDEFINED, GroupBuses = False) -> list:
     result = []
     for signal in self._signals:
       if Direction != VerilogSignalDirection.UNDEFINED:
@@ -224,7 +226,12 @@ class VerilogSignals:
       if len(RegexPattern) > 0:
         if not re.search(RegexPattern, signal.Name):
           continue
-      result.insert(0, signal.Name)
+      if not GroupBuses and signal.getBusWidth() > 1:
+        ToFrom = signal.getBus()
+        for i in range(ToFrom[1], ToFrom[0]+1):
+          result.insert(0, f"{signal.Name}[{i}]")
+      else:
+        result.insert(0, signal.Name)
     return result
   def add(self, Signal : VerilogSignal) -> None:
     S = self.getSignalByName(Signal.Name)
@@ -251,7 +258,7 @@ class VerilogInstanceConnection:
       return True
     return False
   def __str__(self) -> str:
-    return "." + self.IOName + " ( " + self.SignalName + ")"
+    return "." + self.IOName + " (" + self.SignalName + ")"
   def __repr__(self) -> str:
     return "VerilogInstanceConnection(" + self.IOName + ")"
   def fromString(self, String : str) -> bool:
@@ -314,14 +321,13 @@ class VerilogInstanceConnections:
 
 
 class VerilogInstance:
-  _params = VerilogParameters()
-  _conn = VerilogInstanceConnections()
-  ModuleName = ""
-  InstanceName = ""
-  IndentationString = ""
+  __slots__ = ("_params", "_conn", "ModuleName", "InstanceName", "IndentationString")
   def __init__(self, Instancename = "", Modulename = "") -> None:
     self.InstanceName = Instancename
     self.ModuleName = Modulename
+    self.IndentationString = ""
+    self._conn = VerilogInstanceConnections()
+    self._params = VerilogParameters()
   def __bool__(self) -> bool:
     if len(self.ModuleName) > 0 and len(self.InstanceName) > 0:
       return True
@@ -357,8 +363,10 @@ class VerilogInstance:
   
   
 class VerilogInstances:
-  _instances = []
-  IndentationString = ""
+  __slots__ = ("_instances", "IndentationString")
+  def __init__(self) -> None:
+    self._instances = []
+    self.IndentationString = ""
   def __bool__(self) -> bool:
     if len(self._instances) > 0:
       return True
@@ -404,13 +412,15 @@ class VerilogInstances:
 
 
 class VerilogModule:
-  _name = ""
-  _content : str
-  _signals = VerilogSignals()
-  _params = VerilogParameters()
-  _instances = VerilogInstances()
-  IndentationString = ""
-  def __init__(self, Content : str) -> None:
+  __slots__ = ("_name", "_content", "_signals", "_params", "_instances", "IndentationString", "MyModules")
+  def __init__(self, Content : str, MyModules = None) -> None:
+    self._name = ""
+    self._content : str
+    self._signals = VerilogSignals()
+    self._params = VerilogParameters()
+    self._instances = VerilogInstances()
+    self.IndentationString = ""
+    self.MyModules = MyModules
     # Parse module name, parameters, nets
     self._content = Content
     CContent = ""
@@ -418,16 +428,20 @@ class VerilogModule:
       CContent += re.sub(r'^(.*)\(\*.*\*\)(.*)$', r'\1\2', l) + "\n"
     ios = ""
     params = ""
-    R = re.search("module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\;",CContent,re.MULTILINE)
+    RegexModule = "module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\;"
+    RegexModuleWithParams = "module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\s*\#\s*\(([^)]*)\);"
+    R = re.search(RegexModule,CContent,re.MULTILINE)
     if R:
       self._name = R.group(1)
       ios = R.group(2)
+      CContent = re.sub(RegexModule,"",CContent,re.MULTILINE)
     else:
-      R = re.search("module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\s*\#\s*\(([^)]*)\);",CContent,re.MULTILINE)
+      R = re.search(RegexModuleWithParams,CContent,re.MULTILINE)
       if R:
         self._name = R.group(1)
         params = R.group(2)
         ios = R.group(3)
+        CContent = re.sub(RegexModuleWithParams,"",CContent,re.MULTILINE)
       else:
         Aio.printError("The given string:\n\r"+CContent+"\n\r is not a valid Verilog module")
         return
@@ -473,6 +487,8 @@ class VerilogModule:
     RegexInstanceWithParam = r'(\w+)\s+\#\s*\((.*?)\)\s+(\w+)\s*\((.*?)\);'
     Strings = re.findall(RegexInstanceWithParam,CContent,re.DOTALL)
     for S in Strings:
+      if S[0] == "module":
+        continue
       Instance = VerilogInstance(S[2], S[0])
       ParamStrings = S[1].split("\n")
       for String in ParamStrings:
@@ -488,9 +504,11 @@ class VerilogModule:
           Instance.addConnection(Conn)
       self._instances.addInstance(Instance)
     # parse instances without params
-    RegexInstanceWithParam = r'^\s*(\w+)\s+(\w+)\s*\(([^#]*?)\);'
-    Strings = re.findall(RegexInstanceWithParam,CContent,re.DOTALL+re.MULTILINE)
+    RegexInstanceWithoutParam = r'^\s*(\w+)\s+(\w+)\s*\(([^#]*?)\);'
+    Strings = re.findall(RegexInstanceWithoutParam,CContent,re.DOTALL+re.MULTILINE)
     for S in Strings:
+      if S[0] == "module":
+        continue
       Instance = VerilogInstance(S[1], S[0])
       ConStrings = S[2].split("\n")
       for String in ConStrings:
@@ -499,6 +517,29 @@ class VerilogModule:
         if Conn:
           Instance.addConnection(Conn)
       self._instances.addInstance(Instance)
+    # internal signals
+    RegexInternalSignal = f'(wire|reg)\s*((\[([0-9]+):([0-9]+)\])|())\s+([^=;]+)'
+    for Line in CContent.split("\n"):
+      Direction = VerilogSignalDirection.INTERNAL
+      R = re.search(RegexInternalSignal,Line)
+      if R:
+        _Type = R.group(1)
+        _From = R.group(4)
+        _To = R.group(5)
+        _Names = R.group(7).split(',')
+        Type = VerilogSignalType.WIRE
+        if "reg" in _Type:
+          Type = VerilogSignalType.REG
+        _bush = 0
+        _busl = 0
+        if _From is not None:
+          _bush = int(_From)
+        if _To is not None:
+          _busl = int(_To)
+        Bus = [_bush, _busl]
+        for Name in _Names:
+          Sig = VerilogSignal(Name.strip() ,Type, Direction, Bus)
+          self._signals.add(Sig)
   def __repr__(self) -> str:
     return "VerilogMosule('" + self._name + "')"
   def __str__(self) -> str:
@@ -520,7 +561,7 @@ class VerilogModule:
     return self._name
   def getSignals(self) -> VerilogSignals:
     return self._signals
-  def getSignalNames(self, RegexPattern = "", Direction = VerilogSignalDirection.UNDEFINED, Type = VerilogSignalType.UNDEFINED, OfInstance = "") -> list:
+  def getSignalNames(self, RegexPattern = "", Direction = VerilogSignalDirection.UNDEFINED, Type = VerilogSignalType.UNDEFINED, OfInstance = "", OfModule = "", GroupBuses = False) -> list:
     result = []
     instances = []
     if (Direction != VerilogSignalDirection.UNDEFINED or Type != VerilogSignalType.UNDEFINED) and len(OfInstance) > 0:
@@ -528,14 +569,19 @@ class VerilogModule:
       return []
     if len(OfInstance) > 0:
       instances = self._instances.getInstancesByName(OfInstance)
+      if len(OfModule) > 0 and re.match(OfModule, self._name):
+        result += self._signals.getSignalNames(RegexPattern,Direction,Type,GroupBuses)
     else:
       instances = self._instances.getInstancesByName(".*")
-    if len(OfInstance) == 0:
-      result = self._signals.getSignalNames(RegexPattern,Direction,Type)
-    for instance in instances:
-      aux = instance.getIONames(RegexPattern)
-      for io in aux:
-        result.append(instance.InstanceName + "." + io)
+      result += self._signals.getSignalNames(RegexPattern,Direction,Type,GroupBuses)
+    if self.MyModules is not None:
+      for instance in instances:
+        IName = instance.InstanceName
+        MName = instance.ModuleName
+        Module = self.MyModules.getModuleByName(MName)
+        Aux = Module.getSignalNames(RegexPattern, Direction, Type, OfInstance, MName)
+        for A in Aux:
+          result.append(IName + "." + A)
     result.sort()
     return result
   def getParameters(self) -> VerilogParameters:
@@ -553,7 +599,7 @@ class VerilogModule:
   
   
 class VerilogModules:
-  __slots__ = ("_modules", "IndentationString")
+  __slots__ = ("_modules", "IndentationString", "TopModuleName")
   def __bool__(self) -> bool:
     if len(self._modules) > 0:
       return True
@@ -567,6 +613,7 @@ class VerilogModules:
   def __init__(self) -> None:
     self._modules = []
     self.IndentationString = ""
+    self.TopModuleName = ""
   def __len__(self) -> int:
     return len(self._modules)
   def __getitem__(self, key) -> VerilogModule:
@@ -575,6 +622,7 @@ class VerilogModules:
     return "VerilogModules(" + str(len(self._modules)) + ")"
   def __str__(self) -> str:
     result = self.IndentationString + "VERILOG_MODULES {\n"
+    result += self.IndentationString + "top_module_name : " + self.TopModuleName + "\n"
     for m in self._modules:
       m.IndentationString = self.IndentationString + "  "
       result += str(m) + "\n"
@@ -593,10 +641,12 @@ class VerilogModules:
         if re.match(r'^\s*endmodule\s*', Line):
           InModule = False
           SModule += Line 
-          Module = VerilogModule(SModule)
+          Module = VerilogModule(SModule, self)
           self._modules.append(Module)
         else:
           SModule += Line + "\n"
+    if len(self.TopModuleName) < 1 and len(self._modules) > 0:
+      self.TopModuleName = self._modules[0].getName()
   def getModules(self) -> list:
     return self._modules
   def getModuleByName(self, Name : str) -> VerilogModule:
@@ -675,10 +725,13 @@ class Verilog:
     for m in self.Modules.getModulesByName(RegexPattern):
       result.append(m.getName())
     return result
-  def getSignalNames(self, RegexPattern = "", Direction = VerilogSignalDirection.UNDEFINED, Type = VerilogSignalType.UNDEFINED, OfInstance = "", OfModule = "") -> list:
+  def getSignalNames(self, RegexPattern = "", Direction = VerilogSignalDirection.UNDEFINED, Type = VerilogSignalType.UNDEFINED, OfInstance = "", OfModule = "", GroupBuses = False) -> list:
     result = []
-    for m in self.Modules.getModulesByName(OfModule):
-      for s in m.getSignalNames(RegexPattern,Direction,Type,OfInstance):
+    ModuleName = OfModule
+    if len(ModuleName) < 1 and len(OfInstance) < 1:
+      ModuleName = self.Modules.TopModuleName
+    for m in self.Modules.getModulesByName(ModuleName):
+      for s in m.getSignalNames(RegexPattern,Direction,Type,OfInstance,GroupBuses):
         result.append(m.getName() + "." + s)
     return result
   def getContent(self) -> str:
