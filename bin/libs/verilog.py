@@ -567,6 +567,9 @@ class VerilogModule:
     if (Direction != VerilogSignalDirection.UNDEFINED or Type != VerilogSignalType.UNDEFINED) and len(OfInstance) > 0:
       Aio.printError("Cannot determina Direction and/or Type of signal of an instance")
       return []
+    DiveIntoInstances = True
+    if OfModule == self._name:
+      DiveIntoInstances = False
     if len(OfInstance) > 0:
       instances = self._instances.getInstancesByName(OfInstance)
       if len(OfModule) > 0 and re.match(OfModule, self._name):
@@ -574,7 +577,7 @@ class VerilogModule:
     else:
       instances = self._instances.getInstancesByName(".*")
       result += self._signals.getSignalNames(RegexPattern,Direction,Type,GroupBuses)
-    if self.MyModules is not None:
+    if self.MyModules is not None and DiveIntoInstances:
       for instance in instances:
         IName = instance.InstanceName
         MName = instance.ModuleName
@@ -677,12 +680,11 @@ class VerilogModules:
 class Verilog:
   pass    
 class Verilog:
-  __slots__ = ("Modules", "IndentationString", "_top", "Constraints")
+  __slots__ = ("Modules", "IndentationString", "Constraints")
   def __init__(self, Content = "") -> None:
     self.Modules = VerilogModules()
     self.Modules.addFromString(Content)
     self.IndentationString = ""
-    self._top = ""
     self.Constraints = VerilogConstraints()
   def __bool__(self) -> bool:
     return bool(self.Modules)
@@ -725,13 +727,28 @@ class Verilog:
     for m in self.Modules.getModulesByName(RegexPattern):
       result.append(m.getName())
     return result
+  def GenerateSignalNames(self, RegexPattern = "", Direction = VerilogSignalDirection.UNDEFINED, Type = VerilogSignalType.UNDEFINED, OfInstance = "", OfModule = "", GroupBuses = False):
+    SNames = self.getSignalNames(RegexPattern, Direction, Type, OfInstance, OfModule, GroupBuses)
+    for SName in SNames:
+      yield SName
+  def GenerateForceStatementsForSingleStuckAt(self):
+    for SName in self.GenerateSignalNames():
+      for Value in ["1'b0", "1'b1"]:
+        yield f"force {SName} = {Value};"
+  def GenerateForceModulesForSingleStuckAt(self, ForceMduleName = "force"):
+    for Force in self.GenerateForceStatementsForSingleStuckAt():
+      yield f"""module {ForceMduleName} ();
+  initial begin
+    {Force}
+  end
+endmodule"""
   def getSignalNames(self, RegexPattern = "", Direction = VerilogSignalDirection.UNDEFINED, Type = VerilogSignalType.UNDEFINED, OfInstance = "", OfModule = "", GroupBuses = False) -> list:
     result = []
     ModuleName = OfModule
     if len(ModuleName) < 1 and len(OfInstance) < 1:
       ModuleName = self.Modules.TopModuleName
     for m in self.Modules.getModulesByName(ModuleName):
-      for s in m.getSignalNames(RegexPattern,Direction,Type,OfInstance,GroupBuses):
+      for s in m.getSignalNames(RegexPattern,Direction,Type,OfInstance,OfModule,GroupBuses):
         result.append(m.getName() + "." + s)
     return result
   def getContent(self) -> str:
@@ -745,14 +762,14 @@ class Verilog:
     writeFile(FileName, Text)
   def setTopModuleName(self, ModuleName : str) -> bool:
     if self.Modules.getModuleByName(ModuleName):
-      self._top = ModuleName
+      self.Modules.TopModuleName = ModuleName
       return True
     Aio.printError("'" + ModuleName + "' not found in modules.")
     return False
   def getTopModuleName(self) -> str:
-    return self._top
+    return self.Modules.TopModuleName
   def getTopModule(self) -> VerilogModule:
-    return self.Modules.getModuleByName(self._top)
+    return self.Modules.getModuleByName(self.Modules.TopModuleName)
   def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechlibFileName = None):
     tmpFileName = "/tmp/tmp.v"
     ysFileName = "synth.ys"
