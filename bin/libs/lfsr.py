@@ -995,7 +995,7 @@ Polynomial ("size,HexNumber", balancing=0)
     Returns:
         list: _description_
     """
-    lp = Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, 0, 1, Silent, StartingPolynomial)
+    lp = Polynomial.listPrimitives(degree, coeffs_count, balancing, LayoutFriendly, 0, 1, Silent, StartingPolynomial = StartingPolynomial)
     if len(lp) > 0:
       return lp[0]
 #    p = Polynomial.createPolynomial(degree, coeffs_count, balancing)
@@ -1735,7 +1735,7 @@ endmodule'''
             OutputNodesPrim[(tap[1]+1) % self._size].addDirection(AD_DIRECTION_UP+AD_DIRECTION_DOWN)           
       if not Shorten:
         empties = []
-      if LowerSize < lastIndex:
+      elif LowerSize < lastIndex:
         empties += [i  for i in range(LowerSize+1, lastIndex)]
       el = []
       for e in empties:
@@ -1831,11 +1831,12 @@ endmodule'''
     Aio.print(self.draw(JT, Shorten, Crop))
   def getJTIndex(self, index):
     if self._type == LfsrType.RingGenerator:
-      UpperSize = self._size // 2
+      One = self._size & 1
+      UpperSize = self._size >> 1
       LowerSize = self._size - UpperSize
       if index >= LowerSize:
-        return index - LowerSize
-      return index + LowerSize
+        return index - LowerSize 
+      return index + LowerSize - One
     return index
   def analyseSequencesBatch(ListOfObjects) -> list:
     #return process_map(_analyseSequences_helper, ListOfObjects, chunkside=2, desc="Sequences analysis")
