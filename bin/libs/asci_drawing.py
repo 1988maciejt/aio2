@@ -23,7 +23,7 @@ class AsciiDrawing_Characters:
   RIGHT_ARROW = '\U0001F86A'
   UP_ARROW = '\U0001F869'
   DOWN_ARROW = '\U0001F86B'
-  CIRVLED_PLUS = '\U00002A01'
+  CIRCLED_PLUS = '\U00002A01'
 
 class AsciiDrawing_Direction:
   Left = 8
@@ -68,7 +68,7 @@ class AsciiDrawing_WiringNode:
     d = self._Directions & 0xF
     special = self._Directions & 0xF0
     if special == AD_DIRECTION_SPECIAL_XOR:
-      return AsciiDrawing_Characters.CIRVLED_PLUS
+      return AsciiDrawing_Characters.CIRCLED_PLUS
     if d == 0b1001:
       return AsciiDrawing_Characters.HORIZONTAL
     if d == 0b1000:

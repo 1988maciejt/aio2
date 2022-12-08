@@ -6,6 +6,7 @@ from libs.files import *
 from tqdm import *
 from p_tqdm import *
 from random import uniform
+from libs.asci_drawing import *
 
 
 class VerilogSignalDirection(Enum):
@@ -629,10 +630,27 @@ class VerilogModule:
         Buses[i] = f"[{bus[0]}:{bus[1]}]"
     Result["buses"] = Buses
     return Result
-  
+  def getDependencyInfoString(self, Indentation = "") -> str:
+    MyVerilog = self.MyModules.MyVerilog
+    if not Aio.isType(MyVerilog, "Verilog"):
+      Aio.printError("No Verilog instance!")
+      return ""
+    Result = ""
+    for index in range(len(self._instances)):
+      last = (index == len(self._instances)-1)
+      myindent = f'{AsciiDrawing_Characters.VERTICAL_RIGTH}{AsciiDrawing_Characters.HORIZONTAL}'
+      if last:
+        myindent = f'{AsciiDrawing_Characters.LOWER_LEFT}{AsciiDrawing_Characters.HORIZONTAL}'
+      i = self._instances[index]
+      iname = i.InstanceName
+      imodule = MyVerilog.getModuleByName(i.ModuleName)
+      imodulename = imodule.getName()
+      Result += f'\n{Indentation}{myindent}{iname}  ({imodulename}) {imodule.getDependencyInfoString(Indentation + AsciiDrawing_Characters.VERTICAL + " ")}'
+    return Result
+      
   
 class VerilogModules:
-  __slots__ = ("_modules", "IndentationString", "TopModuleName")
+  __slots__ = ("_modules", "IndentationString", "TopModuleName", "MyVerilog")
   def __bool__(self) -> bool:
     if len(self._modules) > 0:
       return True
@@ -643,10 +661,11 @@ class VerilogModules:
     elif isinstance(item, (VerilogModule)):
       return (item in self._modules)
     return False
-  def __init__(self) -> None:
+  def __init__(self, MyVerilog) -> None:
     self._modules = []
     self.IndentationString = ""
     self.TopModuleName = ""
+    self.MyVerilog = MyVerilog
   def __len__(self) -> int:
     return len(self._modules)
   def __getitem__(self, key) -> VerilogModule:
@@ -712,7 +731,7 @@ class Verilog:
 class Verilog:
   __slots__ = ("Modules", "IndentationString", "Constraints")
   def __init__(self, Content = "") -> None:
-    self.Modules = VerilogModules()
+    self.Modules = VerilogModules(self)
     if len(Content) > 10:
       self.addContent(Content)
     self.IndentationString = ""
@@ -866,6 +885,19 @@ endmodule"""
         bestcc = ccounts[top]
         besttop = top
     return besttop
+  
+  def printDependencyTree(self, BaseModuleName = ""):
+    BaseModule = None
+    if BaseModuleName == "":
+      BaseModule = self.getTopModule()
+    else:
+      BaseModule = self.getModuleByName(BaseModuleName)
+    if BaseModule is None:
+      Aio.printError(f"Module '{BaseModuleName}' does not exists.")
+      return
+    Result = f'{BaseModule.getName()} {BaseModule.getDependencyInfoString()}'
+    Aio.print(Result)
+    
     
     
     
@@ -876,7 +908,7 @@ endmodule"""
   
 class VerilogTestbenchClock:
   __slots__ = ("Name", "Period", "DutyCycle", "EnableInput")
-  def __init__(self, Name : str, Period = 2, DutyCycle = 0.5, EnableInput = False) -> None:
+  def __init__(self, Name : str, Period = 1, DutyCycle = 0.5, EnableInput = False) -> None:
     self.Period = Period
     self.DutyCycle = DutyCycle
     self.Name = Name
@@ -1001,7 +1033,7 @@ class VerilogTestbench:
   def addClock(self, TBClock : VerilogTestbenchClock):
     self.Clocks.append(TBClock)
     
-  def createClock(self, Name : str, Period = 2, DutyCycle = 0.5, EnableInput = False) -> VerilogTestbenchClock:
+  def createClock(self, Name : str, Period = 1, DutyCycle = 0.5, EnableInput = False) -> VerilogTestbenchClock:
     Clock = VerilogTestbenchClock(Name, Period, DutyCycle, EnableInput)
     self.Clocks.append(Clock)
     return Clock  
