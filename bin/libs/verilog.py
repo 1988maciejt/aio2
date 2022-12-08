@@ -3,6 +3,9 @@ from libs.aio import *
 import re
 import copy
 from libs.files import *
+from tqdm import *
+from p_tqdm import *
+from random import uniform
 
 
 class VerilogSignalDirection(Enum):
@@ -758,6 +761,8 @@ class Verilog:
     for m in self.Modules.getModulesByName(RegexPattern):
       result.append(m.getName())
     return result
+  def getForceStatementsForSingleStuckAt(self) -> list:
+    return [i for i in self.GenerateForceStatementsForSingleStuckAt()]
   def GenerateSignalNames(self, RegexPattern = "", Direction = VerilogSignalDirection.UNDEFINED, Type = VerilogSignalType.UNDEFINED, OfInstance = "", OfModule = "", GroupBuses = False):
     SNames = self.getSignalNames(RegexPattern, Direction, Type, OfInstance, OfModule, GroupBuses)
     for SName in SNames:
@@ -870,12 +875,9 @@ endmodule"""
   
   
 class VerilogTestbenchClock:
-  Name = "clk"
-  Frequency = 1000
-  DutyCycle = 0.5
-  EnableInput = False
-  def __init__(self, Name : str, Frequency = 1000, DutyCycle = 0.5, EnableInput = False) -> None:
-    self.Frequency = Frequency
+  __slots__ = ("Name", "Period", "DutyCycle", "EnableInput")
+  def __init__(self, Name : str, Period = 2, DutyCycle = 0.5, EnableInput = False) -> None:
+    self.Period = Period
     self.DutyCycle = DutyCycle
     self.Name = Name
     self.EnableInput = EnableInput
@@ -892,8 +894,8 @@ class VerilogTestbenchClock:
   def getEnableInputName(self):
     return self.Name + "_enable"
   def getBody(self):
-    onTimeNs = round(self.DutyCycle * 1000000000 / self.Frequency, 3)
-    offTimeNs = round(1000000000 / self.Frequency - onTimeNs, 3)
+    onTimeNs = round(self.DutyCycle * self.Period, 3)
+    offTimeNs = round(self.Period - onTimeNs, 3)
     Result = "initial begin\n"
     Result += f'  {self.Name} <= 1\'b0;\n'
     Result += "  forever begin\n"
@@ -913,15 +915,16 @@ class VerilogTestbenchClock:
   
   
 class VerilogTestbench:
-  __slots__ = ("_my_verilog", "Name", "Clocks", "_code", "_forces", "_catchers")
+  __slots__ = ("_my_verilog", "Name", "Clocks", "_code", "_forces", "_catchers", "SimulationStopTime")
   
-  def __init__(self, MyVerilog = Verilog(), Name = "tb", ) -> None:
+  def __init__(self, MyVerilog = Verilog(), Name = "tb", SimulationStopTime = 10000) -> None:
     self._my_verilog = MyVerilog
     self.Name = Name
     self.Clocks = []
     self._code = []
     self._forces = []
     self._catchers = []
+    self.SimulationStopTime = SimulationStopTime
     
   def __repr__(self) -> str:
     return "VerilogTestbench(" + self.Name + ", " + self._my_verilog.getTopModuleName() + ")"
@@ -935,7 +938,7 @@ class VerilogTestbench:
   def getVerilog(self) -> Verilog:
     return self._my_verilog
   
-  def getBody(self) -> str:
+  def getBody(self, RndStr = "", OneTimeForce = "") -> str:
     Result = f'module {self.Name} (' + "\n"
     Result += ");\n\n"
     VII = self._my_verilog.getTopModule().getInstantiationInfo()
@@ -952,6 +955,9 @@ class VerilogTestbench:
       if i not in AllOutputs:
         Result += f'wire{VII["buses"][i]} {i};\n'
         AllOutputs.append(i)
+    for c in self._catchers:
+      sig = c[0]
+      Result += f'integer f{sig};\n'
     Result += f'\n'
     Result += f'{VII["name"]} {VII["name"]}_inst (\n'
     AllList = VII["inputs"] + VII["inouts"] + VII["outputs"]
@@ -964,30 +970,39 @@ class VerilogTestbench:
     Result += f');\n'
     for Clock in self.Clocks:
       Result += "\n" + Clock.getBody() + "\n"
-    if len(self._forces) > 0:
+    if len(self._forces) > 0 or len(OneTimeForce) > 0:
       Result += "\ninitial begin\n"
+      if len(OneTimeForce) > 0:
+        force = OneTimeForce.replace(f' {VII["name"]}', f' {self.Name}.{VII["name"]}_inst')
+        Result += f'  {force}\n'
       for f in self._forces:
-        Result += f'  {f}\n'
+        force = str(f).replace(f' {VII["name"]}', f' {self.Name}.{VII["name"]}_inst')
+        Result += f'  {force}\n'
       Result += "end\n"
+    for c in self._code:
+      Result += "\n" + c + "\n";
     if len(self._catchers) > 0:
       for c in self._catchers:
-        Result += "\ninitial begin"
         sig = c[0]
         time = c[1]
+        Result += "\ninitial begin"
         Result += f"""  
+  f{sig} = $fopen("{sig}{RndStr}.catch", "w");
   #{time};
-  f{sig} = $fopen("{sig}.catch", "w");
   $fdisplayh(f{sig}, {sig});
   $fclose(f{sig});\n"""
         Result += "end\n"
+    Result += f"\ninitial begin\n"
+    Result += f"  #{self.SimulationStopTime};\n  $stop;\n"
+    Result += f"end\n"
     Result += "\nendmodule"
     return Result
   
   def addClock(self, TBClock : VerilogTestbenchClock):
     self.Clocks.append(TBClock)
     
-  def createClock(self, Name : str, Frequency = 1000, DutyCycle = 0.5, EnableInput = False) -> VerilogTestbenchClock:
-    Clock = VerilogTestbenchClock(Name, Frequency, DutyCycle, EnableInput)
+  def createClock(self, Name : str, Period = 2, DutyCycle = 0.5, EnableInput = False) -> VerilogTestbenchClock:
+    Clock = VerilogTestbenchClock(Name, Period, DutyCycle, EnableInput)
     self.Clocks.append(Clock)
     return Clock  
   
@@ -1009,18 +1024,56 @@ class VerilogTestbench:
   def clearForces(self):
     self._forces.clear()
     
-  def writeFullVerilog(self, FileName = "verilog_testbench_full.v"):
-    writeFile(FileName, str(self) + "\n\n" + self._my_verilog.getContent())
+  def writeFullVerilog(self, FileName = "verilog_testbench_full.v", RndStr = "", OneTimeForce = ""):
+    writeFile(FileName, self.getBody(RndStr, OneTimeForce) + "\n\n" + self._my_verilog.getContent())
     
-  def simulate(self) -> dict:
-    FileName = "full_tb.v"
-    self.writeFullVerilog(FileName)
-    # perform simulation here
+  def simulate(self, OneTimeForce = "") -> dict:
+    RndStr = str(int(uniform(1, 99999999999099)))
+    FileName = f"full_tb{RndStr}.v"
+    self.writeFullVerilog(FileName, RndStr, OneTimeForce)
+    WorkFile = f'work_design{RndStr}.iverilog'
+    ERR = Aio.shellExecute(f"iverilog -o {WorkFile} {FileName}", 0, 1)
+    if len(ERR) > 2:
+      Aio.print(ERR)
+    ERR = Aio.shellExecute(f"vvp -n {WorkFile}", 0, 1)
+    if len(ERR) > 2:
+      Aio.print(ERR)
     Result = {}
     for c in self._catchers:
       name = c[0]
+      CFname = f"{name}{RndStr}.catch"
       try:
-        Result[name] = readFile(f"{name}.catch")
+        Result[name] = readFile(CFname)
+        os.remove(CFname)
       except:
         Result[name] = None
+    os.remove(FileName)
+    os.remove(WorkFile)
     return Result
+  
+  def simulateSingleStuckAtFaults(self):
+    reference = self.simulate()
+    Forces = self._my_verilog.getForceStatementsForSingleStuckAt()
+    FaultsCount = len(Forces)
+    NotDetectable = []
+    Results = p_map(self.simulate, Forces)
+    for i in range(len(Forces)):
+      result = Results[i]
+      force = Forces[i]
+      IsDetectable = 0
+      for k in reference.keys():
+        if result[k] != reference[k] or result[k] == None :
+          IsDetectable = 1
+          break
+      if not IsDetectable:
+        NotDetectable.append(force)
+    DetectableCounter = FaultsCount - len(NotDetectable)
+    Coverage = round(DetectableCounter * 100 / FaultsCount , 2)
+    Aio.print(f'Single stuck-at simulation finished.')
+    Aio.print(f'Fault coverage: {Coverage} %')
+    if len(NotDetectable) > 0:
+      Aio.print(f'Not detectable faults:')
+      for force in NotDetectable:
+        Aio.print(f'  {force}')
+    return [Coverage, NotDetectable]
+          
