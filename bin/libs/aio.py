@@ -5,6 +5,7 @@ import pickle
 from libs.files import getAioPath
 from ansi2html import *
 import time
+from libs.utils_str import *
 
 class Aio:
   _transcript = "" 
@@ -103,7 +104,8 @@ class Aio:
     s += "\n"
     Aio._transcript += s
     if "transcript_file" in globals():
-      transcript_file.write(re.sub(r'(\033[[0-9]+m)', '', s))
+      Text = re.sub(r'(\033\[[0-9]+m)', '', s)
+      transcript_file.write(Text)
       transcript_file.flush()
       os.fsync(transcript_file.fileno())
     print(*args)
@@ -199,7 +201,7 @@ class Aio:
       transcript_file.flush()
       os.fsync(transcript_file.fileno())
   def printError(*args):
-    Aio.print("ERROR:",*args)
+    Aio.print(Str.color("ERROR:", 'red'),*args)
   def printTemp(*args):
     if len(args) == 0:
       print(" " * (Aio.getTerminalColumns()-1) + "\r", end="")

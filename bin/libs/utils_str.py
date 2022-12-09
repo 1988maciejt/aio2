@@ -1,5 +1,3 @@
-from libs.aio import *
-
 _superscript_map = {
     "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶",
     "7": "⁷", "8": "⁸", "9": "⁹", "a": "ᵃ", "b": "ᵇ", "c": "ᶜ", "d": "ᵈ",
@@ -53,9 +51,9 @@ class Str:
   
   def color(Text : str, Color : int) -> str:
     Code = 0
-    if Aio.isType(Color, 0):
+    if type(Color) == type(0):
       Code = Color
-    elif Aio.isType(Color, ""):
+    elif type(Color) == type(""):
       color = str(Color).lower()
       if 'brig' in color:
         Code = 90

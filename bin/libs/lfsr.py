@@ -92,19 +92,21 @@ class Polynomial:
   pass
 class Polynomial:
   """This object represents Polynomials in GF(2)."""
-  _coefficients_list = []         # Polynomial sorted oefficients list
-  _balancing = 0    
-  _bmin = 1
-  _positions = False
-  _ctemp = True
-  _mindist = 0
-  _lf = False
-  _notes = ""
-  _CoefficientList = []
-  _CoeffsCount = []
-  _DontTouchBounds = 1
-  _OddOnly = 1
-  _IterationStartingPoint = None
+  __slots__ = ("_coefficients_list",
+               "_balancing",
+               "_bmin",
+               "_bmax",
+               "_positions",
+               "_mindist",
+               "_lf",
+               "_notes",
+               "_CoefficientList",
+               "_CoeffsCount",
+               "_DontTouchBounds",
+               "_OddOnly",
+               "_IterationStartingPoint",
+               "_mnext",
+               "_first")
   
   def _getAllPrimitivesHavingSpecifiedCoeffsHelper(self, FromTo : list):
     Polys = self._getAllHavingSpecifiedCoeffsHelper(FromTo)
@@ -115,9 +117,6 @@ class Polynomial:
     CList.sort()
     CCList = self._CoeffsCount.copy()
     DontTouchBounds = self._DontTouchBounds
-    OddOnly = self._OddOnly
-#    if DontTouchBounds and ((1<<(len(CList)-1)) & FromTo[1]) == 0:
-#      return []
     Result = []
     Step = 1
     if DontTouchBounds:
@@ -132,12 +131,7 @@ class Polynomial:
         i += 1
       #print(n, bsn, PT)
       if not (len(PT) in CCList):
-        #print("Bad length")
         continue
-#      if DontTouchBounds:
-#        if (not (CList[0] in PT)) or (not (CList[-1] in PT)):
-#          print("Bad coeff", CList, PT)
-#          continue     
       Result.append(Polynomial(PT.copy()))
     return Result
   
@@ -152,6 +146,14 @@ class Polynomial:
     return Polynomial(self)
   
   def setStartingPointForIterator(self, StartingPolynomial = None) -> bool:
+    """This proc allows to set starting polynomial for iterating purposes.
+
+    Args:
+        StartingPolynomial (None, list, Polynomial): starting polynomial 'None' means 'automatic'. Defaults to None.
+
+    Returns:
+        bool: False, it the given StartingPolynomial does not pass validation.
+    """
     if StartingPolynomial is None:
       self._IterationStartingPoint = None
     else:
@@ -181,7 +183,6 @@ class Polynomial:
       self._IterationStartingPoint = NewPoly._coefficients_list
     return True
 
-  
   def __init__(self, PolynomialCoefficientList : list, PolynomialBalancing = 0):
     """ Polynomial (Polynomial, PolynomialBalancing=0)
 Polynomial (PolynomialCoefficientList, PolynomialBalancing=0)
@@ -189,6 +190,19 @@ Polynomial (int, PolynomialBalancing=0)
 Polynomial (hex_string, PolynomialBalancing=0)
 Polynomial ("size,HexNumber", PolynomialBalancing=0)
     """
+    self._coefficients_list = []         # Polynomial sorted oefficients list
+    self._balancing = 0    
+    self._bmin = 1 
+    self._bmax = 2
+    self._positions = False
+    self._mindist = 0
+    self._lf = False
+    self._notes = ""
+    self._CoefficientList = []
+    self._CoeffsCount = []
+    self._DontTouchBounds = 1
+    self._OddOnly = 1
+    self._IterationStartingPoint = None
     if "Polynomial" in str(type(PolynomialCoefficientList)):
       self._coefficients_list = PolynomialCoefficientList._coefficients_list.copy()
       self._balancing = PolynomialCoefficientList._balancing + 0
@@ -279,6 +293,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
   def __str__(self) -> str:
     return str(self._coefficients_list)
   
+  @staticmethod
   def iterate(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0):
     poly0 = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance)
     if poly0 is None:
@@ -306,6 +321,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         Result.append(Tap)
     return Result
   
+  @staticmethod
   def printAllPrimitivesHavingSpecifiedCoeffs(CoefficientList : list, CoeffsCount = 0, DontTouchBounds = 1, OddOnly = 1):
     """Prints all primitive polynomials having coefficients included in a given list.
 
@@ -319,6 +335,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     for R in Results:
       Aio.print(R._coefficients_list)
     
+  @staticmethod
   def listAllPrimitivesHavingSpecifiedCoeffs(CoefficientList : list, CoeffsCount = 0, DontTouchBounds = 1, OddOnly = 1) -> list:
     """Returns a list containing all primitive polynomials having coefficients included in a given list.
 
@@ -376,6 +393,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       Results += px._getAllPrimitivesHavingSpecifiedCoeffsHelper(FT)
     return Results
   
+  @staticmethod
   def getAllHavingSpecifiedCoeffs(CoefficientList : list, CoeffsCount = 0, DontTouchBounds = 1, OddOnly = 1):
     """Returns a list containing all  polynomials having coefficients included in a given list.
 
@@ -387,7 +405,6 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     """
     CList = CoefficientList.copy()
     CList.sort()
-    CMax = CList[-1]
     if Aio.isType(CoeffsCount, 0):
       if CoeffsCount <= 0:
         CCList = [i for i in range(3, len(CList)+1)]
@@ -510,10 +527,12 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       msk = (1 << (deg)) - 1
       ival &= msk
     return BinString(deg+1, ival)
+  
   def getCoefficients(self) -> list:
     """Returns list of coefficients.
     """
     return self._coefficients_list.copy()
+  
   def getCoefficientsCount(self) -> int:
     """Returns coefficients count.
     """
@@ -673,6 +692,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         if not Silent:
           Aio.printTemp(str(" ")*100)
         return True
+      
   def isLayoutFriendly(self) -> bool:
     for i in range(len(self._coefficients_list)-1):
       this = self._coefficients_list[i]
@@ -680,9 +700,8 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       if (this-right) <= 1:
         return False
     return True
-#  def createBasingOnCoeffsList(CoeffsList : list) -> Polynomial:
-#    pass 
 
+  @staticmethod
   def createPolynomial(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0) -> Polynomial:
     """Returns a polynomial, usefull for LFSRs.
 
@@ -765,6 +784,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
           return None
     return p
   
+  @staticmethod
   def checkPrimitives(Candidates : list, n = 0, Silent = True) -> list:
     """Returns a list of primitive polynomials (over GF(2)) found on a given list.
 
@@ -806,11 +826,13 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     Line = "[" + str(Coeffs[0]) + Line + "]"
     return Line
   
+  @staticmethod
   def printTigerPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0):
     Polys = Polynomial.listTigerPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, n, NoResultsSkippingIteration, StartingPolynomial, MinNotMatchingTapsCount)
     for p in Polys:
       Aio.print(p.toTigerStr())
       
+  @staticmethod
   def listTigerPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0) -> list:
     Poly0 = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance)
     if Poly0 is None:
@@ -915,6 +937,8 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
           Polys.append(Polynomial(l._my_poly.copy()))      
       print(f'Found so far: {len(Polys)}')
     return Polys
+  
+  @staticmethod
   def printPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], FilteringCallback = None, NoResultsSkippingIteration = 0, StartingPolynomial = None) -> None:
     """Prints a list of primitive polynomials (over GF(2)).
 
@@ -932,6 +956,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     for p in Polynomial.listPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, n, Silent, MaxSetSize, ExcludeList, 0, FilteringCallback, NoResultsSkippingIteration, StartingPolynomial):
       Aio.print(p.getCoefficients())
       
+  @staticmethod
   def listPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None, NoResultsSkippingIteration = 0, StartingPolynomial = None) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
@@ -962,7 +987,6 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     candidates = []
     AllCandidates = []
     cntr = 0
-    Polynomial._ctemp = False
     SkippingCounter = NoResultsSkippingIteration
     for p in polys:
       if p in ExcludeList:
@@ -992,7 +1016,6 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     if (cntr > 0):
       result += Polynomial.checkPrimitives(candidates, n, Silent)
       candidates.clear()
-    Polynomial._ctemp = True
     if cntr != 0:
         result += Polynomial.checkPrimitives(candidates, n, Silent)
         candidates.clear()      
@@ -1003,6 +1026,8 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     if ReturnAlsoAllCandidaes:
       return [result, AllCandidates]
     return result
+  
+  @staticmethod
   def firstPrimitive(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, Silent=True, StartingPolynomial = None) -> Polynomial:
     """Returns a first found primitive (over GF(2)) polynomial.
 
@@ -1019,6 +1044,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       return lp[0]
     return None
   
+  @staticmethod
   def firstMostBalancedPrimitive(PolynomialDegree : int, PolynomialCoefficientsCount : int, StartBalancing=1, EndBalancing=10, LayoutFriendly = False, Silent = True) -> Polynomial:
     bal = EndBalancing
     if bal > (PolynomialDegree-PolynomialCoefficientsCount):
@@ -1029,16 +1055,19 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         return fp
     return None
   
+  @staticmethod
   def firstEveryNTapsPrimitive(PolynomialDegree : int, EveryN : int, Silent = True, StartingPolynomial = None) -> Polynomial:
     result = Polynomial.listEveryNTapsPrimitives(PolynomialDegree, EveryN, 1, Silent, StartingPolynomial)
     if len(result) > 0:
       return result[0]
     return None
   
+  @staticmethod
   def printEveryNTapsPrimitives(PolynomialDegree : int, EveryN : int, n = 0, Silent = True, StartingPolynomial = None) -> None:
     for p in Polynomial.listEveryNTapsPrimitives(PolynomialDegree, EveryN, n, Silent, StartingPolynomial):
       Aio.print(p.getCoefficients())
       
+  @staticmethod
   def listEveryNTapsPrimitives(PolynomialDegree : int, EveryN : int, n = 0, Silent = True, StartingPolynomial = None) -> list:
     ccount = int(round(PolynomialDegree / EveryN, 0)) | 1
     if ccount < 3: ccount = 3
@@ -1057,25 +1086,29 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         results = results[0:n]
     return results
   
+  @staticmethod
   def firstDensePrimitive(PolynomialDegree : int, Silent = True, StartingPolynomial = None) -> Polynomial:
     r = Polynomial.listDensePrimitives(PolynomialDegree, 1, Silent, StartingPolynomial)
     if len(r) > 0:
       return r[0]
     return None
   
+  @staticmethod
   def printDensePrimitives(PolynomialDegree, n=0, Silent = True, StartingPolynomial = None) -> None:
     for p in Polynomial.listDensePrimitives(PolynomialDegree, n, Silent, StartingPolynomial):
       Aio.print(p.getCoefficients())
       
+  @staticmethod
   def listDensePrimitives(PolynomialDegree, n=0, Silent = True, StartingPolynomial = None) -> list:
     Half = int(PolynomialDegree / 2) | 1
-    c = Half - 4
+    c = Half - 2
     result = []
     exclude = []
     if n < 0:
       n = 0
     n2 = n
-    minc = Half * 0.7
+    minc = Half * 0.65
+    print("c", c, "minc", minc)
     while (c >= 3) & (c >= minc):
       print (f'Found so far: {len(result)}. Looking for {c} coefficients')
       resultAux = Polynomial.listPrimitives(PolynomialDegree, c, 2, True, 0, n2, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True, StartingPolynomial=StartingPolynomial)
@@ -1091,10 +1124,12 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     print (f'Found: {len(result)}')   
     return result
   
+  @staticmethod
   def printTapsFromTheLeftPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, MaxDistance = 3, n=0, Silent = True) -> None:
     for p in Polynomial.listTapsFromTheLeftPrimitives(PolynomialDegree, PolynomialCoefficientsCount, MaxDistance, n, Silent):
       Aio.print(p.getCoefficients())
       
+  @staticmethod
   def listTapsFromTheLeftPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, MaxDistance = 3, n=0, Silent = True) -> list:
     clist = [PolynomialDegree]
     davg = PolynomialDegree // PolynomialCoefficientsCount
@@ -1112,12 +1147,14 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       plist.append(poly.copy())
     return Polynomial.checkPrimitives(plist, n, Silent)
   
+  @staticmethod
   def firstTapsFromTheLeftPrimitive(PolynomialDegree : int, PolynomialCoefficientsCount : int, MaxDistance = 3, Silent = True) -> list:
     lst = Polynomial.listTapsFromTheLeftPrimitives(PolynomialDegree, PolynomialCoefficientsCount, MaxDistance, Silent)
     if len(lst) > 0:
       return lst[0]
     return None
   
+  @staticmethod
   def decodeUsingBerlekampMassey(Sequence) -> Polynomial:
     if Aio.isType(Sequence, "Lfsr"):
       Seq2 = Sequence.getSequence(Length=Sequence._size<<1+2)
