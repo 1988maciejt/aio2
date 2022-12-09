@@ -496,9 +496,9 @@ class MainMenu_static:
     values=[
       (_categoryPolynomial,                 "Primitive polynomials"),
       (_categoryLfsrWithManualTaps,         "Ring generators with manually specified taps"),
-      (_categoryProgrammableRingGenerator,  "Programmavle ring renegrator"),
+      (_categoryProgrammableRingGenerator,  "Programmable ring renegrator"),
       (_categoryTigerRingGenerator,         "Tiger Ring Generators"),
-      (_categoryNlfsrs,                     "Non-linear shift registers"),
+      (_categoryNlfsrs,                     "Nonlinear shift registers"),
       (_categoryBent,                       "Bent functions"),
     ]
   )
@@ -520,7 +520,7 @@ class MainMenu_static:
     values=[
       (_categoryLfsrWithManualTaps_subDisplay,  "Display ring generator"),
       (_categoryLfsrWithManualTaps_subCreate,   "Define ring generator"),
-      (_categoryLfsrWithManualTaps_subInfoDisplay, "is maximum? What is the polynomial?"),
+      (_categoryLfsrWithManualTaps_subInfoDisplay, "Is maximum? What is the polynomial?"),
       (_categoryLfsrWithManualTaps_subMakeDual,   "Make dual ring")
     ]
   )
@@ -545,7 +545,7 @@ class MainMenu_static:
     text="What do you want to do:",
     values=[
       (_categoryPolynomial_printTiger,    "Search for maximum tiger ring generators"),
-      (_categoryTigerRingGenerator_subDecodePolynomial, "Decode pcharacteristic polynomial")
+      (_categoryTigerRingGenerator_subDecodePolynomial, "Decode characteristic polynomial")
     ]
   )
   _nlfsrs_menu = radiolist_dialog(
