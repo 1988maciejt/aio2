@@ -177,8 +177,14 @@ def aiohelp(Pattern = ""):
 ##########################################################
 if 'AioHelpGlobal' not in locals():
   
+  AioHelpGlobal = AioHelpCategory("", "General help")
+  AioHelpGlobal.addArgument(AioHelpArgument("PolynomialDegree", "Degree of a polynomial", ["int"], None))
+  AioHelpGlobal.addArgument(AioHelpArgument("PolynomialBalancing", "The required difference between farthest and closest coefficients", ["int"], "0"))
+  AioHelpGlobal.addArgument(AioHelpArgument("", "", [], ""))
+  AioHelpGlobal.addArgument(AioHelpArgument("", "", [], ""))
+  AioHelpGlobal.addArgument(AioHelpArgument("", "", [], ""))
+  
   ### AIO ################################################
-  AioHelpGlobal = AioHelpCategory("", "Maciej Trawka's All-In-One v2")
   AioGroup = AioHelpCategory("AIO", "All-In-One v2 related classes and procs.")
   AioGroup.addArgument(AioHelpArgument("Code", "A string containing Python code", ["str"]))
   AioGroup.addArgument(AioHelpArgument("Iterations", "How many times repeat the given code", ["int"], 1))
@@ -338,7 +344,6 @@ Returns a list of bitarray objects (LUTs).""",
   PolynomialCat.addArgument(AioHelpArgument("IncludeDegree", "if True, the highest coefficients is included", ["bool"], True))
   PolynomialCat.addArgument(AioHelpArgument("shorten", "If True, lists only polys having odd coefficients count", ["bool"], True))
   PolynomialCat.addArgument(AioHelpArgument("Silent", "If False, additional info is temporarily printed during operation", ["bool"], True))
-  PolynomialCat.addArgument(AioHelpArgument("degree", "Polynomial's degree", ["int"]))
   PolynomialCat.addArgument(AioHelpArgument("coeffs_count", "Coefficient count (including degree and 0)", ["int"]))
   PolynomialCat.addArgument(AioHelpArgument("LayoutFriendly", "Only layout-friendly polynomials", ["bool"], False))
   PolynomialCat.addArgument(AioHelpArgument("MinimumDistance", "Minimum allowed distance between successive coefficients", ["int"], 0))
@@ -487,7 +492,7 @@ Such polynomial may be used as generator, for example:
     >>> [8, 3, 0]
     >>> [8, 4, 0]
     >>> [8, 5, 0]""",
-    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance"]
+    Arguments=["PolynomialDegree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.checkPrimitives",
@@ -505,77 +510,77 @@ Such polynomial may be used as generator, for example:
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.listTigerPrimitives",
     Description="""Returns a list of tiger primitives (polys defining a tiger ring).""",
-    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "NoResultsSkippingIteration","StartingPolynomial","MinNotMatchingTapsCount"]
+    Arguments=["PolynomialDegree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "NoResultsSkippingIteration","StartingPolynomial","MinNotMatchingTapsCount"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.printTigerPrimitives",
     Description="""Prints tiger primitives (polys defining a tiger ring).""",
-    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "NoResultsSkippingIteration","StartingPolynomial","MinNotMatchingTapsCount"]
+    Arguments=["PolynomialDegree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "NoResultsSkippingIteration","StartingPolynomial","MinNotMatchingTapsCount"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.listPrimitives",
     Description="""Returns a list of primitive polynomials.""",
-    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "Silent", "MaxSetSize", "ExcludeList", "FilteringCallback", "ReturnAlsoAllCandidaes", "NoResultsSkippingIteration","StartingPolynomial"]
+    Arguments=["PolynomialDegree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "Silent", "MaxSetSize", "ExcludeList", "FilteringCallback", "ReturnAlsoAllCandidaes", "NoResultsSkippingIteration","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.printPrimitives",
     Description="""Prints primitive polynomials.""",
-    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "Silent", "MaxSetSize", "ExcludeList", "FilteringCallback", "NoResultsSkippingIteration","StartingPolynomial"]
+    Arguments=["PolynomialDegree", "coeffs_count", "balancing", "LayoutFriendly", "MinimumDistance", "n", "Silent", "MaxSetSize", "ExcludeList", "FilteringCallback", "NoResultsSkippingIteration","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.firstPrimitive",
     Description="""Returns first found primitive polynomial.""",
-    Arguments=["degree", "coeffs_count", "balancing", "LayoutFriendly", "Silent","StartingPolynomial"]
+    Arguments=["PolynomialDegree", "coeffs_count", "balancing", "LayoutFriendly", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.firstMostBalancedPrimitive",
     Description="""Returns first found most balanced primitive polynomial.""",
-    Arguments=["degree", "coeffs_count", "StartBalancing", "EndBalancing", "LayoutFriendly", "Silent"]
+    Arguments=["PolynomialDegree", "coeffs_count", "StartBalancing", "EndBalancing", "LayoutFriendly", "Silent"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.firstEveryNTapsPrimitive",
     Description="""Returns first found primitive polynomial having specified, average distance between successive coefficients.""",
-    Arguments=["degree", "EveryN", "Silent","StartingPolynomial"]
+    Arguments=["PolynomialDegree", "EveryN", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.listEveryNTapsPrimitives",
     Description="""Returns list of primitive polynomials having specified, average distance between successive coefficients.""",
-    Arguments=["degree", "EveryN", "n", "Silent","StartingPolynomial"]
+    Arguments=["PolynomialDegree", "EveryN", "n", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.printEveryNTapsPrimitives",
     Description="""Prints primitive polynomials having specified, average distance between successive coefficients.""",
-    Arguments=["degree", "EveryN", "n", "Silent","StartingPolynomial"]
+    Arguments=["PolynomialDegree", "EveryN", "n", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.firstDensePrimitive",
     Description="""Returns first found dense primitive polynomial.""",
-    Arguments=["degree", "Silent","StartingPolynomial"]
+    Arguments=["PolynomialDegree", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.listDensePrimitives",
     Description="""Returns list of dense primitive polynomials.""",
-    Arguments=["degree", "n", "Silent","StartingPolynomial"]
+    Arguments=["PolynomialDegree", "n", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.printDensePrimitives",
     Description="""Prints dense primitive polynomials.""",
-    Arguments=["degree", "n", "Silent","StartingPolynomial"]
+    Arguments=["PolynomialDegree", "n", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.firstTapsFromTheLeftPrimitive",
     Description="""Returns first found primitive polynomial having taps grouped close to the left side.""",
-    Arguments=["degree", "coeffs_count", "max_distance", "Silent"]
+    Arguments=["PolynomialDegree", "coeffs_count", "max_distance", "Silent"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.listTapsFromTheLeftPrimitives",
     Description="""Returns list primitive polynomials having taps grouped close to the left side.""",
-    Arguments=["degree", "coeffs_count", "max_distance", "n", "Silent"]
+    Arguments=["PolynomialDegree", "coeffs_count", "max_distance", "n", "Silent"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.printTapsFromTheLeftPrimitives",
     Description="""Prints primitive polynomialshaving taps grouped close to the left side.""",
-    Arguments=["degree", "coeffs_count", "max_distance", "n", "Silent"]
+    Arguments=["PolynomialDegree", "coeffs_count", "max_distance", "n", "Silent"]
   ))
   PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.decodeUsingBerlekampMassey",

@@ -330,6 +330,20 @@ def _categoryProgrammableRingGenerator():
       SubCategory()
       
   
+
+def _categoryTigerRingGenerator_subDecodePolynomial():
+  TIgerPoly = MainMenu_static.getTigerPolynomial()
+  if TIgerPoly is None:
+    return
+  Poly = Polynomial.decodeUsingBerlekampMassey(Lfsr(TIgerPoly, TIGER_RING))
+  Result = f"""Tiger Polynomial: 
+  {Polynomial(TIgerPoly).toTigerStr()}
+decoded characteristic polynomial:
+  {Poly}
+"""
+  print(Result)
+  message_dialog(title="Result", text=Result).run()
+  
 def _categoryTigerRingGenerator():
   SubCategory = -1
   while SubCategory is not None:
@@ -531,6 +545,7 @@ class MainMenu_static:
     text="What do you want to do:",
     values=[
       (_categoryPolynomial_printTiger,    "Search for maximum tiger ring generators"),
+      (_categoryTigerRingGenerator_subDecodePolynomial, "Decode pcharacteristic polynomial")
     ]
   )
   _nlfsrs_menu = radiolist_dialog(
@@ -553,6 +568,10 @@ class MainMenu_static:
   _input_bent_inputs = input_dialog(
     title="Bent function inputs",
     text="How many inpits? (Must be even; default: 2)",
+  )
+  _input_tiger_polynomial = input_dialog(
+    title="Tiger polynomial",
+    text="Enter coefficients of a Tiger Polynomial.\n\nAttention: '-' chars may be omitted. The results is always considered as Tiger Polynomial.\nExample inputs (both describe the same, identical Tiger Ring):\n7, 5, 3, 1, 0\n7, -5, 3, -1, 0",
   )
   _input_polynomial = input_dialog(
     title="Polynomial input",
@@ -651,6 +670,17 @@ class MainMenu_static:
       except:
         continue
   
+  def getTigerPolynomial() -> list:
+    while 1:
+      Result = MainMenu_static._input_tiger_polynomial.run()
+      if Result is None:
+        return None
+      try:
+        R = list(ast.literal_eval(f'[{Result}]'))
+        return R
+      except:
+        continue
+      
   def getTaps(Reset = False) -> list:
     if Reset:
       MainMenu_static._input_taps.reset()
