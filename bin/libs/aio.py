@@ -103,7 +103,7 @@ class Aio:
     s += "\n"
     Aio._transcript += s
     if "transcript_file" in globals():
-      transcript_file.write(s)
+      transcript_file.write(re.sub(r'(\033[[0-9]+m)', '', s))
       transcript_file.flush()
       os.fsync(transcript_file.fileno())
     print(*args)

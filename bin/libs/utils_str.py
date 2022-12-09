@@ -1,3 +1,5 @@
+from libs.aio import *
+
 _superscript_map = {
     "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶",
     "7": "⁷", "8": "⁸", "9": "⁹", "a": "ᵃ", "b": "ᵇ", "c": "ᶜ", "d": "ᵈ",
@@ -36,12 +38,42 @@ _sub_retrans = str.maketrans(
 
   
 class Str:
-  def toSuperScript(txt : str) -> str:
-    return str(txt).translate(_super_trans)
-  def toSubScript(txt : str) -> str:
-    return str(txt).translate(_sub_trans)
-  def fromSuperScript(txt : str) -> str:
-    return str(txt).translate(_super_retrans)
-  def fromSubScript(txt : str) -> str:
-    return str(txt).translate(_sub_retrans)
+  
+  def toSuperScript(Text : str) -> str:
+    return str(Text).translate(_super_trans)
+  
+  def toSubScript(Text : str) -> str:
+    return str(Text).translate(_sub_trans)
+  
+  def fromSuperScript(Text : str) -> str:
+    return str(Text).translate(_super_retrans)
+  
+  def fromSubScript(Text : str) -> str:
+    return str(Text).translate(_sub_retrans)
+  
+  def color(Text : str, Color : int) -> str:
+    Code = 0
+    if Aio.isType(Color, 0):
+      Code = Color
+    elif Aio.isType(Color, ""):
+      color = str(Color).lower()
+      if 'brig' in color:
+        Code = 90
+      else:
+        Code = 30
+      if 'red' in color:
+        Code += 1
+      elif 'gree' in color:
+        Code += 2
+      elif 'yell' in color:
+        Code += 3
+      elif 'blue' in color:
+        Code += 4
+      elif 'magen' in color:
+        Code += 5
+      elif 'cya' in color:
+        Code += 6
+      elif 'whi' in color:
+        Code += 7
+    return f'\033[{Code}m{Text}\033[0m'
     
