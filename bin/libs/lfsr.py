@@ -719,13 +719,15 @@ Polynomial ("size,HexNumber", balancing=0)
         restcoeffs -= 1
         actual += diffmin
       result.append(degree)
-    elif MinimumDistance > 0:
+    elif (MinimumDistance > 0) or LayoutFriendly:
       bmin = MinimumDistance
+      if bmin < 2 and LayoutFriendly:
+        bmin = 2
       result = [0]
-      c = MinimumDistance
+      c = bmin
       for i in range(2, coeffs_count):
         result.append(c)
-        c += MinimumDistance
+        c += bmin
       result.append(degree)
     else:
       for i in range(coeffs_count-1):
@@ -934,6 +936,7 @@ Polynomial ("size,HexNumber", balancing=0)
     """
     polys = Polynomial.createPolynomial(degree, coeffs_count, balancing, LayoutFriendly, MinimumDistance)
     if type(polys) == type(None):
+      Aio.printError("No candidate polynomials found. Consider relaxing of requirements.")
       if ReturnAlsoAllCandidaes:
         return [[], []]
       return []

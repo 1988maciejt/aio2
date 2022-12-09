@@ -2,8 +2,8 @@
 SCRIPTPATH=$( cd "$(dirname $0)" ; pwd )
 
 pip3 install --upgrade pip
-# pip3 install pyqt5
-# pip3 install pyqtwebengine -U
+python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade setuptools
 pip3 install ipython
 pip3 install ptpython
 pip3 install pyserial

@@ -1,0 +1,26 @@
+#! /bin/bash
+SCRIPTPATH=$( cd "$(dirname $0)" ; pwd )
+python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade setuptools
+python3 -m pip install --upgrade ipython
+python3 -m pip install --upgrade ptpython
+python3 -m pip install --upgrade pyserial
+python3 -m pip install --upgrade plotext
+python3 -m pip install --upgrade percol
+python3 -m pip install --upgrade tqdm
+python3 -m pip install --upgrade line_profiler
+python3 -m pip install --upgrade openpyxl
+python3 -m pip install --upgrade xlsxwriter
+python3 -m pip install --upgrade ansi2html
+python3 -m pip install --upgrade pathos
+python3 -m pip install --upgrade numpy
+python3 -m pip install --upgrade numba
+python3 -m pip install --upgrade multiprocess
+python3 -m pip install --upgrade sympy
+python3 -m pip install --upgrade matplotlib
+python3 -m pip install --upgrade latex
+python3 -m pip install --upgrade pydbus
+python3 -m pip install --upgrade bitarray
+#python3 -m pip install --upgrade pyeda
+python3 -m pip install --upgrade p_tqdm
+python3 -m pip install --upgrade pandas

@@ -4,9 +4,9 @@ THIS=`pwd`
 if [ -z "$1" ]
 then
   cd $SCRIPTPATH
-  ptpython3 -i --config-file ${SCRIPTPATH}/ptpython_config.py ${SCRIPTPATH}/aio2.py $THIS
+  python3 -m ptpython -i --config-file ${SCRIPTPATH}/ptpython_config.py ${SCRIPTPATH}/aio2.py $THIS
 else
   PSCR=`realpath $1`
   cd $SCRIPTPATH
-  ptpython3 --config-file ${SCRIPTPATH}/ptpython_config.py ${SCRIPTPATH}/aio2.py $THIS $PSCR
+  python3 -m ptpython --config-file ${SCRIPTPATH}/ptpython_config.py ${SCRIPTPATH}/aio2.py $THIS $PSCR
 fi
