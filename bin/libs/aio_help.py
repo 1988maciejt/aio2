@@ -896,4 +896,116 @@ Also, returns the created Taps Dictionary.""",
   LfsrPolysGroup.addItem(ProgrammableLfsrConfigurationCat)
   addAioHelpCategory(LfsrPolysGroup, 1)
   
+  ### BINARY STRINGS #####################################
+  BinStringGroup = AioHelpCategory("BINARY STRINGS AND STREAMS", "Includes classes usefull for oerations on binary strings.")
+  BinStringCat = AioHelpCategory("class BinString", "Represents a binary string. Internally operates on Python integers.\nIf you don't need specific functions, relatd to BinString, consider using 'bitarray' objects.")
+  BinStringCat.addArgument(AioHelpArgument("self", "BinString object", ["BinString"]))
+  BinStringCat.addArgument(AioHelpArgument("BinStringsList", "List of BinString objects", ["list"]))
+  BinStringCat.addArgument(AioHelpArgument("BitCount", "Length of binary string", ["int"], 64))
+  BinStringCat.addArgument(AioHelpArgument("BinaryDataList", "List of object convertible to BinString", ["list"]))
+  BinStringCat.addArgument(AioHelpArgument("Value", "Value of the binary string", ["int"], 0))
+  BinStringCat.addArgument(AioHelpArgument("BitIndex", "Index (position) of bit in the BinString.\nBitIndex=0 means LSB.", ["int"]))
+  BinStringCat.addArgument(AioHelpArgument("BitValue", "Integer representing value of a single bit.\n", ["int"], 1))
+  BinStringCat.addArgument(AioHelpArgument("ShiftRight", "Shiff to the right", ["bool"], True))
+  BinStringCat.addArgument(AioHelpArgument("BusesList", "List of integers - lengths of sub-BinStrings", ["list"]))
+  BinStringCat.addArgument(AioHelpArgument("", "", [""]))
+  BinStringCat.addArgument(AioHelpArgument("", "", [""]))
+  BinStringCat.addArgument(AioHelpArgument("", "", [""]))
+  BinStringCat.addArgument(AioHelpArgument("", "", [""]))
   
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.merge",
+    Description="""Concatenates BinString objects and returns new BinString.""",
+    Arguments=["BinStringsList"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.fromList",
+    Description="""Takes a list of integers or strings and returns new list of BinString objects.""",
+    Arguments=["BitCount","BinaryDataList"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.__init__",
+    Description="""TBinString object constructor.
+It is also possible to create new BinString object giving a string of bits, i.e.:
+  BinString('11000101')
+The abive code creates a 8-bit BinString having initial value = 0b11000101.""",
+    Arguments=["self","BitCount","Value"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.toBytes",
+    Description="""Returns a 'bytes' object representing the BinString value.\nAligns bits to the right.""",
+    Arguments=["self"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.toHexString",
+    Description="""Returns a 'str' object representing the hexadecimal BinString value.\nAligns bits to the right.""",
+    Arguments=["self"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.setValue",
+    Description="""Sets a new value of the BinString object.""",
+    Arguments=["self","Value"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.getValue",
+    Description="""Returns a 'int' representing the BinString value.""",
+    Arguments=["self"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.setBit",
+    Description="""Set a specified bit of the BinString to 1 or 0.""",
+    Arguments=["self","BitIndex","BitValue"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.resetBit",
+    Description="""Clears a soecified bit of the BinString.""",
+    Arguments=["self","BitIndex"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.getBit",
+    Description="""Returns value of a specified bit of the BinString.""",
+    Arguments=["self","BitIndex"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.copy",
+    Description="""Returns a deep copy of the BinString object.""",
+    Arguments=["self"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.shiftIn",
+    Description="""Shifts the BinString and injects a bit.""",
+    Arguments=["self","BitValue","ShiftRight"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.shiftOut",
+    Description="""Shifts the BinString and returns the shifted-out bit.""",
+    Arguments=["self","ShiftRight"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.onesCount",
+    Description="""Returns count of ones.""",
+    Arguments=["self"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.zerosCount",
+    Description="""Returns count of zeros.""",
+    Arguments=["self"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.parity",
+    Description="""Returns a parity bit.""",
+    Arguments=["self"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.getReversed",
+    Description="""Returns a new BinString which is reversed copy of the given one.""",
+    Arguments=["self"]
+  ))
+  BinStringCat.addItem(AioHelpProc(
+    Name="BinString.split",
+    Description="""Splits the BinString and returns a list of shorter BiNStrings.\nFor example:\n\n  BinString(64, 0xFF00FFFF).split([8,8,16])\n  -> [BinString(8,0xFF), BinString(8,0x00), BinString(16,0xFFFF)]""",
+    Arguments=["self","BusesList"]
+  ))
+
+  BinStringGroup.addItem(BinStringCat)
+  addAioHelpCategory(BinStringGroup, 1)

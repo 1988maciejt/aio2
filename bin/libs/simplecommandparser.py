@@ -1,6 +1,3 @@
-from queue import Full
-
-
 class SimpleCommandParameter:
   Name = ""
   DefaultValue = None

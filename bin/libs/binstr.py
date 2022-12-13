@@ -10,6 +10,8 @@ class BinString:
 class BinString:
   BitCount = 64
   _val = 0
+  
+  @staticmethod
   def merge(BinStringsList : list) -> BinString:
     BSLLen = len(BinStringsList)
     if BSLLen > 0:
@@ -23,24 +25,31 @@ class BinString:
       return BinString(res_size, res_val)
     else:
       return BinString(1, 0)
-  def fromList(BitCount=64, Data=[]) -> list:
+    
+  @staticmethod
+  def fromList(BitCount=64, BinaryDataList=[]) -> list:
     result = []
-    for d in Data:
+    for d in BinaryDataList:
       result.append(BinString(BitCount, d))
     return result
-  def __init__(self, BitCount = 64, Value = 0) -> None:
+  
+  def __init__(self, BitCount=64, Value=0) -> None:
     if type("") == type(BitCount):
       Value = BitCount
       BitCount = len(BitCount)
     self.BitCount = BitCount
     self.setValue(Value)
+    
   def __hash__(self) -> int:
     return ((1 << self.BitCount) - 1) & self._val
+  
   def __bytes__(self):
     return self.toBytes()
+  
   def __int__(self):
     msk = (1 << self.BitCount) - 1
     return self._val * msk
+  
   def __str__(self) -> str:
     r = ""
     v = self._val
@@ -51,6 +60,7 @@ class BinString:
         r = "0" + r
       v >>= 1
     return r
+  
   def toBytes(self) -> bytes:
     BytesCount = ceil(self.BitCount / 8)
     msk = (1 << self.BitCount) - 1
@@ -60,6 +70,7 @@ class BinString:
       rlist[i] = val & 255
       val >>= 8
     return bytes(rlist)
+  
   def toHexString(self, shorten=False, Superscripts=True):
     msk = (1 << self.BitCount) - 1
     val = self._val & msk
@@ -90,6 +101,7 @@ class BinString:
       return r
     else:
       return s
+    
   def __repr__(self) -> str:
     return "BinString(" + self.__str__() + ")"
   def __getitem__(self, Index) -> int:
@@ -100,7 +112,8 @@ class BinString:
     return self.BitCount
   def __assign__(self, other):
     self._val = other._val
-  def setValue(self, Value):
+    
+  def setValue(self, Value=0):
     stype = str(type(Value))
     if "int" in stype:
       self._val = Value
@@ -110,27 +123,34 @@ class BinString:
         self._val <<= 1
         if c == "1":
           self._val |= 1
-  def getValue(self):
+          
+  def getValue(self) -> int:
     msk = (1 << self.BitCount) - 1
     return self._val & msk
-  def setBit(self, Index : int, BitValue = 1):
-    self._val = Int.setBit(self._val, Index, BitValue)
-  def resetBit(self, Index : int):
-    self._val = Int.resetBit(self._val, Index)
-  def getBit(self, Index : int) -> int:
-    return Int.getBit(self._val, Index)
+  
+  def setBit(self, BitIndex : int, BitValue = 1):
+    self._val = Int.setBit(self._val, BitIndex, BitValue)
+    
+  def resetBit(self, BitIndex : int):
+    self._val = Int.resetBit(self._val, BitIndex)
+    
+  def getBit(self, BitIndex : int) -> int:
+    return Int.getBit(self._val, BitIndex)
+  
   def copy(self):
     return BinString(self.BitCount, self._val)
-  def shiftIn(self, BitValue : int, MSB=True):
-    if MSB:
+  
+  def shiftIn(self, BitValue : int, ShiftRight=True):
+    if ShiftRight:
       self._val >>= 1
       self._val = Int.setBit(self._val, self.BitCount-1, BitValue)
     else:
       self._val <<= 1
       self._val += BitValue
     return self
-  def shiftOut(self, LSB=True):
-    if LSB:
+  
+  def shiftOut(self, ShiftRight=True):
+    if ShiftRight:
       bit = self._val & 1
       self._val >>= 1
       return bit
@@ -138,6 +158,7 @@ class BinString:
       bit = self.getBit(self.BitCount - 1)
       self._val <<= 1
       return bit
+    
   def onesCount(self):
     cntr = 0
     msk = (1 << self.BitCount) - 1
@@ -146,16 +167,20 @@ class BinString:
       cntr += 1
       num = num & (num - 1)
     return cntr
+  
   def zerosCount(self):
     return self.BitCount - self.onesCount()
+  
   def parity(self):
     return self.onesCount() & 1
+  
   def getReversed(self):
     BSNew = self.copy()
     aux = self.copy()
     for _ in range(self.BitCount):
       BSNew.shiftIn(aux.shiftOut(), False)
     return BSNew
+  
   def split(self, BusesList : list) -> list:
     """aplit 
 

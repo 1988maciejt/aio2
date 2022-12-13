@@ -93,6 +93,7 @@ class Polynomial:
 class Polynomial:
   """This object represents Polynomials in GF(2)."""
   __slots__ = ("_coefficients_list",
+               "_inv_list",
                "_balancing",
                "_bmin",
                "_bmax",
@@ -202,9 +203,11 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     self._CoeffsCount = []
     self._DontTouchBounds = 1
     self._OddOnly = 1
+    self._inv_list = []
     self._IterationStartingPoint = None
     if "Polynomial" in str(type(PolynomialCoefficientList)):
       self._coefficients_list = PolynomialCoefficientList._coefficients_list.copy()
+      self._inv_list = PolynomialCoefficientList._inv_list.copy()
       self._balancing = PolynomialCoefficientList._balancing + 0
       self._bmin = PolynomialCoefficientList._bmin
       self._bmax = PolynomialCoefficientList._bmax
@@ -225,6 +228,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         cntr += 1
         PolynomialCoefficientList >>= 1
       self._coefficients_list.sort(reverse=True)
+      self._inv_list = [1 for _ in range(len(self._coefficients_list))]
       self._balancing = PolynomialBalancing
       self._bmax = self._coefficients_list[0] 
       self._IterationStartingPoint = None
@@ -244,15 +248,22 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         cntr += 1
         num >>= 1
       self._coefficients_list.sort(reverse=True)
+      self._inv_list = [1 for _ in range(len(self._coefficients_list))]
       self._balancing = PolynomialBalancing   
       self._bmax = self._coefficients_list[0]   
       self._IterationStartingPoint = None
     else:
       lst = []
       for c in PolynomialCoefficientList:
-        lst.append(abs(c))
+        lst.append(c)
+      lst.sort(reverse=True, key=lambda x: abs(x))
       self._coefficients_list = lst
-      self._coefficients_list.sort(reverse=True)
+      self._inv_list = [1 for _ in range(len(self._coefficients_list))]
+      for i in range(len(lst)):
+        if lst[i] < 0:
+          lst[i] = abs(lst[i])
+          self._inv_list[i] = -1
+      self._coefficients_list = lst
       self._balancing = PolynomialBalancing
       self._bmax = self._coefficients_list[0]
       self._IterationStartingPoint = None
@@ -291,7 +302,16 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     raise StopIteration  
   
   def __str__(self) -> str:
-    return str(self._coefficients_list)
+    Second = 0
+    Result = "["
+    for i in range(len(self._coefficients_list)):
+      if Second:
+        Result += ", "
+      else:
+        Second = 1
+      Result += str(self._inv_list[i] * self._coefficients_list[i])
+    Result += "]"
+    return Result
   
   @staticmethod
   def iterate(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0):
@@ -485,7 +505,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       result += str(c)
     return result + ");"
   def __repr__(self) -> str:
-    return "Polynomial(" + str(self._coefficients_list) + ")"
+    return "Polynomial(" + str(self) + ")"
   def __eq__(self, other : Polynomial) -> bool:
     return self._coefficients_list == other._coefficients_list
   def __ne__(self, other : Polynomial) -> bool:
@@ -549,7 +569,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     deg = self._coefficients_list[0]
     result = [deg, self._coefficients_list[clen-1]]
     for i in range(1, clen-1):
-      result.append(deg - self._coefficients_list[i])
+      result.append((deg - self._coefficients_list[i]) * self._inv_list[i])
     return Polynomial(result)
   
   def getReversed(self) -> Polynomial:
