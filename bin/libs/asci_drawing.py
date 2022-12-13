@@ -1,3 +1,6 @@
+from libs.utils_array import *
+from libs.aio import *
+
 class AsciiDrawing_Characters:
   HORIZONTAL = '\U00002500'
   VERTICAL = '\U00002502'
@@ -144,3 +147,110 @@ def ADTest():
   print(f'{UL}{H*4}{UR}')
   print(f'{LN}{lbl}{RN}\U00002790\U00002790')
   print(f'{LL}{H*4}{LR}')
+  
+  
+  
+class AsciiDrawingPoint:
+  
+  __slots__ = ("_char", "_reservation")
+  
+  def __init__(self) -> None:
+    self._char = " "
+    self._reservation = 0
+    
+  def __str__(self):
+    return self._char
+  
+  def setChar(self, Char : str):
+    if len(Char) > 0:
+      self._char = Char
+      self._reservation = 1
+    else:
+      self._char = " "
+      self._reservation = 0
+      
+  def setHLine(self):
+    pass
+  
+  def setVLine(self):
+    pass
+  
+  
+  
+class AsciiDrawingCanvas:
+  
+  __slots__ = ("_width", "_height", "_array")
+  
+  def __init__(self, Width : int, Height : int) -> None:
+    self._width = int(Width)
+    self._height = int(Height)
+    self._array = create2DArray(self._height, self._width, None)
+    self.clear()
+    
+  def __str__(self) -> str:
+    Result = ""
+    Second = 0
+    for y in range(self._height):
+      Line = ""
+      for x in range(self._width):
+        Line += str(self._array[x][y])  
+      if Second:
+        Result += "\n"
+      else:
+        Second = 1
+      Result += Line
+    return Result
+  
+  def print(self) -> None:
+    Aio.print(str(self))
+      
+  def clear(self) -> None:
+    for x in range(self._width):
+      for y in range(self._height):
+        self._array[x][y] = AsciiDrawingPoint()
+        
+  def setChar(self, X : int, Y : int, Char : str) -> None:
+    if 0 <= X < self._width and 0 <= Y < self._height:
+      self._array[X][Y].setChar(Char)
+        
+  def drawBox(self, X : int, Y : int, Width : int, Height : int, Text = "") -> None:
+    X2 = X + Width 
+    Y2 = Y + Height
+    XBoumd = X2 
+    if XBoumd > self._width-1:
+      XBoumd = self._width-1
+    YBoumd = Y2 
+    if YBoumd > self._height-1:
+      YBoumd = self._height-1
+    for ix in range(X, XBoumd+1):
+      for iy in range(Y, YBoumd+1):
+        if iy==Y:
+          if ix==X:
+            self._array[ix][iy].setChar(AsciiDrawing_Characters.UPPER_LEFT)
+          elif ix==X2: 
+            self._array[ix][iy].setChar(AsciiDrawing_Characters.UPPER_RIGHT)
+          else:
+            self._array[ix][iy].setChar(AsciiDrawing_Characters.HORIZONTAL)
+        elif iy==Y2:
+          if ix==X:
+            self._array[ix][iy].setChar(AsciiDrawing_Characters.LOWER_LEFT)
+          elif ix==X2: 
+            self._array[ix][iy].setChar(AsciiDrawing_Characters.LOWER_RIGHT)
+          else:
+            self._array[ix][iy].setChar(AsciiDrawing_Characters.HORIZONTAL)
+        else:
+          if ix==X or ix==X2:
+            self._array[ix][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+          else:
+            self._array[ix][iy].setChar(" ")
+    if len(Text) > 0 and Height >= 2:
+      TextY = Y + (Height // 2)
+      MaxTextLen = Width-2
+      AlignedText = AsciiDrawing_Alignment.center(Text, MaxTextLen)
+      ix = X+1
+      for Char in AlignedText:
+        self._array[ix][TextY].setChar(Char)
+        ix += 1
+      
+  def drawConnector(self, X1 : int, Y1 : int, X2 : int, Y2 : int) -> None:
+    pass
