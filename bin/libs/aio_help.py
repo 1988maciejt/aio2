@@ -414,6 +414,16 @@ Note: PolynomialCoefficientList may be also integer number representing the poly
     Arguments=["self"]
   ))
   PolynomialCat.addItem(AioHelpProc(
+    Name="Polynomial.getSigns",
+    Description="""Returns list of coefficient signs.""",
+    Arguments=["self"]
+  ))
+  PolynomialCat.addItem(AioHelpProc(
+    Name="Polynomial.getSignedCoefficients",
+    Description="""Returns list of coefficients multiplied by corresponding signs.""",
+    Arguments=["self"]
+  ))
+  PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.getCoefficientsCount",
     Description="""Returns coefficients count.""",
     Arguments=["self"]

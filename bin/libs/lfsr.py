@@ -146,6 +146,15 @@ class Polynomial:
     """
     return Polynomial(self)
   
+  def getSigns(self) -> list:
+    return self._sign_list.copy()
+  
+  def getSignedCoefficients(self) -> list:
+    Result = []
+    for i in range(len(self._coefficients_list)):
+      Result.append(self._sign_list[i] * self._coefficients_list[i])
+    return Result
+  
   def setStartingPointForIterator(self, StartingPolynomial = None) -> bool:
     """This proc allows to set starting polynomial for iterating purposes.
 
@@ -1220,17 +1229,13 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
 
 class LfsrType:
   """Enumerator used to determine an LFSR type. 
-  
-  Available types:
-  .Galois
-  .Fibonacci
-  .RingGenerator
   """
   Galois = 1
   Fibonacci = 2
   RingGenerator = 3
   RingWithSpecifiedTaps = 4
   TigerRing = 5
+  HybridRing = 6
 
 # Constants
 FIBONACCI = LfsrType.Fibonacci
@@ -1238,6 +1243,7 @@ GALOIS = LfsrType.Galois
 RING_GENERATOR = LfsrType.RingGenerator
 RING_WITH_SPECIFIED_TAPS = LfsrType.RingWithSpecifiedTaps
 TIGER_RING = LfsrType.TigerRing
+HYBRID_RING = LfsrType.HybridRing
 
 # LFSR BEGIN ======================
 class Lfsr:
@@ -1247,6 +1253,7 @@ class Lfsr:
   _maxfound = 0
   _maxFoundN = 0
   _my_poly = []
+  _my_signs = []
   _type = LfsrType.Galois
   _hval = 0
   _size = 0
@@ -1286,6 +1293,7 @@ class Lfsr:
     poly = polynomial
     if "Lfsr" in str(type(polynomial)):
         self._my_poly = copy.deepcopy(polynomial._my_poly)
+        self._my_signs = copy.deepcopy(polynomial._my_signs)
         self._type = copy.deepcopy(polynomial._type)
         self._hval = copy.deepcopy(polynomial._hval)
         self._size = copy.deepcopy(polynomial._size)
@@ -1302,6 +1310,7 @@ class Lfsr:
         poly = Polynomial(polynomial)
     self._ba_fast_sim_array = None
     self._my_poly = poly.getCoefficients()
+    self._my_signs = poly.getSigns()
     self._type = lfsr_type
     self._size = poly.getDegree()
     self._baValue = bitarray(self._size)
@@ -1311,7 +1320,7 @@ class Lfsr:
       self._bamask = (poly.toBitarray() << 1)[:-1]
     elif lfsr_type == LfsrType.Fibonacci:
       self._bamask = poly.toBitarray()[:-1]
-    elif lfsr_type == LfsrType.RingGenerator or lfsr_type == LfsrType.TigerRing:
+    elif lfsr_type in {LfsrType.RingGenerator, LfsrType.TigerRing, LfsrType.HybridRing}:
       self._rg_table = []
       flist = self._my_poly
       flist_incr = flist.copy()
@@ -1345,10 +1354,17 @@ class Lfsr:
         for i in range(0, len(taps), 2):
           self.reverseTap(i)
         self._type = LfsrType.RingWithSpecifiedTaps
+      elif lfsr_type == LfsrType.HybridRing:
+        signs = self._my_signs
+        for i in range(1, len(signs)-1):
+          if signs[i] < 0:
+            self.reverseTap(taps_count - i)
+        self._type = LfsrType.RingWithSpecifiedTaps
     else:
       Aio.printError("Unrecognised lfsr type '" + str(lfsr_type) + "'")
     self.reset()
     self._hval = 1 << (poly.getDegree()-1)
+    
   def getReciprocal(self):
     Aio.print("NOT FINISHED!!!!")
     if self._type == LfsrType.RingWithSpecifiedTaps:
@@ -1431,8 +1447,10 @@ class Lfsr:
       for i in range(len(Result._taps)):
         Result.reverseTap(i)
       return Result
+    
   def getTaps(self):
-    return self._taps
+    return self._taps.copy()
+  
   def getPhaseShiftIndexes(self, ListOfXoredOutputs : list, DelayedBy : int) -> list:
     Dual = self.getDual()
     Dual._baValue.setall(0)
