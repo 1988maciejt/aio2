@@ -42,7 +42,7 @@ def _categoryPolynomial_print():
   NS = MainMenu_static.getNoSuccess()
   if NS is None:
     return
-  Result = Polynomial.listPrimitives(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist, n=N, NoResultsSkippingIteration=NS)
+  Result = Polynomial.listPrimitives(Degree, CoeffsCount, Balancing, MinDistance=MinDist, n=N, NoResultsSkippingIteration=NS)
   String = "Found polynomials:\n\n"
   Aio.print(f'Found primitives({Degree}, {CoeffsCount}, Balancing={Balancing}, MinimumDoistance={MinDist}):')
   for R in Result:
@@ -66,13 +66,14 @@ def _categoryPolynomial_printTiger():
   N = MainMenu_static.getN()
   if N is None:
     return
-  NotMatchingTapsCount = MainMenu_static.getNotMatchingTapsCount()
-  if NotMatchingTapsCount is None:
-    return
+  if N > 1:
+    NotMatchingTapsCount = MainMenu_static.getNotMatchingTapsCount()
+    if NotMatchingTapsCount is None:
+      return
   NS = MainMenu_static.getNoSuccess()
   if NS is None:
     return
-  Result = Polynomial.listTigerPrimitives(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist, n=N, NoResultsSkippingIteration=NS, MinNotMatchingTapsCount=NotMatchingTapsCount)
+  Result = Polynomial.listTigerPrimitives(Degree, CoeffsCount, Balancing, MinDistance=MinDist, n=N, NoResultsSkippingIteration=NS, MinNotMatchingTapsCount=NotMatchingTapsCount)
   String = "Found tiger polynomials:\n\n"
   Aio.print(f'Found tiger primitives({Degree}, {CoeffsCount}, Balancing={Balancing}, MinimumDoistance={MinDist}):')
   for R in Result:
@@ -420,7 +421,7 @@ def _categoryNlfsrs_searchForMaximum():
   ).run()
   if Details is None:
     return
-  Poly0 = Polynomial.createPolynomial(Degree, CoeffsCount, Balancing, MinimumDistance=MinDist)
+  Poly0 = Polynomial.createPolynomial(Degree, CoeffsCount, Balancing, MinDistance=MinDist)
   Results = []
   if Details == 0:
     Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly0, AndShift, InvertersAllowed=1, Filter=1, Iterate=1, n=N, MaxAndCount=MaxAndCount)

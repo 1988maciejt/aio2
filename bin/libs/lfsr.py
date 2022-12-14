@@ -93,7 +93,7 @@ class Polynomial:
 class Polynomial:
   """This object represents Polynomials in GF(2)."""
   __slots__ = ("_coefficients_list",
-               "_inv_list",
+               "_sign_list",
                "_balancing",
                "_bmin",
                "_bmax",
@@ -203,11 +203,11 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     self._CoeffsCount = []
     self._DontTouchBounds = 1
     self._OddOnly = 1
-    self._inv_list = []
+    self._sign_list = []
     self._IterationStartingPoint = None
     if "Polynomial" in str(type(PolynomialCoefficientList)):
       self._coefficients_list = PolynomialCoefficientList._coefficients_list.copy()
-      self._inv_list = PolynomialCoefficientList._inv_list.copy()
+      self._sign_list = PolynomialCoefficientList._sign_list.copy()
       self._balancing = PolynomialCoefficientList._balancing + 0
       self._bmin = PolynomialCoefficientList._bmin
       self._bmax = PolynomialCoefficientList._bmax
@@ -228,7 +228,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         cntr += 1
         PolynomialCoefficientList >>= 1
       self._coefficients_list.sort(reverse=True)
-      self._inv_list = [1 for _ in range(len(self._coefficients_list))]
+      self._sign_list = [1 for _ in range(len(self._coefficients_list))]
       self._balancing = PolynomialBalancing
       self._bmax = self._coefficients_list[0] 
       self._IterationStartingPoint = None
@@ -248,7 +248,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         cntr += 1
         num >>= 1
       self._coefficients_list.sort(reverse=True)
-      self._inv_list = [1 for _ in range(len(self._coefficients_list))]
+      self._sign_list = [1 for _ in range(len(self._coefficients_list))]
       self._balancing = PolynomialBalancing   
       self._bmax = self._coefficients_list[0]   
       self._IterationStartingPoint = None
@@ -258,11 +258,11 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         lst.append(c)
       lst.sort(reverse=True, key=lambda x: abs(x))
       self._coefficients_list = lst
-      self._inv_list = [1 for _ in range(len(self._coefficients_list))]
+      self._sign_list = [1 for _ in range(len(self._coefficients_list))]
       for i in range(len(lst)):
         if lst[i] < 0:
           lst[i] = abs(lst[i])
-          self._inv_list[i] = -1
+          self._sign_list[i] = -1
       self._coefficients_list = lst
       self._balancing = PolynomialBalancing
       self._bmax = self._coefficients_list[0]
@@ -309,7 +309,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         Result += ", "
       else:
         Second = 1
-      Result += str(self._inv_list[i] * self._coefficients_list[i])
+      Result += str(self._sign_list[i] * self._coefficients_list[i])
     Result += "]"
     return Result
   
@@ -320,6 +320,19 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       return
     for p in poly0:
       yield p.copy()
+      
+  def iterateThroughSigns(self):
+    poly = self.copy()
+    signs = poly._sign_list
+    intmax = (1 << (len(signs)-2)) - 1
+    for i in range(1, intmax):
+      for index in range(1, len(signs)-1):
+        if i & 1:
+          signs [index] = -1
+        else: 
+          signs [index] = 1
+        i >>= 1
+      yield poly
   
   def getDifferentTapCount(self, AnotherPolynomial) -> int:
     Second = Polynomial(AnotherPolynomial)
@@ -569,7 +582,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     deg = self._coefficients_list[0]
     result = [deg, self._coefficients_list[clen-1]]
     for i in range(1, clen-1):
-      result.append((deg - self._coefficients_list[i]) * self._inv_list[i])
+      result.append((deg - self._coefficients_list[i]) * self._sign_list[i])
     return Polynomial(result)
   
   def getReversed(self) -> Polynomial:

@@ -492,6 +492,18 @@ Such polynomial may be used as generator, for example:
     Arguments=["PolynomialDegree", "PolynomialCoefficientsCount", "PolynomialBalancing", "LayoutFriendly", "MinDistance"]
   ))
   PolynomialCat.addItem(AioHelpProc(
+    Name="Polynomial.iterateThroughSigns",
+    Description="""Iterates through coefficient signs of the Polynomial object.
+Especially usable to search Hybrid Ring Generators.
+
+    for p in Polynomial([8,4,1,0]).iterateThroughSigns():
+      print(p)
+      
+    >>> [8, -4, 1, 0]
+    >>> [8, 4, -1, 0]""",
+    Arguments=["self"]
+  ))
+  PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.createPolynomial",
     Description="""Returns first polynomial having specified properties.
 Such polynomial may be used as generator, for example:
