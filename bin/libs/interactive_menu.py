@@ -66,6 +66,7 @@ def _categoryPolynomial_printTiger():
   N = MainMenu_static.getN()
   if N is None:
     return
+  NotMatchingTapsCount = 0
   if N > 1:
     NotMatchingTapsCount = MainMenu_static.getNotMatchingTapsCount()
     if NotMatchingTapsCount is None:
@@ -79,6 +80,38 @@ def _categoryPolynomial_printTiger():
   for R in Result:
     String += f'{R.toTigerStr()}\n'
     Aio.print(R.toTigerStr())
+  message_dialog(title="Result", text=String).run()
+  
+def _categoryPolynomial_printHybrid():
+  Degree = MainMenu_static.getPolynomialDegree()
+  if Degree is None:
+    return
+  CoeffsCount = MainMenu_static.getCoeffsCount()
+  if CoeffsCount is None:
+    return
+  Balancing = MainMenu_static.getBalancing()
+  if Balancing is None:
+    return
+  MinDist = MainMenu_static.getMinDistance()
+  if MinDist is None:
+    return
+  N = MainMenu_static.getN()
+  if N is None:
+    return
+  NotMatchingTapsCount = 0
+  if N > 1:
+    NotMatchingTapsCount = MainMenu_static.getNotMatchingTapsCount()
+    if NotMatchingTapsCount is None:
+      return
+  NS = MainMenu_static.getNoSuccess()
+  if NS is None:
+    return
+  Result = Polynomial.listHybridPrimitives(Degree, CoeffsCount, Balancing, MinDistance=MinDist, n=N, NoResultsSkippingIteration=NS, MinNotMatchingTapsCount=NotMatchingTapsCount)
+  String = "Found hybrid polynomials:\n\n"
+  Aio.print(f'Found hybrid primitives({Degree}, {CoeffsCount}, Balancing={Balancing}, MinimumDoistance={MinDist}):')
+  for R in Result:
+    String += f'{R}\n'
+    Aio.print(R)
   message_dialog(title="Result", text=String).run()
 
 def _categoryPolynomial_printDense():
@@ -330,7 +363,19 @@ def _categoryProgrammableRingGenerator():
     if SubCategory is not None:
       SubCategory()
       
-  
+
+def _categoryHybridRingGenerator_subDecodePolynomial():
+  HPoly = MainMenu_static.getPolynomial()
+  if HPoly is None:
+    return
+  Poly = Polynomial.decodeUsingBerlekampMassey(Lfsr(HPoly, HYBRID_RING))
+  Result = f"""Hybrid Polynomial: 
+  {Polynomial(HPoly)}
+decoded characteristic polynomial:
+  {Poly}
+"""
+  print(Result)
+  message_dialog(title="Result", text=Result).run()
 
 def _categoryTigerRingGenerator_subDecodePolynomial():
   TIgerPoly = MainMenu_static.getTigerPolynomial()
@@ -498,7 +543,7 @@ class MainMenu_static:
       (_categoryPolynomial,                 "Primitive polynomials"),
       (_categoryLfsrWithManualTaps,         "Ring generators with manually specified taps"),
       (_categoryProgrammableRingGenerator,  "Programmable ring renegrator"),
-      (_categoryTigerRingGenerator,         "Tiger Ring Generators"),
+      (_categoryTigerRingGenerator,         "Hybrid/Tiger Ring Generators"),
       (_categoryNlfsrs,                     "Nonlinear shift registers"),
       (_categoryBent,                       "Bent functions"),
     ]
@@ -512,6 +557,7 @@ class MainMenu_static:
       (_categoryPolynomial_printEveryN,     "Print Every-N primitives"),
       (_categoryPolynomial_printDense,      "Print dense primitives"),
       (_categoryPolynomial_printTiger,      "Print Tiger polynomials"),
+      (_categoryPolynomial_printHybrid,     "Print Hybrid polynomials"),
       (_categoryPolynomial_decode,          "Decode using Berlekamp-Massey algorithm")
     ]
   )
@@ -538,15 +584,17 @@ class MainMenu_static:
       (_categoryProgrammableRingGenerator_subAddMuxed,        "Add (de)muxed taps"),
       (_categoryProgrammableRingGenerator_subAddMuxedWithOff, "Add (de)muxed taps with off"),
       (_categoryProgrammableRingGenerator_subRemove,          "Remove tap"),
-      (_categoryProgrammableRingGenerator_subDoCalculations,  "Stats")
+      (_categoryProgrammableRingGenerator_subDoCalculations,  "Stats"),
     ]
   )
   _tiger_ring_generator_menu = radiolist_dialog(
-    title="Tiger ring generators",
+    title="Hybrid/Tiger ring generators",
     text="What do you want to do:",
     values=[
       (_categoryPolynomial_printTiger,    "Search for maximum tiger ring generators"),
-      (_categoryTigerRingGenerator_subDecodePolynomial, "Decode characteristic polynomial")
+      (_categoryPolynomial_printHybrid,   "Search for maximum hybrid ring generators"),
+      (_categoryTigerRingGenerator_subDecodePolynomial, "Decode characteristic polynomial of Tiger Ring"),
+      (_categoryHybridRingGenerator_subDecodePolynomial, "Decode characteristic polynomial o Hybrid Ring"),
     ]
   )
   _nlfsrs_menu = radiolist_dialog(

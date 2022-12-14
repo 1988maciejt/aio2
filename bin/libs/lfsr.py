@@ -976,7 +976,128 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
             Polys.append(lpol)
       else:
         for l in Aux:
-          Polys.append(Polynomial(l._my_poly.copy()))      
+          lpol = Polynomial(l._my_poly.copy())
+          Polys.append(Polynomial(lpol))      
+      print(f'Found so far: {len(Polys)}')
+    return Polys
+            
+
+  @staticmethod
+  def printHybridPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0):
+    Polys = Polynomial.listHybridPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, n, NoResultsSkippingIteration, StartingPolynomial, MinNotMatchingTapsCount)
+    for p in Polys:
+      Aio.print(p)
+      
+  @staticmethod
+  def listHybridPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0) -> list:
+    Poly0 = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance)
+    if Poly0 is None:
+      return []
+    if not Poly0.setStartingPointForIterator(StartingPolynomial):
+      return []
+    SerialChunkSize = 20
+    if PolynomialDegree >= 512:
+      SerialChunkSize = 1
+    elif PolynomialDegree >= 256:
+      SerialChunkSize = 5
+    elif PolynomialDegree >= 128:
+      SerialChunkSize = 10 
+    aux = 100000 // PolynomialDegree
+    if aux < 100:
+      aux = 100
+    ParallelChunk = aux * SerialChunkSize
+    lfsrs = []
+    SkippingCounter = NoResultsSkippingIteration
+    Polys = []
+    SkipFirst = 0
+    SkipPolysCOunterMax = 1000000
+    SkipPolysCOunter = SkipPolysCOunterMax
+    SkipAll = 0
+    if MinNotMatchingTapsCount > 0:
+      ParallelChunk >>= 4
+      PRefList = Polynomial.listHybridPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, 1, NoResultsSkippingIteration, StartingPolynomial, 0)
+      if len(PRefList) > 0:
+        PRef = PRefList[0]
+        Polys.append(PRef)
+        Polynomial.setStartingPointForIterator(PRef)
+        SkipFirst = 1
+      else:
+        SkipAll = 1
+    if (n <= 0) or (len(Polys) < n > 0) and not SkipAll:
+      for ph in Poly0:
+        for p in ph.iterateThroughSigns():
+          WasFound = 0
+          if SkipFirst:
+            SkipFirst = 0
+            continue
+          if MinNotMatchingTapsCount > 0:
+            MinDiffTapsOk = 1
+            for R in Polys:
+              if p.getDifferentTapCount(R) < MinNotMatchingTapsCount:
+                MinDiffTapsOk = 0
+                break
+            if not MinDiffTapsOk:
+              SkipPolysCOunter -= 1
+              if SkipPolysCOunter <= 0:
+                break
+              continue
+            SkipPolysCOunter = SkipPolysCOunterMax
+          lfsrs.append(Lfsr(p, HYBRID_RING))
+          if len(lfsrs) >= ParallelChunk:
+            AuxComb = Lfsr.checkMaximum(lfsrs, n-len(Polys), SerialChunkSize, 1)
+            Aux = AuxComb[0]
+            lfsrs = AuxComb[1]
+            if MinNotMatchingTapsCount > 0:
+              MinDiffTapsOk = 1
+              for l in Aux:
+                lpol = Polynomial(l._my_poly.copy())
+                lpol._sign_list = l._my_signs.copy()
+                for R in Polys:
+                  if lpol.getDifferentTapCount(R) < MinNotMatchingTapsCount:
+                    MinDiffTapsOk = 0
+                    break
+                if MinDiffTapsOk:
+                  Polys.append(lpol)
+                  WasFound = 1
+            else:
+              if len(Aux) > 0:
+                WasFound = 1
+                for l in Aux:
+                  lpol = Polynomial(l._my_poly.copy())
+                  lpol._sign_list = l._my_signs.copy()
+                  Polys.append(Polynomial(lpol))     
+            print(f'Found so far: {len(Polys)}')
+            if len(Polys) >= n > 0:
+              break
+            if NoResultsSkippingIteration > 0:
+              if WasFound:
+                SkippingCounter = NoResultsSkippingIteration
+              else:
+                SkippingCounter -= 1
+              if SkippingCounter <= 0:
+                break            
+    while len(lfsrs) > 0 and (len(Polys) < n or n <= 0) and not SkipAll:
+      if NoResultsSkippingIteration > 0 and SkippingCounter <= 0:
+        break
+      AuxComb = Lfsr.checkMaximum(lfsrs, n-len(Polys), SerialChunkSize, 1)
+      Aux = AuxComb[0]
+      lfsrs = AuxComb[1]
+      if MinNotMatchingTapsCount > 0:
+        MinDiffTapsOk = 1
+        for l in Aux:
+          lpol = Polynomial(l._my_poly.copy())
+          lpol._sign_list = l._my_signs.copy()
+          for R in Polys:
+            if lpol.getDifferentTapCount(R) < MinNotMatchingTapsCount:
+              MinDiffTapsOk = 0
+              break
+          if MinDiffTapsOk:
+            Polys.append(lpol)
+      else:
+        for l in Aux:
+          lpol = Polynomial(l._my_poly.copy())
+          lpol._sign_list = l._my_signs.copy()
+          Polys.append(Polynomial(lpol))      
       print(f'Found so far: {len(Polys)}')
     return Polys
   
@@ -1250,8 +1371,6 @@ class Lfsr:
   """An LFSR object. Used for all 3 LFSR implementations, like 
   Galois, Fibonacci (default), RingGenerator.
   """
-  _maxfound = 0
-  _maxFoundN = 0
   _my_poly = []
   _my_signs = []
   _type = LfsrType.Galois
@@ -2112,38 +2231,31 @@ endmodule'''
     return ToReturn
       
   def _checkMaximumSerial(LfsrsList : list) -> list:
-    if Lfsr._maxfound >= Lfsr._maxFoundN > 0:
-      return []
     Results = []
     for lfsr in LfsrsList:
       if lfsr._isMaximumAndClean():
         Results.append(lfsr)
-        if Lfsr._maxfound+len(Results) >= Lfsr._maxFoundN > 0:
-          break
-    Lfsr._maxfound += len(Results)
     return Results
+  
   def checkMaximum(LfsrsList : list, n = 0, SerialChunkSize = 20, ReturnAlsoNotTested = 0) -> list:
-    Lfsr._maxfound = 0
-    Lfsr._maxFoundN = n
     Candidates = List.splitIntoSublists(LfsrsList, SerialChunkSize)
     Results = []
     Generator = Generators()
     Iter = p_uimap(Lfsr._checkMaximumSerial, Generator.wrapper(Candidates), total=len(Candidates), desc = f'x{SerialChunkSize}')
+    ItCounter = 0
     for RL in Iter:
       Results += RL
+      ItCounter += 1
       if len(Results) >= n > 0:
         Generator.disable()
     del Generator
     if len(Results) > n > 0:
       Results = Results[:n]
     if ReturnAlsoNotTested:
-      if len(Results) > 0:
-        Last = Results[-1]
-        Index = LfsrsList.index(Last) + 1
-        NotTested = LfsrsList[Index:]
-        return [ Results, NotTested ]
-      else:
-        return [ [], [] ]    
+      NotTested = []
+      for i in range(ItCounter, len(Candidates)):
+        NotTested += Candidates[i]
+      return [ Results, NotTested ]
     else:
       return Results
     

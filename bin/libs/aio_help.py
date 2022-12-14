@@ -551,6 +551,16 @@ Such polynomial may be used as generator, for example:
     Arguments=["PolynomialDegree", "PolynomialCoefficientsCount", "PolynomialBalancing", "LayoutFriendly", "MinDistance", "n", "NoResultsSkippingIteration","StartingPolynomial","MinNotMatchingTapsCount"]
   ))
   PolynomialCat.addItem(AioHelpProc(
+    Name="Polynomial.printHybridPrimitives",
+    Description="""Returns a list of hybrid primitives (polys defining a tiger ring).""",
+    Arguments=["PolynomialDegree", "PolynomialCoefficientsCount", "PolynomialBalancing", "LayoutFriendly", "MinDistance", "n", "NoResultsSkippingIteration","StartingPolynomial","MinNotMatchingTapsCount"]
+  ))
+  PolynomialCat.addItem(AioHelpProc(
+    Name="Polynomial.listHybridPrimitives",
+    Description="""Prints hybrid primitives (polys defining a tiger ring).""",
+    Arguments=["PolynomialDegree", "PolynomialCoefficientsCount", "PolynomialBalancing", "LayoutFriendly", "MinDistance", "n", "NoResultsSkippingIteration","StartingPolynomial","MinNotMatchingTapsCount"]
+  ))
+  PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.listPrimitives",
     Description="""Returns a list of primitive polynomials.""",
     Arguments=["PolynomialDegree", "PolynomialCoefficientsCount", "PolynomialBalancing", "LayoutFriendly", "MinDistance", "n", "Silent", "MaxSetSize", "ExcludeList", "FilteringCallback", "ReturnAlsoAllCandidaes", "NoResultsSkippingIteration","StartingPolynomial"]
