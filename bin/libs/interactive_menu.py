@@ -594,7 +594,7 @@ class MainMenu_static:
       (_categoryPolynomial_printTiger,    "Search for maximum tiger ring generators"),
       (_categoryPolynomial_printHybrid,   "Search for maximum hybrid ring generators"),
       (_categoryTigerRingGenerator_subDecodePolynomial, "Decode characteristic polynomial of Tiger Ring"),
-      (_categoryHybridRingGenerator_subDecodePolynomial, "Decode characteristic polynomial o Hybrid Ring"),
+      (_categoryHybridRingGenerator_subDecodePolynomial, "Decode characteristic polynomial of Hybrid Ring"),
     ]
   )
   _nlfsrs_menu = radiolist_dialog(
