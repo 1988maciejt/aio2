@@ -1284,8 +1284,69 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       c -= 2
     if len(result) > n > 0:
       result = result[0:n-1]   
-    print (f'Found: {len(result)}')   
     return result
+  
+  @staticmethod
+  def printStarPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing=0, n=0) -> None:
+    for p in Polynomial.listStarPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, n):
+      Aio.print(p)
+  
+  @staticmethod
+  def listStarPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing=0, n=0) -> list:
+    Results = []
+    Candidates = []
+    ChunkSize = 10000
+    SerialChunkSize = 5
+    for p in Polynomial.iterate(PolynomialDegree>>1, PolynomialCoefficientsCount, PolynomialBalancing):
+      p._coefficients_list[0] = PolynomialDegree
+      Candidates.append(Lfsr(p, STAR_RING))
+      if len(Candidates) >= ChunkSize:
+        N = 0 if n <= 0 else n - len(Results)
+        Results += Lfsr.checkMaximum(Candidates, N, SerialChunkSize)
+        Candidates = []
+        print(f'Found so far: {len(Results)}')
+      if len(Results) >= n > 0:
+        break
+    if(len(Candidates) > 0) and not (len(Results) >= n > 0):
+      N = 0 if n <= 0 else n - len(Results)
+      Results += Lfsr.checkMaximum(Candidates, N, SerialChunkSize)  
+    if len(Results) > n > 0:
+      Results = Results[0:n-1]   
+    Polys = []
+    for L in Results:
+      Polys.append(Polynomial(L._my_poly))
+    return Polys
+  
+  @staticmethod
+  def printStarTigerPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing=0, n=0) -> None:
+    for p in Polynomial.listStarTigerPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, n):
+      Aio.print(p.toTigerStr())
+      
+  @staticmethod
+  def listStarTigerPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing=0, n=0) -> list:
+    Results = []
+    Candidates = []
+    ChunkSize = 10000
+    SerialChunkSize = 5
+    for p in Polynomial.iterate(PolynomialDegree>>1, PolynomialCoefficientsCount, PolynomialBalancing):
+      p._coefficients_list[0] = PolynomialDegree
+      Candidates.append(Lfsr(p, STAR_TIGER_RING))
+      if len(Candidates) >= ChunkSize:
+        N = 0 if n <= 0 else n - len(Results)
+        Results += Lfsr.checkMaximum(Candidates, N, SerialChunkSize)
+        Candidates = []
+        print(f'Found so far: {len(Results)}')
+      if len(Results) >= n > 0:
+        break
+    if(len(Candidates) > 0) and not (len(Results) >= n > 0):
+      N = 0 if n <= 0 else n - len(Results)
+      Results += Lfsr.checkMaximum(Candidates, N, SerialChunkSize)  
+    if len(Results) > n > 0:
+      Results = Results[0:n-1]   
+    Polys = []
+    for L in Results:
+      Polys.append(Polynomial(L._my_poly))
+    return Polys
   
   @staticmethod
   def printTapsFromTheLeftPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, MaxDistance = 3, n=0, Silent = True) -> None:
@@ -1357,6 +1418,9 @@ class LfsrType:
   RingWithSpecifiedTaps = 4
   TigerRing = 5
   HybridRing = 6
+  StarRing = 7
+  StarTigerRing = 8
+  StarHybridRing = 9
 
 # Constants
 FIBONACCI = LfsrType.Fibonacci
@@ -1365,6 +1429,9 @@ RING_GENERATOR = LfsrType.RingGenerator
 RING_WITH_SPECIFIED_TAPS = LfsrType.RingWithSpecifiedTaps
 TIGER_RING = LfsrType.TigerRing
 HYBRID_RING = LfsrType.HybridRing
+STAR_RING = LfsrType.StarRing
+STAR_TIGER_RING = LfsrType.StarTigerRing
+STAR_HYBRID_RING = LfsrType.StarHybridRing
 
 # LFSR BEGIN ======================
 class Lfsr:
@@ -1479,6 +1546,29 @@ class Lfsr:
           if signs[i] < 0:
             self.reverseTap(taps_count - i)
         self._type = LfsrType.RingWithSpecifiedTaps
+    elif lfsr_type in [LfsrType.StarRing, LfsrType.StarTigerRing, LfsrType.StarHybridRing]:
+      taps = []
+      flist = self._my_poly
+      signs = self._my_signs
+      deg = flist[0]
+      deg_div2 = (deg >> 1)
+      for i in range(1, len(flist)):
+        S = flist[i]
+        D = ((S - 1 + deg_div2) % deg)
+        taps.append([S, D])
+      self._taps = taps
+      for i in range(1, len(signs)-1):
+        if signs[i] < 0:
+          self.reverseTap(taps_count - i)
+      if lfsr_type == LfsrType.StarTigerRing:
+        for i in range(0, len(taps), 2):
+          self.reverseTap(i)
+      elif lfsr_type == LfsrType.StarHybridRing:
+        signs = self._my_signs
+        for i in range(1, len(signs)-1):
+          if signs[i] < 0:
+            self.reverseTap(taps_count - i)
+      self._type = LfsrType.RingWithSpecifiedTaps
     else:
       Aio.printError("Unrecognised lfsr type '" + str(lfsr_type) + "'")
     self.reset()

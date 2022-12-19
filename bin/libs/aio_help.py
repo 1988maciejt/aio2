@@ -611,6 +611,26 @@ Such polynomial may be used as generator, for example:
     Arguments=["PolynomialDegree", "n", "Silent","StartingPolynomial"]
   ))
   PolynomialCat.addItem(AioHelpProc(
+    Name="Polynomial.listStarPrimitives",
+    Description="""Returns list of star (not characteristic!) primitive polynomials.""",
+    Arguments=["PolynomialDegree", "PolynomialCoefficientsCount", "PolynomialBalancing","n"]
+  ))
+  PolynomialCat.addItem(AioHelpProc(
+    Name="Polynomial.printStarTigerPrimitives",
+    Description="""Prints star-tiger (not characteristic!) primitive polynomials.""",
+    Arguments=["PolynomialDegree", "PolynomialCoefficientsCount", "PolynomialBalancing","n"]
+  ))
+  PolynomialCat.addItem(AioHelpProc(
+    Name="Polynomial.listStarTigerPrimitives",
+    Description="""Returns list of star-tiger (not characteristic!) primitive polynomials.""",
+    Arguments=["PolynomialDegree", "PolynomialCoefficientsCount", "PolynomialBalancing","n"]
+  ))
+  PolynomialCat.addItem(AioHelpProc(
+    Name="Polynomial.printStarPrimitives",
+    Description="""Prints star (not characteristic!) primitive polynomials.""",
+    Arguments=["PolynomialDegree", "PolynomialCoefficientsCount", "PolynomialBalancing","n"]
+  ))
+  PolynomialCat.addItem(AioHelpProc(
     Name="Polynomial.firstTapsFromTheLeftPrimitive",
     Description="""Returns first found primitive polynomial having taps grouped close to the left side.""",
     Arguments=["PolynomialDegree", "PolynomialCoefficientsCount", "MaxDistance", "Silent"]
