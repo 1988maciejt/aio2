@@ -1910,31 +1910,35 @@ class Lfsr:
       if Bit:
         self._baValue[Index] ^= 1
     return self._baValue
-  def toVerilog(self, ModuleName : str, SingleInjector = False, CorrectionInput = False) -> str:
+  def toVerilog(self, ModuleName : str, InjectorIndexesList = []) -> str:
     Module = \
 f'''module {ModuleName} (
   input wire clk,
   input wire enable,
   input wire reset,
 '''
-    if CorrectionInput:
-      Module += "  input wire correction_in,\n"
-      Module += "  input wire correction_time,\n"
-    if SingleInjector:
-      Module += "  input wire injector,\n"
+    if len(InjectorIndexesList) > 0:
+      Module += f"  input wire [{len(InjectorIndexesList)-1}:0] injectors,\n"
     Module += \
 f'''  output reg [{self.getSize()-1}:0] O
 );
 
 '''
+    Sources = []
+    Size = self._size
+    for i in range(Size):
+      Sources.append(f'O[{(i+1) % Size}]')
     if self._type == LfsrType.Fibonacci:
-      Module += "wire xor_gate;\n\n"
-    if CorrectionInput:
-      if self._type == LfsrType.Galois or self._type == LfsrType.RingGenerator or self._type == LfsrType.RingWithSpecifiedTaps:
-        if SingleInjector:
-          Module += "wire corrector_mux = correction_time ? correction_in : O[0] ^ injector;\n\n"
-        else:
-          Module += "wire corrector_mux = correction_time ? correction_in : O[0];\n\n"
+      for j in range(1, len(self._my_poly)-1):
+        Sources[Size-1] += f" ^ O[{j}]"
+    elif self._type == LfsrType.Galois:
+      for j in range(1, len(self._my_poly)-1):
+        Sources[j-1] += f" ^ O[0]"
+    else:
+      for Tap in self._taps:
+        Sources[Tap[1]] += f" ^ O[{Tap[0]}]"
+    for i in range(len(InjectorIndexesList)):
+      Sources[InjectorIndexesList[i]] += f" ^ injectors[{i}]"
     Module += \
 f'''always @ (posedge clk or posedge reset) begin
   if (reset) begin
@@ -1942,48 +1946,8 @@ f'''always @ (posedge clk or posedge reset) begin
   end else begin
     if (enable) begin
 '''
-    if self._type == LfsrType.Fibonacci:
-      for i in range(0, self.getSize()-1):
-        Module += f'      O[{i}] <= O[{i+1}];\n'
-      Module += f'      O[{self.getSize()-1}] <= xor_gate;'
-    elif self._type == LfsrType.Galois:
-      for i in range(0, self.getSize()-1):
-        if (i+1) in self._my_poly:
-          Module += f'      O[{i}] <= O[{i+1}] ^ O[0];\n'
-        else:
-          Module += f'      O[{i}] <= O[{i+1}];\n'
-      Module += f'      O[{self.getSize()-1}] <= O[0]'
-      if SingleInjector and not CorrectionInput:
-        Module += f' ^ injector;\n'
-      else:
-        Module += f';\n'
-    elif self._type == LfsrType.RingGenerator or self._type == LfsrType.RingWithSpecifiedTaps:
-      f = []
-      t = []
-      for tap in self._taps:
-        f.append(tap[0])
-        t.append(tap[1])
-      for i in range(0, self.getSize()-1):
-        if i in t:
-          Module += f'      O[{i}] <= O[{i+1}] ^ O[{f[t.index(i)]}];\n'
-        else:
-          Module += f'      O[{i}] <= O[{i+1}];\n'
-      if CorrectionInput:
-        Module += f'      O[{self.getSize()-1}] <= corrector_mux;\n'
-      else:      
-        if SingleInjector:
-          Module += f'      O[{self.getSize()-1}] <= O[0] ^ injector;\n'
-        else:
-          Module += f'      O[{self.getSize()-1}] <= O[0];\n'
-    Module += "    end\n"
-    if self._type == LfsrType.Fibonacci:
-      Module += f'\nassign xor_gate = '
-      for i in range(1, len(self._my_poly)):
-        Module += f'O[{self._my_poly[i]}] ^ '
-      if SingleInjector:
-        Module += f'injector;\n'
-      else:
-        Module += f'1\'b0;\n'
+    for i in range(len(Sources)):
+      Module += f'      O[{i}] <= {Sources[i]};\n'
     Module += \
 f'''  end
 end
