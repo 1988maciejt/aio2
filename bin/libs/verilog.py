@@ -848,7 +848,7 @@ endmodule"""
         Script += f'abc -liberty {TechlibFileName} \n'
       Script += f'write_verilog -noattr -noexpr {OutputFileName} \n'
       writeFile(ysFileName, Script)
-      result = Aio.shellExecute(f'yosys {ysFileName}')
+      result = Aio.shellExecute(f'yosys {ysFileName}', 1, 1)
       return result
     
   def getTopModule(self) -> VerilogModule:

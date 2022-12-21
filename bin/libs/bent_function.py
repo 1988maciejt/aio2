@@ -1,5 +1,6 @@
 from bitarray import *
 import bitarray.util as bau
+from math import log2
 from libs.utils_bitarray import *
 from libs.utils_int import *
 from libs.aio import *
@@ -17,20 +18,17 @@ _BF_STATE = None
 
 class BentFunction:
   
-  __slots__ = ("_map_list", "_lut")
+  __slots__ = ("_lut")
   
-  def __init__(self, MapList : list, LUT : bitarray) -> None:
-    self._map_list = MapList
+  def __init__(self, LUT : bitarray) -> None:
     self._lut = LUT.copy()
-    if len(LUT) < (1<<len(MapList)):
-      self._lut += bau.zeros((1<<len(MapList)) - len(LUT))
   def __str__(self) -> str:
     return str(self.value())
   def __repr__(self) -> str:
     return f'BentFunction({repr(self._lut)})'
   
-  def value(self, Source : bitarray) -> int:
-    return self._lut[bau.ba2int(Bitarray.mapBits(Source, self._map_list), "little")]
+  def value(self, Source : bitarray, MapList : list) -> int:
+    return self._lut[bau.ba2int(Bitarray.mapBits(Source, MapList), "little")]
   
   def listBentFunctionLuts(InputCount : int, n = 0) -> list:
     if InputCount <= 1:
@@ -105,8 +103,11 @@ class BentFunction:
           break
       return Results
   
+  def getInputCount(self):
+    return int(log2(len(self._lut)))
+  
   def toVerilog(self, ModuleName : str):
-    ICount = len(self._map_list)
+    ICount = self.getInputCount()
     Module = \
 f'''module {ModuleName} (
   input wire [{ICount-1}:0] I,
@@ -114,8 +115,7 @@ f'''module {ModuleName} (
 );
 
 always @ (*) begin
-  O = 
-'''
+  O = '''
     Second = False;
     Lut = self._lut;
     for i in range(len(Lut)):
@@ -124,11 +124,22 @@ always @ (*) begin
           Module += "\n    | "
         else:
           Second = True
-        
-    Module = \
-f'''end
+        Expr = ""
+        for j in range(ICount):
+          if j:
+            Expr += " & "
+          if i & 1:
+            Expr += f"I[{j}]"
+          else:
+            Expr += f"~I[{j}]"
+          i >>= 1
+        Module += Expr
+    Module += \
+f''';
+end
 
 endmodule'''
+    return Module
 
     
     

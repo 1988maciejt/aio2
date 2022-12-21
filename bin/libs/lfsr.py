@@ -1950,7 +1950,8 @@ f'''always @ (posedge clk or posedge reset) begin
     for i in range(len(Sources)):
       Module += f'      O[{i}] <= {Sources[i]};\n'
     Module += \
-f'''  end
+f'''    end
+  end
 end
     
 endmodule'''
