@@ -1910,6 +1910,7 @@ class Lfsr:
       if Bit:
         self._baValue[Index] ^= 1
     return self._baValue
+  
   def toVerilog(self, ModuleName : str, InjectorIndexesList = []) -> str:
     Module = \
 f'''module {ModuleName} (

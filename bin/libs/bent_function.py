@@ -16,9 +16,10 @@ import copy
 _BF_STATE = None
 
 class BentFunction:
-  __slots__ = ("_source", "_map_list", "_lut")
-  def __init__(self, Source : bitarray, MapList : list, LUT : bitarray) -> None:
-    self._source = Source
+  
+  __slots__ = ("_map_list", "_lut")
+  
+  def __init__(self, MapList : list, LUT : bitarray) -> None:
     self._map_list = MapList
     self._lut = LUT.copy()
     if len(LUT) < (1<<len(MapList)):
@@ -27,8 +28,9 @@ class BentFunction:
     return str(self.value())
   def __repr__(self) -> str:
     return f'BentFunction({repr(self._lut)})'
-  def value(self) -> int:
-    return self._lut[bau.ba2int(Bitarray.mapBits(self._source, self._map_list))]
+  
+  def value(self, Source : bitarray) -> int:
+    return self._lut[bau.ba2int(Bitarray.mapBits(Source, self._map_list), "little")]
   
   def listBentFunctionLuts(InputCount : int, n = 0) -> list:
     if InputCount <= 1:
@@ -102,6 +104,35 @@ class BentFunction:
         if len(Results) >= n > 0:
           break
       return Results
+  
+  def toVerilog(self, ModuleName : str):
+    ICount = len(self._map_list)
+    Module = \
+f'''module {ModuleName} (
+  input wire [{ICount-1}:0] I,
+  output wire O
+);
+
+always @ (*) begin
+  O = 
+'''
+    Second = False;
+    Lut = self._lut;
+    for i in range(len(Lut)):
+      if Lut[i]:
+        if Second:
+          Module += "\n    | "
+        else:
+          Second = True
+        
+    Module = \
+f'''end
+
+endmodule'''
+
+    
+    
+    
       
 def _bent_searcher_helper(rng, Listx, Len, InputCount, N) -> list:
   global _BF_STATE
