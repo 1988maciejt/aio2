@@ -7,6 +7,13 @@ class shell_config:
 {"All-In-One v2".center(Aio.getTerminalColumns()>>1)}
 {f'Python: {sys.version}'.center(Aio.getTerminalColumns()>>1)}
 """
+  
   def printHeader():
     print(shell_config.header)
+  
+  def useDC():
+    return False
+  
+  def useQuesta():
+    return False
 

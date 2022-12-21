@@ -7,6 +7,7 @@ from tqdm import *
 from p_tqdm import *
 from random import uniform
 from libs.asci_drawing import *
+from aio_config import *
 
 
 class VerilogSignalDirection(Enum):
@@ -826,26 +827,29 @@ endmodule"""
   def getTopModule(self) -> VerilogModule:
     return self.Modules.getModuleByName(self.Modules.TopModuleName)
   def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechlibFileName = None):
-    tmpFileName = "/tmp/tmp.v"
-    ysFileName = "synth.ys"
-    self.writeToFile(tmpFileName)
-    Script = f'read_verilog -sv {tmpFileName} \n'
-    if Xilinx:
-      Script += f'synth_xilinx '
+    if shell_config.useDC():
+      pass
     else:
-      Script += f'hierarchy '
-    if TopModuleName != None:
-      Script += f'-top {TopModuleName} '
-    Script += f'\n'
-    Script += "techmap \n"
-    Script += "proc; fsm; opt; memory; opt \n"
-    if TechlibFileName != None:
-      Script += f'dfflibmap -prepare -liberty {TechlibFileName} \n'
-      Script += f'abc -liberty {TechlibFileName} \n'
-    Script += f'write_verilog -noattr -noexpr {OutputFileName} \n'
-    writeFile(ysFileName, Script)
-    result = Aio.shellExecute(f'yosys {ysFileName}')
-    Aio.print(result)
+      tmpFileName = "/tmp/tmp.v"
+      ysFileName = "synth.ys"
+      self.writeToFile(tmpFileName)
+      Script = f'read_verilog -sv {tmpFileName} \n'
+      if Xilinx:
+        Script += f'synth_xilinx '
+      else:
+        Script += f'hierarchy '
+      if TopModuleName != None:
+        Script += f'-top {TopModuleName} '
+      Script += f'\n'
+      Script += "techmap \n"
+      Script += "proc; fsm; opt; memory; opt \n"
+      if TechlibFileName != None:
+        Script += f'dfflibmap -prepare -liberty {TechlibFileName} \n'
+        Script += f'abc -liberty {TechlibFileName} \n'
+      Script += f'write_verilog -noattr -noexpr {OutputFileName} \n'
+      writeFile(ysFileName, Script)
+      result = Aio.shellExecute(f'yosys {ysFileName}')
+      return result
     
   def getTopModule(self) -> VerilogModule:
     return self.Modules.getModuleByName(self.Modules.TopModuleName)
@@ -1060,28 +1064,31 @@ class VerilogTestbench:
     writeFile(FileName, self.getBody(RndStr, OneTimeForce) + "\n\n" + self._my_verilog.getContent())
     
   def simulate(self, OneTimeForce = "") -> dict:
-    RndStr = str(int(uniform(1, 99999999999099)))
+    RndStr = str(int(uniform(1, 99999999999999)))
     FileName = f"full_tb{RndStr}.v"
     self.writeFullVerilog(FileName, RndStr, OneTimeForce)
-    WorkFile = f'work_design{RndStr}.iverilog'
-    ERR = Aio.shellExecute(f"iverilog -o {WorkFile} {FileName}", 0, 1)
-    if len(ERR) > 2:
-      Aio.print(ERR)
-    ERR = Aio.shellExecute(f"vvp -n {WorkFile}", 0, 1)
-    if len(ERR) > 2:
-      Aio.print(ERR)
-    Result = {}
-    for c in self._catchers:
-      name = c[0]
-      CFname = f"{name}{RndStr}.catch"
-      try:
-        Result[name] = readFile(CFname)
-        os.remove(CFname)
-      except:
-        Result[name] = None
-    os.remove(FileName)
-    os.remove(WorkFile)
-    return Result
+    if shell_config.useQuesta():
+      pass
+    else:
+      WorkFile = f'work_design{RndStr}.iverilog'
+      ERR = Aio.shellExecute(f"iverilog -o {WorkFile} {FileName}", 0, 1)
+      if len(ERR) > 2:
+        Aio.print(ERR)
+      ERR = Aio.shellExecute(f"vvp -n {WorkFile}", 0, 1)
+      if len(ERR) > 2:
+        Aio.print(ERR)
+      Result = {}
+      for c in self._catchers:
+        name = c[0]
+        CFname = f"{name}{RndStr}.catch"
+        try:
+          Result[name] = readFile(CFname)
+          os.remove(CFname)
+        except:
+          Result[name] = None
+      os.remove(FileName)
+      os.remove(WorkFile)
+      return Result
   
   def simulateSingleStuckAtFaults(self):
     reference = self.simulate()
