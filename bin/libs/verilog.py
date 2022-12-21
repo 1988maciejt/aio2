@@ -8,6 +8,7 @@ from p_tqdm import *
 from random import uniform
 from libs.asci_drawing import *
 from aio_config import *
+from shutil import copyfile
 
 
 class VerilogSignalDirection(Enum):
@@ -828,7 +829,27 @@ endmodule"""
     return self.Modules.getModuleByName(self.Modules.TopModuleName)
   def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechlibFileName = None):
     if shell_config.useDC():
-      pass
+      tmpFileName = "tmp.v"
+      dcScriptFileName = "dc_script"
+      self.writeToFile(tmpFileName)
+      copyfile(Aio.getPath() + "siemens/synopsys_dc.setup", ".synopsys_dc.setup")
+      copyfile(Aio.getPath() + "siemens/adk.db", "adk.db")
+      DcScript = f"""
+analyze -format verilog {tmpFileName}
+
+elaborate {self.Modules.TopModuleName}
+link
+check_design
+
+compile
+report_area
+
+write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hier
+exit
+"""
+      writeFile(dcScriptFileName, DcScript)
+      result = Aio.shellExecute(f'/home/tnt/tools/DC_SHELL/O-2018.06-SP4/base/bin/dc_shell -f {dcScriptFileName}', 1, 1)
+      return result
     else:
       tmpFileName = "/tmp/tmp.v"
       ysFileName = "synth.ys"

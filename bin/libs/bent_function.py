@@ -111,7 +111,7 @@ class BentFunction:
     Module = \
 f'''module {ModuleName} (
   input wire [{ICount-1}:0] I,
-  output wire O
+  output reg O
 );
 
 always @ (*) begin
