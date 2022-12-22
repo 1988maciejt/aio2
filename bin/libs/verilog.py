@@ -8,7 +8,7 @@ from p_tqdm import *
 from random import uniform
 from libs.asci_drawing import *
 from aio_config import *
-from shutil import copyfile
+from shutil import copyfile, rmtree
 
 
 class VerilogSignalDirection(Enum):
@@ -487,6 +487,9 @@ class VerilogModule:
       if "output" in _direction:
         Direction = VerilogSignalDirection.OUTPUT
       Bus = [_bush, _busl]
+      io = io.strip()
+      if len(io) < 1:
+        continue
       Sig = VerilogSignal(io,Type,Direction,Bus)
       self._signals.add(Sig)
     # parse instances with params
@@ -525,9 +528,23 @@ class VerilogModule:
       self._instances.addInstance(Instance)
     # internal signals
     RegexInternalSignal = f'(wire|reg)\s*((\[([0-9]+):([0-9]+)\])|())\s+([^=;]+)'
+    RegexIoSignal = f'(input|output|inout)\s*([^=;]+)'
+    CContent = CContent.replace(",\n", ",")
     for Line in CContent.split("\n"):
       Direction = VerilogSignalDirection.INTERNAL
+      Existing = 0
+      R = re.search(RegexIoSignal,Line)
+      if R:
+        Direction = VerilogSignalDirection.INOUT
+        if "input" in R.group(1):
+          Direction = VerilogSignalDirection.INPUT
+        if "output" in R.group(1):
+          Direction = VerilogSignalDirection.OUTPUT
+        Line = R.group(2)
+        Existing = 1
       R = re.search(RegexInternalSignal,Line)
+      if Existing and not R:
+        R = re.search(RegexInternalSignal,f'wire {Line}')
       if R:
         _Type = R.group(1)
         _From = R.group(4)
@@ -544,7 +561,15 @@ class VerilogModule:
           _busl = int(_To)
         Bus = [_bush, _busl]
         for Name in _Names:
-          Sig = VerilogSignal(Name.strip() ,Type, Direction, Bus)
+          Name = Name.strip()
+          if len(Name) < 1 or ")" in Name or "]" in Name:
+            continue
+          if Existing:
+            for IoSig in self._signals._signals:    
+              if IoSig.Name == Name:
+                self._signals._signals.remove(IoSig)
+                break
+          Sig = VerilogSignal(Name, Type, Direction, Bus)
           self._signals.add(Sig)
   def __repr__(self) -> str:
     return "VerilogMosule('" + self._name + "')"
@@ -615,7 +640,10 @@ class VerilogModule:
         SubModules.append(MName)
     for mname in SubModules:
       m = self.MyModules.getModuleByName(mname)
-      Counter ++ m.countAllSubModules()
+      if m is None:
+        Counter += 1
+      else:
+        Counter += m.countAllSubModules()
     return Counter
   def getInstantiationInfo(self):
     Result = {}
@@ -694,7 +722,7 @@ class VerilogModules:
       else:
         if re.match(r'^\s*endmodule\s*', Line):
           InModule = False
-          SModule += Line 
+          SModule += Line  
           Module = VerilogModule(SModule, self)
           self._modules.append(Module)
         else:
@@ -707,7 +735,7 @@ class VerilogModules:
     for m in self._modules:
       if m.getName() == Name:
         return m
-    return VerilogModule("");
+    return None;
   def getModulesByName(self, RegexPattern : str) -> list:
     result = []
     for m in self._modules:
@@ -761,7 +789,6 @@ class Verilog:
   def addContent(self, Content : str) -> None:
     self.Modules.addFromString(Content)
     NewTop = self.getBestTopModuleName()
-    Aio.print(f"// Top module automatically changed to '{NewTop}'.")
     self.setTopModuleName(NewTop)
   def addConstraint(self, LineString : str) -> None:
     self.Constraints.add(LineString)
@@ -890,7 +917,8 @@ exit
       AllChildrenCount[MName] = m.countAllSubModules()
     for parent in Children.keys():
       for child in Children[parent]:
-        Parents[child].append(parent)
+        if Parents.get(child, None) is not None:
+          Parents[child].append(parent)
     for child in Parents.keys():
       if len(Parents[child]) == 0:
         TopCandidates.append(child)
@@ -972,7 +1000,7 @@ class VerilogTestbenchClock:
   
   
 class VerilogTestbench:
-  __slots__ = ("_my_verilog", "Name", "Clocks", "_code", "_forces", "_catchers", "SimulationStopTime")
+  __slots__ = ("_my_verilog", "Name", "Clocks", "_code", "_forces", "_catchers", "SimulationStopTime", "TimeUnit", "TimePrecision")
   
   def __init__(self, MyVerilog = Verilog(), Name = "tb", SimulationStopTime = 10000) -> None:
     self._my_verilog = MyVerilog
@@ -982,6 +1010,8 @@ class VerilogTestbench:
     self._forces = []
     self._catchers = []
     self.SimulationStopTime = SimulationStopTime
+    self.TimeUnit = "1ns"
+    self.TimePrecision = "1ps"
     
   def __repr__(self) -> str:
     return "VerilogTestbench(" + self.Name + ", " + self._my_verilog.getTopModuleName() + ")"
@@ -1082,15 +1112,37 @@ class VerilogTestbench:
     self._forces.clear()
     
   def writeFullVerilog(self, FileName = "verilog_testbench_full.v", RndStr = "", OneTimeForce = ""):
-    writeFile(FileName, self.getBody(RndStr, OneTimeForce) + "\n\n" + self._my_verilog.getContent())
+    writeFile(FileName, f'''`timescale {self.TimeUnit}/{self.TimePrecision}\n\n''' + self.getBody(RndStr, OneTimeForce) + "\n\n" + self._my_verilog.getContent())
     
   def simulate(self, OneTimeForce = "") -> dict:
     RndStr = str(int(uniform(1, 99999999999999)))
-    FileName = f"full_tb{RndStr}.v"
-    self.writeFullVerilog(FileName, RndStr, OneTimeForce)
+    Path = ""
     if shell_config.useQuesta():
-      pass
+      Path = f"questa_{RndStr}/"
+      os.mkdir(Path)
+      FileName = f"full_tb.v"
+      self.writeFullVerilog(f"{Path}{FileName}", RndStr, OneTimeForce)
+      copyfile(Aio.getPath() + "siemens/modelsim.ini", "modelsim.ini")
+      ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/pad_cells.v", 1, 1)
+      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+        Aio.print(ERR)
+      ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/adk.v", 1, 1)
+      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+        Aio.print(ERR)
+      ERR = Aio.shellExecute(f"cd {Path} && vlog {FileName}", 1, 1)
+      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+        Aio.print(ERR)
+      Do = "if {0} {log -r /*};run -all;"
+      Batch = f'''
+run {self.SimulationStopTime} {self.TimeUnit}
+quit -f
+'''
+      ERR = Aio.shellExecute(f'''cd {Path} && vsim {self.Name} <<! {Batch}''', 1, 1)
+      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+        Aio.print(ERR)
     else:
+      FileName = f"full_tb{RndStr}.v"
+      self.writeFullVerilog(FileName, RndStr, OneTimeForce)
       WorkFile = f'work_design{RndStr}.iverilog'
       ERR = Aio.shellExecute(f"iverilog -o {WorkFile} {FileName}", 0, 1)
       if len(ERR) > 2:
@@ -1098,18 +1150,23 @@ class VerilogTestbench:
       ERR = Aio.shellExecute(f"vvp -n {WorkFile}", 0, 1)
       if len(ERR) > 2:
         Aio.print(ERR)
-      Result = {}
-      for c in self._catchers:
-        name = c[0]
-        CFname = f"{name}{RndStr}.catch"
-        try:
-          Result[name] = readFile(CFname)
-          os.remove(CFname)
-        except:
-          Result[name] = None
-      os.remove(FileName)
       os.remove(WorkFile)
-      return Result
+      os.remove(FileName)
+    Result = {}
+    for c in self._catchers:
+      name = c[0]
+      CFname = f"{Path}{name}{RndStr}.catch"
+      try:
+        Result[name] = readFile(CFname)
+        os.remove(CFname)
+      except:
+        Result[name] = None
+    if len(Path) > 1:
+      try:
+        shutil.rmtree(Path[:-1])
+      except:
+        pass
+    return Result
   
   def simulateSingleStuckAtFaults(self):
     reference = self.simulate()
@@ -1122,7 +1179,7 @@ class VerilogTestbench:
       force = Forces[i]
       IsDetectable = 0
       for k in reference.keys():
-        if result[k] != reference[k] or result[k] == None :
+        if result[k] != reference[k] and result[k] is not None :
           IsDetectable = 1
           break
       if not IsDetectable:
@@ -1130,10 +1187,10 @@ class VerilogTestbench:
     DetectableCounter = FaultsCount - len(NotDetectable)
     Coverage = round(DetectableCounter * 100 / FaultsCount , 2)
     Aio.print(f'Single stuck-at simulation finished.')
-    Aio.print(f'Fault coverage: {Coverage} %')
     if len(NotDetectable) > 0:
       Aio.print(f'Not detectable faults:')
       for force in NotDetectable:
         Aio.print(f'  {force}')
+    Aio.print(f'Fault coverage: {Coverage} %')
     return [Coverage, NotDetectable]
           

@@ -156,6 +156,16 @@ class Aio:
         }      
         </style>
       """
+  def printSection(*args):
+    s = ""
+    for arg in args:
+      s += str(arg) + " "
+    Aio.transcriptSectionBegin(s)
+  def printSubsection(*args):
+    s = ""
+    for arg in args:
+      s += str(arg) + " "
+    Aio.transcriptSubsectionBegin(s)
   def transcriptSectionBegin(SectionName : str):
     Aio._add_collapsing_css()
     s = "=" * Aio.getTerminalColumns()

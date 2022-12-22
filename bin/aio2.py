@@ -19,7 +19,7 @@ def tc(filename="driver.py"):
     SFile = "../" + SFile
     sys.path.append("../data")
     sys.path.append("../")
-    Aio.print ("Testcase mode. Output redirected to 'transcript.txt'")
+    Aio.print ("Testcase mode. Output redirected to 'transcript.txt'.\n")
     Aio.printTranscriptEnable()
   if os.path.isfile(SFile):
     exec(open(SFile).read())
