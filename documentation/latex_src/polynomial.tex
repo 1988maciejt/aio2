@@ -5,66 +5,289 @@
 
 Below you can see an example of how to create a \Polynomial\ object representing the polynomial $x^{16} + x^5 + x^2 + x^0$:
 \begin{lstlisting}[language=Python]
-	p1 = Polynomial ( [16, 5, 2, 0] )
-	p2 = Polynomial ( 0b10000000000100101 )
-	p2 = Polynomial ( 0x10025 )
+		p1 = Polynomial ( [16, 5, 2, 0] )
+		p2 = Polynomial ( 0b10000000000100101 )
+		p2 = Polynomial ( 0x10025 )
 \end{lstlisting}
 
 \Polynomial\ class includes also a couple of static methods, especially useful to search for primitive polynomials and other ones discussed in the next part of this chapter.
 
 \section{Polynomial object methods}
 
-\cmd{str(<Polynomial>)}{
+\cmd {Polynomial\_object} {\_\_str\_\_} {} {
 	\Polynomial\ objects are convertible to strings.
 }
 \begin{lstlisting}[language=Python]
-	p1 = Polynomial ( [16, 5, 2, 0] )
-	print(p1)
-	# >>> [16, 5, 2, 0]
+		p1 = Polynomial ( [16, 5, 2, 0] )
+		print(p1)
+		# >>> [16, 5, 2, 0]
 \end{lstlisting}
 
-\cmd{hash(<Polynomial>)}{
+\cmd {Polynomial\_object} {\_\_hash\_\_} {} {
 	\Polynomial\ objects are hashable. Can be used as a dictionary keys.:
 }
 \begin{lstlisting}[language=Python]
-	p1 = Polynomial ( [16, 5, 2, 0] )
-	d = {}
-	d[p1] = "p1 value"
+		p1 = Polynomial ( [16, 5, 2, 0] )
+		d = {}
+		d[p1] = "p1 value"
 \end{lstlisting}
 
-\cmd{<Polynomial>.getCoefficients()}{
-	Returns a reference to coefficients list of the \Polynomial\ object.
+\cmd {Polynomial\_object} {copy} {} {
+	Returns a deep copy of the \Polynomial\ object.
 }
 \begin{lstlisting}[language=Python]
-	p1 = Polynomial ( [16, 5, 2, 0] )
-	coeffs1 = p1.getCoefficients()
-	print(coeffs1)
-	# >>> [16, 5, 2, 0]
-	coeffs.remove(0)
-	print(coeffs1)
-	# >>> [16, 5, 2]
-	print(p1)
-	# >>> [16, 5, 2]
+		p1 = Polynomial ( [16, 5, 2, 0] )
+		p2 = p1.copy()
+		print(p1 == p2)
+		# >>> True
 \end{lstlisting}
 
-\cmd{<Polynomial>.getCoefficientsCount()}{
+\cmd {Polynomial\_object} {derivativeGF2} {} {
+	Returns symbolic derivative Polynomial.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 15, 2, 1, 0] )
+		print(p1.derivativeGF2())
+		# >>> [14, 0]
+		p2 = Polynomial ( [16, 14, 5, 2, 0] )
+		p3 = p2.derivativeGF2()
+		print(p3)
+		# >>> [4]
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {getBalancing} {} {
+	Returns a difference between distances of furthest and closest coefficients.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 10, 2, 0] )
+		#    distances:      6   8  2
+		#    furthest:           8
+		#    closest:               2
+		#  furthest-closest:  8-2 = 6
+		p1.getBalancing()
+		# >>> 6
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {getCoefficients} {} {
+	Returns a REFERENCE to the sorted list of (unsigned) coefficients.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 2, -5, 0] )
+		print(p1.getCoefficients())
+		# >>> [16, 5, 2, 0]
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {getCoefficientsCount} {} {
 	Returns count of the \Polynomial\ object coefficients.
 }
 \begin{lstlisting}[language=Python]
-	p1 = Polynomial ( [16, 5, 2, 0] )
-	coeffscount1 = p1.getCoefficientsCount()
-	print(coeffscount1)
-	# >>> 4
+		p1 = Polynomial ( [16, 5, 2, 0] )
+		coeffscount1 = p1.getCoefficientsCount()
+		print(coeffscount1)
+		# >>> 4
 \end{lstlisting}
 
-\cmd{<Polynomial>.getDegree()}{
+\cmd {Polynomial\_object} {getDegree} {} {
 	Returns degree of the \Polynomial\ object.
 }
 \begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 5, 2, 0] )
+		deg1 = p1.getDegree()
+		print(deg1)
+		# >>> 16
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {getDifferentTapCount} {AnotherPolynomial} {
+	Imagine, that the \texttt{Polynomial\_object} is a characteristic polynomial of a Ring Generator. Then this method compares the \texttt{Polynomial\_object} with another polynomial (also being a characteristic one of a Ring Generator) and returns a number of NOT matching taps. Tap direction (given by coefficient sign) does not matter.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, -5, 2, 0] )
+		p2 = Polynomial ( [16, 5, 2, 0] )
+		p3 = Polynomial ( [16, 5, 1, 0] )
+		p4 = Polynomial ( [16, 6, 0] )
+		p1.getDifferentTapCount(p2)
+		# >>> 0
+		p1.getDifferentTapCount(p3)
+		# >>> 1
+		p1.getDifferentTapCount(p4)
+		# >>> 2
+		p4.getDifferentTapCount(p1)
+		# >>> 1
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {getMinDistance} {} {
+	Returns a distance between closest Polynomial's coefficients.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 5, 2, 0] )
+		#    distances:      11  3  2
+		p1.getMinDistance()
+		# >>> 2
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {getReciprocal} {} {
+	Returns a new, reciprocal Polynomial object.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 5, 2, 0] )
+		print(p1.getReciprocal())
+		# >>> [16, 14, 11, 0]
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {getSignedCoefficients} {} {
+	Returns sorted list of signed coefficients.
+}
+		\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 2, -5, 0] )
+		print(p1.getSignedCoefficients())
+		# >>> [16, -5, 2, 0]
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {getSigns} {} {
+	Returns signs of all sorted coefficients (as a list of 1s and -1s).
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, -5, 2, 0] )
+		print(p1.getSigns())
+		# >>> [1, -1, 1, 1]
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {isLayoutFriendly} {} {
+	Returns True if a Ring Generator, based on the Polynomial\_object, is layout friendly. It checks if the minimum distance between successive coefficients is at least 2.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 15, 2, 1, 0] )
+		p1.isLayoutFriendly()
+		# >>> False
+		p2 = Polynomial ( [16, 14, 5, 2, 0] )
+		p2.isLayoutFriendly()
+		# >>> True
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {isPrimitive} {} {
+	Returns True if the given polynomial is primitive over GF(2). All coefficients are considered to be positive. Note, that the first call of this method may take more time than usual, because of prime dividers database loading.
+	This methods bases on fast simulation of LFSRs described in \cite{lfsr:fastsim}.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 5, 2, 0] )
+		p1.isPrimitive()
+		# >>> False
+		p2 = Polynomial ( [4, 1, 0] )
+		p2.isPrimitive()
+		# >>> True
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {iterateThroughSigns} {} {
+	This is generator method. Each time yields new \Polynomial\ object with other combinations of coefficient signs. Note, that the highest and lowest coefficients are untouched. All-positive and all-negative combinations are also not yielded.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, -5, 2, 1, 0] )
+		for pi in p1.iterateThroughSigns(): print(pi)
+		# >>> [16, -5, 2, 1, 0]
+		# >>> [16, 5, -2, 1, 0]
+		# >>> [16, -5, -2, 1, 0]
+		# >>> [16, 5, 2, -1, 0]
+		# >>> [16, -5, 2, -1, 0]
+		# >>> [16, 5, -2, -1, 0]
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {nextPrimitive} {Silent=True} {
+	Tries to find next polynomial which is primitive over GF(2). Returns True if found, otherwise returns False.
+	if \texttt{Silent} argument is False, then searching process is shown in the terminal.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 15, 2, 1, 0] )
+		p1.nextPrimitive()
+		# >>> True
+		print(p1)
+		# >>> [16, 12, 3, 1, 0]
+		p1.nextPrimitive()
+		# >>> True
+		print(p1)
+		# >>> [16, 6, 4, 1, 0]
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {printFullInfo} {} {
+	Prints (also to the transcript in testcase mode) full info about the Polynomial\_object. See the example below:
+}
+\begin{lstlisting}[language=Python]
 	p1 = Polynomial ( [16, 5, 2, 0] )
-	deg1 = p1.getDegree()
-	print(deg1)
-	# >>> 16
+	p1.printFullInfo()
+	# 
+	# -------------------------
+	# Polynomial  deg=16, bal=9
+	# -------------------------
+	# 
+	# Degree            :  16
+	# Coefficients count:  4
+	# Hex with degree   :  10(2)25
+	# Hex without degree:  25
+	# Balancing         :  9
+	# Is layout-friendly:  True
+	# Coefficients      :  [16, 5, 2, 0]
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {setStartingPointForIterator} {StartingPolynomial} {
+	\Polynomial\ object may be used as generators, to iterate through all possible polynomials with respect to some requirements (see createPolynomial() method). This one is used to set starting point for iterator. See the example below.
+	Note, that \texttt{StartingPolynomial} may be another \Polynomial\ object, or a list of coefficients. The starting polynomial is checked to have the same degree and coefficients count as the Polynomial\_object.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [6,1,0] )
+		for pi in p1: print(pi)
+		# >>> [6, 1, 0]
+		# >>> [6, 2, 0]
+		# >>> [6, 3, 0]
+		# >>> [6, 4, 0]
+		# >>> [6, 5, 0]
+		p1.setStartingPointForIterator( [6,3,0] )
+		for pi in p1: print(pi)
+		# >>> [6, 3, 0]
+		# >>> [6, 4, 0]
+		# >>> [6, 5, 0]
+		p1.setStartingPointForIterator( Polynomial([6,4,0]) )
+		for pi in p1: print(pi)
+		# >>> [6, 4, 0]
+		# >>> [6, 5, 0]
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {toBitarray} {} {
+	Returns a bitarray object representing the Polynomial.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 5, 2, 0] )
+		p1.toBitarray()
+		# >>> bitarray('10100100000000001')
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {toHexString} {IncludeDegree=True, shorten=True} {
+	Returns a string of hexadecimal characters describing the Polynomial\_object.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 5, 2, 0] )
+		p1.toHexString()
+		# >>> '10(2)25'
+		p1.toHexString(IncludeDegree=False)
+		# >>> '25'
+		p1.toHexString(shorten=False)
+		# >>> '10025'
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {toInt} {} {
+	Returns an integer representing the Polynomial object.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, 5, 2, 0] )
+		bin(p1.toInt())
+		# >>> '0b10000000000100101'
+\end{lstlisting}
+
+\cmd {Polynomial\_object} {toMarkKassabStr} {} {
+	Returns a string used by Mark Kassab's C++ code to add a polynomial to the internal database.
+}
+\begin{lstlisting}[language=Python]
+		p1 = Polynomial ( [16, -5, 2, 0] )
+		p1.toMarkKassabStr()
+		# >>> 'add_polynomial(16, 5, 2, 0);'
 \end{lstlisting}
 
 \section{Static Polynomial methods}

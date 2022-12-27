@@ -2,9 +2,102 @@
 
   \item \ShellName
     \subitem architecture, 2
+  \item \_\_hash\_\_, 4
+  \item \_\_str\_\_, 4
+
+  \indexspace
+
+  \item copy, 4
+
+  \indexspace
+
+  \item derivativeGF2, 5
+
+  \indexspace
+
+  \item Fibonacci LFSR, 10
+
+  \indexspace
+
+  \item Galois LFSR, 10
+  \item getBalancing, 5
+  \item getCoefficients, 5
+  \item getCoefficientsCount, 5
+  \item getDegree, 5
+  \item getDifferentTapCount, 5
+  \item getMinDistance, 6
+  \item getReciprocal, 6
+  \item getSignedCoefficients, 6
+  \item getSigns, 6
+
+  \indexspace
+
+  \item Hybrid Ring Generator, 11
+
+  \indexspace
+
+  \item isLayoutFriendly, 6
+  \item isPrimitive, 7
+  \item iterateThroughSigns, 7
+
+  \indexspace
+
+  \item LFSR, 10
+    \subitem Fibonacci, 10
+    \subitem Galois, 10
+    \subitem Hybrid Ring Generator, 11
+    \subitem Ring Generator, 11
+    \subitem Ring with specified taps, 11
+    \subitem Tiger Ring Generator, 11
+
+  \indexspace
+
+  \item nextPrimitive, 7
 
   \indexspace
 
   \item Polynomial, 4
+  \item Polynomial\_object
+    \subitem \_\_hash\_\_, 4
+    \subitem \_\_str\_\_, 4
+    \subitem copy, 4
+    \subitem derivativeGF2, 5
+    \subitem getBalancing, 5
+    \subitem getCoefficients, 5
+    \subitem getCoefficientsCount, 5
+    \subitem getDegree, 5
+    \subitem getDifferentTapCount, 5
+    \subitem getMinDistance, 6
+    \subitem getReciprocal, 6
+    \subitem getSignedCoefficients, 6
+    \subitem getSigns, 6
+    \subitem isLayoutFriendly, 6
+    \subitem isPrimitive, 7
+    \subitem iterateThroughSigns, 7
+    \subitem nextPrimitive, 7
+    \subitem printFullInfo, 7
+    \subitem setStartingPointForIterator, 8
+    \subitem toBitarray, 8
+    \subitem toHexString, 8
+    \subitem toInt, 9
+    \subitem toMarkKassabStr, 9
+  \item printFullInfo, 7
+
+  \indexspace
+
+  \item Ring Generator, 11
+  \item Ring with manually specified taps, 11
+
+  \indexspace
+
+  \item setStartingPointForIterator, 8
+
+  \indexspace
+
+  \item Tiger Ring Generator, 11
+  \item toBitarray, 8
+  \item toHexString, 8
+  \item toInt, 9
+  \item toMarkKassabStr, 9
 
 \end{theindex}

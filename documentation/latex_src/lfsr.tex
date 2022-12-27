@@ -1,0 +1,74 @@
+\chapter{class Lfsr}
+
+\index{LFSR}
+\Lfsr\ is an object type allowing to simulate and analyze any type of Linear Feedback Shift Register. Simulations are performed using \texttt{bitarray} objects, where \texttt{bitarray\_object[N]} holds value of Flip-Flop having index \textit{N}. \Lfsr\ objects are always simulated assuming, that data is shifted from higher to lower indexed flip-flop (from FF[1] to FF[0], from FF[2] to FF[1] and so on).
+
+\section{Lfsr types}
+
+\subsection{Fibonacci}
+
+\index{LFSR!Fibonacci}
+\index{Fibonacci LFSR}
+
+Look at the Figure \ref{lfsr:fibonacci}. It shows an example of Fibonacci LFSR implementing the polynomial of $x^8+x^6+x^5+x^2+1$. There are couple of ways to create such \Lfsr\ object:
+
+\begin{lstlisting}[language=Python]
+	# using existing Polynomial object:
+	p1 = Polynomial([8,6,5,2,0])
+	lfsr1 = Lfsr(p1, FIBONACCI)
+	# using Polynomial created in place:
+	lfsr1 = Lfsr(Polynomial([8,6,5,2,0]), FIBONACCI)
+	# using coefficients list:
+	lfsr1 = Lfsr([8,6,5,2,0], FIBONACCI)
+\end{lstlisting}
+
+\begin{figure}[h]
+	\centering
+	\scalebox{.75}{\input{figures/lfsr.fibonacci.8.6.5.2.0.tex}}
+	\caption{Fibonacci LFSR implementing polynomial $x^8+x^6+x^5+x^2+1$.}
+	\label{lfsr:fibonacci}
+\end{figure}
+
+\subsection{Galois}
+
+\index{LFSR!Galois}
+\index{Galois LFSR}
+
+Figure \ref{lfsr:fibonacci} shows an example of Galois LFSR implementing the polynomial of $x^8+x^6+x^5+x^2+1$. There are couple of ways to create such \Lfsr\ object:
+
+\begin{lstlisting}[language=Python]
+	# using existing Polynomial object:
+	p1 = Polynomial([8,6,5,2,0])
+	lfsr1 = Lfsr(p1, GALOIS)
+	# using Polynomial created in place:
+	lfsr1 = Lfsr(Polynomial([8,6,5,2,0]), GALOIS)
+	# using coefficients list:
+	lfsr1 = Lfsr([8,6,5,2,0], GALOIS)
+\end{lstlisting}
+
+\begin{figure}[h]
+	\centering
+	\scalebox{.75}{\input{figures/lfsr.galois.8.6.5.2.0.tex}}
+	\caption{Galois LFSR implementing polynomial $x^8+x^6+x^5+x^2+1$.}
+	\label{lfsr:galois}
+\end{figure}
+
+\subsection{Ring Generator}
+
+\index{LFSR!Ring Generator}
+\index{Ring Generator}
+
+\subsection{Ring with manually specified taps}
+
+\index{LFSR!Ring with specified taps}
+\index{Ring with manually specified taps}
+
+\subsection{Hybrid Ring Generator}
+
+\index{LFSR!Hybrid Ring Generator}
+\index{Hybrid Ring Generator}
+
+\subsection{Tiger Ring Generator}
+
+\index{LFSR!Tiger Ring Generator}
+\index{Tiger Ring Generator}

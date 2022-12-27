@@ -11,7 +11,12 @@ Look at Figure \ref{aioarchitecture}. It shows \ShellName\ wrappers from the top
 \end{alltt}
 If no argument, then the \ShellName\ appears and is ready to execute Python commands. If a script file is specified as an argument, then its content is executed after importing all modules and the shell closes. 
 
-\input{figures/aio.architecture.tex}
+\begin{figure}[h]
+	\centering
+	\input{figures/aio.architecture.tex}
+	\caption{\ShellName architecture.}
+	\label{aioarchitecture}
+\end{figure}
 
 There is also a special mode of \ShellName, called \textbf{Testcase Mode}. It makes easy to execute a complete testcases. The testcase is a directory having a regular structure:
 \dirtree{%

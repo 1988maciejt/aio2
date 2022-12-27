@@ -514,7 +514,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         #print(n, bsn, PT)
     return Result
   
-  def toKassabStr(self) -> str:
+  def toMarkKassabStr(self) -> str:
     """Returns a string containing polynomial dexription consistent with Mark Kassab's C++ code.
     """
     result = "add_polynomial("
@@ -702,6 +702,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     for coeff in clist:
       result[coeff] = 1
     return result
+  
   def isPrimitive(self) -> bool:
     """Check if the polynomial is primitive over GF(2).
     
@@ -719,7 +720,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     result = l.isMaximum()
     return result
   
-  def nextPrimitive(self, Silent=False) -> bool:
+  def nextPrimitive(self, Silent=True) -> bool:
     """Looks for the next primitive polynomial.
 
     Returns:

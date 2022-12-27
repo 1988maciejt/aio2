@@ -9,12 +9,31 @@
 \usepackage{indentfirst}
 \usepackage{array}
 \usepackage{tikz}
+\usetikzlibrary{calc}
 \usepackage{listings}
 \usepackage{alltt}
 \usepackage{dirtree}
 \usepackage{changepage}
+\usepackage{xcolor}
+\usepackage{cite}
+\definecolor{commentgreen}{RGB}{2,112,10}
+\definecolor{eminence}{RGB}{108,48,130}
+\definecolor{weborange}{RGB}{255,165,0}
+\definecolor{frenchplum}{RGB}{129,20,83}
+\lstset {
+	language=Python,
+	tabsize=2,
+	showstringspaces=false,
+	%upquote=true,
+	commentstyle=\color{commentgreen},
+	keywordstyle=\color{eminence},
+	stringstyle=\color{red!80!black},
+	emph={print,Polynomial},
+	emphstyle={\bfseries\color{blue!50!black}},
+	escapechar=\&,
+}
 \usepackage[skip=5pt plus1pt, indent=10pt]{parskip}
-\usepackage[margin=2.7cm]{geometry}
+\usepackage[margin=2.3cm]{geometry}
 \makeindex
 \input{config}
 \input{commands}
@@ -26,6 +45,8 @@
 	
 	\include {overview}
 	\include {polynomial}
+	\include {lfsr}
+	\include {bibliography}
 	
 	\printindex
 	

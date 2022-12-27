@@ -1,2 +1,61 @@
 \indexentry{\ShellName!architecture}{2}
 \indexentry{Polynomial}{4}
+\indexentry{Polynomial\_object!\_\_str\_\_}{4}
+\indexentry{\_\_str\_\_}{4}
+\indexentry{Polynomial\_object!\_\_hash\_\_}{4}
+\indexentry{\_\_hash\_\_}{4}
+\indexentry{Polynomial\_object!copy}{4}
+\indexentry{copy}{4}
+\indexentry{Polynomial\_object!derivativeGF2}{5}
+\indexentry{derivativeGF2}{5}
+\indexentry{Polynomial\_object!getBalancing}{5}
+\indexentry{getBalancing}{5}
+\indexentry{Polynomial\_object!getCoefficients}{5}
+\indexentry{getCoefficients}{5}
+\indexentry{Polynomial\_object!getCoefficientsCount}{5}
+\indexentry{getCoefficientsCount}{5}
+\indexentry{Polynomial\_object!getDegree}{5}
+\indexentry{getDegree}{5}
+\indexentry{Polynomial\_object!getDifferentTapCount}{5}
+\indexentry{getDifferentTapCount}{5}
+\indexentry{Polynomial\_object!getMinDistance}{6}
+\indexentry{getMinDistance}{6}
+\indexentry{Polynomial\_object!getReciprocal}{6}
+\indexentry{getReciprocal}{6}
+\indexentry{Polynomial\_object!getSignedCoefficients}{6}
+\indexentry{getSignedCoefficients}{6}
+\indexentry{Polynomial\_object!getSigns}{6}
+\indexentry{getSigns}{6}
+\indexentry{Polynomial\_object!isLayoutFriendly}{6}
+\indexentry{isLayoutFriendly}{6}
+\indexentry{Polynomial\_object!isPrimitive}{7}
+\indexentry{isPrimitive}{7}
+\indexentry{Polynomial\_object!iterateThroughSigns}{7}
+\indexentry{iterateThroughSigns}{7}
+\indexentry{Polynomial\_object!nextPrimitive}{7}
+\indexentry{nextPrimitive}{7}
+\indexentry{Polynomial\_object!printFullInfo}{7}
+\indexentry{printFullInfo}{7}
+\indexentry{Polynomial\_object!setStartingPointForIterator}{8}
+\indexentry{setStartingPointForIterator}{8}
+\indexentry{Polynomial\_object!toBitarray}{8}
+\indexentry{toBitarray}{8}
+\indexentry{Polynomial\_object!toHexString}{8}
+\indexentry{toHexString}{8}
+\indexentry{Polynomial\_object!toInt}{9}
+\indexentry{toInt}{9}
+\indexentry{Polynomial\_object!toMarkKassabStr}{9}
+\indexentry{toMarkKassabStr}{9}
+\indexentry{LFSR}{10}
+\indexentry{LFSR!Fibonacci}{10}
+\indexentry{Fibonacci LFSR}{10}
+\indexentry{LFSR!Galois}{10}
+\indexentry{Galois LFSR}{10}
+\indexentry{LFSR!Ring Generator}{11}
+\indexentry{Ring Generator}{11}
+\indexentry{LFSR!Ring with specified taps}{11}
+\indexentry{Ring with manually specified taps}{11}
+\indexentry{LFSR!Hybrid Ring Generator}{11}
+\indexentry{Hybrid Ring Generator}{11}
+\indexentry{LFSR!Tiger Ring Generator}{11}
+\indexentry{Tiger Ring Generator}{11}

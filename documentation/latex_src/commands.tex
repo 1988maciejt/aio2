@@ -1,9 +1,11 @@
-\newcommand{\cmd}[2]{
+\newcommand{\cmd}[4]{
+	\index{#1!#2}
+	\index{#2}
 	\noindent\rule{\textwidth}{1pt}
 	\vspace{-0.4cm}\ \\
-	\noindent\texttt{#1} 
+	\noindent\texttt{#1.#2(#3)} 
 	\begin{adjustwidth}{1cm}{}
-		#2
+		#4
 	\end{adjustwidth}
 }
 

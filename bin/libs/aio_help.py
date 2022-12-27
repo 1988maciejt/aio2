@@ -394,7 +394,7 @@ Note: PolynomialCoefficientList may be also integer number representing the poly
     Arguments=["CoefficientList", "CoeffsCount", "DontTouchBounds", "OddOnly"]
   ))
   PolynomialCat.addItem(AioHelpProc(
-    Name="Polynomial.toKassabStr",
+    Name="Polynomial.toMarkKassabStr",
     Description="""Returns a string containing polynomial dexription consistent with Mark Kassab's C++ code.""",
     Arguments=["self"]
   ))

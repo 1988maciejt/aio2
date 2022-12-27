@@ -1,0 +1,30 @@
+\newcommand{\drawff}[2]{		
+	\fill[black!5!white] 		($#1-(0.5, 0.5)$)	rectangle	($#1+(0.5, 0.5)$);
+	\draw[thick] 		($#1-(0.5, 0.5)$)	rectangle	($#1+(0.5, 0.5)$);
+	\node[] at ($#1+(0.0, 0.0)$) {\large#2};
+}
+\newcommand{\drawgaloisconnector}[2]{
+	\draw[latex-] ($#1+(0.0, 0.25)$) -- ($#1+(0.0, 2.0)-(0.0,0.0)$);
+	\fill[black]  ($#1+(0.0, 2.0)$) circle (0.07);
+	\fill[black!5!white]  ($#1+(0.0, 0.0)$) circle (0.20);
+	\draw[thick]  ($#1+(0.0, 0.0)$) circle (0.2);
+	\draw[thick]  ($#1+(0.0, 0.0)-(0.2,0.0)$) -- ($#1+(0.0, 0.0)+(0.2,0.0)$);
+	\draw[thick]  ($#1+(0.0, 0.0)-(0.0,0.2)$) -- ($#1+(0.0, 0.0)+(0.0,0.2)$);
+	\draw[latex-] ($#1+(0.0, 0.0)-(0.5,0.0)$) -- ($#1+(0.0, 0.0)-(0.2,0.0)$);
+	\node[anchor=west] at ($#1+(0.0, 1.2)$) {\Large#2};
+}
+\begin{tikzpicture}
+	\draw (-1,0) rectangle (15,2);
+	\drawff {(0,0)} {7}
+	\drawff {(2,0)} {6}
+	\drawgaloisconnector {(3,0)} {$x^6$}
+	\drawff {(4,0)} {5}
+	\drawgaloisconnector {(5,0)} {$x^5$}
+	\drawff {(6,0)} {4}
+	\drawff {(8,0)} {3}
+	\drawff {(10,0)} {2}
+	\drawgaloisconnector {(11,0)} {$x^2$}
+	\drawff {(12,0)} {1}
+	\drawff {(14,0)} {0}
+	\draw[-latex] (-1.0,0.0) -- (-0.5,0.0);
+\end{tikzpicture}
