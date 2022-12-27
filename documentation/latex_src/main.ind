@@ -32,7 +32,7 @@
 
   \indexspace
 
-  \item Hybrid Ring Generator, 11
+  \item Hybrid Ring Generator, 12
 
   \indexspace
 
@@ -45,10 +45,10 @@
   \item LFSR, 10
     \subitem Fibonacci, 10
     \subitem Galois, 10
-    \subitem Hybrid Ring Generator, 11
+    \subitem Hybrid Ring Generator, 12
     \subitem Ring Generator, 11
     \subitem Ring with specified taps, 11
-    \subitem Tiger Ring Generator, 11
+    \subitem Tiger Ring Generator, 12
 
   \indexspace
 
@@ -94,7 +94,7 @@
 
   \indexspace
 
-  \item Tiger Ring Generator, 11
+  \item Tiger Ring Generator, 12
   \item toBitarray, 8
   \item toHexString, 8
   \item toInt, 9

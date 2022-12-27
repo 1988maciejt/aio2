@@ -58,10 +58,44 @@ Figure \ref{lfsr:fibonacci} shows an example of Galois LFSR implementing the pol
 \index{LFSR!Ring Generator}
 \index{Ring Generator}
 
+Ring generator is a structure discussed in \cite{lfsr:fastsim}. Example of a Ring Generator is shown in the Figure \ref{lfsr:ring} implementing the polynomial $x^8+x^6+x^5+x^2+1$. Ways to create such object are:
+
+\begin{lstlisting}[language=Python]
+	# using existing Polynomial object:
+	p1 = Polynomial([8,6,5,2,0])
+	lfsr1 = Lfsr(p1, RING_GENERATOR)
+	# using Polynomial created in place:
+	lfsr1 = Lfsr(Polynomial([8,6,5,2,0]), RING_GENERATOR)
+	# using coefficients list:
+	lfsr1 = Lfsr([8,6,5,2,0], RING_GENERATOR)
+\end{lstlisting}
+
+\begin{figure}[h]
+	\centering
+	\scalebox{.75}{\input{figures/lfsr.ring.8.6.5.2.0.tex}}
+	\caption{Ring Generator implementing polynomial $x^8+x^6+x^5+x^2+1$.}
+	\label{lfsr:ring}
+\end{figure}
+
 \subsection{Ring with manually specified taps}
 
 \index{LFSR!Ring with specified taps}
 \index{Ring with manually specified taps}
+
+If you wish to create a LFSR specifying a taps by hand, then choose \textit{Ring with manually specified taps}. To create such object you need to specify a size of Lfsr (flip-flop count) and a list of tap definitions. Each tap is defined as a list: \texttt{[source\_ff\_index, destination\_]ff\_index]}. For better understanding consider the example from Figure \ref{lfsr:ringspecified}. You can see there the list of 3 taps: \texttt{[[4,7], [8,2], [9,0]]}. The first tap is \texttt{[4,7]} which is considered as \textit{from output of 4th flip-flop to a XOR gate at 7th flip-flop input}. So be careful and remember: \textit{from <source> OUTPUT to the XOR at <destination> INPUT}. You can create \Lfsr\ object implementing the structure shown in the Figure \ref{lfsr:ringspecified} that way:
+
+\begin{lstlisting}[language=Python]
+	lfsr1 = Lfsr(16, RING_WITH_SPECIFIED_TAPS, [[4,7], [8,2], [9,0]])
+	#           >||<- FFs count
+	#                                           |<----- taps ----->|
+\end{lstlisting}
+
+\begin{figure}[h]
+	\centering
+	\scalebox{.75}{\input{figures/lfsr.ring.specified.tex}}
+	\caption{Ring with manually specified taps \texttt{[[4,7], [8,2], [9-0]]}}
+	\label{lfsr:ringspecified}
+\end{figure}
 
 \subsection{Hybrid Ring Generator}
 
