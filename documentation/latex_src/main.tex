@@ -1,0 +1,32 @@
+\documentclass[11pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage[english]{babel}
+\usepackage{makeidx}
+\usepackage{indentfirst}
+\usepackage{array}
+\usepackage{tikz}
+\usepackage{listings}
+\usepackage{alltt}
+\usepackage{dirtree}
+\usepackage{changepage}
+\usepackage[skip=5pt plus1pt, indent=10pt]{parskip}
+\usepackage[margin=2.7cm]{geometry}
+\makeindex
+\input{config}
+\input{commands}
+
+\begin{document}
+	
+	\maketitle
+	\tableofcontents
+	
+	\include {overview}
+	\include {polynomial}
+	
+	\printindex
+	
+\end{document}

@@ -1,0 +1,70 @@
+\chapter{Class Polynomial}
+
+\index{Polynomial}
+\Polynomial\ is an object intended to analyze polynomials over GF(2). An object of type \Polynomial\ holds polynomial coefficients (as a list of positive integers) and a list of signs of those coefficients. Of course in case of GF(2) coefficient $x_i = -x_i$. However, negative coefficients make sense in case of some types of LFSRs, as \Polynomial\ objects are used to create other objects, of type of \Lfsr.
+
+Below you can see an example of how to create a \Polynomial\ object representing the polynomial $x^{16} + x^5 + x^2 + x^0$:
+\begin{lstlisting}[language=Python]
+	p1 = Polynomial ( [16, 5, 2, 0] )
+	p2 = Polynomial ( 0b10000000000100101 )
+	p2 = Polynomial ( 0x10025 )
+\end{lstlisting}
+
+\Polynomial\ class includes also a couple of static methods, especially useful to search for primitive polynomials and other ones discussed in the next part of this chapter.
+
+\section{Polynomial object methods}
+
+\cmd{str(<Polynomial>)}{
+	\Polynomial\ objects are convertible to strings.
+}
+\begin{lstlisting}[language=Python]
+	p1 = Polynomial ( [16, 5, 2, 0] )
+	print(p1)
+	# >>> [16, 5, 2, 0]
+\end{lstlisting}
+
+\cmd{hash(<Polynomial>)}{
+	\Polynomial\ objects are hashable. Can be used as a dictionary keys.:
+}
+\begin{lstlisting}[language=Python]
+	p1 = Polynomial ( [16, 5, 2, 0] )
+	d = {}
+	d[p1] = "p1 value"
+\end{lstlisting}
+
+\cmd{<Polynomial>.getCoefficients()}{
+	Returns a reference to coefficients list of the \Polynomial\ object.
+}
+\begin{lstlisting}[language=Python]
+	p1 = Polynomial ( [16, 5, 2, 0] )
+	coeffs1 = p1.getCoefficients()
+	print(coeffs1)
+	# >>> [16, 5, 2, 0]
+	coeffs.remove(0)
+	print(coeffs1)
+	# >>> [16, 5, 2]
+	print(p1)
+	# >>> [16, 5, 2]
+\end{lstlisting}
+
+\cmd{<Polynomial>.getCoefficientsCount()}{
+	Returns count of the \Polynomial\ object coefficients.
+}
+\begin{lstlisting}[language=Python]
+	p1 = Polynomial ( [16, 5, 2, 0] )
+	coeffscount1 = p1.getCoefficientsCount()
+	print(coeffscount1)
+	# >>> 4
+\end{lstlisting}
+
+\cmd{<Polynomial>.getDegree()}{
+	Returns degree of the \Polynomial\ object.
+}
+\begin{lstlisting}[language=Python]
+	p1 = Polynomial ( [16, 5, 2, 0] )
+	deg1 = p1.getDegree()
+	print(deg1)
+	# >>> 16
+\end{lstlisting}
+
+\section{Static Polynomial methods}

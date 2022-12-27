@@ -1,0 +1,35 @@
+\chapter{Overview}
+
+The \ShellName\ is in fact a Python3 shell wrapped by \texttt{PtPython} with some useful modules, classes and methods included. This document covers those items assuming, that a reader is familiar with Python syntax.
+
+\section{Architecture of \ShellName}
+
+\index{\ShellName!architecture}
+Look at Figure \ref{aioarchitecture}. It shows \ShellName\ wrappers from the top to the Python3 core. User calls a Bash script, which prepares and executes a command containing Python3 call, module PtPython loading, and then importing all useful libraries included in module \texttt{aio}. So to run the \ShellName\ you need to call:
+\begin{alltt}
+	\aio [python\_file\_name\_to\_execute]
+\end{alltt}
+If no argument, then the \ShellName\ appears and is ready to execute Python commands. If a script file is specified as an argument, then its content is executed after importing all modules and the shell closes. 
+
+\input{figures/aio.architecture.tex}
+
+There is also a special mode of \ShellName, called \textbf{Testcase Mode}. It makes easy to execute a complete testcases. The testcase is a directory having a regular structure:
+\dirtree{%
+	.1 testcase\_name.
+		.2 data \DTcomment{automatically added to the searching path}.
+		.2 results \DTcomment{Created automatically by \ShellName}.
+		.2 driver.py \DTcomment{Main script - your Testcase code}.
+}
+By running the command:
+\begin{alltt}
+	\daio
+\end{alltt}
+the \ShellName\ runs in the Testcase mode. In such case it checks if the \texttt{driver.py} file exists. If so, then it removes and recreates the \texttt{results} directory and goes there (so \texttt{results} is now the Current Directory). Now, a content of \texttt{dirver.py} is executed. In \texttt{results} directory a \texttt{transcript.txt} is created. To print something to the screen and also to the transcript file, you need to call the \texttt{print(*args)} method of class \texttt{Aio}, i.e.:
+\begin{lstlisting}[language=Python]
+# This text will be printed to the screen only:
+print("Text on the screen only")
+	
+# This also appears in the transcript file:
+Aio.print("Text on the screen and in the transcript")
+\end{lstlisting} 
+

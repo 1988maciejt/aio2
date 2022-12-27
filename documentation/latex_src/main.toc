@@ -1,0 +1,6 @@
+\babel@toc {english}{}\relax 
+\contentsline {chapter}{\numberline {1}Overview}{2}{}%
+\contentsline {section}{\numberline {1.1}Architecture of Research Shell}{2}{}%
+\contentsline {chapter}{\numberline {2}Class Polynomial}{4}{}%
+\contentsline {section}{\numberline {2.1}Polynomial object methods}{4}{}%
+\contentsline {section}{\numberline {2.2}Static Polynomial methods}{5}{}%
