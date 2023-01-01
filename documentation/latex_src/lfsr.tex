@@ -102,7 +102,225 @@ If you wish to create a LFSR specifying a taps by hand, then choose \textit{Ring
 \index{LFSR!Hybrid Ring Generator}
 \index{Hybrid Ring Generator}
 
+Hybrid Ring Generator is very similar to Ring Generator. The only difference is, that taps direction is configurable. If the corresponding coefficient of polynomial \textit{(note: this polynomial is NOT the characteristic one!)} is positive, then tap direction is down, as in case of Ring Generator. When the corresponding coefficient is negative, then tap direction is up. Look at the example shown in the Figure \ref{lfsr:hybridring}. To create an \Lfsr\ object representing a Hybrid Ring Generator, mentioned in the example, use such code:
+
+\begin{lstlisting}[language=Python]
+	# using existing Polynomial object:
+	p1 = Polynomial([8,6,-5,-2,0])
+	lfsr1 = Lfsr(p1, HYBRID_RING)
+	# using Polynomial created in place:
+	lfsr1 = Lfsr(Polynomial([8,6,-5,-2,0]), HYBRID_RING)
+	# using coefficients list:
+	lfsr1 = Lfsr([8,6,-5,-2,0], HYBRID_RING)
+\end{lstlisting}
+
+\begin{figure}[h]
+	\centering
+	\scalebox{.75}{\input{figures/lfsr.ring.8.6.-5.-2.0.tex}}
+	\caption{Hybrid Ring Generator implementing polynomial $x^8+x^6-x^5-x^2+1$.}
+	\label{lfsr:hybridring}
+\end{figure}
+
 \subsection{Tiger Ring Generator}
 
 \index{LFSR!Tiger Ring Generator}
 \index{Tiger Ring Generator}
+
+Tiger Ring Generator is a special case of Hybrid Ring Generator. In case of Tiger Ring taps are directed up-down-up-down etc. The most right tap is directed up, as shown in the example at Figure \ref{lfsr:tigerring}. The advantage of Tiger Ring Generator over Hybrid Ring Generator is, that signs of polynomial coefficients do not matter. Look at the code used to implement the Tiger Ring from the example:
+
+\begin{lstlisting}[language=Python]
+	# using existing Polynomial object:
+	p1 = Polynomial([8,6,5,2,0])
+	lfsr1 = Lfsr(p1, TIGER_RING)
+	# using Polynomial created in place:
+	lfsr1 = Lfsr(Polynomial([8,6,5,2,0]), TIGER_RING)
+	# using coefficients list:
+	lfsr1 = Lfsr([8,6,5,2,0], TIGER_RING)
+\end{lstlisting}
+
+Consider, that the polynomial coefficients in the code above are positive. As mentioned, their signs do not matter and the same result can also be obtained using such code:
+
+\begin{lstlisting}[language=Python]
+	lfsr1 = Lfsr([8,-6,5,-2,0], TIGER_RING)
+	lfsr2 = Lfsr([8,-6,-5,-2,0], TIGER_RING)
+	lfsr3 = Lfsr([8,6,-5,2,0], TIGER_RING)
+	# ...etc.
+\end{lstlisting}
+
+As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rings is NOT their \textit{characteristic} one.
+
+\begin{figure}[h]
+	\centering
+	\scalebox{.75}{\input{figures/lfsr.ring.8.-6.5.-2.0.tex}}
+	\caption{Tiger Ring Generator implementing polynomial $x^8-x^6+x^5-x^2+1$.}
+	\label{lfsr:tigerring}
+\end{figure}
+
+\section{Lfsr object methods}
+
+\cmd {Lfsr\_object} {\_\_str\_\_} {} {
+	It returns a string containing binary value of the \Lfsr\ object (left MSb).
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		str(lfsr1)
+		# >>> '0001'
+		lfsr1.next()
+		str(lfsr1)
+		# >>> '1001'
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {clear} {} {
+	Removes the \textit{fast simulation array} of the \Lfsr\ object, if exists. Use this method to clear memory if fast simulation of the \Lfsr\ object is no longer necessary.
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		# Check if the lfsr1 generates M-Sequence. That check requires
+		# the Fast Simulation Array to be created, so the array 
+		# is built in the background.
+		lfsr1.isMaximum()
+		# >>> True
+		lfsr.clear()
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {createPhaseShifter} {OutputCount, MinimumSeparation=100, \\ MaxXorInputs=3, MinXorInputs=1, FirstXor=None} {
+	Returns a \PhaseShifter\ object. Needs some parameters to calculate phase shifting XORs:
+	\begin{itemize}
+		\item \texttt{OutputCount} - how many outputs the Phase Shifter to have,
+		\item \texttt{MinimumSeparation} - minimum separation between Phase Shifter outputs,
+		\item \texttt{MaxXorInputs} - how many inputs the largest XOR gate may have,
+		\item \texttt{MinXorInputs} - how many inputs the smallest XOR gate may have,
+		\item \texttt{FirstXor} - you can specify a list of Lfsr output bits indexes making the first Phase Shifter XOR gate. If \texttt{None} (not specified), then the first output of the Phase SHifter is considered the Lfsr FF[0].
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+	lfsr1 = Lfsr([32, 28, 23, 18, 12, 6, 0], GALOIS)
+	lfsr1.createPhaseShifter(OutputCount=48, MinimumSeparation=40, \
+	  MaxXorInputs=10, MinXorInputs=1)
+	# >>> PhaseShifter(Lfsr([32, 28, 23, 18, 12, 6, 0], LfsrType.Galois), 48)
+\end{lstlisting}
+
+\index{dual LFSR}
+\cmd {Lfsr\_object} {getDual} {} {
+	Returns a reference to taps list of the LFSR.
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], RING_GENERATOR)
+		lfsr1.getTaps()
+		# >>> [[3, 3]]
+\end{lstlisting}
+
+\index{Phase Shifter}
+\cmd {Lfsr\_object} {getPhaseShiftIndexes} {ListOfXoredOutputs : list, DelayedBy : int} {
+	Given a sequence obtained by XORing outputs of specified flip-flops. This method returns a list of other flip-flop indexes, at XOR of which the sequence is delayed by specified clock cycles than the one mentioned in the above assumption.
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		# How to obtain a sequence observed at FF[0] delayed by 2 cycles?
+		lfsr1.getPhaseShiftIndexes([0], 2)
+		# >>> [2]
+		# ...so at FF[2] we an observe the same sequence as at FF[0] delayed 
+		# by 2 cycles.
+		# How to obtain a sequence observed at XOR(FF[3], FF[0]) delayed 
+		# by 5 cycles?
+		lfsr1.getPhaseShiftIndexes([3,0], 5)
+		# >>> [1, 3]
+		# ... so at XOR(FF[1], FF[3]) we can observe the same sequence as at
+		# XOR(FF[3], FF[0]) delayed by 5 cycles.
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {getPeriod} {} {
+	Does the standard simulation and finds a period of the \Lfsr\. May take much time! Consider using \texttt{isMaximum()} method if possible.
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		lfsr1.getPeriod()
+		# >>> 15
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {getSize} {} {
+	Returns a size (flip-flops count) of the \Lfsr\ object.
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		lfsr1.getSize()
+		# >>> 4
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {getValue} {} {
+	Returns a reference to actual value of \Lfsr\ (bitarray).
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		lfsr1.getValue()
+		# >>> bitarray('0001')
+		lfsr1.next()
+		lfsr1.getValue()
+		# >>> bitarray('1001')
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {getValues} {n=0, step=1, reset=True} {
+	Does simulation of the \Lfsr\ and returns a list of values.
+	\begin{itemize}
+		\item XX
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+lfsr1 = Lfsr([4,1,0], GALOIS)
+lfsr1.getValue()
+# >>> bitarray('0001')
+lfsr1.next()
+lfsr1.getValue()
+# >>> bitarray('1001')
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {isMaximum} {} {
+	Returns True if the \Lfsr\ generates a M-Sequence. Uses fast simulation methods and checks also subcycles \cite{lfsr:fastsim}.
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], RING_GENERATOR)
+		lfsr1.isMaximum()
+		# >>> True
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {next} {steps=1} {
+	Calculates (and also returns a reference to) the next value of the \Lfsr\. This is the core method of LFSR simulation flow. If the specified \texttt{steps} > 1, then it engages Fast Simulation method \cite{lfsr:fastsim}. 
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		lfsr1.getValue()
+		# >>> bitarray('0001')
+		lfsr1.next()
+		# >>> bitarray('1001')
+		lfsr1.next(2)
+		# >>> bitarray('1111')
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {reset} {} {
+	Sets 0s to all \Lfsr\ flip-flops, besides FF[0] which is set to 1. Also returns a reference to actual value of the \Lfsr\.
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		lfsr1.getValue()
+		# >>> bitarray('0001')
+		lfsr1.next()
+		# >>> bitarray('1001')
+		lfsr1.reset()
+		# >>> bitarray('1001')
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {reverseTap} {TapIndex} {
+	Reverses tap in case of \Lfsr\ object having taps, like Ring generator etc. Such \:fsr\ object have list of taps, so this method takes a tap index telling them which one to revert. Tap reversing is used to obtain a dual Lfsr, for example.
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([64, 15, 7, 0], RING_GENERATOR)
+		lfsr1.getTaps()
+		# >>> [[60, 2], [56, 6]]
+		# let's revert the second tap: [56, 6]:
+		lfsr1.reverseTap(1)
+		# >>> True
+		# ...True means the tap index and the Lfsr type are correct.
+		lfsr1.getTaps()
+		# >>> [[60, 2], [7, 55]]
+\end{lstlisting}
+

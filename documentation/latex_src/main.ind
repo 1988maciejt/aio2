@@ -1,103 +1,115 @@
 \begin{theindex}
 
   \item \ShellName
-    \subitem architecture, 2
-  \item \_\_hash\_\_, 4
-  \item \_\_str\_\_, 4
+    \subitem architecture, \hyperpage{2}
+  \item \_\_hash\_\_, \hyperpage{4}
+  \item \_\_str\_\_, \hyperpage{4}, \hyperpage{13}
 
   \indexspace
 
-  \item copy, 4
+  \item clear, \hyperpage{13}
+  \item copy, \hyperpage{4}
 
   \indexspace
 
-  \item derivativeGF2, 5
+  \item derivativeGF2, \hyperpage{5}
+  \item Dual LFSR, \hyperpage{13}
 
   \indexspace
 
-  \item Fibonacci LFSR, 10
+  \item Fibonacci LFSR, \hyperpage{10}
 
   \indexspace
 
-  \item Galois LFSR, 10
-  \item getBalancing, 5
-  \item getCoefficients, 5
-  \item getCoefficientsCount, 5
-  \item getDegree, 5
-  \item getDifferentTapCount, 5
-  \item getMinDistance, 6
-  \item getReciprocal, 6
-  \item getSignedCoefficients, 6
-  \item getSigns, 6
+  \item Galois LFSR, \hyperpage{10}
+  \item getBalancing, \hyperpage{5}
+  \item getCoefficients, \hyperpage{5}
+  \item getCoefficientsCount, \hyperpage{5}
+  \item getDegree, \hyperpage{5}
+  \item getDifferentTapCount, \hyperpage{5}
+  \item getDual, \hyperpage{13}
+  \item getMinDistance, \hyperpage{6}
+  \item getPhaseShiftIndexes, \hyperpage{13}
+  \item getReciprocal, \hyperpage{6}
+  \item getSignedCoefficients, \hyperpage{6}
+  \item getSigns, \hyperpage{6}
 
   \indexspace
 
-  \item Hybrid Ring Generator, 12
+  \item Hybrid Ring Generator, \hyperpage{12}
 
   \indexspace
 
-  \item isLayoutFriendly, 6
-  \item isPrimitive, 7
-  \item iterateThroughSigns, 7
+  \item isLayoutFriendly, \hyperpage{6}
+  \item isPrimitive, \hyperpage{7}
+  \item iterateThroughSigns, \hyperpage{7}
 
   \indexspace
 
-  \item LFSR, 10
-    \subitem Fibonacci, 10
-    \subitem Galois, 10
-    \subitem Hybrid Ring Generator, 12
-    \subitem Ring Generator, 11
-    \subitem Ring with specified taps, 11
-    \subitem Tiger Ring Generator, 12
+  \item LFSR, \hyperpage{10}
+    \subitem Fibonacci, \hyperpage{10}
+    \subitem Galois, \hyperpage{10}
+    \subitem Hybrid Ring Generator, \hyperpage{12}
+    \subitem Ring Generator, \hyperpage{11}
+    \subitem Ring with specified taps, \hyperpage{11}
+    \subitem Tiger Ring Generator, \hyperpage{12}
+  \item Lfsr\_object
+    \subitem \_\_str\_\_, \hyperpage{13}
+    \subitem clear, \hyperpage{13}
+    \subitem getDual, \hyperpage{13}
+    \subitem getPhaseShiftIndexes, \hyperpage{13}
+    \subitem reverseTap, \hyperpage{14}
 
   \indexspace
 
-  \item nextPrimitive, 7
+  \item nextPrimitive, \hyperpage{7}
 
   \indexspace
 
-  \item Polynomial, 4
+  \item Phase Shifter, \hyperpage{13}
+  \item Polynomial, \hyperpage{4}
   \item Polynomial\_object
-    \subitem \_\_hash\_\_, 4
-    \subitem \_\_str\_\_, 4
-    \subitem copy, 4
-    \subitem derivativeGF2, 5
-    \subitem getBalancing, 5
-    \subitem getCoefficients, 5
-    \subitem getCoefficientsCount, 5
-    \subitem getDegree, 5
-    \subitem getDifferentTapCount, 5
-    \subitem getMinDistance, 6
-    \subitem getReciprocal, 6
-    \subitem getSignedCoefficients, 6
-    \subitem getSigns, 6
-    \subitem isLayoutFriendly, 6
-    \subitem isPrimitive, 7
-    \subitem iterateThroughSigns, 7
-    \subitem nextPrimitive, 7
-    \subitem printFullInfo, 7
-    \subitem setStartingPointForIterator, 8
-    \subitem toBitarray, 8
-    \subitem toHexString, 8
-    \subitem toInt, 9
-    \subitem toMarkKassabStr, 9
-  \item printFullInfo, 7
+    \subitem \_\_hash\_\_, \hyperpage{4}
+    \subitem \_\_str\_\_, \hyperpage{4}
+    \subitem copy, \hyperpage{4}
+    \subitem derivativeGF2, \hyperpage{5}
+    \subitem getBalancing, \hyperpage{5}
+    \subitem getCoefficients, \hyperpage{5}
+    \subitem getCoefficientsCount, \hyperpage{5}
+    \subitem getDegree, \hyperpage{5}
+    \subitem getDifferentTapCount, \hyperpage{5}
+    \subitem getMinDistance, \hyperpage{6}
+    \subitem getReciprocal, \hyperpage{6}
+    \subitem getSignedCoefficients, \hyperpage{6}
+    \subitem getSigns, \hyperpage{6}
+    \subitem isLayoutFriendly, \hyperpage{6}
+    \subitem isPrimitive, \hyperpage{7}
+    \subitem iterateThroughSigns, \hyperpage{7}
+    \subitem nextPrimitive, \hyperpage{7}
+    \subitem printFullInfo, \hyperpage{7}
+    \subitem setStartingPointForIterator, \hyperpage{8}
+    \subitem toBitarray, \hyperpage{8}
+    \subitem toHexString, \hyperpage{8}
+    \subitem toInt, \hyperpage{9}
+    \subitem toMarkKassabStr, \hyperpage{9}
+  \item printFullInfo, \hyperpage{7}
 
   \indexspace
 
-  \item Ring Generator, 11
-  \item Ring with manually specified taps, 11
+  \item reverseTap, \hyperpage{14}
+  \item Ring Generator, \hyperpage{11}
+  \item Ring with manually specified taps, \hyperpage{11}
 
   \indexspace
 
-  \item setStartingPointForIterator, 8
+  \item setStartingPointForIterator, \hyperpage{8}
 
   \indexspace
 
-  \item Tiger Ring Generator, 12
-  \item toBitarray, 8
-  \item toHexString, 8
-  \item toInt, 9
-  \item toMarkKassabStr, 9
+  \item Tiger Ring Generator, \hyperpage{12}
+  \item toBitarray, \hyperpage{8}
+  \item toHexString, \hyperpage{8}
+  \item toInt, \hyperpage{9}
+  \item toMarkKassabStr, \hyperpage{9}
 
 \end{theindex}

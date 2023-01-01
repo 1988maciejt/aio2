@@ -1677,6 +1677,7 @@ class Lfsr:
       Dual._baValue[i] = 1
     Dual.next(DelayedBy)
     return Dual._baValue.search(1)
+  
   def createPhaseShifter(self, OutputCount : int, MinimumSeparation = 100, MaxXorInputs = 3, MinXorInputs = 1, FirstXor = None) -> PhaseShifter:
     if 0 < MinXorInputs <= MaxXorInputs:
       if FirstXor is None:
@@ -1684,7 +1685,7 @@ class Lfsr:
       XorList = []
       ActualXor = FirstXor
       XorList.append(ActualXor.copy())
-      for i in range(OutputCount-1):
+      for i in tqdm(range(OutputCount-1)):
         ActualXor = self.getPhaseShiftIndexes(ActualXor, MinimumSeparation)
         while len(ActualXor) < MinXorInputs or len(ActualXor) > MaxXorInputs:
           ActualXor = self.getPhaseShiftIndexes(ActualXor, 1)
@@ -1692,14 +1693,17 @@ class Lfsr:
       PS = PhaseShifter(self, XorList)
       return PS
     return None
+  
   def getValue(self) -> bitarray:
     """Returns current value of the LFSR
     """
     return self._baValue
+  
   def getSize(self) -> int:
     """Returns size of the LFSR
     """
     return (self._size)
+  
   def next(self, steps=1) -> bitarray:
     """Performs a shift of the LFSR. If more than 1 step is specified, 
     the fast-simulation method is used.
@@ -1750,6 +1754,7 @@ class Lfsr:
         steps >>= 1
         RowIndex += 1
       return self._baValue    
+    
   def getPeriod(self) -> int:
     """Simulates the LFSR to obtain its period (count of states in trajectory).
 
@@ -1784,6 +1789,7 @@ class Lfsr:
     if self.isMaximum():
       return self
     return None
+  
   def isMaximum(self) -> bool:
     """Uses the fast-simulation method to determine if the LFSR's trajectory
     includes all possible (but 0) states. 
@@ -1802,6 +1808,7 @@ class Lfsr:
       if self.next(num) == value0:
         return False
     return True
+  
   def reset(self) -> bitarray:
     """Resets the LFSR value to the 0b0...001
 
@@ -1811,6 +1818,7 @@ class Lfsr:
     self._baValue.setall(0)
     self._baValue[0] = 1
     return self._baValue
+  
   def getValues(self, n = 0, step = 1, reset = True) -> list:
     """Returns a list containing consecutive values of the LFSR.
 
