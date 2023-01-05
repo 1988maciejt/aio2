@@ -1841,6 +1841,7 @@ class Lfsr:
       result.append(self._baValue.copy())
       self.next(step)
     return result
+  
   def printValues(self, n = 0, step = 1, reset = True) -> None:
     """Prints the consecutive binary values of the LFSR.
 
@@ -1858,8 +1859,10 @@ class Lfsr:
     for i in range(n):
       Aio.print(self)
       self.next(step)
+      
   def getMSequence(self, BitIndex = 0, Reset = True):
     return self.getSequence(BitIndex, Reset, 0)
+  
   def getSequence(self, BitIndex = 0, Reset = True, Length = 0) -> bitarray:
     """Returns a bitarray containing the Sequence of the LFSR.
 
@@ -1880,6 +1883,7 @@ class Lfsr:
       result.append(self._baValue[BitIndex])
       self.next()
     return result
+  
   def printFastSimArray(self):
     """Prints the fast-simulation array.
     """
@@ -1890,6 +1894,7 @@ class Lfsr:
       for c in r:
         line += Bitarray.toString(c) + "\t"
       Aio.print(line)
+      
   def _simplySim(self, sequence):
     rm = Lfsr(self)
     res = rm.simulateForDataString(sequence, self._IBit, self._Start)
@@ -1899,6 +1904,7 @@ class Lfsr:
 #      perc = round(cnt * 100 / self._N, 1)
 #      Aio.printTemp("  Lfsr sim ", perc , "%             ")  
     return res
+  
   def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = None) -> int:
     if "list" in str(type(Sequence)):
       self._N = len(Sequence)
@@ -1965,6 +1971,7 @@ end
     
 endmodule'''
     return Module
+  
   def draw(self, JT = False, Shorten = True, Crop = True):
     if self._type == LfsrType.RingGenerator:
       FFs = []
@@ -2125,8 +2132,10 @@ endmodule'''
     else:
       Result = Aio.print("<This type of LFSR is not yet supported.>")
     return Result
+  
   def print(self, JT = False, Shorten = True, Crop = True):
     Aio.print(self.draw(JT, Shorten, Crop))
+    
   def getJTIndex(self, index):
     if self._type == LfsrType.RingGenerator:
       One = self._size & 1
@@ -2136,10 +2145,12 @@ endmodule'''
         return index - LowerSize 
       return index + LowerSize - One
     return index
+  
   def analyseSequencesBatch(ListOfObjects) -> list:
     #return process_map(_analyseSequences_helper, ListOfObjects, chunkside=2, desc="Sequences analysis")
     R = p_map(_analyseSequences_helper, ListOfObjects)
     return R
+  
   def analyseSequences(self, Reset = True, WithXor2 = True, WithXor3 = True) -> MSequencesReport:
     Values = self.getValues(reset=Reset)
     Sequences = [bitarray() for i in range(self._size)]
@@ -2232,6 +2243,7 @@ endmodule'''
     Report._title = repr(self)
     Report.SourceObject = self
     return Report
+  
   def listMaximumLfsrsHavingSpecifiedTaps(SizeOrProgrammableLfsrConfiguration : int, TapsList = [], CountOnly = False, GetTapsOnly = False) -> list:
     """list Lfsrs of type RING_WITH_SPECIFIED_TAPS satisfying the given criteria.
 

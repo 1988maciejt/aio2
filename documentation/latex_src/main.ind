@@ -7,13 +7,15 @@
 
   \indexspace
 
+  \item checkMaximum, \hyperpage{18}
   \item clear, \hyperpage{13}
   \item copy, \hyperpage{4}
+  \item createPhaseShifter, \hyperpage{13}
 
   \indexspace
 
   \item derivativeGF2, \hyperpage{5}
-  \item Dual LFSR, \hyperpage{13}
+  \item dual LFSR, \hyperpage{14}
 
   \indexspace
 
@@ -27,12 +29,18 @@
   \item getCoefficientsCount, \hyperpage{5}
   \item getDegree, \hyperpage{5}
   \item getDifferentTapCount, \hyperpage{5}
-  \item getDual, \hyperpage{13}
+  \item getDual, \hyperpage{14}
   \item getMinDistance, \hyperpage{6}
-  \item getPhaseShiftIndexes, \hyperpage{13}
+  \item getMSequence, \hyperpage{15}
+  \item getPeriod, \hyperpage{14}
+  \item getPhaseShiftIndexes, \hyperpage{14}
   \item getReciprocal, \hyperpage{6}
+  \item getSequence, \hyperpage{15}
   \item getSignedCoefficients, \hyperpage{6}
   \item getSigns, \hyperpage{6}
+  \item getSize, \hyperpage{14}
+  \item getValue, \hyperpage{14}
+  \item getValues, \hyperpage{15}
 
   \indexspace
 
@@ -41,6 +49,7 @@
   \indexspace
 
   \item isLayoutFriendly, \hyperpage{6}
+  \item isMaximum, \hyperpage{15}
   \item isPrimitive, \hyperpage{7}
   \item iterateThroughSigns, \hyperpage{7}
 
@@ -53,20 +62,37 @@
     \subitem Ring Generator, \hyperpage{11}
     \subitem Ring with specified taps, \hyperpage{11}
     \subitem Tiger Ring Generator, \hyperpage{12}
+  \item Lfsr
+    \subitem checkMaximum, \hyperpage{18}
   \item Lfsr\_object
     \subitem \_\_str\_\_, \hyperpage{13}
     \subitem clear, \hyperpage{13}
-    \subitem getDual, \hyperpage{13}
-    \subitem getPhaseShiftIndexes, \hyperpage{13}
-    \subitem reverseTap, \hyperpage{14}
+    \subitem createPhaseShifter, \hyperpage{13}
+    \subitem getDual, \hyperpage{14}
+    \subitem getMSequence, \hyperpage{15}
+    \subitem getPeriod, \hyperpage{14}
+    \subitem getPhaseShiftIndexes, \hyperpage{14}
+    \subitem getSequence, \hyperpage{15}
+    \subitem getSize, \hyperpage{14}
+    \subitem getValue, \hyperpage{14}
+    \subitem getValues, \hyperpage{15}
+    \subitem isMaximum, \hyperpage{15}
+    \subitem next, \hyperpage{15}
+    \subitem printFastSimArray, \hyperpage{16}
+    \subitem printValues, \hyperpage{16}
+    \subitem reset, \hyperpage{16}
+    \subitem reverseTap, \hyperpage{16}
+    \subitem simulateForDataString, \hyperpage{17}
+    \subitem toVerilog, \hyperpage{17}
 
   \indexspace
 
+  \item next, \hyperpage{15}
   \item nextPrimitive, \hyperpage{7}
 
   \indexspace
 
-  \item Phase Shifter, \hyperpage{13}
+  \item Phase Shifter, \hyperpage{14}
   \item Polynomial, \hyperpage{4}
   \item Polynomial\_object
     \subitem \_\_hash\_\_, \hyperpage{4}
@@ -92,17 +118,21 @@
     \subitem toHexString, \hyperpage{8}
     \subitem toInt, \hyperpage{9}
     \subitem toMarkKassabStr, \hyperpage{9}
+  \item printFastSimArray, \hyperpage{16}
   \item printFullInfo, \hyperpage{7}
+  \item printValues, \hyperpage{16}
 
   \indexspace
 
-  \item reverseTap, \hyperpage{14}
+  \item reset, \hyperpage{16}
+  \item reverseTap, \hyperpage{16}
   \item Ring Generator, \hyperpage{11}
   \item Ring with manually specified taps, \hyperpage{11}
 
   \indexspace
 
   \item setStartingPointForIterator, \hyperpage{8}
+  \item simulateForDataString, \hyperpage{17}
 
   \indexspace
 
@@ -111,5 +141,6 @@
   \item toHexString, \hyperpage{8}
   \item toInt, \hyperpage{9}
   \item toMarkKassabStr, \hyperpage{9}
+  \item toVerilog, \hyperpage{17}
 
 \end{theindex}

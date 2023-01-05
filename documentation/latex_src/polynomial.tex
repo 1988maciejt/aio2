@@ -3,7 +3,7 @@
 \index{Polynomial}
 \Polynomial\ is an object intended to analyze polynomials over GF(2). An object of type \Polynomial\ holds polynomial coefficients (as a list of positive integers) and a list of signs of those coefficients. Of course in case of GF(2) coefficient $x_i = -x_i$. However, negative coefficients make sense in case of some types of LFSRs, as \Polynomial\ objects are used to create other objects, of type of \Lfsr.
 
-Below you can see an example of how to create a \Polynomial\ object representing the polynomial $x^{16} + x^5 + x^2 + x^0$:
+Below you can see an example of how to create a \Polynomial\ object representing the polynomial of $x^{16} + x^5 + x^2 + x^0$:
 \begin{lstlisting}[language=Python]
 		p1 = Polynomial ( [16, 5, 2, 0] )
 		p2 = Polynomial ( 0b10000000000100101 )
@@ -24,7 +24,7 @@ Below you can see an example of how to create a \Polynomial\ object representing
 \end{lstlisting}
 
 \cmd {Polynomial\_object} {\_\_hash\_\_} {} {
-	\Polynomial\ objects are hashable. Can be used as a dictionary keys.:
+	\Polynomial\ objects are hashable. Can be used as dictionary keys.:
 }
 \begin{lstlisting}[language=Python]
 		p1 = Polynomial ( [16, 5, 2, 0] )
@@ -69,7 +69,7 @@ Below you can see an example of how to create a \Polynomial\ object representing
 \end{lstlisting}
 
 \cmd {Polynomial\_object} {getCoefficients} {} {
-	Returns a REFERENCE to the sorted list of (unsigned) coefficients.
+	Returns a reference to the sorted list of (unsigned) coefficients.
 }
 \begin{lstlisting}[language=Python]
 		p1 = Polynomial ( [16, 2, -5, 0] )

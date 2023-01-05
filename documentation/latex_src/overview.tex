@@ -20,9 +20,9 @@ If no argument, then the \ShellName\ appears and is ready to execute Python comm
 
 There is also a special mode of \ShellName, called \textbf{Testcase Mode}. It makes easy to execute a complete testcases. The testcase is a directory having a regular structure:
 \dirtree{%
-	.1 testcase\_name.
-		.2 data \DTcomment{automatically added to the searching path}.
-		.2 results \DTcomment{Created automatically by \ShellName}.
+	.1 testcase\_name/.
+		.2 data/ \DTcomment{automatically added to the searching path}.
+		.2 results/ \DTcomment{Created automatically by \ShellName}.
 		.2 driver.py \DTcomment{Main script - your Testcase code}.
 }
 By running the command:
@@ -37,4 +37,49 @@ print("Text on the screen only")
 # This also appears in the transcript file:
 Aio.print("Text on the screen and in the transcript")
 \end{lstlisting} 
+
+\section{Getting started with \ShellName\ in Siemens' infrastructure}
+
+There is a very simple way to start using the \ShellName\ having access to Siemens' infrastructure. First, login to any remote machine. Then, clone the \textit{research} git repository:
+
+\texttt{git clone /wv/stsgit/research.git}
+
+\noindent After that, the following tree will be created in your Current Dir:
+
+\dirtree{%
+	.1 research/.
+	.2 research\_shell/ 			\DTcomment main \ShellName\ home.
+	.3 bin/ 						\DTcomment \ShellName\ binaries and libs.
+	.4 research\_shell				\DTcomment \ShellName\ executable.
+	.4 research\_shell\_drun		\DTcomment quick runner for a \ShellName\ testcase.
+	.3 libs/ 						\DTcomment core research-related Python modules.
+	.3 utils/ 						\DTcomment utilities.
+	.4 install\_python\_libs 		\DTcomment installation script.
+	.2 testcases/ 					\DTcomment a place for research-related testcases.
+	.3 research\_shell\_verifier/ 	\DTcomment a testcase to verify \ShellName\ installation.
+}
+
+\noindent \textit{Note: It is recommended to add the \texttt{./research/research\_shell/bin} directory to your \texttt{PATH} environmental variable, but is not neccessary to use the \ShellName.}
+
+To make sure you have all required Python modules installed and to install the missing ones, just run the script from \texttt{utils} directory:
+
+\texttt{bash ./research/research\_shell/utils/install\_python\_libs}
+
+\noindent Once the script finishes, you can easy call the \ShellName:
+
+\texttt{./research/research\_shell/bin/research\_shell}
+
+\noindent The PTPython (Python) shell will appear. See next chapters to getting familiar with research-related modules, classes and functions, you can use together with standard Python ones in the \ShellName.
+
+\subsection{Verifying the \ShellName\ installation}
+
+There is a testcase called \texttt{research\_shell\_verifier} especially usable to make sure, that all dependencies are installed correctly and if there is no error in core research procedures, like those ones to primitive polynomials searching, LFSR simulators etc. Tp run that testcase (as well as any other one), simply go to the main testcase directory:
+
+\texttt{cd ./research/testcases/research\_shell\_verifier}
+
+\noindent and call:
+
+\texttt{../../research\_shell/bin/research\_shell\_drun}
+
+You can see a standard output stream printed on your screen during execution. Once finished, the transcript is available in \texttt{./results/transcript.txt} file. 
 

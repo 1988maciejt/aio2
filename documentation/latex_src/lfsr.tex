@@ -82,12 +82,11 @@ Ring generator is a structure discussed in \cite{lfsr:fastsim}. Example of a Rin
 \index{LFSR!Ring with specified taps}
 \index{Ring with manually specified taps}
 
-If you wish to create a LFSR specifying a taps by hand, then choose \textit{Ring with manually specified taps}. To create such object you need to specify a size of Lfsr (flip-flop count) and a list of tap definitions. Each tap is defined as a list: \texttt{[source\_ff\_index, destination\_]ff\_index]}. For better understanding consider the example from Figure \ref{lfsr:ringspecified}. You can see there the list of 3 taps: \texttt{[[4,7], [8,2], [9,0]]}. The first tap is \texttt{[4,7]} which is considered as \textit{from output of 4th flip-flop to a XOR gate at 7th flip-flop input}. So be careful and remember: \textit{from <source> OUTPUT to the XOR at <destination> INPUT}. You can create \Lfsr\ object implementing the structure shown in the Figure \ref{lfsr:ringspecified} that way:
+If you wish to create a LFSR specifying a taps by hand, then choose \textit{Ring with manually specified taps}. To create such object you need to specify a size of Lfsr (flip-flop count) and a list of tap definitions. Each tap is defined as another list: \texttt{[source\_ff\_index, destination\_ff\_index]}. For better understanding consider the example from Figure \ref{lfsr:ringspecified}. You can see there the list of 3 taps: \texttt{[[4,7], [8,2], [9,0]]}. The first tap is \texttt{[4,7]} which is considered as \textit{from output of 4th flip-flop to a XOR gate at 7th flip-flop input}. So be careful and remember: \textit{from <source> OUTPUT to the XOR at <destination> INPUT}. You can create an \Lfsr\ object implementing the structure shown in the Figure \ref{lfsr:ringspecified} that way:
 
 \begin{lstlisting}[language=Python]
 	lfsr1 = Lfsr(16, RING_WITH_SPECIFIED_TAPS, [[4,7], [8,2], [9,0]])
-	#           >||<- FFs count
-	#                                           |<----- taps ----->|
+	#          ->||<- FFs count                |<------ taps ----->|
 \end{lstlisting}
 
 \begin{figure}[h]
@@ -102,7 +101,7 @@ If you wish to create a LFSR specifying a taps by hand, then choose \textit{Ring
 \index{LFSR!Hybrid Ring Generator}
 \index{Hybrid Ring Generator}
 
-Hybrid Ring Generator is very similar to Ring Generator. The only difference is, that taps direction is configurable. If the corresponding coefficient of polynomial \textit{(note: this polynomial is NOT the characteristic one!)} is positive, then tap direction is down, as in case of Ring Generator. When the corresponding coefficient is negative, then tap direction is up. Look at the example shown in the Figure \ref{lfsr:hybridring}. To create an \Lfsr\ object representing a Hybrid Ring Generator, mentioned in the example, use such code:
+Hybrid Ring Generator is very similar to Ring Generator. The only difference is, that taps direction is configurable. If the corresponding coefficient of polynomial \textit{(note: this polynomial is NOT the characteristic one!)} is positive, then tap direction is down, as in case of Ring Generator. When the corresponding coefficient is negative, then tap direction is up. Look at the example shown in the Figure \ref{lfsr:hybridring}. To create an \Lfsr\ object representing the Hybrid Ring Generator mentioned in the example, use such code:
 
 \begin{lstlisting}[language=Python]
 	# using existing Polynomial object:
@@ -259,32 +258,66 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 		# >>> bitarray('1001')
 \end{lstlisting}
 
-\cmd {Lfsr\_object} {getValues} {n=0, step=1, reset=True} {
-	Does simulation of the \Lfsr\ and returns a list of values.
+\cmd {Lfsr\_object} {getMSequence} {BitIndex=0, Reset=True} {
+	Returns a bitarray object conteining the M-Sequence observed at selected bit.
 	\begin{itemize}
-		\item XX
+		\item \texttt{BitIndex} - at which flip-flop the sequence to observe,
+		\item \textit{Reset} - if True then the \texttt{.reset()} method is called before simulation.
 	\end{itemize}
 }
 \begin{lstlisting}[language=Python]
-lfsr1 = Lfsr([4,1,0], GALOIS)
-lfsr1.getValue()
-# >>> bitarray('0001')
-lfsr1.next()
-lfsr1.getValue()
-# >>> bitarray('1001')
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		lfsr1.getMSequence()
+		for value in values: print(value)
+		# >>> bitarray('111101011001000')
 \end{lstlisting}
 
-\cmd {Lfsr\_object} {isMaximum} {} {
-	Returns True if the \Lfsr\ generates a M-Sequence. Uses fast simulation methods and checks also subcycles \cite{lfsr:fastsim}.
+\cmd {Lfsr\_object} {getSequence} {BitIndex=0, Reset=True, Length=0} {
+	Returns a bitarray object conteining a bit sequence observed at selected bit.
+	\begin{itemize}
+		\item \texttt{BitIndex} - at which flip-flop the sequence to observe,
+		\item \textit{Reset} - if True then the \texttt{.reset()} method is called before simulation,
+		\item \texttt{Length} - length of the requested sequence.0 means M-Sequence.
+	\end{itemize}
 }
 \begin{lstlisting}[language=Python]
-		lfsr1 = Lfsr([4,1,0], RING_GENERATOR)
-		lfsr1.isMaximum()
-		# >>> True
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		lfsr1.getSequence(Length=6)
+		for value in values: print(value)
+		# >>> bitarray('111101')
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {getValues} {n=0, step=1, reset=True} {
+	Does simulation of the \Lfsr\ and returns a list of values.
+	\begin{itemize}
+		\item \texttt{n} - how many values to return. Default os 0 meaning we want all values to get,
+		\item \texttt{step} - how many clock cycles per step. If \textit{step=N} then consecutive values are obtained every \textit{N} clock cycles,
+		\item \textit{reset} - if True then the \texttt{.reset()} method is called before simulation.
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		values = lfsr1.getValues()
+		for value in values: print(value)
+		# >>> bitarray('1000')
+		# >>> bitarray('1001')
+		# >>> bitarray('1011')
+		# ...
+		# >>> bitarray('0100')
+\end{lstlisting}
+
+
+\cmd {Lfsr\_object} {isMaximum} {} {
+	Returns True if the \Lfsr\ generates a M-Sequence. Uses fast simulation method \cite{lfsr:fastsim} and checks also subcycles.
+}
+\begin{lstlisting}[language=Python]
+	lfsr1 = Lfsr([4,1,0], RING_GENERATOR)
+	lfsr1.isMaximum()
+	# >>> True
 \end{lstlisting}
 
 \cmd {Lfsr\_object} {next} {steps=1} {
-	Calculates (and also returns a reference to) the next value of the \Lfsr\. This is the core method of LFSR simulation flow. If the specified \texttt{steps} > 1, then it engages Fast Simulation method \cite{lfsr:fastsim}. 
+	Calculates (and also returns a reference to) the next value of the \Lfsr. This is the core method of LFSR simulation flow. If the specified \texttt{steps} > 1, then it engages Fast Simulation method \cite{lfsr:fastsim}. 
 }
 \begin{lstlisting}[language=Python]
 		lfsr1 = Lfsr([4,1,0], GALOIS)
@@ -296,8 +329,33 @@ lfsr1.getValue()
 		# >>> bitarray('1111')
 \end{lstlisting}
 
+\cmd {Lfsr\_object} {printFastSimArray} {} {
+	Prints the array used for fast simulation \cite{lfsr:fastsim}.
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		lfsr1.printFastSimArray()
+		# >>> 1001    0001    0010    0100
+		# >>> 1101    1001    0001    0010
+		# >>> 1110    1111    1101    1001
+		# >>> 1011    0101    1010    0111
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {printValues} {n=0, step=1, reset=True} {
+	Does the same as \texttt{Lfsr\_object.getValues()}, but prints (to the screen and to the transcript as well) the result in human-readable form.
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		lfsr1.printValues()
+		# >>> 0001
+		# >>> 1001
+		# >>> 1101
+		# >>> ...
+		# >>> 0010
+\end{lstlisting}
+
 \cmd {Lfsr\_object} {reset} {} {
-	Sets 0s to all \Lfsr\ flip-flops, besides FF[0] which is set to 1. Also returns a reference to actual value of the \Lfsr\.
+	Sets 0s to all \Lfsr\ flip-flops, besides FF[0] which is set to 1. Also returns a reference to actual value of the \Lfsr.
 }
 \begin{lstlisting}[language=Python]
 		lfsr1 = Lfsr([4,1,0], GALOIS)
@@ -306,7 +364,7 @@ lfsr1.getValue()
 		lfsr1.next()
 		# >>> bitarray('1001')
 		lfsr1.reset()
-		# >>> bitarray('1001')
+		# >>> bitarray('0001')
 \end{lstlisting}
 
 \cmd {Lfsr\_object} {reverseTap} {TapIndex} {
@@ -322,5 +380,73 @@ lfsr1.getValue()
 		# ...True means the tap index and the Lfsr type are correct.
 		lfsr1.getTaps()
 		# >>> [[60, 2], [7, 55]]
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {simulateForDataString} {Sequence, InjectionAtBit=0, StartValue=None} {
+	Performs a simulation for the Lfsr object having one injector. Step count (number of clock cycles) is equal to the length of a given \texttt{Sequence}. Returns the last \Lfsr\ value.
+	\begin{itemize}
+		\item \texttt{Sequence} - any iterable object, whose consecutive values are convertible to \texttt{bool},
+		\item \texttt{InjectionAtBit} - index of flip-flop at which input the injector is placed,
+		\item \textit{StartValue} - seed of the LFSR.
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		lfsr1.simulateForDataString('110010')
+		# >>> bitarray('1001')
+\end{lstlisting}
+
+\cmd {Lfsr\_object} {toVerilog} {ModuleName, InjectorIndexesList=[]} {
+	Returns a string containing Verilog description of the \Lfsr\ object.
+	\begin{itemize}
+		\item \texttt{ModuleName} - name of the Verilog module,
+		\item \texttt{InjectorIndexesList} - a list containing indexes of flip-flops at which input injectors have to be placed.
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([4,1,0], GALOIS)
+		print(lfsr1.toVerilog("MyModule", [0,2]))
+		# >>> module MyModule (
+		# >>>   input wire clk,
+		# >>>   input wire enable,
+		# >>>   input wire reset,
+		# >>>   input wire [1:0] injectors,
+		# >>>   output reg [3:0] O
+		# >>> );
+		# >>> 
+		# >>> always @ (posedge clk or posedge reset) begin
+		# >>>   if (reset) begin
+		# >>>     O <= 4'd0;
+		# >>>   end else begin
+		# >>>     if (enable) begin
+		# >>>       O[0] <= O[1] ^ O[0] ^ injectors[0];
+		# >>>       O[1] <= O[2];
+		# >>>       O[2] <= O[3] ^ injectors[1];
+		# >>>       O[3] <= O[0];
+		# >>>     end
+		# >>>   end
+		# >>> end
+		# >>> 
+		# >>> endmodule
+\end{lstlisting}
+
+\section{Lfsr static methods}
+
+\cmd {Lfsr} {checkMaximum} {LfsrsList, n=0, SerialChunkSize=20, ReturnAlsoNotTested=False} {
+	Takes a list of Lfsr objects and checks each one if can produce M-Sequence. Returns a list containing only maximum ones.
+	\begin{itemize}
+		\item \texttt{LfsrsList} - list of \Lfsr\ objects,
+		\item \texttt{n} - how many maximum Lfsrs you need. If the \textit{n} is achieved, breaks the simulation. 0 means \textit{no limit},
+		\item \textit{SerialChunkSize} - simulation are performed using multithreading. This value means how many Lfsrs can be simulated in series per one thread,
+		\item \texttt{ReturnAlsoNotTested} - using this argument makes sense with n > 0. if True, then it returns a list containing two other lists: \textit{[MaximumLfsrs, NotTestedLfsrs]}
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+		lfsr1 = Lfsr([5,1,0], GALOIS)
+		lfsr2 = Lfsr([5,2,0], GALOIS)
+		lfsr3 = Lfsr([5,3,0], GALOIS)
+		Lfsr.checkMaximum([lfsr1, lfsr2, lfsr3])
+		# >>> [Lfsr([5, 2, 0], LfsrType.Galois), 
+		# >>> Lfsr([5, 3, 0], LfsrType.Galois)]
 \end{lstlisting}
 

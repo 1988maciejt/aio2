@@ -854,7 +854,7 @@ endmodule"""
     return self.Modules.TopModuleName
   def getTopModule(self) -> VerilogModule:
     return self.Modules.getModuleByName(self.Modules.TopModuleName)
-  def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechlibFileName = None):
+  def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechlibFileName = None, ReturnProcessedResult = False):
     if shell_config.useDC():
       tmpFileName = "tmp.v"
       dcScriptFileName = "dc_script"
@@ -876,6 +876,26 @@ exit
 """
       writeFile(dcScriptFileName, DcScript)
       result = Aio.shellExecute(f'/home/tnt/tools/DC_SHELL/O-2018.06-SP4/base/bin/dc_shell -f {dcScriptFileName}', 1, 1)
+      if ReturnProcessedResult:
+        ResDict = {}
+        ParamList = ["Number of ports",
+                     "Number of nets",
+                     "Number of cells",
+                     "Number of combinational cells",
+                     "Number of sequential cells",
+                     "Number of macros/black boxes",
+                     "Number of buf/inv",
+                     "Number of references",
+                     "Combinational area",
+                     "Buf/Inv area",
+                     "Noncombinational area",
+                     "Macro/Black Box area",
+                     "Total cell area"]
+        for Param in ParamList:
+          R = re.search(f'{Param}:\s+([0-9]+)', result, re.MULTILINE)
+          if R:
+            ResDict[Param] = int(R.group(1))
+        return ResDict
       return result
     else:
       tmpFileName = "/tmp/tmp.v"
@@ -901,6 +921,9 @@ exit
     
   def getTopModule(self) -> VerilogModule:
     return self.Modules.getModuleByName(self.Modules.TopModuleName)
+  
+  def getTopModuleName(self) -> str:
+    return self.Modules.TopModuleName
     
   def getModulesDependencyDict(self) -> dict:
     Parents = {}
@@ -950,6 +973,33 @@ exit
       return
     Result = f'{BaseModule.getName()} {BaseModule.getDependencyInfoString()}'
     Aio.print(Result)
+    
+  def showSchematic(self, DontRemoveVsimWorkspace = False):
+    if shell_config.useQuesta():
+      Path = f"questa_view/"
+      os.mkdir(Path)
+      FileName = f"full_verilog.v"
+      self.writeToFile(f"{Path}{FileName}")
+      copyfile(Aio.getPath() + "siemens/modelsim.ini", "modelsim.ini")
+      ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/pad_cells.v", 1, 1)
+      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+        Aio.print(ERR)
+      ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/adk.v", 1, 1)
+      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+        Aio.print(ERR)
+      ERR = Aio.shellExecute(f"cd {Path} && vlog {FileName}", 1, 1)
+      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+        Aio.print(ERR)
+      ERR = Aio.shellExecute(f'''cd {Path} && vsim {self.getTopModuleName()} -debugDB -do "add schematic -full sim:/{self.getTopModuleName()}"''', 1, 1)
+      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+        Aio.print(ERR)
+      if not DontRemoveVsimWorkspace:
+        try:
+          shutil.rmtree(Path[:-1])
+        except:
+          pass
+    else:
+      Aio.printError("The 'visualize' feature is only available with Questa sim")
     
     
     
@@ -1114,6 +1164,33 @@ class VerilogTestbench:
   def writeFullVerilog(self, FileName = "verilog_testbench_full.v", RndStr = "", OneTimeForce = ""):
     writeFile(FileName, f'''`timescale {self.TimeUnit}/{self.TimePrecision}\n\n''' + self.getBody(RndStr, OneTimeForce) + "\n\n" + self._my_verilog.getContent())
     
+  def showSchematic(self, DontRemoveVsimWorkspace = False):
+    if shell_config.useQuesta():
+      Path = f"questa_view/"
+      os.mkdir(Path)
+      FileName = f"full_tb.v"
+      self.writeFullVerilog(f"{Path}{FileName}")
+      copyfile(Aio.getPath() + "siemens/modelsim.ini", "modelsim.ini")
+      ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/pad_cells.v", 1, 1)
+      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+        Aio.print(ERR)
+      ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/adk.v", 1, 1)
+      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+        Aio.print(ERR)
+      ERR = Aio.shellExecute(f"cd {Path} && vlog {FileName}", 1, 1)
+      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+        Aio.print(ERR)
+      ERR = Aio.shellExecute(f'''cd {Path} && vsim {self.Name} -debugDB -do "add schematic -full sim:/{self.Name}"''', 1, 1)
+      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+        Aio.print(ERR)
+      if not DontRemoveVsimWorkspace:
+        try:
+          shutil.rmtree(Path[:-1])
+        except:
+          pass
+    else:
+      Aio.printError("The 'visualize' feature is only available with Questa sim")
+      
   def simulate(self, OneTimeForce = "") -> dict:
     RndStr = str(int(uniform(1, 99999999999999)))
     Path = ""
@@ -1132,7 +1209,6 @@ class VerilogTestbench:
       ERR = Aio.shellExecute(f"cd {Path} && vlog {FileName}", 1, 1)
       if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
         Aio.print(ERR)
-      Do = "if {0} {log -r /*};run -all;"
       Batch = f'''
 run {self.SimulationStopTime} {self.TimeUnit}
 quit -f
