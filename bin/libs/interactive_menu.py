@@ -604,7 +604,7 @@ class MainMenu_static:
       (_categoryNlfsrs_createNlfsr,          "Create NLFSR"),
       (_categoryNlfsrs_info,                 "Show info"),
       (_categoryNlfsrs_check_period,         "Check period of the NLFSR"),
-      (_categoryNlfsrs_searchForMaximum,     "Search for maximum NLFSRs"),
+      (_categoryNlfsrs_searchForMaximum,     "Search for specified NLFSRs"),
     ]
   )
   _bent_menu = radiolist_dialog(
