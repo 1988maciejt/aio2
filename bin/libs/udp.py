@@ -12,6 +12,10 @@ class UdpListener:
     self._buffer_size = abs(int(BufferSize))
     self._callback = Callback
     self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+    self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    self._socket.bind(("", self._port))
     self._continue = 0
     self._ret_str = bool(ReturnString)
     self._pool = mp.ThreadingPool()
@@ -34,8 +38,6 @@ class UdpListener:
     if self._continue:
       Aio.printError("The UDP listener is stil running")
     else:
-      self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-      self._socket.bind(("", self._port))
       self._continue = 1
       if self._callback is None:
         print(f"{Str.color(f'Starting UDP monitor at port {self._port}', 'blue')}")
