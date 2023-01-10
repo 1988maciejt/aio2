@@ -45,7 +45,7 @@ class _RemoteAioMessage:
         self.Code = ""
     def sendTo(self, Ip, Port):
         self.SenderIp = _myIP()
-        UdpSender(Port, Ip).send(pickle.dumps(self))
+        UdpSender(Port, Ip, BindToIp=_myIP()).send(pickle.dumps(self))
         #print(f"SENT {Ip}:{Port}", self.Payload)
         
         
@@ -75,6 +75,7 @@ def _getServer(Ip, Id) -> _RemoteAioServer:
 def _RemoteCallback(args):
     global _RemoteAioServers
     RawData = args[0]
+    Ip = args[1]
     Port = args[2]
     Data = ""
     try:
@@ -83,7 +84,7 @@ def _RemoteCallback(args):
         pass
     if Aio.isType(Data, "_RemoteAioMessage"):
         #print("RECEIVED", RawData)
-        Ip = Data.SenderIp
+        #Ip = Data.SenderIp
         ServerId = Data.ServerId
         if Data.Payload == _RemoteAioMessages.LOOKING_FOR_SERVERS:
             _RemoteAioMessage(_RemoteAioMessages.HELLO).sendTo(Ip, Port)
@@ -116,7 +117,8 @@ def stopRemoteAio():
 def startRemoteAio(Port = 3099):
     global _RemoteAioServerListener, _RemoteAioListener, _RemoteAioBufferSize, _RemoteAioWorking, _RemoteAioServerId
     stopRemoteAio()
-    _RemoteAioListener = UdpMonitor([Port, [Port, _myIP()]], BufferSize=_RemoteAioBufferSize, Callback=_RemoteCallback, ReturnString=False)
+    #_RemoteAioListener = UdpMonitor([Port, [Port, _myIP()]], BufferSize=_RemoteAioBufferSize, Callback=_RemoteCallback, ReturnString=False)
+    _RemoteAioListener = UdpListener(Port, BufferSize=_RemoteAioBufferSize, Callback=_RemoteCallback, ReturnString=False, BindToIp=_myIP())
     _RemoteAioListener.start()
     sleep(0.2)
     if _RemoteAioListener.isWorking():

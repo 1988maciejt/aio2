@@ -15,7 +15,8 @@ class UdpListener:
     self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-    self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    if len(BindToIp) < 7:
+      self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     self._socket.bind((BindToIp, self._port))
     self._continue = 0
     self._ret_str = bool(ReturnString)
@@ -59,11 +60,12 @@ class UdpListener:
 
 class UdpSender:
   
-  __slots__ = ("_port", "_ip")
+  __slots__ = ("_port", "_ip", "_bindip")
   
-  def __init__(self, Port = None, DestinationIp = None) -> None:
+  def __init__(self, Port = None, DestinationIp = None, BindToIp = "") -> None:
     self._port = abs(int(Port))
     self._ip = DestinationIp
+    self._bindip = BindToIp
     
   def send(self, Message, IP = None, Port = None):
     if not Aio.isType(Message, bytes()):
@@ -81,6 +83,9 @@ class UdpSender:
     if _ip is None:
       _ip = "255.255.255.255"
       sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+    sock.bind((self._bindip, _port))
     sock.sendto(Message, (_ip, _port))
     sock.close()
     
