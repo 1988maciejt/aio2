@@ -53,6 +53,7 @@ from libs.pandas_table import *
 from libs.polynomial import *
 from libs.preprocessor import *
 from libs.programmable_lfsr import *
+from libs.remote_aio import *
 from libs.simplecommandparser import *
 import libs.PolynomialsArithmetic as PolynomialsArithmetic
 from libs.ring_oscillator import *

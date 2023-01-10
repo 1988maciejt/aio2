@@ -6,9 +6,9 @@ import select
 
 class UdpListener:
   
-  __slots__ = ("_port", "_buffer_size", "_callback", "_socket", "_continue", "_pool", "_ret_str")
+  __slots__ = ("_port", "_buffer_size", "_callback", "_socket", "_continue", "_pool", "_ret_str", "_working")
   
-  def __init__(self, Port : int, Callback = None, BufferSize = 4096, ReturnString = True) -> None:
+  def __init__(self, Port : int, Callback = None, BufferSize = 4096, ReturnString = True, BindToIp = "") -> None:
     self._port = abs(int(Port))
     self._buffer_size = abs(int(BufferSize))
     self._callback = Callback
@@ -16,21 +16,26 @@ class UdpListener:
     self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
     self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    self._socket.bind(("", self._port))
+    self._socket.bind((BindToIp, self._port))
     self._continue = 0
     self._ret_str = bool(ReturnString)
     self._pool = mp.ThreadingPool()
+    self._working = False
     
   def _wait(self, dummy):
-    #print("WAIT")
     while self._continue:
+      self._working = True
       data, addr = self._socket.recvfrom(self._buffer_size)
+      if not self._continue:
+        self._working = False
+        return
       if self._ret_str:
         data = data.decode("utf-8")
       if self._callback is None:
         print(f"{Str.color(f'{addr[0]}:{self._port}', 'blue')}: {data}")
       else:
         self._callback((data, addr[0], self._port))
+    self._working = False
       
   def isActive(self) -> bool:
     return True if self._continue else False
@@ -46,7 +51,9 @@ class UdpListener:
     
   def stop(self):
     self._continue = 0
-    self._pool.terminate()
+    
+  def isWorking(self):
+    return self._working
     
     
 
@@ -54,12 +61,12 @@ class UdpSender:
   
   __slots__ = ("_port", "_ip")
   
-  def __init__(self, Port = None, DestinationIp = None, ReturnString = False) -> None:
+  def __init__(self, Port = None, DestinationIp = None) -> None:
     self._port = abs(int(Port))
     self._ip = DestinationIp
     
   def send(self, Message, IP = None, Port = None):
-    if Aio.isType(Message, ""):
+    if not Aio.isType(Message, bytes()):
       Message = bytes(Message, "utf-8")
     _ip = self._ip
     _port = self._port
@@ -94,6 +101,9 @@ class UdpMonitor:
   def _wait(self, dummy):
     while self._continue:
       readable, writable, exceptional = select.select(self._listeners, [], [])
+      if not self._continue:
+        print("MON RET")
+        return
       for s in readable:
         data, addr = s.recvfrom(self._buffer_size)
         port = self._port_list[self._listeners.index(s)]
@@ -123,5 +133,4 @@ class UdpMonitor:
   
   def stop(self):
     self._continue = False
-    self._pool.terminate()
     self._listeners.clear()
