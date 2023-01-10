@@ -36,7 +36,7 @@ class UdpSender:
       Aio.printError("Port not specified")
       return
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)  # UDP
-    if _ip is None:
+    if _ip is None or len(_ip) < 7:
       _ip = getMyBroadcastIp()
       sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     sock.sendto(Message, (_ip, _port))
