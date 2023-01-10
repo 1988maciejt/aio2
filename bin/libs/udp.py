@@ -38,7 +38,7 @@ class UdpSender:
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)  # UDP
     if _ip is None:
       _ip = getMyBroadcastIp()
-#      sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+      sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
     sock.sendto(Message, (_ip, _port))
     sock.close()
     
