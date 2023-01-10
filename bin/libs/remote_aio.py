@@ -9,6 +9,7 @@ import netifaces
 _RemoteAioListener = None
 _RemoteAioBufferSize = 8 * 1024 * 1024
 _RemoteAioMyIp = None
+_RemoteAioBroadcastIp = None
 _RemoteAioServers = []
 _RemoteAioServerId = 0
 _RemoteAioWorking = False
@@ -22,6 +23,14 @@ def _myIP() -> str:
         interface = list(netifaces.gateways()['default'].values())[0][1]
         _RemoteAioMyIp = netifaces.ifaddresses(interface)[2][0]['addr']
     return _RemoteAioMyIp
+
+def _myBroadcastIP() -> str:
+    global _RemoteAioBroadcastIp
+    if _RemoteAioBroadcastIp is None:
+        interface = list(netifaces.gateways()['default'].values())[0][1]
+        _RemoteAioBroadcastIp = netifaces.ifaddresses(interface)[2][0]['broadcast']
+    return _RemoteAioBroadcastIp
+    
     
 
 class _RemoteAioMessages:
@@ -45,7 +54,7 @@ class _RemoteAioMessage:
         self.Code = ""
     def sendTo(self, Ip, Port):
         self.SenderIp = _myIP()
-        UdpSender(Port, Ip, BindToIp=_myIP()).send(pickle.dumps(self))
+        UdpSender(Port, Ip).send(pickle.dumps(self))
         #print(f"SENT {Ip}:{Port}", self.Payload)
         
         
@@ -139,7 +148,7 @@ def lookForRemoteAioServers(Port = 3099):
     if not _RemoteAioWorking:
         startRemoteAio(Port)
     _RemoteAioServers = []
-    _RemoteAioMessage(_RemoteAioMessages.LOOKING_FOR_SERVERS).sendTo("255.255.255.255", Port)
+    _RemoteAioMessage(_RemoteAioMessages.LOOKING_FOR_SERVERS).sendTo(_myBroadcastIP(), Port)
     for i in range(1):
         sleep(1)
     print(f"RemoteAio: {len(_RemoteAioServers)} servers found")
