@@ -33,3 +33,4 @@ pip3 install notebook
 pip3 install jupyterlab --ignore-installed pyzmq
 pip3 install ipywidgets
 pip3 install pandas
+pip3 install netifaces

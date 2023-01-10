@@ -3,6 +3,8 @@ from libs.aio import *
 from time import sleep
 from tqdm import tqdm
 from random import uniform
+import netifaces
+
 
 _RemoteAioListener = None
 _RemoteAioBufferSize = 8 * 1024 * 1024
@@ -14,17 +16,11 @@ _RemoteAioWorking = False
 def _randId():
     return int(uniform(1, 10000000000000000))
 
-def _myIP(Port = 3099) -> str:
+def _myIP() -> str:
     global _RemoteAioMyIp
     if _RemoteAioMyIp is None:
-        ips = Aio.shellExecute("hostname -I").strip().split(" ")
-        for ip in ips:
-            try:
-                UdpSender(Port, ip).send("ip_test")
-                _RemoteAioMyIp = ip
-                break
-            except:
-                pass
+        interface = list(netifaces.gateways()['default'].values())[0][1]
+        _RemoteAioMyIp = netifaces.ifaddresses(interface)[2][0]['addr']
     return _RemoteAioMyIp
     
 
@@ -48,7 +44,7 @@ class _RemoteAioMessage:
             self.ServerId = ServerId
         self.Code = ""
     def sendTo(self, Ip, Port):
-        self.SenderIp = _myIP(Port)
+        self.SenderIp = _myIP()
         UdpSender(Port, Ip).send(pickle.dumps(self))
         #print(f"SENT {Ip}:{Port}", self.Payload)
         
@@ -91,10 +87,8 @@ def _RemoteCallback(args):
         ServerId = Data.ServerId
         if Data.Payload == _RemoteAioMessages.LOOKING_FOR_SERVERS:
             _RemoteAioMessage(_RemoteAioMessages.HELLO).sendTo(Ip, Port)
-            print(f"RemoteAio: {Ip}:{Port} is looking for servers")
         elif Data.Payload == _RemoteAioMessages.PING:
             _RemoteAioMessage(_RemoteAioMessages.HELLO).sendTo(Ip, Port)
-            print(f"RemoteAio: {Ip} is pinging")
         elif Data.Payload == _RemoteAioMessages.HELLO:
             Server = _RemoteAioServer(Ip, ServerId, Port)
             if Server not in _RemoteAioServers:
@@ -104,17 +98,6 @@ def _RemoteCallback(args):
 
 
 
-def lookForRemoteAioServers(Port = 3099):
-    global _RemoteAioServers
-    _RemoteAioServers = []
-    ul = UdpListener(Port, ReturnString=0, Callback=_RemoteCallback, BindToIp=_myIP())
-    ul.start()
-    _RemoteAioMessage(_RemoteAioMessages.LOOKING_FOR_SERVERS).sendTo("255.255.255.255", Port)
-    for i in range(1):
-        sleep(1)
-    print(f"RemoteAio: {len(_RemoteAioServers)} servers found")
-    ul.stop()
-    del ul
     
 def getRemoteAioServers() -> list:
     global _RemoteAioServers
@@ -147,3 +130,15 @@ def startRemoteAio(Port = 3099):
 def isRemoteAioWorking():
     global _RemoteAioWorking
     return _RemoteAioWorking
+
+
+def lookForRemoteAioServers(Port = 3099):
+    global _RemoteAioServers, _RemoteAioWorking
+    if not _RemoteAioWorking:
+        startRemoteAio(Port)
+    _RemoteAioServers = []
+    _RemoteAioMessage(_RemoteAioMessages.LOOKING_FOR_SERVERS).sendTo("255.255.255.255", Port)
+    for i in range(1):
+        sleep(1)
+    print(f"RemoteAio: {len(_RemoteAioServers)} servers found")
+    return _RemoteAioServers
