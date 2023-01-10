@@ -147,7 +147,7 @@ def lookForRemoteAioServers(Port = 3099):
     if not _RemoteAioWorking:
         startRemoteAio(Port)
     _RemoteAioServers = []
-    _RemoteAioMessage(_RemoteAioMessages.LOOKING_FOR_SERVERS).sendTo(_myBroadcastIP(), Port)
+    _RemoteAioMessage(_RemoteAioMessages.LOOKING_FOR_SERVERS).sendTo("", Port)
     for i in range(1):
         sleep(1)
     print(f"RemoteAio: {len(_RemoteAioServers)} servers found")
