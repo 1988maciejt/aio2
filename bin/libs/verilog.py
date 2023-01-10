@@ -854,7 +854,7 @@ endmodule"""
     return self.Modules.TopModuleName
   def getTopModule(self) -> VerilogModule:
     return self.Modules.getModuleByName(self.Modules.TopModuleName)
-  def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechlibFileName = None, ReturnProcessedResult = False):
+  def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechlibFileName = None, ReturnProcessedResult = False, AreaUnit = "#NAND", AreaFactor = 1, WriteSDF = False, ReportTiming = False):
     if shell_config.useDC():
       tmpFileName = "tmp.v"
       dcScriptFileName = "dc_script"
@@ -872,8 +872,12 @@ compile
 report_area
 
 write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hier
-exit
 """
+      if WriteSDF:
+        DcScript += f"write_sdf {OutputFileName}.sdf\n"
+      if ReportTiming:
+        DcScript += f"report_timing > {OutputFileName}.rpt\n"
+      DcScript += "exit\n"
       writeFile(dcScriptFileName, DcScript)
       result = Aio.shellExecute(f'/home/tnt/tools/DC_SHELL/O-2018.06-SP4/base/bin/dc_shell -f {dcScriptFileName}', 1, 1)
       if ReturnProcessedResult:
@@ -894,7 +898,13 @@ exit
         for Param in ParamList:
           R = re.search(f'{Param}:\s+([0-9]+)', result, re.MULTILINE)
           if R:
-            ResDict[Param] = int(R.group(1))
+            DictVal = int(R.group(1))
+            if "area" in Param:
+              DictKey = F"{Param} [{AreaUnit}]"
+              DictVal *= AreaFactor
+            else:
+              DictKey = Param.replace("Number of", "#")
+            ResDict[DictKey] = DictVal
         return ResDict
       return result
     else:
