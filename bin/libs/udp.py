@@ -15,60 +15,6 @@ def getMyBroadcastIp() -> str:
   return netifaces.ifaddresses(interface)[2][0]['broadcast']
 
 
-class UdpListener:
-  
-  __slots__ = ("_port", "_buffer_size", "_callback", "_socket", "_continue", "_pool", "_ret_str", "_working")
-  
-  def __init__(self, Port : int, Callback = None, BufferSize = 4096, ReturnString = True, BindToIp = "") -> None:
-    self._port = abs(int(Port))
-    self._buffer_size = abs(int(BufferSize))
-    self._callback = Callback
-    self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-    if len(BindToIp) < 7:
-      self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    self._socket.bind((BindToIp, self._port))
-    self._continue = 0
-    self._ret_str = bool(ReturnString)
-    self._pool = mp.ThreadingPool()
-    self._working = False
-    
-  def _wait(self, dummy):
-    while self._continue:
-      self._working = True
-      data, addr = self._socket.recvfrom(self._buffer_size)
-      if not self._continue:
-        self._working = False
-        return
-      if self._ret_str:
-        data = data.decode("utf-8")
-      if self._callback is None:
-        print(f"{Str.color(f'{addr[0]}:{self._port}', 'blue')}: {data}")
-      else:
-        self._callback((data, addr[0], self._port))
-    self._working = False
-      
-  def isActive(self) -> bool:
-    return True if self._continue else False
-    
-  def start(self):
-    if self._continue:
-      Aio.printError("The UDP listener is stil running")
-    else:
-      self._continue = 1
-      if self._callback is None:
-        print(f"{Str.color(f'Starting UDP monitor at port {self._port}', 'blue')}")
-      self._pool.amap(self._wait, [0])  
-    
-  def stop(self):
-    self._continue = 0
-    
-  def isWorking(self):
-    return self._working
-    
-    
-
 class UdpSender:
   
   __slots__ = ("_port", "_ip", "_bindip")
