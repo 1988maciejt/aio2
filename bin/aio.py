@@ -81,6 +81,7 @@ import libs.jt as JT
 import re
 import cProfile, pstats, io
 from libs.utils_list import *
+from libs.rpi import *
 
 pbar = tqdm
 sleep = time.sleep
