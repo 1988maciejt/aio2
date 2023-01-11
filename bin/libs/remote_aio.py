@@ -267,8 +267,8 @@ def _RemoteCallback(args):
             T = _RemoteAioTask("eval", Data.Id, _RemoteAioServerId, Ip, Port, Data.Code)
             _RemoteAioTasks.append(T)
             print(f"RemoteAio: Received task {Data.Id} from {Ip}")
-            #_doRemoteAioTasks()
-            _thread.start_new_thread(_doRemoteAioTasks, ())
+            _doRemoteAioTasks()
+            #_thread.start_new_thread(_doRemoteAioTasks, ())
         elif Data.Payload == _RemoteAioMessages.REQUEST_STARTED:
             for J in _RemoteAioJobs:
                 if J._Id == Data.Id:
