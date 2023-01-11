@@ -79,7 +79,7 @@ from libs.utils_list import *
 
 
 _RemoteAioListener = None
-_RemoteAioBufferSize = 1 * 1024 * 1024
+_RemoteAioBufferSize = 64 * 1024 * 1024
 _RemoteAioMyIp = None
 _RemoteAioBroadcastIp = None
 _RemoteAioServers = []
@@ -158,9 +158,9 @@ class _RemoteAioMessage:
             self.ServerId = _RemoteAioServerId
         else:
             self.ServerId = ServerId
-    def sendTo(self, Ip, Port):
+    def sendTo(self, Ip, Port, Repetitions=1):
         self.SenderIp = _myIP()
-        UdpSender(Port, Ip).send(pickle.dumps(self))
+        UdpSender(Port, Ip).send(pickle.dumps(self), Repeatitions=Repetitions)
         #print(f"SENT {Ip}:{Port}", self.Payload)
         
         
@@ -199,7 +199,7 @@ class _RemoteAioTask:
         print(f"RemoteAio: executing task {self.Id} for {self.ServerIp}")
         R = eval(self.Code, globals(), locals())
         M = _RemoteAioMessage(_RemoteAioMessages.RESPONSE, self.Id, self.ServerId, R)
-        M.sendTo(self.ServerIp, self.Port)
+        M.sendTo(self.ServerIp, self.Port, Repetitions=2)
         print(f"RemoteAio: finished task {self.Id} for {self.ServerIp}")
     
     
@@ -246,9 +246,9 @@ def _RemoteCallback(args):
             print(f"RemoteAio: Received task {Data.Id} from {Ip}")
             _doRemoteAioTasks()
         elif Data.Payload == _RemoteAioMessages.RESPONSE:
-            print(f"RemoteAio: Received result of task {Data.Id} from {Ip}")
             for J in _RemoteAioJobs:
                 if J._Id == Data.Id:
+                    print(f"RemoteAio: Received result of task {Data.Id} from {Ip}")
                     J._Result = Data.Code
                     J._Done = True
                     _RemoteAioJobs.remove(J)

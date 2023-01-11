@@ -72,7 +72,7 @@ class UdpSender:
       return False
     return True
     
-  def send(self, Message, IP = None, Port = None):
+  def send(self, Message, IP = None, Port = None, Repeatitions = 1):
     if not Aio.isType(Message, bytes()):
       Message = bytes(Message, "utf-8")
     _ip = self._ip
@@ -92,14 +92,23 @@ class UdpSender:
       Id = _randId()
       SubMessages = List.splitIntoSublists(gzip.compress(Message), 800)
       MaxIndex = len(SubMessages)
-      Index = 1
-      for subMessage in SubMessages:
-        Frag = _UdpFragmenterMessage(subMessage, Id, Index, MaxIndex)
-        self._send(sock, pickle.dumps(Frag), _ip, _port)
-        #print(f"Sent {Id} \t{Index}/{MaxIndex}")
-        Index += 1
+      Down = True
+      for _ in range(Repeatitions):
+        Index = 1
+        if Down:
+          Index = MaxIndex
+        for _ in range(MaxIndex):
+          subMessage = SubMessages[Index-1]
+          Frag = _UdpFragmenterMessage(subMessage, Id, Index, MaxIndex)
+          self._send(sock, pickle.dumps(Frag), _ip, _port)
+          #print(f"Sent {Id} \t{Index}/{MaxIndex}")
+          if Down:
+            Index -= 1
+          else:
+            Index += 1
     else:
-      self._send(sock, Message, _ip, _port)
+      for _ in range(Repeatitions):
+        self._send(sock, Message, _ip, _port)
     sock.close()
     
     
