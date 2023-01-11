@@ -130,15 +130,13 @@ def _randId():
 def _myIP() -> str:
     global _RemoteAioMyIp
     if _RemoteAioMyIp is None:
-        interface = list(netifaces.gateways()['default'].values())[0][1]
-        _RemoteAioMyIp = netifaces.ifaddresses(interface)[2][0]['addr']
+        _RemoteAioMyIp = getMyIp()
     return _RemoteAioMyIp
 
 def _myBroadcastIP() -> str:
     global _RemoteAioBroadcastIp
     if _RemoteAioBroadcastIp is None:
-        interface = list(netifaces.gateways()['default'].values())[0][1]
-        _RemoteAioBroadcastIp = netifaces.ifaddresses(interface)[2][0]['broadcast']
+        _RemoteAioBroadcastIp = getMyBroadcastIp()
     return _RemoteAioBroadcastIp
 
 class _RemoteAioMessages:
@@ -229,11 +227,13 @@ def _RemoteCallback(args):
         Data = pickle.loads(RawData)
     except:
         pass
+    #print("RECEIVED", RawData)
     if Aio.isType(Data, "_RemoteAioMessage"):
         #print("RECEIVED", RawData)
         #Ip = Data.SenderIp
         ServerId = Data.ServerId
         if Data.Payload == _RemoteAioMessages.LOOKING_FOR_SERVERS:
+            print(f"RemoteAio: {Ip} is looking for servers")
             _RemoteAioMessage(_RemoteAioMessages.HELLO).sendTo(Ip, Port)
         elif Data.Payload == _RemoteAioMessages.PING:
             _RemoteAioMessage(_RemoteAioMessages.HELLO).sendTo(Ip, Port)
@@ -276,7 +276,7 @@ def _getRemoteAioServers() -> list:
 
 
 def _stopRemoteAio():
-    global _RemoteAioListener, _RemoteAioServerId, _RemoteAioWorking, _RemoteAioTasks, _RemoteAioJobs
+    global _RemoteAioListener, _RemoteAioServerId, _RemoteAioWorking, _RemoteAioTasks, _RemoteAioJobs, _RemoteAioMyIp, _RemoteAioBroadcastIp
     _RemoteAioServerId = 0
     if _RemoteAioListener is not None:
         _RemoteAioListener.stop()
@@ -285,11 +285,13 @@ def _stopRemoteAio():
     _RemoteAioTasks.clear()
     _RemoteAioJobs.clear()
     _RemoteAioWorking = False
+    _RemoteAioMyIp = None
+    _RemoteAioBroadcastIp = None
     
 def _startRemoteAio(Port = 3099):
     global _RemoteAioListener, _RemoteAioBufferSize, _RemoteAioWorking, _RemoteAioServerId, _RemoteAioTasks, _RemoteAioServerIterator
     _stopRemoteAio()
-    _RemoteAioListener = UdpMonitor([Port, [Port, _myIP()]], BufferSize=_RemoteAioBufferSize, Callback=_RemoteCallback, ReturnString=False)
+    _RemoteAioListener = UdpMonitor([[Port, _myIP()]], BufferSize=_RemoteAioBufferSize, Callback=_RemoteCallback, ReturnString=False)
     _RemoteAioListener.start()
     sleep(0.2)
     if _RemoteAioListener.isWorking():

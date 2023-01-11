@@ -108,7 +108,10 @@ class UdpMonitor:
   __slots__ = ("_port_list", "_listeners", "_callback", "_buffer_size", "_continue", "_ret_str", "_pool", "_working", "_bindip")
   
   def __init__(self, PortList, Callback = None, BufferSize = 4096, ReturnString = False, BindToIp="") -> None:
-    self._port_list = [i for i in PortList]
+    if Aio.isType(PortList, 0):
+      self._port_list = [PortList, [PortList,getMyIp()]]
+    else:
+      self._port_list = [i for i in PortList]
     self._listeners = []
     self._callback = Callback
     self._buffer_size = BufferSize
@@ -123,6 +126,7 @@ class UdpMonitor:
     while self._continue:
       self._working = True
       readable, writable, exceptional = select.select(self._listeners, [], [])
+      print("HERE")
       if not self._continue:
         self._working = False
         return
@@ -171,13 +175,14 @@ class UdpMonitor:
       _socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
       _socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
       _socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-      _socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+      if len(a) < 7:
+        _socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
       _socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, self._buffer_size)
       _socket.setblocking(0)
       try:
         _socket.bind((a, p))
-      except:
-        Aio.printError(f"Port {p} in use")
+      except Exception as inst:
+        Aio.printError(f"Port {p}:", inst)
       self._listeners.append(_socket)
     self._continue = True
     self._pool.amap(self._wait, [0])  

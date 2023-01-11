@@ -3,44 +3,45 @@ SCRIPT=$(readlink -f $0)
 SCRIPTPATH=`dirname $SCRIPT`
 sudo apt update
 sudo apt upgrade -y
-sudo apt install -y -f dos2unix 
-sudo apt install -y -f texlive-xetex texlive-fonts-recommended texlive-plain-generic
-sudo apt install -y -f zlib1g pandoc
+sudo apt install --upgrade  -y -f dos2unix 
+sudo apt install --upgrade  -y -f texlive-xetex texlive-fonts-recommended texlive-plain-generic
+sudo apt install --upgrade  -y -f zlib1g pandoc
 # sudo apt install -y -f pyqt5-dev-tools
-sudo apt install -y -f bat
-# sudo pip3 install --upgrade pip
-# pip3 install pyqt5
-# pip3 install pyqtwebengine -U
-pip3 install ipython
-pip3 install ptpython
-pip3 install pyserial
-pip3 install plotext
-pip3 install percol
-pip3 install tqdm
-pip3 install line_profiler
-pip3 install openpyxl
-pip3 install xlsxwriter
-pip3 install ansi2html
-pip3 install pathos
-pip3 install numpy
-pip3 install numba
-pip3 install scipy
-pip3 install multiprocess
-pip3 install sympy
-pip3 install matplotlib
-pip3 install latex
-pip3 install pydbus
-pip3 install bitarray
-pip3 install pyeda
-pip3 install pyqt5 pyqt5-tools
-pip3 install p_tqdm
-pip3 install ray
-pip3 install jupyter
-pip3 install notebook
-pip3 install jupyterlab --ignore-installed pyzmq
-pip3 install ipywidgets
-pip3 install pandas
-pip3 install netifaces
+sudo apt install --upgrade  -y -f bat
+python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade setuptools
+# pip3 install --upgrade  pyqt5
+# pip3 install --upgrade  pyqtwebengine -U
+pip3 install --upgrade  ipython
+pip3 install --upgrade  ptpython
+pip3 install --upgrade  pyserial
+pip3 install --upgrade  plotext
+pip3 install --upgrade  percol
+pip3 install --upgrade  tqdm
+pip3 install --upgrade  line_profiler
+pip3 install --upgrade  openpyxl
+pip3 install --upgrade  xlsxwriter
+pip3 install --upgrade  ansi2html
+pip3 install --upgrade  pathos
+pip3 install --upgrade  numpy
+pip3 install --upgrade  numba
+pip3 install --upgrade  scipy
+pip3 install --upgrade  multiprocess
+pip3 install --upgrade  sympy
+pip3 install --upgrade  matplotlib
+pip3 install --upgrade  latex
+pip3 install --upgrade  pydbus
+pip3 install --upgrade  bitarray
+pip3 install --upgrade  pyeda
+pip3 install --upgrade  pyqt5 pyqt5-tools
+pip3 install --upgrade  p_tqdm
+pip3 install --upgrade  ray
+pip3 install --upgrade  jupyter
+pip3 install --upgrade  notebook
+pip3 install --upgrade  jupyterlab --ignore-installed pyzmq
+pip3 install --upgrade  ipywidgets
+pip3 install --upgrade  pandas
+pip3 install --upgrade  netifaces
 
 cd /tmp
 mkdir -p iverilog
