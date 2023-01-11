@@ -317,7 +317,7 @@ def _RemoteCallback(args):
                     
 def _doRemoteAioTasks(dummy = None):
     global _RemoteAioTasks, _RemoteAioWorking
-    while _RemoteAioWorking:
+    if _RemoteAioWorking:
         try:
             T = _RemoteAioTasks.pop()
             T.exe()
@@ -334,7 +334,7 @@ def _doRemoteAioTasksLoop(*args):
             if _RemoteAioWorking: _doRemoteAioTasks()
         except:
             pass
-        sleep(1)
+        sleep(0.3)
 
 
 
