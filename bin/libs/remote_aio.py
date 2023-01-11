@@ -5,6 +5,7 @@ from tqdm import tqdm
 from random import uniform
 import netifaces
 import pathos.multiprocessing as mp
+import time
 
 import ast
 import shutil
@@ -78,7 +79,7 @@ from libs.utils_list import *
 
 
 _RemoteAioListener = None
-_RemoteAioBufferSize = 8 * 1024 * 1024
+_RemoteAioBufferSize = 64 * 1024 * 1024
 _RemoteAioMyIp = None
 _RemoteAioBroadcastIp = None
 _RemoteAioServers = []
@@ -86,7 +87,42 @@ _RemoteAioServerId = 0
 _RemoteAioWorking = False
 _RemoteAioTasks = []
 _RemoteAioServerIterator = 0
-_RemoteAioResults = {}
+
+_RemoteAioJobs = []
+
+
+
+class RemoteAioJob:
+    __slots__ = ("_Id", "_Code", "_Result", "_Done","_CreationTIme")
+    def __init__(self, Id : int, Code) -> None:
+        self._Id = Id
+        self._Result = None
+        self._Done = False
+        self._Code = Code
+        self._CreationTIme = time.time()
+    def _resetTimer(self):
+        self._CreationTIme = time.time()     
+    def _setNewId(self, Id : int):
+        self._Id = Id
+    def __eq__(self, __o: object) -> bool:
+        return self._Id == __o._Id
+    def __neq__(self, __o: object) -> bool:
+        return not (self == __o)
+    def __len__(self) -> int:
+        return len(self.Code)
+    def __bool__(self) -> bool:
+        return self._Done
+    def isDone(self):
+        return self._Done
+    def getCode(self):
+        return self._Code
+    def getResult(self):
+        return self._Result   
+    def getAwaitingTime(self):
+        return time.time() - self._CreationTIme
+    def getId(self):
+        return self._Id
+    
 
 def _randId():
     return int(uniform(1, 10000000000000000))
@@ -169,22 +205,22 @@ class _RemoteAioTask:
         print(f"RemoteAio: finished task {self.Id} for {self.ServerIp}")
     
     
-def requestRemoteAioEval(Code : str) -> int:
-    global _RemoteAioServers, _RemoteAioServerIterator
+def _requestRemoteAioEval(Code : str) -> RemoteAioJob:
+    global _RemoteAioServers, _RemoteAioServerIterator, _RemoteAioJobs
+    if len(_RemoteAioServers) <= 0:
+        Aio.printError("No RemoteAio servers available!")
+        return None
     Id = _RemoteAioServers[_RemoteAioServerIterator].requestEval(Code)
     _RemoteAioServerIterator = (_RemoteAioServerIterator + 1) % len(_RemoteAioServers)
-    return Id
-        
-def _getServer(Ip, Id) -> _RemoteAioServer:
-    global _RemoteAioServers
-    for s in _RemoteAioServers:
-        if s.Ip == Ip and s.Id == Id:
-            return s
-    return None
+    Job = RemoteAioJob(Id, Code)
+    if Job in _RemoteAioJobs:
+        _RemoteAioJobs.remove(Job)
+    _RemoteAioJobs.append(Job)
+    return Job
         
 
 def _RemoteCallback(args):
-    global _RemoteAioServers, _RemoteAioTasks, _RemoteAioServerId, _RemoteAioResults
+    global _RemoteAioServers, _RemoteAioTasks, _RemoteAioServerId, _RemoteAioJobs
     RawData = args[0]
     Ip = args[1]
     Port = args[2]
@@ -208,11 +244,16 @@ def _RemoteCallback(args):
         elif Data.Payload == _RemoteAioMessages.EVAL_REQUEST:
             T = _RemoteAioTask("eval", Data.Id, _RemoteAioServerId, Ip, Port, Data.Code)
             _RemoteAioTasks.append(T)
-            print(f"RemoteAio: Received task {Data.Id} for {Ip}")
+            print(f"RemoteAio: Received task {Data.Id} from {Ip}")
             _doRemoteAioTasks()
         elif Data.Payload == _RemoteAioMessages.RESPONSE:
             print(f"RemoteAio: Received result of task {Data.Id} from {Ip}")
-            _RemoteAioResults[Data.Id] = pickle.dumps(Data.Code)
+            for J in _RemoteAioJobs:
+                if J._Id == Data.Id:
+                    J._Result = Data.Code
+                    J._Done = True
+                    _RemoteAioJobs.remove(J)
+                    break
                     
 def _doRemoteAioTasks(dummy = None):
     global _RemoteAioTasks, _RemoteAioWorking
@@ -227,34 +268,27 @@ def _doRemoteAioTasks(dummy = None):
 
 
     
-def getRemoteAioServers() -> list:
+def _getRemoteAioServers() -> list:
     global _RemoteAioServers
     return _RemoteAioServers
 
-def getRemoteAioResult(Id : int):
-    global _RemoteAioResults
-    Data = _RemoteAioResults.get(Id, None)
-    if Data is None:
-        return None
-    Ob = pickle.loads(Data)
-    _RemoteAioResults[Id] = None
-    return Ob
 
 
-def stopRemoteAio():
-    global _RemoteAioListener, _RemoteAioResults, _RemoteAioServerId, _RemoteAioWorking, _RemoteAioTasks, _RemoteAioResults
+
+def _stopRemoteAio():
+    global _RemoteAioListener, _RemoteAioServerId, _RemoteAioWorking, _RemoteAioTasks, _RemoteAioJobs
     _RemoteAioServerId = 0
     if _RemoteAioListener is not None:
         _RemoteAioListener.stop()
         del _RemoteAioListener
         _RemoteAioListener = None
     _RemoteAioTasks.clear()
-    _RemoteAioResults.clear()
+    _RemoteAioJobs.clear()
     _RemoteAioWorking = False
     
-def startRemoteAio(Port = 3099):
+def _startRemoteAio(Port = 3099):
     global _RemoteAioListener, _RemoteAioBufferSize, _RemoteAioWorking, _RemoteAioServerId, _RemoteAioTasks, _RemoteAioServerIterator
-    stopRemoteAio()
+    _stopRemoteAio()
     _RemoteAioListener = UdpMonitor([Port, [Port, _myIP()]], BufferSize=_RemoteAioBufferSize, Callback=_RemoteCallback, ReturnString=False)
     _RemoteAioListener.start()
     sleep(0.2)
@@ -265,30 +299,85 @@ def startRemoteAio(Port = 3099):
         _RemoteAioWorking = True
     else:
         Aio.printError(f"RemoteAio: NOT AVAILABLE")
-        stopRemoteAio()
+        _stopRemoteAio()
     
-def isRemoteAioWorking():
+def _isRemoteAioWorking():
     global _RemoteAioWorking
     return _RemoteAioWorking
 
 
-def lookForRemoteAioServers(Port = 3099):
+def _lookForRemoteAioServers(Port = 3099):
     global _RemoteAioServers, _RemoteAioWorking
     if not _RemoteAioWorking:
-        startRemoteAio(Port)
+        _startRemoteAio(Port)
     _RemoteAioServers = []
     _RemoteAioMessage(_RemoteAioMessages.LOOKING_FOR_SERVERS).sendTo("", Port)
     for i in range(1):
-        sleep(1)
+        sleep(1.5)
     print(f"RemoteAio: {len(_RemoteAioServers)} servers found")
     return _RemoteAioServers
 
-def getServers():
-    global _RemoteAioServers
-    return _RemoteAioServers
 
-def _getTasks():
-    global _RemoteAioTasks
-    return _RemoteAioTasks
 
+class RemoteAio:
+    
+    Port = 3099
+    RefreshEvery = 30
+    _LastTimeOfRefresh = -1000
+    
+    @staticmethod
+    def start() -> bool:
+        _lookForRemoteAioServers(RemoteAio.Port)
+        return _isRemoteAioWorking()
+        
+    @staticmethod
+    def restart() -> bool:
+        _lookForRemoteAioServers(RemoteAio.Port)
+        return _isRemoteAioWorking()
+    
+    @staticmethod
+    def stop():
+        _stopRemoteAio()
+        RemoteAio._LastTimeOfRefresh = -1000
+    
+    @staticmethod
+    def refreshServers() -> int:
+        _lookForRemoteAioServers(RemoteAio.Port)
+        RemoteAio._LastTimeOfRefresh = -1000
+        return len(_getRemoteAioServers())
+    
+    @staticmethod
+    def getServerList() -> list:
+        return _getRemoteAioServers()
+    
+    @staticmethod
+    def isRunning() -> bool:
+        return _isRemoteAioWorking()
+    
+    @staticmethod
+    def getAwaitingJobs(Timeout = 0) -> list:
+        global _RemoteAioJobs
+        Results = []
+        for J in _RemoteAioJobs:
+            if J.getAwaitingTime() >= Timeout:
+                Results.append(J)
+        return Results
+    
+    @staticmethod
+    def requestEval(Code : str):
+        if not _isRemoteAioWorking():
+            _lookForRemoteAioServers(RemoteAio.Port)
+            RemoteAio._LastTimeOfRefresh = time.time()
+        else:
+            t = time.time() 
+            if t - RemoteAio._LastTimeOfRefresh > RemoteAio.RefreshEvery:
+                RemoteAio._LastTimeOfRefresh = t
+                _lookForRemoteAioServers(RemoteAio.Port)
+        if _isRemoteAioWorking():
+            Job = _requestRemoteAioEval(Code)
+            return Job
+        else:
+            Aio.printError("RemoteAio is not running!")
+            return None
+    
     
