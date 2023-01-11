@@ -157,7 +157,9 @@ class UdpMonitor:
         if self._callback is None:
           print(f"{Str.color(f'{addr[0]}:{port}', 'blue')}: {data}")
         else:
+          #print(f"{Str.color(f'{addr[0]}:{port}', 'blue')}: {data}")
           self._callback((data, addr[0], port))
+          #print("END OF CBK")
       self._working = False
 
   def start(self):

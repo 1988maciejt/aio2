@@ -79,7 +79,7 @@ from libs.utils_list import *
 
 
 _RemoteAioListener = None
-_RemoteAioBufferSize = 64 * 1024 * 1024
+_RemoteAioBufferSize = 1 * 1024 * 1024
 _RemoteAioMyIp = None
 _RemoteAioBroadcastIp = None
 _RemoteAioServers = []
@@ -227,7 +227,6 @@ def _RemoteCallback(args):
         Data = pickle.loads(RawData)
     except:
         pass
-    #print("RECEIVED", RawData)
     if Aio.isType(Data, "_RemoteAioMessage"):
         #print("RECEIVED", RawData)
         #Ip = Data.SenderIp
@@ -291,7 +290,7 @@ def _stopRemoteAio():
 def _startRemoteAio(Port = 3099):
     global _RemoteAioListener, _RemoteAioBufferSize, _RemoteAioWorking, _RemoteAioServerId, _RemoteAioTasks, _RemoteAioServerIterator
     _stopRemoteAio()
-    _RemoteAioListener = UdpMonitor([[Port, _myIP()]], BufferSize=_RemoteAioBufferSize, Callback=_RemoteCallback, ReturnString=False)
+    _RemoteAioListener = UdpMonitor(Port, BufferSize=_RemoteAioBufferSize, Callback=_RemoteCallback, ReturnString=False)
     _RemoteAioListener.start()
     sleep(0.2)
     if _RemoteAioListener.isWorking():
