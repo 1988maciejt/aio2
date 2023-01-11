@@ -328,7 +328,7 @@ def _stopRemoteAio():
 def _startRemoteAio(Port = 3099):
     global _RemoteAioListener, _RemoteAioBufferSize, _RemoteAioWorking, _RemoteAioServerId, _RemoteAioTasks, _RemoteAioServerIterator
     _stopRemoteAio()
-    _RemoteAioListener = UdpMonitor(Port, BufferSize=_RemoteAioBufferSize, Callback=_RemoteCallback, ReturnString=False)
+    _RemoteAioListener = UdpMonitor([Port], BufferSize=_RemoteAioBufferSize, Callback=_RemoteCallback, ReturnString=False)
     _RemoteAioListener.start()
     sleep(0.2)
     if _RemoteAioListener.isWorking():
