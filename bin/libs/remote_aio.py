@@ -286,7 +286,7 @@ def _RemoteCallback(args):
             while Cont:
                 Cont = 0
                 for T in _RemoteAioTasks:
-                    if _RemoteAioTask.ServerIp == Ip:
+                    if _RemoteAioTask.Ip == Ip:
                         _RemoteAioTasks.remove(T)
                         Cont = 1
                         break
