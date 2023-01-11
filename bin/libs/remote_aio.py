@@ -89,7 +89,7 @@ _RemoteAioWorking = False
 _RemoteAioTasks = []
 _RemoteAioServerIterator = 0
 _RemoteAioExeLock = False
-
+_ThreadStarted = False
 _RemoteAioJobs = []
 
 
@@ -139,8 +139,6 @@ class RemoteAioJob:
         if self.getExeTime() > 0:
             return self.getExeTime() > self._TimeOut
         return self.getAwaitingTime() > self._TimeOut
-    def restart(self):
-        pass
     
 
 def _randId():
@@ -224,14 +222,19 @@ class _RemoteAioTask:
         print(f"RemoteAio: finished task {self.Id} for {self.ServerIp}")
     
     
-def _requestRemoteAioEval(Code : str) -> RemoteAioJob:
+def _requestRemoteAioEval(CodeOrJob : str) -> RemoteAioJob:
     global _RemoteAioServers, _RemoteAioServerIterator, _RemoteAioJobs
     if len(_RemoteAioServers) <= 0:
         Aio.printError("No RemoteAio servers available!")
         return None
+    Code = CodeOrJob
+    Job = RemoteAioJob(0, Code)
+    if Aio.isType(CodeOrJob, "RemoteAioJob"):
+        Code = CodeOrJob.getCode() 
+        Job = CodeOrJob
     Id = _RemoteAioServers[_RemoteAioServerIterator].requestEval(Code)
     _RemoteAioServerIterator = (_RemoteAioServerIterator + 1) % len(_RemoteAioServers)
-    Job = RemoteAioJob(Id, Code)
+    Job._Id = Id
     Job._CreationTIme = time.time()
     if Job in _RemoteAioJobs:
         _RemoteAioJobs.remove(Job)
@@ -265,9 +268,9 @@ def _RemoteCallback(args):
                 _RemoteAioServers.append(Server)
         elif Data.Payload == _RemoteAioMessages.EVAL_REQUEST:
             T = _RemoteAioTask("eval", Data.Id, _RemoteAioServerId, Ip, Port, Data.Code)
-            _RemoteAioTasks.append(T)
+            _RemoteAioTasks.insert(0, T)
             print(f"RemoteAio: Received task {Data.Id} from {Ip}")
-            _doRemoteAioTasks()
+            #_doRemoteAioTasks()
             #_thread.start_new_thread(_doRemoteAioTasks, ())
         elif Data.Payload == _RemoteAioMessages.REQUEST_STARTED:
             for J in _RemoteAioJobs:
@@ -289,18 +292,23 @@ def _RemoteCallback(args):
         print(f"RemoteAio: Received {RawData} from {Ip}")
                     
 def _doRemoteAioTasks(dummy = None):
-    global _RemoteAioTasks, _RemoteAioWorking, _RemoteAioExeLock
-    while _RemoteAioExeLock:
-        sleep(0.3)
-    _RemoteAioExeLock = True
-    while _RemoteAioWorking and len(_RemoteAioTasks) > 0:
-        T = _RemoteAioTasks[0]
-        T.exe()
-        _RemoteAioTasks.remove(T)
-        del T
-    if not _RemoteAioWorking:
-        _RemoteAioTasks.clear()
-    _RemoteAioExeLock = False
+    global _RemoteAioTasks, _RemoteAioWorking
+    while _RemoteAioWorking:
+        try:
+            T = _RemoteAioTasks.pop()
+            T.exe()
+            del T
+        except:
+            return
+
+def _doRemoteAioTasksLoop(*args):
+    global _RemoteAioWorking
+    while 1:
+        try:
+            if _RemoteAioWorking: _doRemoteAioTasks()
+        except:
+            pass
+        sleep(1)
 
 
 
@@ -326,7 +334,7 @@ def _stopRemoteAio():
     _RemoteAioBroadcastIp = None
     
 def _startRemoteAio(Port = 3099):
-    global _RemoteAioListener, _RemoteAioBufferSize, _RemoteAioWorking, _RemoteAioServerId, _RemoteAioTasks, _RemoteAioServerIterator
+    global _RemoteAioListener, _RemoteAioBufferSize, _RemoteAioWorking, _RemoteAioServerId, _RemoteAioServerIterator, _ThreadStarted
     _stopRemoteAio()
     _RemoteAioListener = UdpMonitor([Port], BufferSize=_RemoteAioBufferSize, Callback=_RemoteCallback, ReturnString=False)
     _RemoteAioListener.start()
@@ -336,6 +344,9 @@ def _startRemoteAio(Port = 3099):
         print(f"RemoteAio: is available, Server ip: {_myIP()}, ServerId: {_RemoteAioServerId}")
         _RemoteAioServerIterator = 0
         _RemoteAioWorking = True
+        if not _ThreadStarted:
+            _thread.start_new_thread(_doRemoteAioTasksLoop, ())
+            _ThreadStarted = True
     else:
         Aio.printError(f"RemoteAio: NOT AVAILABLE")
         _stopRemoteAio()
@@ -420,3 +431,62 @@ class RemoteAio:
             return None
     
     
+class RemoteAioJobsManager:
+    
+    __slots__ = ("_jobs")
+    
+    def __init__(self) -> None:
+        self._jobs = []
+        
+    def __del__(self) -> None:
+        self._jobs.clear()
+        
+    def addTask(self, Code, TimeOut = 240) -> bool:
+        if Aio.isType(Code, []):
+            Success = True
+            for C in Code:
+                Success &= self.addTask(C, TimeOut)
+            return Success
+        else:
+            Job = RemoteAio.requestEval(Code)
+            if Job is None:
+                return False
+            Job._TimeOut = TimeOut
+            self._jobs.append(Job)
+        return True
+    
+    def getJobs(self) -> list:
+        return self._jobs
+    
+    def getTimedOutJobs(self) -> list:
+        Results = []
+        for J in self._jobs:
+            if J.isDone(): continue
+            if J.isTimedOut(): Results.append(J)
+        return Results
+    
+    def getResults(self) -> list:
+        Results = []
+        for J in self._jobs:
+            Results.append(J.getResult())
+        return Results
+    
+    def allDone(self) -> list:
+        for J in self._jobs:
+            if not J.isDone():
+                return False
+        return True
+    
+    def clear(self):
+        self._jobs.clear()
+    
+    def poll(self):
+        TJ = self.getTimedOutJobs()
+        for J in TJ:
+            _requestRemoteAioEval(J)
+            
+    def waitForAllTasks(self):
+        while not self.allDone():
+            sleep(1)
+            self.poll()
+        
