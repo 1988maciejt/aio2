@@ -6,6 +6,7 @@ from random import uniform
 import netifaces
 import pathos.multiprocessing as mp
 import time
+import _thread
 
 import ast
 import shutil
@@ -87,21 +88,23 @@ _RemoteAioServerId = 0
 _RemoteAioWorking = False
 _RemoteAioTasks = []
 _RemoteAioServerIterator = 0
+_RemoteAioExeLock = False
 
 _RemoteAioJobs = []
 
 
 
 class RemoteAioJob:
-    __slots__ = ("_Id", "_Code", "_Result", "_Done","_CreationTIme")
+    __slots__ = ("_Id", "_Code", "_Result", "_Done","_CreationTIme", "_StopTime")
     def __init__(self, Id : int, Code) -> None:
         self._Id = Id
         self._Result = None
         self._Done = False
         self._Code = Code
-        self._CreationTIme = time.time()
+        self._CreationTIme = -1
+        self._StopTime = -1
     def _resetTimer(self):
-        self._CreationTIme = time.time()     
+        self._CreationTIme = -1
     def _setNewId(self, Id : int):
         self._Id = Id
     def __eq__(self, __o: object) -> bool:
@@ -119,6 +122,10 @@ class RemoteAioJob:
     def getResult(self):
         return self._Result   
     def getAwaitingTime(self):
+        if self._CreationTIme <= 0:
+            return 0
+        if self._StopTime >= 1:
+            return self._StopTime - self._CreationTIme
         return time.time() - self._CreationTIme
     def getId(self):
         return self._Id
@@ -145,6 +152,7 @@ class _RemoteAioMessages:
     PING = "PING"  
     EVAL_REQUEST = "EVAL_REQUEST"
     RESPONSE = "RESPONSE"
+    REQUEST_STARTED = "REQUEST_STARTED"
 
 class _RemoteAioMessage:
     __slots__ = ("Payload", "SenderIp", "Id", "ServerId", "Code")
@@ -197,6 +205,7 @@ class _RemoteAioTask:
         self.Code = Code
     def exe(self):
         print(f"RemoteAio: executing task {self.Id} for {self.ServerIp}")
+        _RemoteAioMessage(_RemoteAioMessages.REQUEST_STARTED, self.Id, self.ServerId).sendTo(self.ServerIp, self.Port)
         R = eval(self.Code, globals(), locals())
         M = _RemoteAioMessage(_RemoteAioMessages.RESPONSE, self.Id, self.ServerId, R)
         M.sendTo(self.ServerIp, self.Port, Repetitions=2)
@@ -223,6 +232,7 @@ def _RemoteCallback(args):
     Ip = args[1]
     Port = args[2]
     Data = ""
+    #print(f"RECEIVED {Ip} {RawData}")
     try:
         Data = pickle.loads(RawData)
     except:
@@ -244,18 +254,32 @@ def _RemoteCallback(args):
             T = _RemoteAioTask("eval", Data.Id, _RemoteAioServerId, Ip, Port, Data.Code)
             _RemoteAioTasks.append(T)
             print(f"RemoteAio: Received task {Data.Id} from {Ip}")
-            _doRemoteAioTasks()
+            #_doRemoteAioTasks()
+            _thread.start_new_thread(_doRemoteAioTasks, ())
+        elif Data.Payload == _RemoteAioMessages.REQUEST_STARTED:
+            for J in _RemoteAioJobs:
+                if J._Id == Data.Id:
+                    print(f"RemoteAio: Task {Data.Id} started on {Ip}")
+                    J._CreationTIme = time.time()
         elif Data.Payload == _RemoteAioMessages.RESPONSE:
             for J in _RemoteAioJobs:
                 if J._Id == Data.Id:
                     print(f"RemoteAio: Received result of task {Data.Id} from {Ip}")
                     J._Result = Data.Code
                     J._Done = True
+                    J._StopTime = time.time()
                     _RemoteAioJobs.remove(J)
                     break
+        else:
+            print(f"RemoteAio: Received {Data.Payload} from {Ip}")
+    else:
+        print(f"RemoteAio: Received {RawData} from {Ip}")
                     
 def _doRemoteAioTasks(dummy = None):
-    global _RemoteAioTasks, _RemoteAioWorking
+    global _RemoteAioTasks, _RemoteAioWorking, _RemoteAioExeLock
+    while _RemoteAioExeLock:
+        sleep(0.3)
+    _RemoteAioExeLock = True
     while _RemoteAioWorking and len(_RemoteAioTasks) > 0:
         T = _RemoteAioTasks[0]
         T.exe()
@@ -263,6 +287,7 @@ def _doRemoteAioTasks(dummy = None):
         del T
     if not _RemoteAioWorking:
         _RemoteAioTasks.clear()
+    _RemoteAioExeLock = False
 
 
 
