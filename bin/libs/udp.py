@@ -8,6 +8,7 @@ from libs.utils_list import *
 from random import uniform
 import gzip
 from time import sleep
+import _thread
 
 
 _FragmentedMessages = {}

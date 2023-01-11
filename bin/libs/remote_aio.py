@@ -95,14 +95,16 @@ _RemoteAioJobs = []
 
 
 class RemoteAioJob:
-    __slots__ = ("_Id", "_Code", "_Result", "_Done","_CreationTIme", "_StopTime")
-    def __init__(self, Id : int, Code) -> None:
+    __slots__ = ("_Id", "_Code", "_Result", "_Done","_CreationTIme", "_StopTime", "_StartTime", "_TimeOut")
+    def __init__(self, Id : int, Code, TimeOut=240) -> None:
         self._Id = Id
         self._Result = None
         self._Done = False
         self._Code = Code
         self._CreationTIme = -1
         self._StopTime = -1
+        self._StartTime = -1
+        self._TimeOut = TimeOut
     def _resetTimer(self):
         self._CreationTIme = -1
     def _setNewId(self, Id : int):
@@ -122,13 +124,23 @@ class RemoteAioJob:
     def getResult(self):
         return self._Result   
     def getAwaitingTime(self):
-        if self._CreationTIme <= 0:
-            return 0
         if self._StopTime >= 1:
             return self._StopTime - self._CreationTIme
         return time.time() - self._CreationTIme
+    def getExeTime(self):
+        if self._StartTime <= 0:
+            return 0
+        if self._StopTime <= 0:
+            return time.time() - self._StartTime    
+        return self._StopTime - self._StartTime    
     def getId(self):
         return self._Id
+    def isTimedOut(self) -> bool:
+        if self.getExeTime() > 0:
+            return self.getExeTime() > self._TimeOut
+        return self.getAwaitingTime() > self._TimeOut
+    def restart(self):
+        pass
     
 
 def _randId():
@@ -220,6 +232,7 @@ def _requestRemoteAioEval(Code : str) -> RemoteAioJob:
     Id = _RemoteAioServers[_RemoteAioServerIterator].requestEval(Code)
     _RemoteAioServerIterator = (_RemoteAioServerIterator + 1) % len(_RemoteAioServers)
     Job = RemoteAioJob(Id, Code)
+    Job._CreationTIme = time.time()
     if Job in _RemoteAioJobs:
         _RemoteAioJobs.remove(Job)
     _RemoteAioJobs.append(Job)
@@ -260,7 +273,7 @@ def _RemoteCallback(args):
             for J in _RemoteAioJobs:
                 if J._Id == Data.Id:
                     print(f"RemoteAio: Task {Data.Id} started on {Ip}")
-                    J._CreationTIme = time.time()
+                    J._StartTime = time.time()
         elif Data.Payload == _RemoteAioMessages.RESPONSE:
             for J in _RemoteAioJobs:
                 if J._Id == Data.Id:
