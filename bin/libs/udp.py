@@ -126,7 +126,6 @@ class UdpMonitor:
     while self._continue:
       self._working = True
       readable, writable, exceptional = select.select(self._listeners, [], [])
-      print("HERE")
       if not self._continue:
         self._working = False
         return
