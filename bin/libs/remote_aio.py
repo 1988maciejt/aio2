@@ -95,7 +95,7 @@ _RemoteAioJobs = []
 
 
 class RemoteAioJob:
-    __slots__ = ("_Id", "_Code", "_Result", "_Done","_CreationTIme", "_StopTime", "_StartTime", "_TimeOut")
+    __slots__ = ("_Id", "_Code", "_Result", "_Done","_CreationTIme", "_StopTime", "_StartTime", "_TimeOut", "_AwaitingT0")
     def __init__(self, Id : int, Code, TimeOut=240) -> None:
         self._Id = Id
         self._Result = None
@@ -105,6 +105,7 @@ class RemoteAioJob:
         self._StopTime = -1
         self._StartTime = -1
         self._TimeOut = TimeOut
+        self._AwaitingT0 = -1
     def _resetTimer(self):
         self._CreationTIme = -1
     def _setNewId(self, Id : int):
@@ -138,7 +139,9 @@ class RemoteAioJob:
     def isTimedOut(self) -> bool:
         if self.getExeTime() > 0:
             return self.getExeTime() > self._TimeOut
-        return self.getAwaitingTime() > self._TimeOut
+        if self._AwaitingT0 > 0:
+            return (time.time() - self._AwaitingT0) > self._TimeOut
+        return False
     
 
 def _randId():
@@ -163,6 +166,8 @@ class _RemoteAioMessages:
     EVAL_REQUEST = "EVAL_REQUEST"
     RESPONSE = "RESPONSE"
     REQUEST_STARTED = "REQUEST_STARTED"
+    REQUEST_IS_AWAITING = "REQUEST_IS_AWAITING"
+    STOP_MY_TASKS = "STOP_MY_TASKS" 
 
 class _RemoteAioMessage:
     __slots__ = ("Payload", "SenderIp", "Id", "ServerId", "Code")
@@ -220,6 +225,8 @@ class _RemoteAioTask:
         M = _RemoteAioMessage(_RemoteAioMessages.RESPONSE, self.Id, self.ServerId, R)
         M.sendTo(self.ServerIp, self.Port, Repetitions=2)
         print(f"RemoteAio: finished task {self.Id} for {self.ServerIp}")
+    def stillAwaiting(self):
+        _RemoteAioMessage(_RemoteAioMessages.REQUEST_IS_AWAITING, self.Id, self.ServerId).sendTo(self.ServerIp, self.Port)
     
     
 def _requestRemoteAioEval(CodeOrJob : str) -> RemoteAioJob:
@@ -232,10 +239,12 @@ def _requestRemoteAioEval(CodeOrJob : str) -> RemoteAioJob:
     if Aio.isType(CodeOrJob, "RemoteAioJob"):
         Code = CodeOrJob.getCode() 
         Job = CodeOrJob
+    _RemoteAioServerIterator = _RemoteAioServerIterator % len(_RemoteAioServers)
     Id = _RemoteAioServers[_RemoteAioServerIterator].requestEval(Code)
-    _RemoteAioServerIterator = (_RemoteAioServerIterator + 1) % len(_RemoteAioServers)
+    _RemoteAioServerIterator = (_RemoteAioServerIterator + 1)
     Job._Id = Id
     Job._CreationTIme = time.time()
+    Job._AwaitingT0 = Job._CreationTIme
     if Job in _RemoteAioJobs:
         _RemoteAioJobs.remove(Job)
     _RemoteAioJobs.append(Job)
@@ -272,11 +281,26 @@ def _RemoteCallback(args):
             print(f"RemoteAio: Received task {Data.Id} from {Ip}")
             #_doRemoteAioTasks()
             #_thread.start_new_thread(_doRemoteAioTasks, ())
+        elif Data.Payload == _RemoteAioMessages.STOP_MY_TASKS:
+            Cont = 1
+            while Cont:
+                Cont = 0
+                for T in _RemoteAioTasks:
+                    if _RemoteAioTask.ServerIp == Ip:
+                        _RemoteAioTasks.remove(T)
+                        Cont = 1
+                        break
+            print(f"RemoteAio: Stopped tasks from {Ip}")
         elif Data.Payload == _RemoteAioMessages.REQUEST_STARTED:
             for J in _RemoteAioJobs:
                 if J._Id == Data.Id:
                     print(f"RemoteAio: Task {Data.Id} started on {Ip}")
                     J._StartTime = time.time()
+        elif Data.Payload == _RemoteAioMessages.REQUEST_IS_AWAITING:
+            for J in _RemoteAioJobs:
+                if J._Id == Data.Id:
+                    print(f"RemoteAio: Task {Data.Id} is stil waiting on {Ip}")
+                    J._AwaitingT0 = time.time()
         elif Data.Payload == _RemoteAioMessages.RESPONSE:
             for J in _RemoteAioJobs:
                 if J._Id == Data.Id:
@@ -298,6 +322,8 @@ def _doRemoteAioTasks(dummy = None):
             T = _RemoteAioTasks.pop()
             T.exe()
             del T
+            for T in _RemoteAioTasks.copy():
+                T.stillAwaiting()
         except:
             return
 
@@ -387,6 +413,7 @@ class RemoteAio:
     
     @staticmethod
     def stop():
+        RemoteAio.stopMyTasks()
         _stopRemoteAio()
         RemoteAio._LastTimeOfRefresh = -1000
     
@@ -429,6 +456,11 @@ class RemoteAio:
         else:
             Aio.printError("RemoteAio is not running!")
             return None
+    
+    @staticmethod
+    def stopMyTasks():
+        _RemoteAioMessage(_RemoteAioMessages.STOP_MY_TASKS).sendTo("", RemoteAio.Port)
+    
     
     
 class RemoteAioJobsManager:
