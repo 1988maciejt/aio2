@@ -95,7 +95,7 @@ class UdpSender:
       SubMessages = List.splitIntoSublists(gzip.compress(Message), 800)
       MaxIndex = len(SubMessages)
       Down = True
-      for _ in range(Repeatitions):
+      for _ in range(Repeatitions*2):
         Index = 1
         if Down:
           Index = MaxIndex
@@ -169,7 +169,10 @@ class UdpMonitor:
           print(f"{Str.color(f'{addr[0]}:{port}', 'blue')}: {data}")
         else:
           #print(f"{Str.color(f'{addr[0]}:{port}', 'blue')}: {data}")
-          self._callback((data, addr[0], port))
+          try:
+            self._callback((data, addr[0], port))
+          except Exception as inst:
+            Aio.printError(f"UdpMonitor callback: {inst}")
           #print("END OF CBK")
       self._working = False
 
