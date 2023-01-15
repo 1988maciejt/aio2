@@ -148,7 +148,7 @@ class _RemoteAioMessage:
     
 class RemoteAioTask:
     
-    __slots__ = ("Id", "Code", "Response", "_done", "_Timestamp")
+    __slots__ = ("Id", "Code", "Response", "_done", "_Timestamp", "_Locked")
     
     def __init__(self, Id : int, Code : str) -> None:
         self.Id = Id
@@ -156,14 +156,23 @@ class RemoteAioTask:
         self.Response = None
         self._done = 0
         self._Timestamp = 0
+        self._Locked = 0
         
     def __bool__(self) -> bool:
         return bool(self.isDone())
+        
+    def lock(self):
+        self._Locked = 1
+    
+    def unlock(self):
+        self._Locked = 0
         
     def isDone(self) -> bool:
         return self._done
     
     def isProcessed(self) -> bool:
+        if self._Locked:
+            return True
         if time.time() - self._Timestamp > 1.5:
             return False
         return True
@@ -172,11 +181,32 @@ class RemoteAioTask:
 
 class RemoteAioScheduler:
     
-    __slots__ = ("_OneTime", "_Port", "_MySender", "_MyMonitor", "_Enable", "TaskList", "_Servers")
+    __slots__ = ("_LocalExecution", "_Busy", "_OneTime", "_Port", "_MySender", "_MyMonitor", "_Enable", "TaskList", "_Servers")
+    
+    def _doLocal(self, Task :  RemoteAioTask):
+        if self._Busy:
+            return
+        self._Busy = True
+        Task.lock()
+        try:
+            Task.Response = eval(Task.Code)
+        except Exception as inst:
+            Aio.printError(f"// REMOTE_AIO_SCHEDULER: Error in task {Task.Id}: {inst}")
+        Task._done = True
+        self._Busy = False
     
     def _monCbk(self, args):
         while self._OneTime:
             sleep(0.01)
+        if Aio.isType(args, ""):
+            if args == _READY_FOR_REQUESTS:
+                for i in range(len(self.TaskList)):
+                    Task = self.TaskList.pop()
+                    if Task.isProcessed():
+                        self.TaskList.insert(0, Task)
+                        continue
+                    self._doLocal(Task)
+                    self.TaskList.insert(0, Task)                
         self._OneTime = True
         FromIp = args[1]
         FromPort = args[2]
@@ -187,7 +217,9 @@ class RemoteAioScheduler:
             Msg.Port = FromPort
             if Msg.Command == _READY_FOR_REQUESTS:
                 #print(f"// REMOTE_AIO_SCHEDULER: {FromIp}:{FromPort} is ready for requests")
-                Counter = Msg.Data
+                Counter = Msg.Data[0]
+                FromPort = Msg.Data[1]
+                Msg.Port = Msg.Data[1]
                 if not self._Servers.discard(FromIp, FromPort, Counter):
                     for i in range(len(self.TaskList)):
                         Task = self.TaskList.pop()
@@ -228,9 +260,11 @@ class RemoteAioScheduler:
         while self._Enable:
             if len(self.TaskList) > 0:
                 _RemoteAioMessage("", self._Port, _NOT_EMPTY_SCHEDULER).send(self._MySender)
+            if self._LocalExecution and not self._Busy:
+                self._monCbk(_READY_FOR_REQUESTS)        
             sleep(0.5)
     
-    def __init__(self, Port = 3099, Enable = True) -> None:
+    def __init__(self, Port = 3099, Enable = True, LocalExecution = True) -> None:
         self._Port = Port
         self._Enable = 0
         self.TaskList = []
@@ -238,6 +272,8 @@ class RemoteAioScheduler:
         self._MyMonitor = UdpMonitor(Port, Callback=self._monCbk, BufferSize=64*1024*1024)
         self._Servers = _NodeDiscarder()
         self._OneTime = False
+        self._Busy = False
+        self._LocalExecution = LocalExecution
         if Enable:
             self.start()
         
@@ -325,7 +361,7 @@ class RemoteAioNode:
             if not self._Locked:
                 for CS in self._CustomServers:
                     try:
-                        _RemoteAioMessage(CS[0], CS[1], _READY_FOR_REQUESTS, self._MyCounter).send(self._MySender)
+                        _RemoteAioMessage(CS[0], CS[1], _READY_FOR_REQUESTS, [self._MyCounter, self._Port]).send(self._MySender)
                     except:
                         Aio.printError(f"RemoteAioNode: problem with Custom Server {CS}")
                 if time.time() - self._LastChangedCounterTimeStamp > 5:
@@ -351,7 +387,7 @@ class RemoteAioNode:
                 if NotFound:
                     #print(f"// REMOTE_AIO_NODE: {FromIp}:{FromPort} has not empty queue")
                     Msg.Command = _READY_FOR_REQUESTS
-                    Msg.Data = self._MyCounter
+                    Msg.Data = [self._MyCounter, self._Port]
                     sleep(uniform(0.05, 0.2))
                     Msg.send(self._MySender)
             elif Msg.Command == _TASK:
@@ -359,6 +395,11 @@ class RemoteAioNode:
                     #self._MyMonitor.stop()
                     Task = Msg.Data
                     Id = Task.Id
+                    for CS in self._CustomServers:
+                        if CS[0] == FromIp:
+                            FromPort = CS[1]
+                            Msg.Port = FromPort
+                            break
                     self._MyMsg = _RemoteAioMessage(FromIp, FromPort, _PING, Id)
                     self._Locked = 1
                     print(f"// REMOTE_AIO_NODE: Received task {Id} from {FromIp}:{FromPort}")
@@ -397,7 +438,7 @@ class RemoteAioNode:
         self._CustomServers = []
         for CS in CustomServers:
             try:
-                if Aio.isType(CS, []):
+                if Aio.isType(CS, []) or Aio.isType(CS, ()):
                     self.addCustomServer(CS[0], CS[1])
                 else:
                     self.addCustomServer(CS, self._Port)
