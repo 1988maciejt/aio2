@@ -3,6 +3,7 @@
   \item \ShellName
     \subitem architecture, \hyperpage{2}
   \item \_\_hash\_\_, \hyperpage{4}
+  \item \_\_inint\_\_, \hyperpage{19, 20}
   \item \_\_str\_\_, \hyperpage{4}, \hyperpage{13}
 
   \indexspace
@@ -15,6 +16,7 @@
   \indexspace
 
   \item derivativeGF2, \hyperpage{5}
+  \item distributed computing, \hyperpage{21}
   \item dual LFSR, \hyperpage{14}
 
   \indexspace
@@ -124,6 +126,8 @@
 
   \indexspace
 
+  \item RemoteAio, \hyperpage{21}
+  \item RemoteShell, \hyperpage{21}
   \item reset, \hyperpage{16}
   \item reverseTap, \hyperpage{16}
   \item Ring Generator, \hyperpage{11}
@@ -131,8 +135,11 @@
 
   \indexspace
 
+  \item send, \hyperpage{20}
   \item setStartingPointForIterator, \hyperpage{8}
   \item simulateForDataString, \hyperpage{17}
+  \item start, \hyperpage{19}
+  \item stop, \hyperpage{20}
 
   \indexspace
 
@@ -142,5 +149,15 @@
   \item toInt, \hyperpage{9}
   \item toMarkKassabStr, \hyperpage{9}
   \item toVerilog, \hyperpage{17}
+
+  \indexspace
+
+  \item UdpMonitor\_object
+    \subitem \_\_inint\_\_, \hyperpage{19}
+    \subitem start, \hyperpage{19}
+    \subitem stop, \hyperpage{20}
+  \item UdpSender\_object
+    \subitem \_\_inint\_\_, \hyperpage{20}
+    \subitem send, \hyperpage{20}
 
 \end{theindex}

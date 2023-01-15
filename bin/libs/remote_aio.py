@@ -86,6 +86,29 @@ _PING = "PING"
 
 def _randomId() -> int:
     return int(uniform(1, 100000000000000000000))
+
+class _NodeDiscarder:
+    
+    __slots__ = ("_Nodes")
+    
+    def __init__(self) -> None:
+        self._Nodes = {}
+        
+    def discard(self, Ip, Port, Counter) -> bool:
+        Counters = self._Nodes.get((Ip, Port), [])
+        if Counter in Counters:
+            #print(f"DISCARDED {Ip}:{Port}")
+            return True
+        return False
+    
+    def storeCounter(self, Ip, Port, Counter):
+        Counters = self._Nodes.get((Ip, Port), [])
+        if len(Counters) > 16:
+            Counters.pop()
+        Counters.insert(0, Counter)
+        self._Nodes[(Ip, Port)] = Counters
+    
+    
     
 
 class _RemoteAioMessage:
@@ -149,7 +172,7 @@ class RemoteAioTask:
 
 class RemoteAioScheduler:
     
-    __slots__ = ("_OneTime", "_Port", "_MySender", "_MyMonitor", "_Enable", "TaskList", "_ServersDict")
+    __slots__ = ("_OneTime", "_Port", "_MySender", "_MyMonitor", "_Enable", "TaskList", "_Servers")
     
     def _monCbk(self, args):
         while self._OneTime:
@@ -165,8 +188,7 @@ class RemoteAioScheduler:
             if Msg.Command == _READY_FOR_REQUESTS:
                 #print(f"// REMOTE_AIO_SCHEDULER: {FromIp}:{FromPort} is ready for requests")
                 Counter = Msg.Data
-                LastCounter = self._ServersDict.pop((FromIp, FromPort), -1)
-                if Counter != LastCounter:
+                if not self._Servers.discard(FromIp, FromPort, Counter):
                     for i in range(len(self.TaskList)):
                         Task = self.TaskList.pop()
                         if Task.isProcessed():
@@ -176,12 +198,9 @@ class RemoteAioScheduler:
                         Msg.Data = Task
                         Msg.send(self._MySender)
                         self.TaskList.insert(0, Task)
-                        self._ServersDict[(FromIp, FromPort)] = Counter
+                        self._Servers.storeCounter(FromIp, FromPort, Counter)
                         print(f"// REMOTE_AIO_SCHEDULER: Sent task {Task.Id} to {FromIp}:{FromPort}")
                         break
-                else:
-                    pass
-                    #print(f"// REMOTE_AIO_SCHEDULER: DISCARDED {FromIp}:{FromPort} \t{Counter} \t== \t{LastCounter}")
             elif Msg.Command == _RESPONSE:
                 try:
                     Task = Msg.Data
@@ -217,7 +236,7 @@ class RemoteAioScheduler:
         self.TaskList = []
         self._MySender = UdpSender(self._Port) 
         self._MyMonitor = UdpMonitor(Port, Callback=self._monCbk, BufferSize=64*1024*1024)
-        self._ServersDict = {}
+        self._Servers = _NodeDiscarder()
         self._OneTime = False
         if Enable:
             self.start()
@@ -265,8 +284,32 @@ class RemoteAioScheduler:
         TaskList.clear()
         sleep(0.1)
         print(f"// REMOTE_AIO_SCHEDULER: MAP FINISHED")
-        
         return Results
+    
+    def mapGenerator(self, CodeList):
+        TaskList = []
+        for Code in CodeList:
+            TaskList.append(self.addTask(Code))
+        for T in TaskList:
+            while not T:
+                sleep(0.1)
+            yield copy.deepcopy(T.Response)
+        TaskList.clear()
+    
+    def mapUnorderedGenerator(self, CodeList):
+        TaskList = []
+        for Code in CodeList:
+            TaskList.append(self.addTask(Code))
+        while len(TaskList) > 0:
+            sleep(0.01)
+            for T in TaskList:
+                if T:
+                    yield copy.deepcopy(T.Response)
+                    TaskList.remove(T)
+                    break
+        TaskList.clear()
+                
+        
     
     
     

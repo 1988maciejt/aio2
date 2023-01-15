@@ -16,3 +16,9 @@
 \contentsline {subsection}{\numberline {3.1.6}Tiger Ring Generator}{12}{subsection.3.1.6}%
 \contentsline {section}{\numberline {3.2}Lfsr object methods}{13}{section.3.2}%
 \contentsline {section}{\numberline {3.3}Lfsr static methods}{18}{section.3.3}%
+\contentsline {chapter}{\numberline {4}Networking features}{19}{chapter.4}%
+\contentsline {section}{\numberline {4.1}UDP}{19}{section.4.1}%
+\contentsline {subsection}{\numberline {4.1.1}UDP Monitor}{19}{subsection.4.1.1}%
+\contentsline {subsection}{\numberline {4.1.2}UDP Sender}{20}{subsection.4.1.2}%
+\contentsline {section}{\numberline {4.2}Distributed computing}{21}{section.4.2}%
+\contentsline {section}{\numberline {4.3}RemoteAioNode object}{21}{section.4.3}%

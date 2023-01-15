@@ -132,7 +132,7 @@ class UdpMonitor:
     self._working = False
     self._bindip = BindToIp
     
-  def _wait(self, dummy):
+  def _wait(self, dummy=None):
     global _FragmentedMessages
     while self._continue:
       self._working = True
@@ -200,7 +200,8 @@ class UdpMonitor:
         Aio.printError(f"Port {p}:", inst)
       self._listeners.append(_socket)
     self._continue = True
-    self._pool.amap(self._wait, [0])  
+    _thread.start_new_thread(self._wait, ())
+    #self._pool.amap(self._wait, [0])  
   
   def stop(self):
     self._continue = False

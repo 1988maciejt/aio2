@@ -1,0 +1,116 @@
+\chapter{Networking features}
+
+\section{UDP}
+
+\ShellName\ includes a few classes making UDP networking easier: \UdpSender\ to send messages and \UdpMonitor\ to receive them. 
+
+It is well known that UDP packets, dependent on MTU size, does not allow to transmit large amounts of data. However, \UdpSender\ and \UdpMonitor\ can automatically divide huge data into small fragments and that is realized i the background.
+
+\subsection{UDP Monitor}
+
+This class is used to create monitor objects, which are working using a separate thread and may call a specified function if data arrives or may print the data to the screen. Below the object-related methods are listed:
+
+\cmd {UdpMonitor\_object} {\_\_inint\_\_} {PortList, Callback=None, BufferSize=4096, ReturnString=False, BindToIp=""} {
+	\UdpMonitor\ object initializer.
+	\begin{itemize}
+		\item \texttt{PortList} - port or list of ports to listen,
+		\item \texttt{Callback} - function to call when new UDP message is received. If \texttt{None} then incoming messages will be printed to the screen,
+		\item \texttt{BufferSize} - size of socket buffer. If too small, then some messages may be lost,
+		\item \texttt{ReturnString} - messages are returned as \texttt{bytes}, but you may force to convert it into \texttt{str} by specifying this parameter \texttt{True},
+		\item \texttt{BindToIp} - in case of many network interfaces you may bind the listener to a specified one by giving its IP. 
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+		# Simply look what is received on 1234 port:
+		UdpMonitor(1234).start()
+		# Receive and process incoming messages on 1235 and 1236 ports:
+		def Cbk(args):
+			DATA = args[0]
+			FROM_IP = args[1]
+			FROM_PORT = args[2]
+		Monitor2 = UdpMonitor([1235, 1236], Callback=Cbk)
+		Monitor1.start()
+\end{lstlisting}
+
+\cmd {UdpMonitor\_object} {start} {} {
+	Starts UDP monitor.
+}
+\begin{lstlisting}[language=Python]
+		# Simply look what is received on 1234 port:
+		UdpMonitor(1234).start()
+\end{lstlisting}
+
+\cmd {UdpMonitor\_object} {stop} {} {
+	Stops UDP monitor. It is worth nothing, that there is a risk than one message will be received even after \UdpMonitor\ atopping!
+}
+\begin{lstlisting}[language=Python]
+		# Simply look what is received on 1234 port during 10s:
+		Monitor = UdpMonitor(1234)
+		Monitor.start()
+		sleep(10)
+		Monitor.stop()
+\end{lstlisting}
+
+\subsection{UDP Sender}
+
+The \UdpSender\ object is intended to make UDP messages sending easier. Its related methods:
+
+\cmd {UdpSender\_object} {\_\_inint\_\_} {Port=None, DestinationIp=None} {
+	\UdpMonitor\ object initializer.
+	\begin{itemize}
+		\item \texttt{Port} - you may specify a default port if the \UdpSender\ object is used to send data on known port,
+		\item \texttt{DestinationIp} - you may specify a default destination IP when this \UdpSender\ object is used to send data to one destination
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+		# Simply send dta to 192.168.0.1:80:
+		UdpSender(80, "293.268.0.2").send("Hi!")
+		# Periodically send broadcast messages on 81 port:
+		Sender = UdpSender(81)
+		while(1):
+			Sender.send("Hi all!")
+			sleep(1)
+\end{lstlisting}
+
+\cmd {UdpSender\_object} {send} {Data, Ip=None, Port=None} {
+	Send given data to a specified host.
+	\begin{itemize}
+		\item \texttt{Data} - \texttt{bytes} or \textit{str} data to send, 
+		\item \texttt{Ip} - destination IP, If not specified, tries to use the default one, if still \texttt{None} then sends broadcast message,
+		\item \texttt{Port} - destination port. If not specified, uses the default one.
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+		# Simply send dta to 192.168.0.1:80:
+		UdpSender(80).send("Hi!", "293.268.0.2")
+\end{lstlisting}
+
+\section{Distributed computing}
+
+\index{distributed computing}
+\index{RemoteAio}
+\index{RemoteShell}
+
+The \ShellName\ is equipped with a utility to make distributed computing simple. The main goal is: \textit{I have some tasks to do. Is any other \ShellName\ ready to take one of them and execute?}. 
+
+So, two classes are available: \RemoteAioNode\ - a ready-to-work instance, and \RemoteAioScheduler\ - a task scheduler.
+
+Using the \RemoteAioScheduler\ one can request any number of tasks (by specifying a string containing a \ShellName\ code) and then the scheduler will try to find ready-to-work nodes, queuing, sending tasks and receiving responses - all in the background.
+
+Let's say you requested a task. Here is what happens then:
+\begin{enumerate}
+	\item The \RemoteAioScheduler\ considered, its task queue is not empty. It sends a UDP broadcast message telling others, that there "Hi, I am <IP>:<Port> and I have some task to do".
+	\item Ready to work nodes respond, telling "Hi, I am <IP>:<Port> and I am ready to work".
+	\item The scheduler sends queuing tasks to those ready-to-work nodes and moves those task to the end of its task queue.
+\end{enumerate}
+On the other hand, when a node finishes the requested task:
+\begin{enumerate}
+	\item The node receives the result to the scheduler.
+	\item Once the scheduler receives the response, it removes the task from its task queue.
+\end{enumerate}
+That simple mechanism makes the task scheduling independent of nodes failures, appearing and disappearing, and so on.
+
+It is also possibility to specify the scheduler address when \RemoteAioNode\ is initialized (or later) in case if the node cannot, for any reason, receive scheduler's broadcast messages.
+
+\section{RemoteAioNode object}
+

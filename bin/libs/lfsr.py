@@ -1272,7 +1272,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       n = 0
     n2 = n
     minc = Half * 0.65
-    print("c", c, "minc", minc)
+    #print("c", c, "minc", minc)
     while (c >= 3) & (c >= minc):
       print (f'Found so far: {len(result)}. Looking for {c} coefficients')
       resultAux = Polynomial.listPrimitives(PolynomialDegree, c, 2, True, 0, n2, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True, StartingPolynomial=StartingPolynomial)
