@@ -112,5 +112,136 @@ That simple mechanism makes the task scheduling independent of nodes failures, a
 
 It is also possibility to specify the scheduler address when \RemoteAioNode\ is initialized (or later) in case if the node cannot, for any reason, receive scheduler's broadcast messages.
 
+Finally, it is worth nothing that th scheduler may (and it is enabled by default) use the local machine to perform scheduled tasks without any networking.
+
 \section{RemoteAioNode object}
+
+\RemoteAioNode\ object creates a node, which is used to process requested tasks.
+
+\cmd {RemoteAioNode\_object} {\_\_init\_\_} {Port=3099, CustomServers=[], Enable=True} {
+	Object initializer.
+	\begin{itemize}
+		\item \texttt{Port} - the port at which the node will listen for broadcast messages from schedulers in the LAN. If - for any reason - there is impossible to configure the node to work on the same port as schedulers, see the \texttt{CustomServers} parameter,
+		\item \texttt{CustomServers} - list of addresses of schedulers which the node should ping. The reason why to configure this parameters is i.e. if node works on another port than a scheduler, or if the node cannot receive broadcast messages from a scheduler because both are part of different subnets. The \texttt{CustomServers} may be a list of addresses, or may be a string containing single IP. In case of list, each address may be a string, containing IP, or a list, containing IP and port. In any case, if no port specified, then it assumes the same port as the one at which the node is listenning,
+		\item \texttt{Enable} - if \textit{True} then the node automatically starts its background processes.
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+		# Start a simple, standard node
+		RemoteAioNode()
+		# Create a simple node, but not start it automatically
+		Node = RemoteAioNode(Enable=False)
+		Node.start()
+		# Start a node and include a specified scheduler address:
+		RemoteAioNode(CustomServers="10.10.2.100")
+		# Start a node working at different port than the scheduler:
+		RemoteAioNode(Port=4000, CustomServers=[["10.10.2.100", 3099]])
+\end{lstlisting}
+
+\cmd {RemoteAioNode\_object} {addCustomServer} {Ip, Port} {
+	Add a custom server address to the node (see the node initializer).
+}
+
+\cmd {RemoteAioNode\_object} {start} {} {
+	Start the background process of the node.
+}
+
+\cmd {RemoteAioNode\_object} {stop} {} {
+	Stop the background process of the node.
+}
+
+\section{RemoteAioScheduler object}
+
+\RemoteAioScheduler\ is the one object which takes tasks and tries to process them as fast as possible, using local machine (if allowed) and any available \RemoteAioNode. It has a few methods making task scheduling easier - all are listed below.
+
+\cmd {RemoteAioScheduler\_object} {\_\_init\_\_} {Port=3099, Enable=True, LocalExecution=True} {
+	\RemoteAioScheduler\ object initializer.
+	\begin{itemize}
+		\item \texttt{Port} - the port at which the scheduler sends the broadcasts messages and listens for incoming packets, 
+		\item \texttt{Enable} - if \texttt{True} then it automatically starts its background processes (otherwise it will not process requested tasks)
+		\item \texttt{LocalExecution} - whether to use the local machine to process tasks together with other available nodes or not.
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+		# Create a standard scheduler
+		S = RemoteAioScheduler()
+\end{lstlisting}
+
+\cmd {RemoteAioScheduler\_object} {addTask} {Code} {
+	\RemoteAioScheduler\ object initializer.
+	\begin{itemize}
+		\item \texttt{Code} - a string containing a code to be executed.
+	\end{itemize}
+	This method returns a \texttt{RemoteAioTask} object. Look at the example below to see how to use it in your code.
+}
+\begin{lstlisting}[language=Python]
+		S = RemoteAioScheduler()
+		task = S.addTask("2 * 2")
+		while not task:
+		sleep(0.01)
+		result = task.Response
+		print(result)
+		# >>> 4
+\end{lstlisting}
+
+\cmd {RemoteAioScheduler\_object} {map} {CodeList} {
+	This method is used to request for execution of many tasks. It returns an ordered list or results. See the example below:
+}
+\begin{lstlisting}[language=Python]
+		S = RemoteAioScheduler()
+		codelist = [
+			"2*2",
+			"3*3",
+			"4*4"
+		]
+		results = S.map(codelist)
+		print(results)
+		# >>> [4, 9, 16]
+\end{lstlisting}
+
+\cmd {RemoteAioScheduler\_object} {mapGenerator} {CodeList} {
+	This is not a method, but a generator. It yields ordered results as soon as possible. See the example below.
+}
+\begin{lstlisting}[language=Python]
+		S = RemoteAioScheduler()
+		codelist = [
+			"[2, 2*2]",
+			"[3, 3*3]",
+			"[4. 4*4]"
+		]
+		for result in S.mapGenerator(codelist):
+			print(result)
+		# >>> [2, 4]
+		# >>> [3, 9]
+		# >>> [4, 16]
+\end{lstlisting}
+
+\cmd {RemoteAioScheduler\_object} {mapUnorderedGenerator} {CodeList} {
+	This is not a method, but a generator. It yields UNORDERED results as soon as possible. See the example below.
+}
+\begin{lstlisting}[language=Python]
+		S = RemoteAioScheduler()
+		codelist = [
+			"[2, 2*2]",
+			"[3, 3*3]",
+			"[4. 4*4]"
+		]
+		for result in S.mapUnorderedGenerator(codelist):
+			print(result)
+		# this is the example output. It may differ
+		# as the mapping is unordered:
+		# >>> [3, 9]
+		# >>> [2, 4]
+		# >>> [4, 16]
+\end{lstlisting}
+
+\cmd {RemoteAioScheduler\_object} {start} {} {
+	Start the background process of the scheduler.
+}
+
+\cmd {RemoteAioScheduler\_object} {stop} {} {
+	Stop the background process of the scheduler.
+}
+
+
 
