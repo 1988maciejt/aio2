@@ -173,7 +173,7 @@ class RemoteAioTask:
     def isProcessed(self) -> bool:
         if self._Locked:
             return True
-        if time.time() - self._Timestamp > 1.5:
+        if time.time() - self._Timestamp > 3:
             return False
         return True
 
@@ -197,15 +197,7 @@ class RemoteAioScheduler:
     
     def _monCbk(self, args):
         while self._OneTime:
-            sleep(0.01)
-        if Aio.isType(args, ""):
-            if args == _READY_FOR_REQUESTS:
-                for i in range(len(self.TaskList)):
-                    Task = self.TaskList[i]
-                    if Task.isProcessed():
-                        continue
-                    self._doLocal(Task)  
-                    break           
+            sleep(0.01)     
         self._OneTime = True
         FromIp = args[1]
         FromPort = args[2]
@@ -254,15 +246,23 @@ class RemoteAioScheduler:
         self._OneTime = False
     
     def _hello(self):
-        while self._Enable:
-            if len(self.TaskList) > 0:
-                _RemoteAioMessage("", self._Port, _NOT_EMPTY_SCHEDULER).send(self._MySender)
-                if time.time() - self._InfoTimeStamp >= 15:
-                    print(print(Str.color(f"// REMOTE_AIO_SCHEDULER: {len(self.TaskList)} tasks in queue", 'green')))
-                    self._InfoTimeStamp = time.time()
-            if self._LocalExecution and not self._Busy:
-                self._monCbk(_READY_FOR_REQUESTS)        
-            sleep(0.5)
+        try:
+            while self._Enable:
+                if len(self.TaskList) > 0:
+                    _RemoteAioMessage("", self._Port, _NOT_EMPTY_SCHEDULER).send(self._MySender)
+                    if time.time() - self._InfoTimeStamp >= 5:
+                        print(Str.color(f"// REMOTE_AIO_SCHEDULER: {len(self.TaskList)} tasks in queue", 'green'))
+                        self._InfoTimeStamp = time.time()
+                if self._LocalExecution and not self._Busy:
+                    for i in range(len(self.TaskList)):
+                        Task = self.TaskList[i]
+                        if Task.isProcessed():
+                            continue
+                        _thread.start_new_thread(self._doLocal, tuple([Task]))  
+                        break        
+                sleep(0.5)
+        except Exception as inst:
+            Aio.printError(f"// REMOTE_AIO_SCHEDULER: 'hello' process: {inst}")
     
     def __init__(self, Port = 3099, Enable = True, LocalExecution = True) -> None:
         self._Port = Port
