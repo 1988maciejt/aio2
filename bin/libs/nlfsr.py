@@ -24,12 +24,8 @@ class Nlfsr(Lfsr):
     return Nlfsr(self)
   def __del__(self):
     pass
-  def printFullInfo(self, Simplified = False):
-    Aio.print(self.getFullInfo(Simplified))
-  def getFullInfo(self, Header = False):
+  def getArchitecture(self) -> str:
     Result = ""
-    if Header:
-      Result = f'{self._size}-bit NLFSRs  and taps list and equations:\n'
     for C in self._Config:
       D = C[0]
       Slist = C[1]
@@ -60,6 +56,14 @@ class Nlfsr(Lfsr):
       if DInv:
         Result += " )"
       Result += "\n"
+    return Result[:-1]
+  def printFullInfo(self):
+    Aio.print(self.getFullInfo(Simplified))
+  def getFullInfo(self, Header = False):
+    Result = ""
+    if Header:
+      Result = f'{self._size}-bit NLFSRs  and taps list and equations:\n'
+    Result += self.getArchitecture() + "\n"
     Result += "   " + self.toBooleanExpressionFromRing(0, 0, True) + "\n"
     Result += "C  " + self.toBooleanExpressionFromRing(1, 0, True) + "\n"
     Result += " R " + self.toBooleanExpressionFromRing(0, 1, True) + "\n"
@@ -697,7 +701,6 @@ class Nlfsr(Lfsr):
         RE = f'NOT ( {RE} )'
     return RE
         
-  
   def makeBeauty(self, FanoutMax = 2, CheckMaximum = True) -> bool:
     if len(self._Config) <= 1:
       return True
@@ -729,7 +732,6 @@ class Nlfsr(Lfsr):
           LastFanout = self.getFanout('max')
 #          print("ShiftedRight!")
           continue
-        
         self._Config[i] = self._shiftTap(self._Config[i], -1)
 #        print(self._Config)
       if FirstFanout <= LastFanout:
@@ -755,11 +757,21 @@ class Nlfsr(Lfsr):
     return ((self.getFanout('max') <= FanoutMax) and self.isCrossingFree()) 
         
         
-
     
 class NlfsrList:
   def analyseSequences(NlfsrsList) -> list:      
     return Nlfsr.analyseSequencesBatch(NlfsrsList)
+  def toPandasTable(NlfsrsList) -> PandasTable:
+    PT = PandasTable(['RC', 'Polynomial', 'Architecture'], 1, 1)
+    RC = "  \nR \n C\nRC"
+    for N in NlfsrsList:
+      Polys =  N.toBooleanExpressionFromRing(0, 0, 1) + "\n"
+      Polys += N.toBooleanExpressionFromRing(0, 1, 1) + "\n"
+      Polys += N.toBooleanExpressionFromRing(1, 0, 1) + "\n"
+      Polys += N.toBooleanExpressionFromRing(1, 1, 1)
+      Arch = N.getArchitecture()
+      PT.add([RC, Polys, Arch])
+    return PT
         
       
     
