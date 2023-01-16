@@ -242,9 +242,6 @@ class RemoteAioScheduler:
                             break
                 except:
                     print(f"// REMOTE_AIO_SCHEDULER: ERROR: Received broken response from {FromIp}:{FromPort}")
-                if time.time() - self._InfoTimeStamp >= 15:
-                    print(print(Str.color(f"// REMOTE_AIO_SCHEDULER: {len(self.TaskList)} tasks in queue", 'green')))
-                    self._InfoTimeStamp = time.time()
             elif Msg.Command == _PING:
                 try:
                     Id = Msg.Data
