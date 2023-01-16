@@ -181,7 +181,7 @@ class RemoteAioTask:
 
 class RemoteAioScheduler:
     
-    __slots__ = ("_LocalExecution", "_Busy", "_OneTime", "_Port", "_MySender", "_MyMonitor", "_Enable", "TaskList", "_Servers")
+    __slots__ = ("_InfoTimeStamp", "_LocalExecution", "_Busy", "_OneTime", "_Port", "_MySender", "_MyMonitor", "_Enable", "TaskList", "_Servers")
     
     def _doLocal(self, Task :  RemoteAioTask):
         if self._Busy:
@@ -201,12 +201,11 @@ class RemoteAioScheduler:
         if Aio.isType(args, ""):
             if args == _READY_FOR_REQUESTS:
                 for i in range(len(self.TaskList)):
-                    Task = self.TaskList.pop()
+                    Task = self.TaskList[i]
                     if Task.isProcessed():
-                        self.TaskList.insert(0, Task)
                         continue
-                    self._doLocal(Task)
-                    self.TaskList.insert(0, Task)                
+                    self._doLocal(Task)  
+                    break           
         self._OneTime = True
         FromIp = args[1]
         FromPort = args[2]
@@ -222,29 +221,30 @@ class RemoteAioScheduler:
                 Msg.Port = Msg.Data[1]
                 if not self._Servers.discard(FromIp, FromPort, Counter):
                     for i in range(len(self.TaskList)):
-                        Task = self.TaskList.pop()
+                        Task = self.TaskList[i]
                         if Task.isProcessed():
-                            self.TaskList.insert(0, Task)
                             continue
                         Msg.Command = _TASK
                         Msg.Data = Task
                         Msg.send(self._MySender)
-                        self.TaskList.insert(0, Task)
                         self._Servers.storeCounter(FromIp, FromPort, Counter)
-                        print(f"// REMOTE_AIO_SCHEDULER: Sent task {Task.Id} to {FromIp}:{FromPort}")
+                        print(Str.color(f"// REMOTE_AIO_SCHEDULER: Sent task {Task.Id} to {FromIp}:{FromPort}", 'yellow'))
                         break
             elif Msg.Command == _RESPONSE:
                 try:
                     Task = Msg.Data
                     for T in self.TaskList:
                         if T.Id == Task.Id:
-                            print(f"// REMOTE_AIO_SCHEDULER: Received response {Task.Id} from {FromIp}:{FromPort}")
+                            print(Str.color(f"// REMOTE_AIO_SCHEDULER: Received response {Task.Id} from {FromIp}:{FromPort}", 'yellow'))
                             self.TaskList.remove(T)
                             T._done = 1
                             T.Response = Task.Response
                             break
                 except:
                     print(f"// REMOTE_AIO_SCHEDULER: ERROR: Received broken response from {FromIp}:{FromPort}")
+                if time.time() - self._InfoTimeStamp >= 15:
+                    print(print(Str.color(f"// REMOTE_AIO_SCHEDULER: {len(self.TaskList)} tasks in queue", 'green')))
+                    self._InfoTimeStamp = time.time()
             elif Msg.Command == _PING:
                 try:
                     Id = Msg.Data
@@ -260,6 +260,9 @@ class RemoteAioScheduler:
         while self._Enable:
             if len(self.TaskList) > 0:
                 _RemoteAioMessage("", self._Port, _NOT_EMPTY_SCHEDULER).send(self._MySender)
+                if time.time() - self._InfoTimeStamp >= 15:
+                    print(print(Str.color(f"// REMOTE_AIO_SCHEDULER: {len(self.TaskList)} tasks in queue", 'green')))
+                    self._InfoTimeStamp = time.time()
             if self._LocalExecution and not self._Busy:
                 self._monCbk(_READY_FOR_REQUESTS)        
             sleep(0.5)
@@ -274,6 +277,7 @@ class RemoteAioScheduler:
         self._OneTime = False
         self._Busy = False
         self._LocalExecution = LocalExecution
+        self._InfoTimeStamp = 0
         if Enable:
             self.start()
         
@@ -285,6 +289,7 @@ class RemoteAioScheduler:
         self._OneTime = False
         _thread.start_new_thread(self._hello, ())
         self._MyMonitor.start()
+        print(f"// REMOTE_AIO_SCHEDULER: Started. My address: {getMyIp()}, port: {self._Port}")
         
     def stop(self):
         self._Enable = 0
@@ -293,7 +298,7 @@ class RemoteAioScheduler:
         
     def addTask(self, Code : str) -> RemoteAioTask:
         Task = RemoteAioTask(_randomId(), Code)
-        self.TaskList.insert(0, Task)
+        self.TaskList.append(Task)
         return Task
     
     def map(self, CodeList) -> list:
@@ -312,14 +317,14 @@ class RemoteAioScheduler:
                 else:
                     AllDone = 0
             if (LastDone != Done) or AllDone:
-                print(f"// REMOTE_AIO_SCHEDULER: MAP STATUS: {Done}/{len(TaskList)}")
+                print(Str.color(f"// REMOTE_AIO_SCHEDULER: MAP STATUS: {Done}/{len(TaskList)}", 'green'))
                 LastDone = Done
         Results = []
         for T in TaskList:
             Results.append(copy.deepcopy(T.Response))
         TaskList.clear()
         sleep(0.1)
-        print(f"// REMOTE_AIO_SCHEDULER: MAP FINISHED")
+        print(Str.color(f"// REMOTE_AIO_SCHEDULER: MAP FINISHED", 'green'))
         return Results
     
     def mapGenerator(self, CodeList):
@@ -402,12 +407,12 @@ class RemoteAioNode:
                             break
                     self._MyMsg = _RemoteAioMessage(FromIp, FromPort, _PING, Id)
                     self._Locked = 1
-                    print(f"// REMOTE_AIO_NODE: Received task {Id} from {FromIp}:{FromPort}")
+                    print(Str.color(f"// REMOTE_AIO_NODE: Received task {Id} from {FromIp}:{FromPort}", 'yellow'))
                     try:
                         Result = eval(Task.Code)
                     except Exception as inst2:
                         Result = None
-                        print(f"// REMOTE_AIO_NODE: INVALID TASK: {inst2}")
+                        Aio.printError(f"// REMOTE_AIO_NODE: INVALID TASK: {inst2}")
                     Task.Code = None
                     Task.Response = Result
                     del self._MyMsg
@@ -416,9 +421,9 @@ class RemoteAioNode:
                     Msg.Command = _RESPONSE
                     Msg.Data = Task
                     Msg.send(self._MySender)
-                    print(f"// REMOTE_AIO_NODE: Sent response {Id} to {FromIp}:{FromPort}")
+                    print(Str.color(f"// REMOTE_AIO_NODE: Sent response {Id} to {FromIp}:{FromPort}", 'yellow'))
                 except Exception as inst:
-                    print(f"// REMOTE_AIO_NODE: ERROR: {inst}")                
+                    Aio.printError(f"// REMOTE_AIO_NODE: {inst}")                
                 self._MyCounter = _randomId()
                 self._LastChangedCounterTimeStamp = time.time()
                 self._Locked = 0
