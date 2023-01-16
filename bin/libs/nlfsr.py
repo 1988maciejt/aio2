@@ -26,10 +26,10 @@ class Nlfsr(Lfsr):
     pass
   def printFullInfo(self, Simplified = False):
     Aio.print(self.getFullInfo(Simplified))
-  def getFullInfo(self, Header = True):
+  def getFullInfo(self, Header = False):
     Result = ""
     if Header:
-      Result = f'{self._size}-bit NLFSRs taps list:\n'
+      Result = f'{self._size}-bit NLFSRs  and taps list and equations:\n'
     for C in self._Config:
       D = C[0]
       Slist = C[1]
@@ -60,7 +60,11 @@ class Nlfsr(Lfsr):
       if DInv:
         Result += " )"
       Result += "\n"
-    return Result[:-1]
+    Result += "   " + self.toBooleanExpressionFromRing(0, 0, True) + "\n"
+    Result += "C  " + self.toBooleanExpressionFromRing(1, 0, True) + "\n"
+    Result += " R " + self.toBooleanExpressionFromRing(0, 1, True) + "\n"
+    Result += "CR " + self.toBooleanExpressionFromRing(1, 1, True) + "\n"
+    return Result
   def __init__(self, Size : int, Config = []) -> None:
     if Aio.isType(Size, "Nlfsr"):
       self._size = Size._size      
