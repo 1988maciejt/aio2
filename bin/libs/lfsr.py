@@ -323,11 +323,16 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return Result
   
   @staticmethod
-  def iterate(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0):
+  def iterate(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, ExcludeReciprocals = False):
     poly0 = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance)
     if poly0 is None:
       return
+    Used = []
     for p in poly0:
+      if ExcludeReciprocals:
+        if p in Used:
+          continue
+        Used.append(p.getReciprocal())
       yield p.copy()
       
   def iterateThroughSigns(self):
@@ -514,7 +519,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         #print(n, bsn, PT)
     return Result
   
-  def toMarkKassabStr(self) -> str:
+  def toKassabStr(self) -> str:
     """Returns a string containing polynomial dexription consistent with Mark Kassab's C++ code.
     """
     result = "add_polynomial("
@@ -702,7 +707,6 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     for coeff in clist:
       result[coeff] = 1
     return result
-  
   def isPrimitive(self) -> bool:
     """Check if the polynomial is primitive over GF(2).
     
@@ -720,7 +724,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     result = l.isMaximum()
     return result
   
-  def nextPrimitive(self, Silent=True) -> bool:
+  def nextPrimitive(self, Silent=False) -> bool:
     """Looks for the next primitive polynomial.
 
     Returns:
@@ -1677,7 +1681,6 @@ class Lfsr:
       Dual._baValue[i] = 1
     Dual.next(DelayedBy)
     return Dual._baValue.search(1)
-  
   def createPhaseShifter(self, OutputCount : int, MinimumSeparation = 100, MaxXorInputs = 3, MinXorInputs = 1, FirstXor = None) -> PhaseShifter:
     if 0 < MinXorInputs <= MaxXorInputs:
       if FirstXor is None:
@@ -1685,7 +1688,7 @@ class Lfsr:
       XorList = []
       ActualXor = FirstXor
       XorList.append(ActualXor.copy())
-      for i in tqdm(range(OutputCount-1)):
+      for i in range(OutputCount-1):
         ActualXor = self.getPhaseShiftIndexes(ActualXor, MinimumSeparation)
         while len(ActualXor) < MinXorInputs or len(ActualXor) > MaxXorInputs:
           ActualXor = self.getPhaseShiftIndexes(ActualXor, 1)
@@ -1693,17 +1696,14 @@ class Lfsr:
       PS = PhaseShifter(self, XorList)
       return PS
     return None
-  
   def getValue(self) -> bitarray:
     """Returns current value of the LFSR
     """
     return self._baValue
-  
   def getSize(self) -> int:
     """Returns size of the LFSR
     """
     return (self._size)
-  
   def next(self, steps=1) -> bitarray:
     """Performs a shift of the LFSR. If more than 1 step is specified, 
     the fast-simulation method is used.
@@ -1754,7 +1754,6 @@ class Lfsr:
         steps >>= 1
         RowIndex += 1
       return self._baValue    
-    
   def getPeriod(self) -> int:
     """Simulates the LFSR to obtain its period (count of states in trajectory).
 
@@ -1789,7 +1788,6 @@ class Lfsr:
     if self.isMaximum():
       return self
     return None
-  
   def isMaximum(self) -> bool:
     """Uses the fast-simulation method to determine if the LFSR's trajectory
     includes all possible (but 0) states. 
@@ -1808,7 +1806,6 @@ class Lfsr:
       if self.next(num) == value0:
         return False
     return True
-  
   def reset(self) -> bitarray:
     """Resets the LFSR value to the 0b0...001
 
@@ -1818,7 +1815,6 @@ class Lfsr:
     self._baValue.setall(0)
     self._baValue[0] = 1
     return self._baValue
-  
   def getValues(self, n = 0, step = 1, reset = True) -> list:
     """Returns a list containing consecutive values of the LFSR.
 
@@ -1841,7 +1837,6 @@ class Lfsr:
       result.append(self._baValue.copy())
       self.next(step)
     return result
-  
   def printValues(self, n = 0, step = 1, reset = True) -> None:
     """Prints the consecutive binary values of the LFSR.
 
@@ -1859,10 +1854,8 @@ class Lfsr:
     for i in range(n):
       Aio.print(self)
       self.next(step)
-      
   def getMSequence(self, BitIndex = 0, Reset = True):
     return self.getSequence(BitIndex, Reset, 0)
-  
   def getSequence(self, BitIndex = 0, Reset = True, Length = 0) -> bitarray:
     """Returns a bitarray containing the Sequence of the LFSR.
 
@@ -1883,7 +1876,6 @@ class Lfsr:
       result.append(self._baValue[BitIndex])
       self.next()
     return result
-  
   def printFastSimArray(self):
     """Prints the fast-simulation array.
     """
@@ -1894,7 +1886,6 @@ class Lfsr:
       for c in r:
         line += Bitarray.toString(c) + "\t"
       Aio.print(line)
-      
   def _simplySim(self, sequence):
     rm = Lfsr(self)
     res = rm.simulateForDataString(sequence, self._IBit, self._Start)
@@ -1904,7 +1895,6 @@ class Lfsr:
 #      perc = round(cnt * 100 / self._N, 1)
 #      Aio.printTemp("  Lfsr sim ", perc , "%             ")  
     return res
-  
   def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = None) -> int:
     if "list" in str(type(Sequence)):
       self._N = len(Sequence)
@@ -1971,7 +1961,6 @@ end
     
 endmodule'''
     return Module
-  
   def draw(self, JT = False, Shorten = True, Crop = True):
     if self._type == LfsrType.RingGenerator:
       FFs = []
@@ -2132,10 +2121,8 @@ endmodule'''
     else:
       Result = Aio.print("<This type of LFSR is not yet supported.>")
     return Result
-  
   def print(self, JT = False, Shorten = True, Crop = True):
     Aio.print(self.draw(JT, Shorten, Crop))
-    
   def getJTIndex(self, index):
     if self._type == LfsrType.RingGenerator:
       One = self._size & 1
@@ -2145,12 +2132,10 @@ endmodule'''
         return index - LowerSize 
       return index + LowerSize - One
     return index
-  
   def analyseSequencesBatch(ListOfObjects) -> list:
     #return process_map(_analyseSequences_helper, ListOfObjects, chunkside=2, desc="Sequences analysis")
     R = p_map(_analyseSequences_helper, ListOfObjects)
     return R
-  
   def analyseSequences(self, Reset = True, WithXor2 = True, WithXor3 = True) -> MSequencesReport:
     Values = self.getValues(reset=Reset)
     Sequences = [bitarray() for i in range(self._size)]
@@ -2243,7 +2228,6 @@ endmodule'''
     Report._title = repr(self)
     Report.SourceObject = self
     return Report
-  
   def listMaximumLfsrsHavingSpecifiedTaps(SizeOrProgrammableLfsrConfiguration : int, TapsList = [], CountOnly = False, GetTapsOnly = False) -> list:
     """list Lfsrs of type RING_WITH_SPECIFIED_TAPS satisfying the given criteria.
 

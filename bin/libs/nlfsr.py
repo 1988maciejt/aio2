@@ -148,7 +148,8 @@ class Nlfsr(Lfsr):
     try:
       return int(Res)
     except:
-      return 0
+      Aio.printError(f"Nlfsr.getPeriod - cpp program returns weird result:\n{Res}\nArgs: {ArgStr}")
+      return -1
   def isMaximum(self):
     return self.getPeriod() == ((1<<self._size)-1)
   def _shiftTap(self, tap, positions) -> list:
@@ -435,7 +436,9 @@ class Nlfsr(Lfsr):
         n (int, optional): enough count of results. Defaults to 0 (no limit).
         BreakIfNoResultAfterNIterations (int, optional): if > 0 (default 0), breaks iterating if no results after given #iterations
     """
-    if Iterate and Aio.isType(Poly, "Polynomial"):
+    if not Aio.isType(Poly, "Polynomial"):
+      Poly = Polynomial(Poly)
+    if Iterate:
       Results = []
       Exclude = []
       NoResultCounter = 0

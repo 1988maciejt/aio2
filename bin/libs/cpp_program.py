@@ -2,6 +2,7 @@ from libs.aio import *
 from random import uniform
 import os
 from libs.preprocessor import *
+from aio_config import *
 
 class CppProgram:
   CppFileName = ""
@@ -41,7 +42,7 @@ class CppProgram:
       preprocessFile(H+".h", '/tmp/'+os.path.basename(H)+".h", *self._args, **self._kwargs)
       preprocessFile(H+".cpp", '/tmp/'+os.path.basename(H)+".cpp", *self._args, **self._kwargs)
       SourceFiles += " " + '/tmp/'+os.path.basename(H)+".cpp"
-    Cmd = f'g++ {SourceFiles} -o {self.ExeFileName} -std=c++11'
+    Cmd = f'{shell_config.getCppCompiler()} {SourceFiles} -o {self.ExeFileName} -std=c++11'
     Result = Aio.shellExecute(Cmd, StdErr=True)
     if len(Result) > 5:
       self._comp_error = Result

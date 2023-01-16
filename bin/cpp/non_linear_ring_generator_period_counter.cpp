@@ -11,6 +11,14 @@ using namespace std;
  
 int main(int argc, char* argv[])
 {
+
+`if debug and inverters:
+   cout << "Inside the NLFSR period counter - inverters allowed" << endl;
+`endif
+`if debug:
+   cout << "Inside the NLFSR period counter - no inverters allowed" << endl;
+`endif
+   
    if (argc < 2) {
       cout << "Too few arguments!" << endl;
       return 0;

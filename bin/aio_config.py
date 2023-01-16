@@ -16,4 +16,7 @@ class shell_config:
   
   def useQuesta():
     return False
+  
+  def getCppCompiler():
+    return "g++"
 
