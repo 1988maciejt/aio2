@@ -2,6 +2,7 @@ from libs.aio import *
 from libs.lfsr import *
 from libs.programmable_lfsr_config import *
 import gc
+from math import log2
 
 class ProgrammableRingGenerator:
   _polys = {}
@@ -84,6 +85,8 @@ class ProgrammableRingGenerator:
           self._polys[poly] = [lfsr]
       self._polys_done = 1    
       gc.collect()
+  def getSize(self) -> int:
+    return self._size
   def getPolynomialsAndLfsrsDictionary(self, Optimization=False) -> dict:
     if Optimization:
       self._optimized_calculations()
@@ -202,5 +205,134 @@ class ProgrammableRingGenerator:
       return self._optimized_lfsrs
     else:
       return self._getLfsrs()
+  def toVerilog(self, ModuleName : str, InjectorIndexesList = []):
+    ConfigDict = {}
+    ConfigBits = 0
+    MandatoryTaps = []
+    ValIndex = 0
+    for tap in self._taps_list:
+      Bits = ceil(log2(len(tap)))
+      ConfigBits += Bits
+      if Bits == 0:
+        mtap = list(tap.values())[0]
+        MandatoryTaps.append([f"O[{mtap[0]}]", mtap[1]])
+        continue
+      Bus = (ConfigBits-1, ConfigBits-Bits)
+      Keys = list(tap.keys())
+      Sources = {}
+      Destinations = {}
+      for i in range(len(Keys)):
+        Condition = f"{Bits}'d{i}"
+        Key = Keys[i]
+        Connection = tap[Key]
+        if Connection is None:
+          #Sources[Condition] = "1'b0"
+          continue
+        Sources[Condition] = f"O[{Connection[0]}]"
+        Destinations[Condition] = Connection[1]
+      Value = f"T{ValIndex}"
+      ValIndex += 1
+      TapConfig = {}
+      TapConfig["bus"] = Bus
+      TapConfig["configbus"] = f"config[{Bus[0]}:{Bus[1]}]"
+      TapConfig["sources"] = Sources
+      TapConfig["destinations"] = Destinations
+      ConfigDict[Value] = TapConfig
+    Wires = ""
+    Always = ""
+    DestSignalsConditions = {}
+    DestSignalsSources = {}
+    ConfiguredTaps = {}
+    for Key in ConfigDict.keys():
+      Sources = ConfigDict[Key]["sources"]
+      Destinations = ConfigDict[Key]["destinations"]
+      ConfigBus = ConfigDict[Key]["configbus"]
+      Wires += f"reg {Key};\n"
+      Always += f"\nalways @ (*) begin\n"
+      Always += f"  {Key} <= 1'b0;\n"
+      for Source in Sources.keys():
+        ConfigValue = Source
+        SourceFlop = Sources[Source]
+        Always += f"  if ({ConfigBus} == {ConfigValue})) begin\n"
+        Always += f"    {Key} <= {SourceFlop};\n"
+        Always += f"  end\n"
+      Always += f"end\n"
+      DestFlops = []
+      for Dest in Destinations.keys():
+        ConfigValue = Dest
+        DestFlop = Destinations[Dest]
+        SignalName = f"{Key}_{DestFlop}"
+        Aux = ConfiguredTaps.get(DestFlop, [])
+        if SignalName not in Aux:
+          Aux.append(SignalName)
+        ConfiguredTaps[DestFlop] = Aux
+        if DestFlop not in DestFlops:
+          Wires += f"reg {SignalName};\n"
+          DestFlops.append(DestFlop)
+        Aux = DestSignalsConditions.get(SignalName, [])
+        Condition = f"{ConfigBus} == {ConfigValue}"
+        Aux.append(Condition)
+        DestSignalsConditions[SignalName] = Aux
+        DestSignalsSources[SignalName] = Key
+    for Key in DestSignalsConditions.keys():
+      Conditions = DestSignalsConditions[Key]
+      FullCondition = ""
+      for i in range(len(Conditions)):
+        if i > 0:
+          FullCondition += " || "
+        FullCondition += f"({Conditions[i]})"
+      Always += f"\nalways @ (*) begin\n"
+      Always += f"  {Key} <= 1'b0;\n"
+      for Source in Sources.keys():
+        ConfigValue = Source
+        SourceFlop = Sources[Source]
+        Always += f"  if ({FullCondition}) begin\n"
+        Always += f"    {Key} <= {DestSignalsSources[Key]};\n"
+        Always += f"  end\n"
+      Always += f"end\n"
+    for Tap in MandatoryTaps:
+      Aux = ConfiguredTaps.get(Tap[1], [])
+      Aux.append(Tap[0])
+      ConfiguredTaps[Tap[1]] = Aux
+    for i in range(len(InjectorIndexesList)):
+      Source = f"injectors[{i}]"
+      Aux = ConfiguredTaps.get(InjectorIndexesList[i], [])
+      Aux.append(Source)
+      ConfiguredTaps[InjectorIndexesList[i]] = Aux
+    Module = \
+f'''module {ModuleName} (
+  input wire clk,
+  input wire enable,
+  input wire reset,
+'''
+    if len(InjectorIndexesList) > 0:
+      Module += f"  input wire [{len(InjectorIndexesList)-1}:0] injectors,\n"
+    Module += \
+f'''  output reg [{self.getSize()-1}:0] O
+);
+
+{Wires}
+{Always}
+always @ (posedge clk or posedge reset) begin
+  if (reset) begin
+    O <= {self.getSize()}'d0;
+  end else begin
+    if (enable) begin
+'''
+    for i in range(self.getSize()):
+      DestFlop = f"O[{i}]"
+      SourceFlop = f"O[{(i+1)%self._size}]"
+      Line = f"      {DestFlop} <= {SourceFlop}"
+      for S in ConfiguredTaps.get(i, []):
+        Line += f" ^ {S}"
+      Line += ";\n"
+      Module += Line;
+    Module += \
+f'''    end
+  end
+end
+    
+endmodule'''
+    return Module
     
     
