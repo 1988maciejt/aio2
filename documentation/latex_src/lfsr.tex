@@ -1,4 +1,4 @@
-\chapter{class Lfsr}
+\chapter{Class Lfsr}
 
 \index{LFSR}
 \Lfsr\ is an object type allowing to simulate and analyze any type of Linear Feedback Shift Register. Simulations are performed using \texttt{bitarray} objects, where \texttt{bitarray\_object[N]} holds value of Flip-Flop having index \textit{N}. \Lfsr\ objects are always simulated assuming, that data is shifted from higher to lower indexed flip-flop (from FF[1] to FF[0], from FF[2] to FF[1] and so on).
@@ -449,4 +449,3 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 		# >>> [Lfsr([5, 2, 0], LfsrType.Galois), 
 		# >>> Lfsr([5, 3, 0], LfsrType.Galois)]
 \end{lstlisting}
-

@@ -6,8 +6,8 @@
 \indexentry{\_\_hash\_\_|hyperpage}{4}
 \indexentry{Polynomial\_object!copy|hyperpage}{4}
 \indexentry{copy|hyperpage}{4}
-\indexentry{Polynomial\_object!derivativeGF2|hyperpage}{5}
-\indexentry{derivativeGF2|hyperpage}{5}
+\indexentry{Polynomial\_object!derivativeGF2|hyperpage}{4}
+\indexentry{derivativeGF2|hyperpage}{4}
 \indexentry{Polynomial\_object!getBalancing|hyperpage}{5}
 \indexentry{getBalancing|hyperpage}{5}
 \indexentry{Polynomial\_object!getCoefficients|hyperpage}{5}
@@ -28,111 +28,134 @@
 \indexentry{getSigns|hyperpage}{6}
 \indexentry{Polynomial\_object!isLayoutFriendly|hyperpage}{6}
 \indexentry{isLayoutFriendly|hyperpage}{6}
-\indexentry{Polynomial\_object!isPrimitive|hyperpage}{7}
-\indexentry{isPrimitive|hyperpage}{7}
+\indexentry{Polynomial\_object!isPrimitive|hyperpage}{6}
+\indexentry{isPrimitive|hyperpage}{6}
 \indexentry{Polynomial\_object!iterateThroughSigns|hyperpage}{7}
 \indexentry{iterateThroughSigns|hyperpage}{7}
 \indexentry{Polynomial\_object!nextPrimitive|hyperpage}{7}
 \indexentry{nextPrimitive|hyperpage}{7}
 \indexentry{Polynomial\_object!printFullInfo|hyperpage}{7}
 \indexentry{printFullInfo|hyperpage}{7}
-\indexentry{Polynomial\_object!setStartingPointForIterator|hyperpage}{8}
-\indexentry{setStartingPointForIterator|hyperpage}{8}
+\indexentry{Polynomial\_object!setStartingPointForIterator|hyperpage}{7}
+\indexentry{setStartingPointForIterator|hyperpage}{7}
 \indexentry{Polynomial\_object!toBitarray|hyperpage}{8}
 \indexentry{toBitarray|hyperpage}{8}
 \indexentry{Polynomial\_object!toHexString|hyperpage}{8}
 \indexentry{toHexString|hyperpage}{8}
-\indexentry{Polynomial\_object!toInt|hyperpage}{9}
-\indexentry{toInt|hyperpage}{9}
-\indexentry{Polynomial\_object!toMarkKassabStr|hyperpage}{9}
-\indexentry{toMarkKassabStr|hyperpage}{9}
-\indexentry{LFSR|hyperpage}{10}
-\indexentry{LFSR!Fibonacci|hyperpage}{10}
-\indexentry{Fibonacci LFSR|hyperpage}{10}
-\indexentry{LFSR!Galois|hyperpage}{10}
-\indexentry{Galois LFSR|hyperpage}{10}
-\indexentry{LFSR!Ring Generator|hyperpage}{11}
-\indexentry{Ring Generator|hyperpage}{11}
-\indexentry{LFSR!Ring with specified taps|hyperpage}{11}
-\indexentry{Ring with manually specified taps|hyperpage}{11}
-\indexentry{LFSR!Hybrid Ring Generator|hyperpage}{12}
-\indexentry{Hybrid Ring Generator|hyperpage}{12}
-\indexentry{LFSR!Tiger Ring Generator|hyperpage}{12}
-\indexentry{Tiger Ring Generator|hyperpage}{12}
-\indexentry{Lfsr\_object!\_\_str\_\_|hyperpage}{13}
-\indexentry{\_\_str\_\_|hyperpage}{13}
-\indexentry{Lfsr\_object!clear|hyperpage}{13}
-\indexentry{clear|hyperpage}{13}
-\indexentry{Lfsr\_object!createPhaseShifter|hyperpage}{13}
-\indexentry{createPhaseShifter|hyperpage}{13}
-\indexentry{dual LFSR|hyperpage}{14}
-\indexentry{Lfsr\_object!getDual|hyperpage}{14}
-\indexentry{getDual|hyperpage}{14}
-\indexentry{Phase Shifter|hyperpage}{14}
-\indexentry{Lfsr\_object!getPhaseShiftIndexes|hyperpage}{14}
-\indexentry{getPhaseShiftIndexes|hyperpage}{14}
-\indexentry{Lfsr\_object!getPeriod|hyperpage}{14}
-\indexentry{getPeriod|hyperpage}{14}
-\indexentry{Lfsr\_object!getSize|hyperpage}{14}
-\indexentry{getSize|hyperpage}{14}
-\indexentry{Lfsr\_object!getValue|hyperpage}{14}
-\indexentry{getValue|hyperpage}{14}
-\indexentry{Lfsr\_object!getMSequence|hyperpage}{15}
-\indexentry{getMSequence|hyperpage}{15}
-\indexentry{Lfsr\_object!getSequence|hyperpage}{15}
-\indexentry{getSequence|hyperpage}{15}
-\indexentry{Lfsr\_object!getValues|hyperpage}{15}
-\indexentry{getValues|hyperpage}{15}
-\indexentry{Lfsr\_object!isMaximum|hyperpage}{15}
-\indexentry{isMaximum|hyperpage}{15}
-\indexentry{Lfsr\_object!next|hyperpage}{15}
-\indexentry{next|hyperpage}{15}
-\indexentry{Lfsr\_object!printFastSimArray|hyperpage}{16}
-\indexentry{printFastSimArray|hyperpage}{16}
-\indexentry{Lfsr\_object!printValues|hyperpage}{16}
-\indexentry{printValues|hyperpage}{16}
-\indexentry{Lfsr\_object!reset|hyperpage}{16}
-\indexentry{reset|hyperpage}{16}
-\indexentry{Lfsr\_object!reverseTap|hyperpage}{16}
-\indexentry{reverseTap|hyperpage}{16}
-\indexentry{Lfsr\_object!simulateForDataString|hyperpage}{17}
-\indexentry{simulateForDataString|hyperpage}{17}
-\indexentry{Lfsr\_object!toVerilog|hyperpage}{17}
-\indexentry{toVerilog|hyperpage}{17}
-\indexentry{Lfsr!checkMaximum|hyperpage}{18}
-\indexentry{checkMaximum|hyperpage}{18}
-\indexentry{UdpMonitor\_object!\_\_inint\_\_|hyperpage}{19}
-\indexentry{\_\_inint\_\_|hyperpage}{19}
-\indexentry{UdpMonitor\_object!start|hyperpage}{19}
-\indexentry{start|hyperpage}{19}
-\indexentry{UdpMonitor\_object!stop|hyperpage}{20}
-\indexentry{stop|hyperpage}{20}
-\indexentry{UdpSender\_object!\_\_inint\_\_|hyperpage}{20}
-\indexentry{\_\_inint\_\_|hyperpage}{20}
-\indexentry{UdpSender\_object!send|hyperpage}{20}
-\indexentry{send|hyperpage}{20}
-\indexentry{distributed computing|hyperpage}{21}
-\indexentry{RemoteAio|hyperpage}{21}
-\indexentry{RemoteShell|hyperpage}{21}
-\indexentry{RemoteAioNode\_object!\_\_init\_\_|hyperpage}{21}
-\indexentry{\_\_init\_\_|hyperpage}{21}
-\indexentry{RemoteAioNode\_object!addCustomServer|hyperpage}{22}
-\indexentry{addCustomServer|hyperpage}{22}
-\indexentry{RemoteAioNode\_object!start|hyperpage}{22}
-\indexentry{start|hyperpage}{22}
-\indexentry{RemoteAioNode\_object!stop|hyperpage}{22}
-\indexentry{stop|hyperpage}{22}
-\indexentry{RemoteAioScheduler\_object!\_\_init\_\_|hyperpage}{22}
-\indexentry{\_\_init\_\_|hyperpage}{22}
-\indexentry{RemoteAioScheduler\_object!addTask|hyperpage}{22}
-\indexentry{addTask|hyperpage}{22}
-\indexentry{RemoteAioScheduler\_object!map|hyperpage}{23}
-\indexentry{map|hyperpage}{23}
-\indexentry{RemoteAioScheduler\_object!mapGenerator|hyperpage}{23}
-\indexentry{mapGenerator|hyperpage}{23}
-\indexentry{RemoteAioScheduler\_object!mapUnorderedGenerator|hyperpage}{23}
-\indexentry{mapUnorderedGenerator|hyperpage}{23}
-\indexentry{RemoteAioScheduler\_object!start|hyperpage}{24}
-\indexentry{start|hyperpage}{24}
-\indexentry{RemoteAioScheduler\_object!stop|hyperpage}{24}
+\indexentry{Polynomial\_object!toInt|hyperpage}{8}
+\indexentry{toInt|hyperpage}{8}
+\indexentry{Polynomial\_object!toMarkKassabStr|hyperpage}{8}
+\indexentry{toMarkKassabStr|hyperpage}{8}
+\indexentry{LFSR|hyperpage}{9}
+\indexentry{LFSR!Fibonacci|hyperpage}{9}
+\indexentry{Fibonacci LFSR|hyperpage}{9}
+\indexentry{LFSR!Galois|hyperpage}{9}
+\indexentry{Galois LFSR|hyperpage}{9}
+\indexentry{LFSR!Ring Generator|hyperpage}{10}
+\indexentry{Ring Generator|hyperpage}{10}
+\indexentry{LFSR!Ring with specified taps|hyperpage}{10}
+\indexentry{Ring with manually specified taps|hyperpage}{10}
+\indexentry{LFSR!Hybrid Ring Generator|hyperpage}{10}
+\indexentry{Hybrid Ring Generator|hyperpage}{10}
+\indexentry{LFSR!Tiger Ring Generator|hyperpage}{11}
+\indexentry{Tiger Ring Generator|hyperpage}{11}
+\indexentry{Lfsr\_object!\_\_str\_\_|hyperpage}{12}
+\indexentry{\_\_str\_\_|hyperpage}{12}
+\indexentry{Lfsr\_object!clear|hyperpage}{12}
+\indexentry{clear|hyperpage}{12}
+\indexentry{Lfsr\_object!createPhaseShifter|hyperpage}{12}
+\indexentry{createPhaseShifter|hyperpage}{12}
+\indexentry{dual LFSR|hyperpage}{12}
+\indexentry{Lfsr\_object!getDual|hyperpage}{12}
+\indexentry{getDual|hyperpage}{12}
+\indexentry{Phase Shifter|hyperpage}{12}
+\indexentry{Lfsr\_object!getPhaseShiftIndexes|hyperpage}{12}
+\indexentry{getPhaseShiftIndexes|hyperpage}{12}
+\indexentry{Lfsr\_object!getPeriod|hyperpage}{13}
+\indexentry{getPeriod|hyperpage}{13}
+\indexentry{Lfsr\_object!getSize|hyperpage}{13}
+\indexentry{getSize|hyperpage}{13}
+\indexentry{Lfsr\_object!getValue|hyperpage}{13}
+\indexentry{getValue|hyperpage}{13}
+\indexentry{Lfsr\_object!getMSequence|hyperpage}{13}
+\indexentry{getMSequence|hyperpage}{13}
+\indexentry{Lfsr\_object!getSequence|hyperpage}{13}
+\indexentry{getSequence|hyperpage}{13}
+\indexentry{Lfsr\_object!getValues|hyperpage}{14}
+\indexentry{getValues|hyperpage}{14}
+\indexentry{Lfsr\_object!isMaximum|hyperpage}{14}
+\indexentry{isMaximum|hyperpage}{14}
+\indexentry{Lfsr\_object!next|hyperpage}{14}
+\indexentry{next|hyperpage}{14}
+\indexentry{Lfsr\_object!printFastSimArray|hyperpage}{14}
+\indexentry{printFastSimArray|hyperpage}{14}
+\indexentry{Lfsr\_object!printValues|hyperpage}{14}
+\indexentry{printValues|hyperpage}{14}
+\indexentry{Lfsr\_object!reset|hyperpage}{15}
+\indexentry{reset|hyperpage}{15}
+\indexentry{Lfsr\_object!reverseTap|hyperpage}{15}
+\indexentry{reverseTap|hyperpage}{15}
+\indexentry{Lfsr\_object!simulateForDataString|hyperpage}{15}
+\indexentry{simulateForDataString|hyperpage}{15}
+\indexentry{Lfsr\_object!toVerilog|hyperpage}{15}
+\indexentry{toVerilog|hyperpage}{15}
+\indexentry{Lfsr!checkMaximum|hyperpage}{16}
+\indexentry{checkMaximum|hyperpage}{16}
+\indexentry{Programmable LFSR|hyperpage}{17}
+\indexentry{ProgrammableLfsr\_object!\_\_init\_\_|hyperpage}{17}
+\indexentry{\_\_init\_\_|hyperpage}{17}
+\indexentry{ProgrammableLfsr\_object!clear|hyperpage}{17}
+\indexentry{clear|hyperpage}{17}
+\indexentry{ProgrammableLfsr\_object!getAllPosssibleTaps|hyperpage}{18}
+\indexentry{getAllPosssibleTaps|hyperpage}{18}
+\indexentry{ProgrammableLfsr\_object!getSize|hyperpage}{18}
+\indexentry{getSize|hyperpage}{18}
+\indexentry{ProgrammableLfsr\_object!getPolynomialsAndLfsrsDictionary|hyperpage}{18}
+\indexentry{getPolynomialsAndLfsrsDictionary|hyperpage}{18}
+\indexentry{ProgrammableLfsr\_object!getLfsrs|hyperpage}{18}
+\indexentry{getLfsrs|hyperpage}{18}
+\indexentry{ProgrammableLfsr\_object!getPolynomials|hyperpage}{18}
+\indexentry{getPolynomials|hyperpage}{18}
+\indexentry{ProgrammableLfsr\_object!getUsedTaps|hyperpage}{18}
+\indexentry{getUsedTaps|hyperpage}{18}
+\indexentry{ProgrammableLfsr\_object!getUnusedTaps|hyperpage}{18}
+\indexentry{getUnusedTaps|hyperpage}{18}
+\indexentry{ProgrammableLfsr\_object!toVerilog|hyperpage}{18}
+\indexentry{toVerilog|hyperpage}{18}
+\indexentry{ProgrammableLfsr\_object!addAllCombinationsSwitch|hyperpage}{22}
+\indexentry{addAllCombinationsSwitch|hyperpage}{22}
+\indexentry{UdpMonitor\_object!\_\_inint\_\_|hyperpage}{23}
+\indexentry{\_\_inint\_\_|hyperpage}{23}
+\indexentry{UdpMonitor\_object!start|hyperpage}{23}
+\indexentry{start|hyperpage}{23}
+\indexentry{UdpMonitor\_object!stop|hyperpage}{24}
 \indexentry{stop|hyperpage}{24}
+\indexentry{UdpSender\_object!\_\_inint\_\_|hyperpage}{24}
+\indexentry{\_\_inint\_\_|hyperpage}{24}
+\indexentry{UdpSender\_object!send|hyperpage}{24}
+\indexentry{send|hyperpage}{24}
+\indexentry{distributed computing|hyperpage}{24}
+\indexentry{RemoteAio|hyperpage}{24}
+\indexentry{RemoteShell|hyperpage}{24}
+\indexentry{RemoteAioNode\_object!\_\_init\_\_|hyperpage}{25}
+\indexentry{\_\_init\_\_|hyperpage}{25}
+\indexentry{RemoteAioNode\_object!addCustomServer|hyperpage}{25}
+\indexentry{addCustomServer|hyperpage}{25}
+\indexentry{RemoteAioNode\_object!start|hyperpage}{25}
+\indexentry{start|hyperpage}{25}
+\indexentry{RemoteAioNode\_object!stop|hyperpage}{25}
+\indexentry{stop|hyperpage}{25}
+\indexentry{RemoteAioScheduler\_object!\_\_init\_\_|hyperpage}{26}
+\indexentry{\_\_init\_\_|hyperpage}{26}
+\indexentry{RemoteAioScheduler\_object!addTask|hyperpage}{26}
+\indexentry{addTask|hyperpage}{26}
+\indexentry{RemoteAioScheduler\_object!map|hyperpage}{26}
+\indexentry{map|hyperpage}{26}
+\indexentry{RemoteAioScheduler\_object!mapGenerator|hyperpage}{26}
+\indexentry{mapGenerator|hyperpage}{26}
+\indexentry{RemoteAioScheduler\_object!mapUnorderedGenerator|hyperpage}{27}
+\indexentry{mapUnorderedGenerator|hyperpage}{27}
+\indexentry{RemoteAioScheduler\_object!start|hyperpage}{27}
+\indexentry{start|hyperpage}{27}
+\indexentry{RemoteAioScheduler\_object!stop|hyperpage}{27}
+\indexentry{stop|hyperpage}{27}

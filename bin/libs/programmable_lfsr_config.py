@@ -15,7 +15,7 @@ class ProgrammableLfsrConfiguration:
     Dict = { f'{From}-{To}_off': None, f'{From}-{To}_on': [From, To] }
     self._taps.append(Dict)
     return Dict
-  def addMux(self, *Taps) -> dict:
+  def addSwitched(self, *Taps) -> dict:
     Dict = {}
     for Tap in Taps:
       if Tap is not None:
@@ -26,12 +26,16 @@ class ProgrammableLfsrConfiguration:
         Dict['None'] = None
     self._taps.append(Dict)
     return Dict
-  def addAllCombinationsMux(self, SourceList : list, DestinationList : list) -> None:
+  addMux = addSwitched
+  def addAllCombinationsSwitch(self, SourceList : list, DestinationList : list, IncludeNone = False) -> dict:
     List = []
+    if IncludeNone:
+      List.append(None)
     for S in SourceList:
       for D in DestinationList:
         List.append([S,D])
-    self.addMux(*List)
+    return self.addSwitched(*List)
+  addAllCombinationsMux = addAllCombinationsSwitch
   def getTaps(self) -> list:
     return self._taps
   def getSize(self) -> int:

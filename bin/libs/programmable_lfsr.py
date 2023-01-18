@@ -4,7 +4,7 @@ from libs.programmable_lfsr_config import *
 import gc
 from math import log2
 
-class ProgrammableRingGenerator:
+class ProgrammableLfsr:
   _polys = {}
   _polys_done = 0
   _lfsrs = []

@@ -224,8 +224,12 @@ Finally, it is worth nothing that th scheduler may (and it is enabled by default
 		# >>> [4, 16]
 \end{lstlisting}
 
-\cmd {RemoteAioScheduler\_object} {mapUnorderedGenerator} {CodeList} {
+\cmd {RemoteAioScheduler\_object} {mapUnorderedGenerator} {CodeList, ShowStatus=False} {
 	This is not a method, but a generator. It yields UNORDERED results as soon as possible. See the example below.
+	\begin{itemize}
+		\item \texttt{CodeList} - each item of this list is a string containing Python (\ShellName) code to executed,
+		\item \texttt{ShowStatus} - if \texttt{True}, then it will periodically (1s) visualize mapped tasks, where each task is a colorised: yellow = in progress, green = done.
+	\end{itemize}
 }
 \begin{lstlisting}[language=Python]
 		S = RemoteAioScheduler()

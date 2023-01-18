@@ -342,7 +342,7 @@ def _categoryProgrammableRingGenerator_subAddMuxedWithOff():
 def _categoryProgrammableRingGenerator_subDoCalculations():
   global _GlobalProgrammableRingConfig, _GlobalProgrammable
   if _GlobalProgrammable is None:
-    _GlobalProgrammable = ProgrammableRingGenerator(_GlobalProgrammableRingConfig.getSize(), _GlobalProgrammableRingConfig.getTaps(), 1)
+    _GlobalProgrammable = ProgrammableLfsr(_GlobalProgrammableRingConfig.getSize(), _GlobalProgrammableRingConfig.getTaps(), 1)
   Text  = f'Full count of maximum LFSRs       : {len(_GlobalProgrammable.getLfsrs(False))}\n'
   Text += f'Full count of maximum polynomials : {len(_GlobalProgrammable.getPolynomials())}\n'
   Text += f'OPTIMIZATION:\n'

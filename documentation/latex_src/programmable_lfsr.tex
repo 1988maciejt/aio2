@@ -1,0 +1,304 @@
+\chapter{Class ProgrammableLfsr}
+\index{Programmable LFSR}
+
+\ProgrammableLfsr\ is a class intended to make easy to design and analyse any kind of LFSR with programmable feedback taps.  To create a \ProgrammableLfsr\ object one need to specify a list of configurable taps. Each configurable tap is described by a dictionary. Each key of such dictionary is a custom name, like "tapOn", or just a number - does not matter - and is used to make analysis reports readable. The corresponding value is a standard tap definition: \texttt{[<source\_FF\_index>, <destination\_FF\_index>]}. Consider some examples of configurable tap dictionaries:
+\label{configurabletapsdictionary}
+\begin{itemize}
+	\item \texttt{\{'Tap1':[3 6]\}} - mandatory (constant) tap from output of \texttt{FF[3]} to a XOR gate at input of \texttt{FF[6]}
+	\item \texttt{\{'Tap1\_OFF':None, 'Tap1\_ON':[3,6]\}} - gated tap from output of \texttt{FF[3]} to a XOR gate at input of \texttt{FF[6]}. Consider the value of the first key: \texttt{None}, which means \textit{no connection}
+	\item \texttt{\{'Sw1':[3,6], 'Sw2':[3,8]\}} - switched tap: from output of \texttt{FF[3]} to a XOR gate at input of \texttt{FF[6]}, or from output of \texttt{FF[3]} to a XOR gate at input of \texttt{FF[8]}
+	\item \texttt{\{'Sw0':None, 'Sw1':[3,6], 'Sw2':[3,8]\}} - like above, but this time there is a way to disable (no connection)
+	\item \texttt{\{'Sw1':[3,6], 'Sw2':[4,8]\}} - switched tap: from output of \texttt{FF[3]} to a XOR gate at input of \texttt{FF[6]}, or from output of \texttt{FF[8]} to a XOR gate at input of \texttt{FF[8]}
+\end{itemize}
+Consider, that there is no required to make common source or common destination anywhere. See also \ProgrammableLfsrConfig\ utility class on page \pageref{programmablelefsrconfig}
+
+\section{ProgrammableLfsr object methods}
+
+\cmd {ProgrammableLfsr\_object} {\_\_init\_\_} {SizeOrProgrammableLfsrConfiguration, TapsList=[], OperateOnTapsOnly=False} {
+	\ProgrammableLfsr\ object initializer.
+	\begin{itemize}
+		\item \texttt{SizeOrProgrammableLfsrConfiguration} - size of the LFSR or a reference to \ProgrammableLfsrConfig\ utility object
+		\item \texttt{TapsList} - list of Configurable Taps Dictionaries (see description on page \pageref{configurabletapsdictionary})
+		\item \texttt{OperateOnTapsOnly} - as a result of analysis you may get a list of \Lfsr\ objects. However, to save the memory, by setting this parameter to \texttt{True}, you may force to operate on tap lists only, so that tap lists will be returned instead of lists of \Lfsr\ objects.
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+	# we need a 8-bit LFSR having:
+	# - a mandatory tap from output of FF[7] to a XOR at input of FF[1],
+	# - a gated tap from output of FF[5] to a XOR at input of FF[3], 
+	ProgLfsr1 = ProgrammableLfsr(8, [
+		{'tap1':[7,1]},
+		{'tap2_off':None, 'tap2_on':[5,3]}
+	])
+\end{lstlisting}
+
+\cmd {ProgrammableLfsr\_object} {clear} {} {
+	It simply deletes results of Programmable Lfsr analysis to save the memory
+}
+
+\cmd {ProgrammableLfsr\_object} {getAllPosssibleTaps} {} {
+	Returns a list containing all connections (taps) possible to implement by the \ProgrammableLfsr\ object. 
+	See the example on page \pageref{programmablelfsrexample}
+}
+
+\cmd {ProgrammableLfsr\_object} {getSize} {} {
+	Returns a size (flip-flop count)of the Programmable Lfsr object.
+}
+
+\cmd {ProgrammableLfsr\_object} {getPolynomialsAndLfsrsDictionary} {Optimization=False} {
+	Returns a dictionary, containing all primitive polynomials the \ProgrammableLfsr\ object can implement and corresponding \Lfsr' objects (or tap lists). If \texttt{Optimization} is set to \texttt{True}, then it tries to optimize all configurations of the programmable LFSR so that as less taps are used, as possible.
+	See the example on page \pageref{programmablelfsrexample}
+}
+
+\cmd {ProgrammableLfsr\_object} {getLfsrs} {Optimization=True} {
+	Returns a list containing all maximum Lfsrs implemented by the \ProgrammableLfsr\ object. If \texttt{Optimization} is set to \texttt{True}, then it tries to optimize all configurations of the programmable LFSR so that as less taps are used, as possible.
+	See the example on page \pageref{programmablelfsrexample}
+}
+
+\cmd {ProgrammableLfsr\_object} {getPolynomials} {} {
+	Returns a list containing all primitive polynomials implemented by the \ProgrammableLfsr\ object.
+	See the example on page \pageref{programmablelfsrexample}
+}
+
+\cmd {ProgrammableLfsr\_object} {getUsedTaps} {} {
+	Returns a list containing used connections (taps) after optimization. 
+	See the example on page \pageref{programmablelfsrexample}
+}
+
+\cmd {ProgrammableLfsr\_object} {getUnusedTaps} {} {
+	Returns a list containing unused connections (taps) after optimization. Removing those connections will not affect the primitive polynomials list implemented by this \ProgrammableLfsr\ object.
+	See the example on page \pageref{programmablelfsrexample}
+}
+
+\cmd {ProgrammableLfsr\_object} {toVerilog} {ModuleName, InjectorIndexesList=[]} {
+	Returns a string containing Verilog description of the \ProgrammableLfsr\ object.
+	\begin{itemize}
+		\item \texttt{ModuleName} - name of the Verilog module,
+		\item \texttt{InjectorIndexesList} - a list containing indexes of flip-flops at which input injectors have to be placed.
+	\end{itemize}
+	See the example on page \pageref{programmablelfsrexample}
+}
+
+\label{programmablelfsrexample}
+Example of Programmable Lfsr analysis:
+\begin{lstlisting}[language=Python]
+# let's examine a 8-bit LFSR having:
+# - a gated tap from output of FF[6] to a XOR at input of FF[0], 
+# - a gated tap from output of FF[5] to a XOR at input of FF[0], 
+# - a switchable tap tap from output of FF[4] to a XOR at input of FF[3]
+#     of from output of FF[3] to a XOR at input of FF[4]
+#     with no-connection (disable) option
+# - a switchable tap tap from output of FF[2] to a XOR at input of FF[3]
+#     of from output of FF[4] to a XOR at input of FF[2]
+#     with no-connection (disable) option
+plfsr = ProgrammableLfsr(8, [
+{'6-0_off': None, '6-0_on': [6, 0]},
+{'5-0_off': None, '5-0_on': [5, 0]},
+{'None': None, '4-3': [4, 3], '3-4': [3, 4]},
+{'None': None, '2-3': [2, 3], '4-2': [4, 2]}
+], OperateOnTapsOnly = True)
+plfsr.getPolynomialsAndLfsrsDictionary()
+# >>> {Polynomial([8, 5, 3, 2, 0]): [[[6, 0], [3, 4]], [[6, 0], [2, 3]]]}
+plfsr.getPolynomialsAndLfsrsDictionary(True)
+# >>> {Polynomial([8, 5, 3, 2, 0]): [[6, 0], [2, 3]]}
+# As we can see, such Programmable Lfsr can implement 2 maximum Lfsrs,
+# but only 1 primitive polynomial.
+# We can even get a simple list of primitive polynomials implemented
+# by the 'plfsr':
+plfsr.getPolynomials()
+# >>> [Polynomial([8, 5, 3, 2, 0])]
+# ...and a simple list of all possible Lfsrs (tap lists in our case).
+# So without optimization (all possible, maximum ones):
+plfsr.getLfsrs(False)
+# >>> [[[6, 0], [3, 4]], [[6, 0], [2, 3]]]
+# ...and with optimization:
+plfsr.getLfsrs(True)
+# >>> [[[6, 0], [3, 4]]]
+# DO you know all possible connections? Let's check it:
+plfsr.getAllPosssibleTaps()
+# >>> [[6, 0], [5, 0], [4, 3], [3, 4], [2, 3], [4, 2]]
+# Now determine, which connections are used:
+plfsr..getUsedTaps()
+# >>> [[6, 0], [3, 4]]
+# ...so it seems only 2 taps are required. So which ones are unused?
+plfsr.getUnusedTaps()
+# >>> [[5, 0], [4, 3], [2, 3], [4, 2]]
+# Finally, let's generate a verilog describingout Programmable Lfsr.
+# In addition assume we have injectors at FF[2,1,0]:
+print(plfsr.toVerilog("MyProgrammableLfsr", [2,1,0]))
+# module MyProgrammableLfsr (
+# 	input wire clk,
+# 	input wire enable,
+# 	input wire reset,
+# 	input wire [2:0] injectors,
+# 	output reg [7:0] O
+# );
+# 
+# reg T0;
+# reg T0_0;
+# reg T1;
+# reg T1_0;
+# reg T2;
+# reg T2_3;
+# reg T2_4;
+# reg T3;
+# reg T3_3;
+# reg T3_2;
+# 
+# 
+# always @ (*) begin
+# 	T0 <= 1'b0;
+# 	if (config[0:0] == 1'd1)) begin
+# 		T0 <= O[6];
+# 	end
+# end
+# 
+# always @ (*) begin
+# 	T1 <= 1'b0;
+# 	if (config[1:1] == 1'd1)) begin
+# 		T1 <= O[5];
+# 	end
+# end
+
+# always @ (*) begin
+# 	T2 <= 1'b0;
+# 	if (config[3:2] == 2'd1)) begin
+# 		T2 <= O[4];
+# 	end
+# 	if (config[3:2] == 2'd2)) begin
+# 		T2 <= O[3];
+# 	end
+# end
+# 
+# always @ (*) begin
+# 	T3 <= 1'b0;
+# 	if (config[5:4] == 2'd1)) begin
+# 		T3 <= O[2];
+# 	end
+# 	if (config[5:4] == 2'd2)) begin
+# 		T3 <= O[4];
+# 	end
+# end
+# 
+# always @ (*) begin
+# 	T0_0 <= 1'b0;
+# 	if ((config[0:0] == 1'd1)) begin
+# 		T0_0 <= T0;
+# 	end
+# 	if ((config[0:0] == 1'd1)) begin
+# 		T0_0 <= T0;
+# 	end
+# end
+# 
+# always @ (*) begin
+# 	T1_0 <= 1'b0;
+# 	if ((config[1:1] == 1'd1)) begin
+# 		T1_0 <= T1;
+# 	end
+# 	if ((config[1:1] == 1'd1)) begin
+# 		T1_0 <= T1;
+# 	end
+# end
+# 
+# always @ (*) begin
+# 	T2_3 <= 1'b0;
+# 	if ((config[3:2] == 2'd1)) begin
+# 		T2_3 <= T2;
+# 	end
+# 	if ((config[3:2] == 2'd1)) begin
+# 		T2_3 <= T2;
+# 	end
+# end
+# 
+# always @ (*) begin
+# 	T2_4 <= 1'b0;
+# 	if ((config[3:2] == 2'd2)) begin
+# 		T2_4 <= T2;
+# 	end
+# 	if ((config[3:2] == 2'd2)) begin
+# 		T2_4 <= T2;
+# 	end
+# end
+# 
+# always @ (*) begin
+# 	T3_3 <= 1'b0;
+# 	if ((config[5:4] == 2'd1)) begin
+# 		T3_3 <= T3;
+# 	end
+# 	if ((config[5:4] == 2'd1)) begin
+# 		T3_3 <= T3;
+# 	end
+# end
+# 
+# always @ (*) begin
+# 	T3_2 <= 1'b0;
+# 	if ((config[5:4] == 2'd2)) begin
+# 		T3_2 <= T3;
+# 	end
+# 	if ((config[5:4] == 2'd2)) begin
+# 		T3_2 <= T3;
+# 	end
+# end
+# 
+# always @ (posedge clk or posedge reset) begin
+# 	if (reset) begin
+# 		O <= 8'd0;
+# 	end else begin
+# 		if (enable) begin
+# 			O[0] <= O[1] ^ T0_0 ^ T1_0 ^ injectors[2];
+# 			O[1] <= O[2] ^ injectors[1];
+# 			O[2] <= O[3] ^ T3_2 ^ injectors[0];
+# 			O[3] <= O[4] ^ T2_3 ^ T3_3;
+# 			O[4] <= O[5] ^ T2_4;
+# 			O[5] <= O[6];
+# 			O[6] <= O[7];
+# 			O[7] <= O[0];
+# 		end
+# 	end
+# end
+# 
+# endmodule
+\end{lstlisting}
+
+\section{ProgrammableLfsrConfig utility class}
+\label{programmablelefsrconfig}
+
+\ProgrammableLfsrConfig\ is a utility class making easier to create a configuration list for \ProgrammableLfsr. Consider the example from page \pageref{programmablelfsrexample}. Let's try to make the same \ProgrammableLfsr\ object but this time using the \ProgrammableLfsrConfig\ utility class:
+\begin{lstlisting}[language=Python]
+# let's examine a 8-bit LFSR having:
+# - a gated tap from output of FF[6] to a XOR at input of FF[0], 
+# - a gated tap from output of FF[5] to a XOR at input of FF[0], 
+# - a switchable tap tap from output of FF[4] to a XOR at input of FF[3]
+#     of from output of FF[3] to a XOR at input of FF[4]
+#     with no-connection (disable) option
+# - a switchable tap tap from output of FF[2] to a XOR at input of FF[3]
+#     of from output of FF[4] to a XOR at input of FF[2]
+#     with no-connection (disable) option
+config = ProgrammableLfsrConfiguration(8)
+config.addGated(6,0)
+# >>> {'6-0_off': None, '6-0_on': [6, 0]}
+config.addGated(5,0)
+# >>> {'5-0_off': None, '5-0_on': [5, 0]}
+config.addSwitched(None,[4,3],[3,4])
+# >>> {'None': None, '4-3': [4, 3], '3-4': [3, 4]}
+config.addSwitched(None,[2,3],[4,2])
+# >>> {'None': None, '2-3': [2, 3], '4-2': [4, 2]}
+plfsr = ProgrammableLfsr(config, OperateOnTapsOnly=True)
+\end{lstlisting}
+
+Consider also a way to create all-combinations switch:
+
+\cmd {ProgrammableLfsr\_object} {addAllCombinationsSwitch} {SourceList, DestinationList, IncludeNone=False} {
+	\begin{itemize}
+		\item \texttt{SourceList} - list of source FFs indexes
+		\item \texttt{DestinationList} - list of destination FFs indexes
+		\item \texttt{IncludeNone} - if \texttt{True}, then \texttt{None} will also be included in the resultant taps switch
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+	config = ProgrammableLfsrConfiguration(8)
+	config.addAllCombinationsSwitch([1,2], [4,5])
+	# >>> {'1-4': [1, 4], '1-5': [1, 5], '2-4': [2, 4], '2-5': [2, 5]}
+	config.addAllCombinationsSwitch([1,2], [4,5], True)
+	# >>> {'None': None, '1-4': [1, 4], '1-5': [1, 5], '2-4': [2, 4], '2-5': [2, 5]}
+\end{lstlisting}
