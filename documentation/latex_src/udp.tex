@@ -154,12 +154,12 @@ Finally, it is worth nothing that th scheduler may (and it is enabled by default
 
 \RemoteAioScheduler\ is the one object which takes tasks and tries to process them as fast as possible, using local machine (if allowed) and any available \RemoteAioNode. It has a few methods making task scheduling easier - all are listed below.
 
-\cmd {RemoteAioScheduler\_object} {\_\_init\_\_} {Port=3099, Enable=True, LocalExecution=True} {
+\cmd {RemoteAioScheduler\_object} {\_\_init\_\_} {Port=3099, Enable=True, LocalExecution=False} {
 	\RemoteAioScheduler\ object initializer.
 	\begin{itemize}
 		\item \texttt{Port} - the port at which the scheduler sends the broadcasts messages and listens for incoming packets, 
 		\item \texttt{Enable} - if \texttt{True} then it automatically starts its background processes (otherwise it will not process requested tasks)
-		\item \texttt{LocalExecution} - whether to use the local machine to process tasks together with other available nodes or not.
+		\item \texttt{LocalExecution} - whether to use the local machine to process tasks together with other available nodes or not. IT IS NOT RECOMMENDED enabling the local execution when you plan to schedule extensive jobs, especially using multi-threading. It is a high risk that the scheduler may get not enough resources to coordinate all jobs and network communication.
 	\end{itemize}
 }
 \begin{lstlisting}[language=Python]
@@ -184,8 +184,12 @@ Finally, it is worth nothing that th scheduler may (and it is enabled by default
 		# >>> 4
 \end{lstlisting}
 
-\cmd {RemoteAioScheduler\_object} {map} {CodeList} {
+\cmd {RemoteAioScheduler\_object} {map} {CodeList, ShowStatus=False} {
 	This method is used to request for execution of many tasks. It returns an ordered list or results. See the example below:
+	\begin{itemize}
+		\item \texttt{CodeList} - each item of this list is a string containing Python (\ShellName) code to executed,
+		\item \texttt{ShowStatus} - if \texttt{True}, then it will periodically (1s) visualize mapped tasks, where each task is a colorised: yellow = in progress, green = done.
+	\end{itemize}
 }
 \begin{lstlisting}[language=Python]
 		S = RemoteAioScheduler()
@@ -199,8 +203,12 @@ Finally, it is worth nothing that th scheduler may (and it is enabled by default
 		# >>> [4, 9, 16]
 \end{lstlisting}
 
-\cmd {RemoteAioScheduler\_object} {mapGenerator} {CodeList} {
+\cmd {RemoteAioScheduler\_object} {mapGenerator} {CodeList, ShowStatus=False} {
 	This is not a method, but a generator. It yields ordered results as soon as possible. See the example below.
+	\begin{itemize}
+		\item \texttt{CodeList} - each item of this list is a string containing Python (\ShellName) code to executed,
+		\item \texttt{ShowStatus} - if \texttt{True}, then it will periodically (1s) visualize mapped tasks, where each task is a colorised: yellow = in progress, green = done.
+	\end{itemize}
 }
 \begin{lstlisting}[language=Python]
 		S = RemoteAioScheduler()

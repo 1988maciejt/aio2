@@ -262,7 +262,7 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 	Returns a bitarray object conteining the M-Sequence observed at selected bit.
 	\begin{itemize}
 		\item \texttt{BitIndex} - at which flip-flop the sequence to observe,
-		\item \textit{Reset} - if True then the \texttt{.reset()} method is called before simulation.
+		\item \texttt{Reset} - if True then the \texttt{.reset()} method is called before simulation.
 	\end{itemize}
 }
 \begin{lstlisting}[language=Python]
@@ -276,7 +276,7 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 	Returns a bitarray object conteining a bit sequence observed at selected bit.
 	\begin{itemize}
 		\item \texttt{BitIndex} - at which flip-flop the sequence to observe,
-		\item \textit{Reset} - if True then the \texttt{.reset()} method is called before simulation,
+		\item \texttt{Reset} - if True then the \texttt{.reset()} method is called before simulation,
 		\item \texttt{Length} - length of the requested sequence.0 means M-Sequence.
 	\end{itemize}
 }
@@ -292,7 +292,7 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 	\begin{itemize}
 		\item \texttt{n} - how many values to return. Default os 0 meaning we want all values to get,
 		\item \texttt{step} - how many clock cycles per step. If \textit{step=N} then consecutive values are obtained every \textit{N} clock cycles,
-		\item \textit{reset} - if True then the \texttt{.reset()} method is called before simulation.
+		\item \texttt{reset} - if True then the \texttt{.reset()} method is called before simulation.
 	\end{itemize}
 }
 \begin{lstlisting}[language=Python]
@@ -387,7 +387,7 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 	\begin{itemize}
 		\item \texttt{Sequence} - any iterable object, whose consecutive values are convertible to \texttt{bool},
 		\item \texttt{InjectionAtBit} - index of flip-flop at which input the injector is placed,
-		\item \textit{StartValue} - seed of the LFSR.
+		\item \texttt{StartValue} - seed of the LFSR.
 	\end{itemize}
 }
 \begin{lstlisting}[language=Python]
@@ -437,7 +437,7 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 	\begin{itemize}
 		\item \texttt{LfsrsList} - list of \Lfsr\ objects,
 		\item \texttt{n} - how many maximum Lfsrs you need. If the \textit{n} is achieved, breaks the simulation. 0 means \textit{no limit},
-		\item \textit{SerialChunkSize} - simulation are performed using multithreading. This value means how many Lfsrs can be simulated in series per one thread,
+		\item \texttt{SerialChunkSize} - simulation are performed using multithreading. This value means how many Lfsrs can be simulated in series per one thread,
 		\item \texttt{ReturnAlsoNotTested} - using this argument makes sense with n > 0. if True, then it returns a list containing two other lists: \textit{[MaximumLfsrs, NotTestedLfsrs]}
 	\end{itemize}
 }
