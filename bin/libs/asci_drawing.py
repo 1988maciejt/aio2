@@ -249,7 +249,7 @@ class AsciiDrawingCanvas:
             self._array[ix][iy].setChar(" ")
     if len(Text) > 0 and Height >= 2:
       TextY = Y + (Height // 2)
-      MaxTextLen = Width-2
+      MaxTextLen = Width-1
       AlignedText = AsciiDrawing_Alignment.center(Text, MaxTextLen)
       ix = X+1
       for Char in AlignedText:

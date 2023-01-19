@@ -1952,10 +1952,13 @@ f'''  output reg [{self.getSize()-1}:0] O
         Sources[Tap[1]] += f" ^ O[{Tap[0]}]"
     for i in range(len(InjectorIndexesList)):
       Sources[InjectorIndexesList[i]] += f" ^ injectors[{i}]"
+    ResetValue = 0
+    if len(InjectorIndexesList) <= 0:
+      ResetValue = 1
     Module += \
 f'''always @ (posedge clk or posedge reset) begin
   if (reset) begin
-    O <= {self.getSize()}'d0;
+    O <= {self.getSize()}'d{ResetValue};
   end else begin
     if (enable) begin
 '''
@@ -2012,7 +2015,6 @@ endmodule'''
         Canvas.drawBox(i*6+2+Uoffset, 0, 3, 2, str(ffindex))
         Canvas.fixLinesAtPoint(i*6+2+Uoffset, 1)
         Canvas.fixLinesAtPoint(i*6+5+Uoffset, 1)
-      self._taps.append([1,3])
       for tap in self._taps:
         BU = 1
         ED = 1
@@ -2044,6 +2046,8 @@ endmodule'''
           Canvas.drawConnectorVV(Bx, 7, Ex, 1)
           Canvas.drawXor(Ex, 1)
           Canvas.fixLinesAtPoint(Bx, 4)      
+      Canvas.drawChar(1, 7, AsciiDrawing_Characters.RIGHT_ARROW)
+      Canvas.drawChar(Canvas._width-2, 1, AsciiDrawing_Characters.LEFT_ARROW)
       Canvas.print()
   def getJTIndex(self, index):
     if self._type == LfsrType.RingGenerator:
