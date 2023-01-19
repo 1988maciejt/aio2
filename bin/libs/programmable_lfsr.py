@@ -234,7 +234,10 @@ class ProgrammableLfsr:
       ValIndex += 1
       TapConfig = {}
       TapConfig["bus"] = Bus
-      TapConfig["configbus"] = f"config[{Bus[0]}:{Bus[1]}]"
+      if Bus[0] == Bus[1]:
+        TapConfig["configbus"] = f"config[{Bus[0]}]"
+      else:
+        TapConfig["configbus"] = f"config[{Bus[0]}:{Bus[1]}]"
       TapConfig["sources"] = Sources
       TapConfig["destinations"] = Destinations
       ConfigDict[Value] = TapConfig
@@ -243,6 +246,7 @@ class ProgrammableLfsr:
     DestSignalsConditions = {}
     DestSignalsSources = {}
     ConfiguredTaps = {}
+    SignalsLowLevelDict = {}
     for Key in ConfigDict.keys():
       Sources = ConfigDict[Key]["sources"]
       Destinations = ConfigDict[Key]["destinations"]
@@ -250,18 +254,22 @@ class ProgrammableLfsr:
       Wires += f"reg {Key};\n"
       Always += f"\nalways @ (*) begin\n"
       Always += f"  {Key} <= 1'b0;\n"
+      UsedConfigValues = []
       for Source in Sources.keys():
         ConfigValue = Source
-        SourceFlop = Sources[Source]
-        Always += f"  if ({ConfigBus} == {ConfigValue})) begin\n"
-        Always += f"    {Key} <= {SourceFlop};\n"
-        Always += f"  end\n"
+        if ConfigValue not in UsedConfigValues:
+          SourceFlop = Sources[Source]
+          Always += f"  if ({ConfigBus} == {ConfigValue})) begin\n"
+          Always += f"    {Key} <= {SourceFlop};\n"
+          Always += f"  end\n"
+          UsedConfigValues.append(ConfigValue)
       Always += f"end\n"
       DestFlops = []
       for Dest in Destinations.keys():
         ConfigValue = Dest
         DestFlop = Destinations[Dest]
         SignalName = f"{Key}_{DestFlop}"
+        SignalsLowLevelDict[SignalName] = Key
         Aux = ConfiguredTaps.get(DestFlop, [])
         if SignalName not in Aux:
           Aux.append(SignalName)
@@ -283,12 +291,9 @@ class ProgrammableLfsr:
         FullCondition += f"({Conditions[i]})"
       Always += f"\nalways @ (*) begin\n"
       Always += f"  {Key} <= 1'b0;\n"
-      for Source in Sources.keys():
-        ConfigValue = Source
-        SourceFlop = Sources[Source]
-        Always += f"  if ({FullCondition}) begin\n"
-        Always += f"    {Key} <= {DestSignalsSources[Key]};\n"
-        Always += f"  end\n"
+      Always += f"  if ({FullCondition}) begin\n"
+      Always += f"    {Key} <= {SignalsLowLevelDict[Key]};\n"
+      Always += f"  end\n"
       Always += f"end\n"
     for Tap in MandatoryTaps:
       Aux = ConfiguredTaps.get(Tap[1], [])

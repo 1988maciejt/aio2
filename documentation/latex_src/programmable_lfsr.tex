@@ -14,7 +14,7 @@ Consider, that there is no required to make common source or common destination 
 
 \section{ProgrammableLfsr object methods}
 
-\cmd {ProgrammableLfsr\_object} {\_\_init\_\_} {SizeOrProgrammableLfsrConfiguration, TapsList=[], OperateOnTapsOnly=False} {
+\cmd {ProgrammableLfsr\_object} {\_\_init\_\_} {SizeOrProgrammableLfsrConfiguration, TapsList=[],\\OperateOnTapsOnly=False} {
 	\ProgrammableLfsr\ object initializer.
 	\begin{itemize}
 		\item \texttt{SizeOrProgrammableLfsrConfiguration} - size of the LFSR or a reference to \ProgrammableLfsrConfig\ utility object
@@ -148,14 +148,14 @@ print(plfsr.toVerilog("MyProgrammableLfsr", [2,1,0]))
 # 
 # always @ (*) begin
 # 	T0 <= 1'b0;
-# 	if (config[0:0] == 1'd1)) begin
+# 	if (config[0] == 1'd1)) begin
 # 		T0 <= O[6];
 # 	end
 # end
 # 
 # always @ (*) begin
 # 	T1 <= 1'b0;
-# 	if (config[1:1] == 1'd1)) begin
+# 	if (config[1] == 1'd1)) begin
 # 		T1 <= O[5];
 # 	end
 # end
@@ -185,16 +185,10 @@ print(plfsr.toVerilog("MyProgrammableLfsr", [2,1,0]))
 # 	if ((config[0:0] == 1'd1)) begin
 # 		T0_0 <= T0;
 # 	end
-# 	if ((config[0:0] == 1'd1)) begin
-# 		T0_0 <= T0;
-# 	end
 # end
 # 
 # always @ (*) begin
 # 	T1_0 <= 1'b0;
-# 	if ((config[1:1] == 1'd1)) begin
-# 		T1_0 <= T1;
-# 	end
 # 	if ((config[1:1] == 1'd1)) begin
 # 		T1_0 <= T1;
 # 	end
@@ -205,16 +199,10 @@ print(plfsr.toVerilog("MyProgrammableLfsr", [2,1,0]))
 # 	if ((config[3:2] == 2'd1)) begin
 # 		T2_3 <= T2;
 # 	end
-# 	if ((config[3:2] == 2'd1)) begin
-# 		T2_3 <= T2;
-# 	end
 # end
 # 
 # always @ (*) begin
 # 	T2_4 <= 1'b0;
-# 	if ((config[3:2] == 2'd2)) begin
-# 		T2_4 <= T2;
-# 	end
 # 	if ((config[3:2] == 2'd2)) begin
 # 		T2_4 <= T2;
 # 	end
@@ -225,16 +213,10 @@ print(plfsr.toVerilog("MyProgrammableLfsr", [2,1,0]))
 # 	if ((config[5:4] == 2'd1)) begin
 # 		T3_3 <= T3;
 # 	end
-# 	if ((config[5:4] == 2'd1)) begin
-# 		T3_3 <= T3;
-# 	end
 # end
 # 
 # always @ (*) begin
 # 	T3_2 <= 1'b0;
-# 	if ((config[5:4] == 2'd2)) begin
-# 		T3_2 <= T3;
-# 	end
 # 	if ((config[5:4] == 2'd2)) begin
 # 		T3_2 <= T3;
 # 	end

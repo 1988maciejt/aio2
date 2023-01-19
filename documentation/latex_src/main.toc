@@ -19,10 +19,11 @@
 \contentsline {chapter}{\numberline {4}Class ProgrammableLfsr}{17}{chapter.4}%
 \contentsline {section}{\numberline {4.1}ProgrammableLfsr object methods}{17}{section.4.1}%
 \contentsline {section}{\numberline {4.2}ProgrammableLfsrConfig utility class}{21}{section.4.2}%
-\contentsline {chapter}{\numberline {5}Networking features}{23}{chapter.5}%
-\contentsline {section}{\numberline {5.1}UDP}{23}{section.5.1}%
-\contentsline {subsection}{\numberline {5.1.1}UDP Monitor}{23}{subsection.5.1.1}%
-\contentsline {subsection}{\numberline {5.1.2}UDP Sender}{24}{subsection.5.1.2}%
-\contentsline {section}{\numberline {5.2}Distributed computing}{24}{section.5.2}%
-\contentsline {section}{\numberline {5.3}RemoteAioNode object}{25}{section.5.3}%
-\contentsline {section}{\numberline {5.4}RemoteAioScheduler object}{26}{section.5.4}%
+\contentsline {chapter}{\numberline {5}Class Nlfsr}{23}{chapter.5}%
+\contentsline {chapter}{\numberline {6}Network and distributed computing}{24}{chapter.6}%
+\contentsline {section}{\numberline {6.1}UDP}{24}{section.6.1}%
+\contentsline {subsection}{\numberline {6.1.1}UDP Monitor}{24}{subsection.6.1.1}%
+\contentsline {subsection}{\numberline {6.1.2}UDP Sender}{25}{subsection.6.1.2}%
+\contentsline {section}{\numberline {6.2}Distributed computing}{25}{section.6.2}%
+\contentsline {section}{\numberline {6.3}RemoteAioNode object}{26}{section.6.3}%
+\contentsline {section}{\numberline {6.4}RemoteAioScheduler object}{27}{section.6.4}%

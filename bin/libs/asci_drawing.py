@@ -169,11 +169,9 @@ class AsciiDrawingPoint:
       self._char = " "
       self._reservation = 0
       
-  def setHLine(self):
-    pass
-  
-  def setVLine(self):
-    pass
+  def isChar(self, Char : str):
+    return (self._char == Char)
+      
   
   
   
@@ -213,8 +211,14 @@ class AsciiDrawingCanvas:
     if 0 <= X < self._width and 0 <= Y < self._height:
       self._array[X][Y].setChar(Char)
         
+  def drawXor(self, X : int, Y : int) -> None:
+    self._array[X][Y].setChar(AsciiDrawing_Characters.CIRCLED_PLUS)
+    
+  def drawChar(self, X : int, Y : int, Char : str) -> None:
+    self._array[X][Y].setChar(Char)
+    
   def drawBox(self, X : int, Y : int, Width : int, Height : int, Text = "") -> None:
-    X2 = X + Width 
+    X2 = X + Width
     Y2 = Y + Height
     XBoumd = X2 
     if XBoumd > self._width-1:
@@ -252,5 +256,311 @@ class AsciiDrawingCanvas:
         self._array[ix][TextY].setChar(Char)
         ix += 1
       
-  def drawConnector(self, X1 : int, Y1 : int, X2 : int, Y2 : int) -> None:
-    pass
+  def drawConnectorVV(self, X1 : int, Y1 : int, X2 : int, Y2 : int) -> None:
+    MidDirection = ""
+    Direction = "U"
+    if (Y2 > Y1):
+      Direction = "D"
+    StartX = X1
+    if X2 < X1:
+      MidDirection = "L"
+      StopX = X2 -1
+      StepX = -1
+      if Direction == "D":
+        MidBChar = AsciiDrawing_Characters.LOWER_RIGHT
+        MidEChar = AsciiDrawing_Characters.UPPER_LEFT
+      else:
+        MidBChar = AsciiDrawing_Characters.UPPER_RIGHT
+        MidEChar = AsciiDrawing_Characters.LOWER_LEFT
+    elif X2 > X1:
+      MidDirection = "R"
+      StopX = X2 +1
+      StepX = +1
+      if Direction == "D":
+        MidBChar = AsciiDrawing_Characters.LOWER_LEFT
+        MidEChar = AsciiDrawing_Characters.UPPER_RIGHT
+      else:
+        MidBChar = AsciiDrawing_Characters.UPPER_LEFT
+        MidEChar = AsciiDrawing_Characters.LOWER_RIGHT
+    MidY = (Y2 + Y1) >> 1
+    StartY = Y1
+    if Direction == "D":
+      StopY = Y2 +1
+      StepY = 1
+    else:
+      StopY = Y2 -1
+      StepY = -1
+    ix = X1
+    for iy in range(StartY, StopY, StepY):
+      if iy == MidY:
+        if MidDirection == "":
+          self._array[ix][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+        else:
+          for jx in range(StartX, StopX, StepX):
+            if jx == X1:
+              self._array[jx][iy].setChar(MidBChar)
+            elif jx == X2:
+              self._array[jx][iy].setChar(MidEChar)
+            else:
+              self._array[jx][iy].setChar(AsciiDrawing_Characters.HORIZONTAL)
+          ix = X2
+      else:
+        self._array[ix][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+    self.fixLinesAtPoint(X1, Y1)
+    self.fixLinesAtPoint(X2, Y2)
+      
+  def drawConnectorHH(self, X1 : int, Y1 : int, X2 : int, Y2 : int) -> None:
+    MidDirection = ""
+    Direction = "L"
+    if (X2 > X1):
+      Direction = "R"
+    StartY = Y1
+    if Y2 > Y1:
+      MidDirection = "D"
+      StopY = Y2 +1
+      StepY = 1
+      if Direction == "R":
+        MidBChar = AsciiDrawing_Characters.UPPER_RIGHT
+        MidEChar = AsciiDrawing_Characters.LOWER_LEFT
+      else:
+        MidBChar = AsciiDrawing_Characters.UPPER_LEFT
+        MidEChar = AsciiDrawing_Characters.LOWER_RIGHT
+    elif Y2 < Y1:
+      MidDirection = "U"
+      StopY = Y2 -1
+      StepY = -1
+      if Direction == "R":
+        MidBChar = AsciiDrawing_Characters.LOWER_RIGHT
+        MidEChar = AsciiDrawing_Characters.UPPER_LEFT
+      else:
+        MidBChar = AsciiDrawing_Characters.LOWER_LEFT
+        MidEChar = AsciiDrawing_Characters.UPPER_RIGHT
+    MidX = (X2 + X1) >> 1
+    StartX = X1
+    if Direction == "R":
+      StopX = X2 +1
+      StepX = 1
+    else:
+      StopX = X2 -1
+      StepX = -1
+    iy = Y1
+    for ix in range(StartX, StopX, StepX):
+      if ix == MidX:
+        if MidDirection == "":
+          self._array[ix][iy].setChar(AsciiDrawing_Characters.HORIZONTAL)
+        else:
+          for jy in range(StartY, StopY, StepY):
+            if jy == Y1:
+              self._array[ix][jy].setChar(MidBChar)
+            elif jy == Y2:
+              self._array[ix][jy].setChar(MidEChar)
+            else:
+              self._array[ix][jy].setChar(AsciiDrawing_Characters.VERTICAL)
+          iy = Y2
+      else:
+        self._array[ix][iy].setChar(AsciiDrawing_Characters.HORIZONTAL)
+    self.fixLinesAtPoint(X1, Y1)
+    self.fixLinesAtPoint(X2, Y2)
+    
+  def drawConnectorVH(self, X1 : int, Y1 : int, X2 : int, Y2 : int) -> None:
+    BDirection = "D"
+    StartY = Y1
+    StopY = Y2
+    StepY = 1
+    if Y2 < Y1:
+      BDirection = "U"
+      StepY = -1
+    EDirection = "R"
+    StartX = X2
+    StopX = X1
+    StepX = -1
+    if X2 < X1:
+      EDirection = "L"
+      StepX = 1
+    if BDirection == "U" and EDirection == "L":
+      self._array[X1][Y2].setChar(AsciiDrawing_Characters.UPPER_RIGHT)
+    elif BDirection == "U" and EDirection == "R":
+      self._array[X1][Y2].setChar(AsciiDrawing_Characters.UPPER_LEFT)
+    elif BDirection == "D" and EDirection == "L":
+      self._array[X1][Y2].setChar(AsciiDrawing_Characters.LOWER_RIGHT)
+    else:
+      self._array[X1][Y2].setChar(AsciiDrawing_Characters.LOWER_LEFT)
+    iy = Y2  
+    for ix in range(StartX, StopX, StepX):
+      self._array[ix][iy].setChar(AsciiDrawing_Characters.HORIZONTAL)
+    ix = X1  
+    for iy in range(StartY, StopY, StepY):
+      self._array[ix][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+    self.fixLinesAtPoint(X1, Y1)
+    self.fixLinesAtPoint(X2, Y2)
+        
+  def drawConnectorHV(self, X1 : int, Y1 : int, X2 : int, Y2 : int) -> None:
+    BDirection = "R"
+    StartX = X2
+    StopX = X1
+    StepX = -1
+    if X2 < X1:
+      BDirection = "L"
+      StepX = 1
+    EDirection = "D"
+    StartY = Y1
+    StopY = Y2
+    StepY = 1
+    if Y2 < Y1:
+      EDirection = "U"
+      StepY = -1
+    if BDirection == "L" and EDirection == "U":
+      self._array[X1][Y2].setChar(AsciiDrawing_Characters.UPPER_RIGHT)
+    elif BDirection == "L" and EDirection == "D":
+      self._array[X1][Y2].setChar(AsciiDrawing_Characters.LOWER_RIGHT)
+    elif BDirection == "R" and EDirection == "U":
+      self._array[X1][Y2].setChar(AsciiDrawing_Characters.UPPER_LEFT)
+    else:
+      self._array[X1][Y2].setChar(AsciiDrawing_Characters.LOWER_LEFT)
+    iy = Y2  
+    for ix in range(StartX, StopX, StepX):
+      self._array[ix][iy].setChar(AsciiDrawing_Characters.HORIZONTAL)
+    ix = X1  
+    for iy in range(StartY, StopY, StepY):
+      self._array[ix][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+    self.fixLinesAtPoint(X1, Y1)
+    self.fixLinesAtPoint(X2, Y2)
+      
+  def drawConnectorVUV(self, X1 : int, Y1 : int, X2 : int, Y2 : int, dY = 2) -> None:
+    MidY = Y1 - abs(dY)
+    if Y2 < Y1:
+      MidY = Y2 - abs(dY)
+    for iy in range(Y1, MidY, -1):
+      self._array[X1][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+    for iy in range(Y2, MidY, -1):
+      self._array[X2][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+    if X2 < X1:
+      for ix in range(X2, X1):
+        self._array[ix][MidY].setChar(AsciiDrawing_Characters.HORIZONTAL)
+      self._array[X1][MidY].setChar(AsciiDrawing_Characters.UPPER_RIGHT)
+      self._array[X2][MidY].setChar(AsciiDrawing_Characters.UPPER_LEFT)
+    else:
+      for ix in range(X1, X2):
+        self._array[ix][MidY].setChar(AsciiDrawing_Characters.HORIZONTAL)
+      self._array[X1][MidY].setChar(AsciiDrawing_Characters.UPPER_LEFT)
+      self._array[X2][MidY].setChar(AsciiDrawing_Characters.UPPER_RIGHT)
+    self.fixLinesAtPoint(X1, Y1)
+    self.fixLinesAtPoint(X2, Y2)
+      
+  def drawConnectorVDV(self, X1 : int, Y1 : int, X2 : int, Y2 : int, dY = 2) -> None:
+    MidY = Y1 + abs(dY)
+    if Y2 > Y1:
+      MidY = Y2 + abs(dY)
+    for iy in range(Y1, MidY, 1):
+      self._array[X1][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+    for iy in range(Y2, MidY, 1):
+      self._array[X2][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+    if X2 < X1:
+      for ix in range(X2, X1):
+        self._array[ix][MidY].setChar(AsciiDrawing_Characters.HORIZONTAL)
+      self._array[X1][MidY].setChar(AsciiDrawing_Characters.LOWER_RIGHT)
+      self._array[X2][MidY].setChar(AsciiDrawing_Characters.LOWER_LEFT)
+    else:
+      for ix in range(X1, X2):
+        self._array[ix][MidY].setChar(AsciiDrawing_Characters.HORIZONTAL)
+      self._array[X1][MidY].setChar(AsciiDrawing_Characters.LOWER_LEFT)
+      self._array[X2][MidY].setChar(AsciiDrawing_Characters.LOWER_RIGHT)
+    self.fixLinesAtPoint(X1, Y1)
+    self.fixLinesAtPoint(X2, Y2)
+      
+  def drawConnectorHRH(self, X1 : int, Y1 : int, X2 : int, Y2 : int, dX = 2) -> None:
+    MidX = X1 + abs(dX)
+    if X2 > X1:
+      MidX = X2 + abs(dX)
+    for ix in range(X1, MidX, 1):
+      self._array[ix][Y1].setChar(AsciiDrawing_Characters.HORIZONTAL)
+    for ix in range(X2, MidX, 1):
+      self._array[ix][Y2].setChar(AsciiDrawing_Characters.HORIZONTAL)
+    if Y2 < Y1:
+      for iy in range(Y2, Y1):
+        self._array[MidX][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+      self._array[MidX][Y1].setChar(AsciiDrawing_Characters.LOWER_RIGHT)
+      self._array[MidX][Y2].setChar(AsciiDrawing_Characters.UPPER_RIGHT)
+    else:
+      for iy in range(Y1, Y2):
+        self._array[MidX][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+      self._array[MidX][Y1].setChar(AsciiDrawing_Characters.UPPER_RIGHT)
+      self._array[MidX][Y2].setChar(AsciiDrawing_Characters.LOWER_RIGHT)
+    self.fixLinesAtPoint(X1, Y1)
+    self.fixLinesAtPoint(X2, Y2)
+    
+  def drawConnectorHLH(self, X1 : int, Y1 : int, X2 : int, Y2 : int, dX = 2) -> None:
+    MidX = X1 - abs(dX)
+    if X2 < X1:
+      MidX = X2 - abs(dX)
+    for ix in range(X1, MidX, -1):
+      self._array[ix][Y1].setChar(AsciiDrawing_Characters.HORIZONTAL)
+    for ix in range(X2, MidX, -1):
+      self._array[ix][Y2].setChar(AsciiDrawing_Characters.HORIZONTAL)
+    if Y2 < Y1:
+      for iy in range(Y2, Y1):
+        self._array[MidX][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+      self._array[MidX][Y1].setChar(AsciiDrawing_Characters.LOWER_LEFT)
+      self._array[MidX][Y2].setChar(AsciiDrawing_Characters.UPPER_LEFT)
+    else:
+      for iy in range(Y1, Y2):
+        self._array[MidX][iy].setChar(AsciiDrawing_Characters.VERTICAL)
+      self._array[MidX][Y1].setChar(AsciiDrawing_Characters.UPPER_LEFT)
+      self._array[MidX][Y2].setChar(AsciiDrawing_Characters.LOWER_LEFT)
+    self.fixLinesAtPoint(X1, Y1)
+    self.fixLinesAtPoint(X2, Y2)
+    
+  def _neighbours(self, X : int, Y : int):
+    L = 0
+    R = 0
+    U = 0
+    D = 0
+    if X > 0:
+      if self._array[X-1][Y].isChar(AsciiDrawing_Characters.HORIZONTAL): L = 1
+      if self._array[X-1][Y].isChar(AsciiDrawing_Characters.LOWER_LEFT): L = 1
+      if self._array[X-1][Y].isChar(AsciiDrawing_Characters.UPPER_LEFT): L = 1
+      if self._array[X-1][Y].isChar(AsciiDrawing_Characters.VERTICAL_RIGTH): L = 1
+    if X < self._width-1:
+      if self._array[X+1][Y].isChar(AsciiDrawing_Characters.HORIZONTAL): R = 1
+      if self._array[X+1][Y].isChar(AsciiDrawing_Characters.LOWER_RIGHT): R = 1
+      if self._array[X+1][Y].isChar(AsciiDrawing_Characters.UPPER_RIGHT): R = 1
+      if self._array[X+1][Y].isChar(AsciiDrawing_Characters.VERTICAL_LEFT): R = 1
+    if Y > 0:
+      if self._array[X][Y-1].isChar(AsciiDrawing_Characters.VERTICAL): U = 1
+      if self._array[X][Y-1].isChar(AsciiDrawing_Characters.UPPER_LEFT): U = 1
+      if self._array[X][Y-1].isChar(AsciiDrawing_Characters.UPPER_RIGHT): U = 1
+      if self._array[X][Y-1].isChar(AsciiDrawing_Characters.HORIZONTAL_DOWN): U = 1
+    if Y < self._height-1:
+      if self._array[X][Y+1].isChar(AsciiDrawing_Characters.VERTICAL): D = 1
+      if self._array[X][Y+1].isChar(AsciiDrawing_Characters.LOWER_LEFT): D = 1
+      if self._array[X][Y+1].isChar(AsciiDrawing_Characters.LOWER_RIGHT): D = 1
+      if self._array[X][Y+1].isChar(AsciiDrawing_Characters.HORIZONTAL_UP): D = 1
+    return L, R, U, D
+      
+  def fixLinesAtPoint(self, X : int, Y : int) -> None:
+    L, R, U, D = self._neighbours(X, Y)
+    if L and R and U and D:
+      self._array[X][Y].setChar(AsciiDrawing_Characters.CROSS)
+    elif L and R and D:
+      self._array[X][Y].setChar(AsciiDrawing_Characters.HORIZONTAL_DOWN)
+    elif L and U and D:
+      self._array[X][Y].setChar(AsciiDrawing_Characters.VERTICAL_LEFT)
+    elif L and R and U:
+      self._array[X][Y].setChar(AsciiDrawing_Characters.HORIZONTAL_UP)
+    elif R and U and D:
+      self._array[X][Y].setChar(AsciiDrawing_Characters.VERTICAL_RIGTH)
+    elif R and L:
+      self._array[X][Y].setChar(AsciiDrawing_Characters.HORIZONTAL)
+    elif U and D:
+      self._array[X][Y].setChar(AsciiDrawing_Characters.VERTICAL)
+    elif U and R:
+      self._array[X][Y].setChar(AsciiDrawing_Characters.LOWER_LEFT)
+    elif R and D:
+      self._array[X][Y].setChar(AsciiDrawing_Characters.UPPER_LEFT)
+    elif D and L:
+      self._array[X][Y].setChar(AsciiDrawing_Characters.UPPER_RIGHT)
+    elif L and U:
+      self._array[X][Y].setChar(AsciiDrawing_Characters.LOWER_RIGHT)
+
+    
+    
