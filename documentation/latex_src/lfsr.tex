@@ -157,6 +157,7 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 	\label{lfsr:tigerring}
 \end{figure}
 
+\label{lfsr:objectmethods}
 \section{Lfsr object methods}
 
 \label{lfsr:str}
@@ -385,6 +386,10 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 		lfsr1.getTaps()
 		# >>> [[60, 2], [7, 55]]
 \end{lstlisting}
+
+\cmd {Lfsr\_object} {setValue} {Value} {
+	Sets a new value of the Lfsr. It checks the length and generates error if not match the Lfsr size. Value must be given as a bitarray object or a string containing bit values counted from 0 to (N-1).
+}
 
 \cmd {Lfsr\_object} {simulateForDataString} {Sequence, InjectionAtBit=0, StartValue=None} {
 	Performs a simulation for the Lfsr object having one injector. Step count (number of clock cycles) is equal to the length of a given \texttt{Sequence}. Returns the last \Lfsr\ value.

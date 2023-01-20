@@ -118,6 +118,8 @@
 \indexentry{reset|hyperpage}{19}
 \indexentry{Lfsr\_object!reverseTap|hyperpage}{19}
 \indexentry{reverseTap|hyperpage}{19}
+\indexentry{Lfsr\_object!setValue|hyperpage}{19}
+\indexentry{setValue|hyperpage}{19}
 \indexentry{Lfsr\_object!simulateForDataString|hyperpage}{19}
 \indexentry{simulateForDataString|hyperpage}{19}
 \indexentry{Lfsr\_object!toVerilog|hyperpage}{19}

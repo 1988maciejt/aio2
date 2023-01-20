@@ -1707,6 +1707,11 @@ class Lfsr:
     """Returns current value of the LFSR
     """
     return self._baValue
+  def setValue(self, Value : bitarray):
+    Value = bitarray(Value)
+    if len(Value) != len(self._baValue):
+      Aio.printError(f"The new value is {len(Value)} bit length while should be {len(self._baValue)}.")
+    self._baValue = Value
   def getSize(self) -> int:
     """Returns size of the LFSR
     """
