@@ -1,9 +1,13 @@
 \begin{thebibliography}{1}
 
 \bibitem{lfsr:fastsim}
-Nilanjan Mukherjee, Janusz Rajski, Grzegorz Mrugalski, Artur Pogiel, and Jerzy
-  Tyszer.
+N.~Mukherjee, J.~Rajski, G.~Mrugalski, A.~Pogiel, and J.~Tyszer.
 \newblock Ring generator: An ultimate linear feedback shift register.
 \newblock {\em Computer}, 44(6):64--71, 2011.
+
+\bibitem{lfsr:dense}
+G.~Mrugalski, M.~Mukherjee, J.~Rajski, and J.~Tyszer.
+\newblock High performance dense ring generators.
+\newblock {\em IEEE Transactions on Computers}, 55(1):83--87, 2006.
 
 \end{thebibliography}

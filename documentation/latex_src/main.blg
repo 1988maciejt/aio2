@@ -13,50 +13,52 @@ Reallocating 'name_of_file' (item size: 1) to 10 items.
 A level-1 auxiliary file: nlfsr.aux
 Reallocating 'name_of_file' (item size: 1) to 8 items.
 A level-1 auxiliary file: udp.aux
+Reallocating 'name_of_file' (item size: 1) to 9 items.
+A level-1 auxiliary file: menu.aux
 Reallocating 'name_of_file' (item size: 1) to 17 items.
 A level-1 auxiliary file: bibliography.aux
 Reallocating 'name_of_file' (item size: 1) to 6 items.
 The style file: unsrt.bst
 Reallocating 'name_of_file' (item size: 1) to 13 items.
 Database file #1: bib_database.bib
-You've used 1 entry,
+You've used 2 entries,
             1791 wiz_defined-function locations,
-            460 strings with 3793 characters,
-and the built_in function-call counts, 271 in all, are:
-= -- 19
-> -- 17
+            467 strings with 3899 characters,
+and the built_in function-call counts, 509 in all, are:
+= -- 38
+> -- 31
 < -- 0
-+ -- 6
-- -- 5
-* -- 25
-:= -- 52
-add.period$ -- 3
-call.type$ -- 1
-change.case$ -- 1
++ -- 11
+- -- 9
+* -- 46
+:= -- 92
+add.period$ -- 6
+call.type$ -- 2
+change.case$ -- 2
 chr.to.int$ -- 0
-cite$ -- 1
-duplicate$ -- 9
-empty$ -- 23
-format.name$ -- 5
-if$ -- 55
+cite$ -- 2
+duplicate$ -- 18
+empty$ -- 45
+format.name$ -- 9
+if$ -- 107
 int.to.chr$ -- 0
-int.to.str$ -- 1
-missing$ -- 1
-newline$ -- 8
-num.names$ -- 1
-pop$ -- 1
+int.to.str$ -- 2
+missing$ -- 2
+newline$ -- 13
+num.names$ -- 2
+pop$ -- 2
 preamble$ -- 1
 purify$ -- 0
 quote$ -- 0
-skip$ -- 3
+skip$ -- 6
 stack$ -- 0
-substring$ -- 15
-swap$ -- 1
+substring$ -- 30
+swap$ -- 2
 text.length$ -- 0
 text.prefix$ -- 0
 top$ -- 0
 type$ -- 0
 warning$ -- 0
-while$ -- 2
-width$ -- 2
-write$ -- 13
+while$ -- 4
+width$ -- 3
+write$ -- 24
