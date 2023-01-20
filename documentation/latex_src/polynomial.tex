@@ -55,6 +55,9 @@ Below you can see an example of how to create a \Polynomial\ object representing
 		# >>> [4]
 \end{lstlisting}
 
+\index{Polynomial!balancing}
+\index{balancing of polynomial}
+\label{polynomial:getbalancing}
 \cmd {Polynomial\_object} {getBalancing} {} {
 	Returns a difference between distances of furthest and closest coefficients.
 }
@@ -152,6 +155,7 @@ Below you can see an example of how to create a \Polynomial\ object representing
 		# >>> [1, -1, 1, 1]
 \end{lstlisting}
 
+\label{polynomial:islayoutfriendly}
 \cmd {Polynomial\_object} {isLayoutFriendly} {} {
 	Returns True if a Ring Generator, based on the Polynomial\_object, is layout friendly. It checks if the minimum distance between successive coefficients is at least 2.
 }
@@ -291,3 +295,71 @@ Below you can see an example of how to create a \Polynomial\ object representing
 \end{lstlisting}
 
 \section{Static Polynomial methods}
+
+\cmd {Polynomial} {checkPrimitives} {Candidates, n=0, Silent=True} {
+	Takes a list of \Polynomial\ objects and returns a filtered list, containing only primitives. Uses multithreading.
+	\begin{itemize}
+		\item \texttt{Candidates} - list of polynomials to check,
+		\item \texttt{n} - if \textit{n>0} then stops once n primitives found,
+		\item \texttt{Silent} - if \texttt{False} then prints more info during searching. Otherwise (default) prints only a progress bar.
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+		Polynomial.checkPrimitives([ [4,1,0], [4,2,0], [4,3,0] ])
+		# >>> [Polynomial([4, 3, 0]), Polynomial([4, 1, 0])]
+\end{lstlisting}
+
+\cmd {Polynomial} {createPolynomial} {PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing=0, LayoutFriendly=False, MinDistance=0} {
+	Returns a first \Polynomial\ object having a specified properties. Such object may be used then as iterator, to go through all polynomials having the same properties.
+	\begin{itemize}
+		\item \texttt{PolynomialDegree} - degree of polynomial,
+		\item \texttt{PolynomialCoefficientsCount} - coefficients count, including degree and 0,
+		\item \texttt{PolynomialBalancing} - maximum allowed balancing. '0' means 'no limit'. \\See \texttt{Polynomial.getBalancing} on page \pageref{polynomial:getbalancing} for more details,
+		\item \texttt{LayoutFriendly} - wheather the polynomial must be layout-friendly or not. \\See \texttt{Polynomial.isLayoutFriendly} on page \pageref{polynomial:islayoutfriendly},
+		\item \texttt{MinDistance} - minimum required distance between successive coefficients.
+	\end{itemize}
+}
+\begin{lstlisting}[language=Python]
+		p = Polynomial.createPolynomial(16, 4, MinDistance=4)
+		p
+		# >>> Polynomial([16, 8, 4, 0])
+		for pi in p: print(pi)
+		# >>> [16, 8, 4, 0]
+		# >>> [16, 9, 4, 0]
+		# >>> [16, 10, 4, 0]
+		# >>> [16, 11, 4, 0]
+		# ...
+		# >>> [16, 12, 8, 0]
+\end{lstlisting}
+
+\index{primitive polynomials}
+\section{Static Polynomial methods to search for primitives}
+
+Below are listed static \Polynomial\ method intended to search for primitive ones.
+Each method has three versions:
+\begin{enumerate}
+	\item \texttt{list<*>Primitives} - returning a list of primitive polynomials,
+	\item \texttt{print<*>Primitives} - printing found polynomials in a human-readable form,
+	\item \texttt{first<*>Primitive} - returning a first found polynomial (or \texttt{None} if nothing found).
+\end{enumerate}
+All those methods have the same arguments, so that below are listed only those having a name starting from \texttt{list<*>}.
+
+\cmd {Polynomial} {listPrimitives} {PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing=0, LayoutFriendly=False, MinDistance=0. m=0, Silent=True, MaxSetSize=10000, ExcludeList=[], ReturnAlsoAllCandidaes=False, FilteringCallback=None, NoResultsSkippingIteration=0,\\StartingPolynomial=None} {
+	The more general method to searching for primitive polynomials.
+	Returns a first \Polynomial\ object having a specified properties. Such object may be used then as iterator, to go through all polynomials having the same properties.
+	\begin{itemize}
+		\item \texttt{PolynomialDegree} - degree of polynomial,
+		\item \texttt{PolynomialCoefficientsCount} - coefficients count, including degree and 0,
+		\item \texttt{PolynomialBalancing} - maximum allowed balancing. '0' means 'no limit'. \\See \texttt{Polynomial.getBalancing} on page \pageref{polynomial:getbalancing} for more details,
+		\item \texttt{LayoutFriendly} - wheather the polynomial must be layout-friendly or not. \\See \texttt{Polynomial.isLayoutFriendly} on page \pageref{polynomial:islayoutfriendly},
+		\item \texttt{MinDistance} - minimum required distance between successive coefficients,
+		\item \texttt{n} - if \textit{n>0} then stops once n primitives found,
+		\item \texttt{Silent} - if \texttt{False} then prints more info during searching. Otherwise (default) prints only a progress bar,
+		\item \texttt{MaxSetSize} - how many polynomials should be tested in parallel in one iteration,
+		\item \texttt{ExcludeList} - polynomials included in this list will e skipped from checking,
+		\item \texttt{ReturnAlsoAllCandidaes} - if \texttt{True} then as a result this method will return list of 2 lists: \\\texttt{[ [primitive\_polys], [all\_checked\_polys] ]},
+		\item \texttt{FilteringCallback} - if specified, then will be called for each candidate polynomial:\\\texttt{callback(candidate\_polynomial)}\\and should return \texttt{True} if the given polynomial should be checked, otherwise the given polynomial will be skipped from checking,
+		\item \texttt{NoResultsSkippingIteration} - if specified to be > 0 then it breaks the searching process if no result within the given number, successive iterations,
+		\item \texttt{StartingPolynomial} - you may specify a starting polynomial having the same properties as the ones passed to this method.
+	\end{itemize}
+}

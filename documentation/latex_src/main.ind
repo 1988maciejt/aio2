@@ -3,118 +3,140 @@
   \item \ShellName
     \subitem architecture, \hyperpage{2}
   \item \_\_hash\_\_, \hyperpage{4}
-  \item \_\_inint\_\_, \hyperpage{23, 24}
-  \item \_\_init\_\_, \hyperpage{17}, \hyperpage{25, 26}
-  \item \_\_str\_\_, \hyperpage{4}, \hyperpage{12}
+  \item \_\_init\_\_, \hyperpage{19}, \hyperpage{25}, 
+		\hyperpage{27--30}
+  \item \_\_str\_\_, \hyperpage{4}, \hyperpage{14}, \hyperpage{26}
 
   \indexspace
 
-  \item addAllCombinationsSwitch, \hyperpage{22}
-  \item addCustomServer, \hyperpage{25}
-  \item addTask, \hyperpage{26}
+  \item addAllCombinationsSwitch, \hyperpage{23}
+  \item addCustomServer, \hyperpage{29}
+  \item addTask, \hyperpage{30}
 
   \indexspace
 
-  \item checkMaximum, \hyperpage{16}
-  \item clear, \hyperpage{12}, \hyperpage{17}
+  \item balancing of polynomial, \hyperpage{5}
+
+  \indexspace
+
+  \item checkMaximum, \hyperpage{18}
+  \item checkPrimitives, \hyperpage{8}
+  \item clear, \hyperpage{14}, \hyperpage{19}
   \item copy, \hyperpage{4}
-  \item createPhaseShifter, \hyperpage{12}
+  \item createPhaseShifter, \hyperpage{14}
+  \item createPolynomial, \hyperpage{9}
 
   \indexspace
 
   \item derivativeGF2, \hyperpage{4}
-  \item distributed computing, \hyperpage{24}
-  \item dual LFSR, \hyperpage{12}
+  \item distributed computing, \hyperpage{28}
+  \item dual LFSR, \hyperpage{14}
 
   \indexspace
 
-  \item Fibonacci LFSR, \hyperpage{9}
+  \item Fibonacci LFSR, \hyperpage{11}
 
   \indexspace
 
-  \item Galois LFSR, \hyperpage{9}
-  \item getAllPosssibleTaps, \hyperpage{18}
+  \item Galois LFSR, \hyperpage{11}
+  \item getAllPosssibleTaps, \hyperpage{20}
+  \item getArchitecture, \hyperpage{26}
   \item getBalancing, \hyperpage{5}
   \item getCoefficients, \hyperpage{5}
   \item getCoefficientsCount, \hyperpage{5}
   \item getDegree, \hyperpage{5}
   \item getDifferentTapCount, \hyperpage{5}
-  \item getDual, \hyperpage{12}
-  \item getLfsrs, \hyperpage{18}
+  \item getDual, \hyperpage{14}
+  \item getFullInfo, \hyperpage{26}
+  \item getLfsrs, \hyperpage{20}
   \item getMinDistance, \hyperpage{6}
-  \item getMSequence, \hyperpage{13}
-  \item getPeriod, \hyperpage{13}
-  \item getPhaseShiftIndexes, \hyperpage{12}
-  \item getPolynomials, \hyperpage{18}
-  \item getPolynomialsAndLfsrsDictionary, \hyperpage{18}
+  \item getMSequence, \hyperpage{15}
+  \item getPeriod, \hyperpage{15}
+  \item getPhaseShiftIndexes, \hyperpage{14}
+  \item getPolynomials, \hyperpage{20}
+  \item getPolynomialsAndLfsrsDictionary, \hyperpage{20}
   \item getReciprocal, \hyperpage{6}
-  \item getSequence, \hyperpage{13}
+  \item getSequence, \hyperpage{15}
   \item getSignedCoefficients, \hyperpage{6}
   \item getSigns, \hyperpage{6}
-  \item getSize, \hyperpage{13}, \hyperpage{18}
-  \item getUnusedTaps, \hyperpage{18}
-  \item getUsedTaps, \hyperpage{18}
-  \item getValue, \hyperpage{13}
-  \item getValues, \hyperpage{14}
+  \item getSize, \hyperpage{15}, \hyperpage{20}
+  \item getUnusedTaps, \hyperpage{20}
+  \item getUsedTaps, \hyperpage{20}
+  \item getValue, \hyperpage{15}
+  \item getValues, \hyperpage{16}
 
   \indexspace
 
-  \item Hybrid Ring Generator, \hyperpage{10}
+  \item Hybrid Ring Generator, \hyperpage{12}
 
   \indexspace
 
   \item isLayoutFriendly, \hyperpage{6}
-  \item isMaximum, \hyperpage{14}
+  \item isMaximum, \hyperpage{16}
   \item isPrimitive, \hyperpage{6}
   \item iterateThroughSigns, \hyperpage{7}
 
   \indexspace
 
-  \item LFSR, \hyperpage{9}
-    \subitem Fibonacci, \hyperpage{9}
-    \subitem Galois, \hyperpage{9}
-    \subitem Hybrid Ring Generator, \hyperpage{10}
-    \subitem Ring Generator, \hyperpage{10}
-    \subitem Ring with specified taps, \hyperpage{10}
-    \subitem Tiger Ring Generator, \hyperpage{11}
+  \item LFSR, \hyperpage{11}
+    \subitem Fibonacci, \hyperpage{11}
+    \subitem Galois, \hyperpage{11}
+    \subitem Hybrid Ring Generator, \hyperpage{12}
+    \subitem Ring Generator, \hyperpage{12}
+    \subitem Ring with specified taps, \hyperpage{12}
+    \subitem Tiger Ring Generator, \hyperpage{13}
   \item Lfsr
-    \subitem checkMaximum, \hyperpage{16}
+    \subitem checkMaximum, \hyperpage{18}
   \item Lfsr\_object
-    \subitem \_\_str\_\_, \hyperpage{12}
-    \subitem clear, \hyperpage{12}
-    \subitem createPhaseShifter, \hyperpage{12}
-    \subitem getDual, \hyperpage{12}
-    \subitem getMSequence, \hyperpage{13}
-    \subitem getPeriod, \hyperpage{13}
-    \subitem getPhaseShiftIndexes, \hyperpage{12}
-    \subitem getSequence, \hyperpage{13}
-    \subitem getSize, \hyperpage{13}
-    \subitem getValue, \hyperpage{13}
-    \subitem getValues, \hyperpage{14}
-    \subitem isMaximum, \hyperpage{14}
-    \subitem next, \hyperpage{14}
-    \subitem printFastSimArray, \hyperpage{14}
-    \subitem printValues, \hyperpage{14}
-    \subitem reset, \hyperpage{15}
-    \subitem reverseTap, \hyperpage{15}
-    \subitem simulateForDataString, \hyperpage{15}
-    \subitem toVerilog, \hyperpage{15}
+    \subitem \_\_str\_\_, \hyperpage{14}
+    \subitem clear, \hyperpage{14}
+    \subitem createPhaseShifter, \hyperpage{14}
+    \subitem getDual, \hyperpage{14}
+    \subitem getMSequence, \hyperpage{15}
+    \subitem getPeriod, \hyperpage{15}
+    \subitem getPhaseShiftIndexes, \hyperpage{14}
+    \subitem getSequence, \hyperpage{15}
+    \subitem getSize, \hyperpage{15}
+    \subitem getValue, \hyperpage{15}
+    \subitem getValues, \hyperpage{16}
+    \subitem isMaximum, \hyperpage{16}
+    \subitem next, \hyperpage{16}
+    \subitem printFastSimArray, \hyperpage{16}
+    \subitem printValues, \hyperpage{16}
+    \subitem reset, \hyperpage{17}
+    \subitem reverseTap, \hyperpage{17}
+    \subitem simulateForDataString, \hyperpage{17}
+    \subitem toVerilog, \hyperpage{17}
+  \item listPrimitives, \hyperpage{9}
 
   \indexspace
 
-  \item map, \hyperpage{26}
-  \item mapGenerator, \hyperpage{26}
-  \item mapUnorderedGenerator, \hyperpage{27}
+  \item map, \hyperpage{30}
+  \item mapGenerator, \hyperpage{30}
+  \item mapUnorderedGenerator, \hyperpage{31}
 
   \indexspace
 
-  \item next, \hyperpage{14}
+  \item next, \hyperpage{16}, \hyperpage{26}
   \item nextPrimitive, \hyperpage{7}
+  \item NLFSR, \hyperpage{25}
+  \item Nlfsr\_object
+    \subitem \_\_init\_\_, \hyperpage{25}
+    \subitem \_\_str\_\_, \hyperpage{26}
+    \subitem getArchitecture, \hyperpage{26}
+    \subitem getFullInfo, \hyperpage{26}
+    \subitem next, \hyperpage{26}
+    \subitem printFullInfo, \hyperpage{26}
+  \item Nonlinear Feedback Shift Register, \hyperpage{25}
 
   \indexspace
 
-  \item Phase Shifter, \hyperpage{12}
+  \item Phase Shifter, \hyperpage{14}
   \item Polynomial, \hyperpage{4}
+    \subitem balancing, \hyperpage{5}
+    \subitem checkPrimitives, \hyperpage{8}
+    \subitem createPolynomial, \hyperpage{9}
+    \subitem listPrimitives, \hyperpage{9}
   \item Polynomial\_object
     \subitem \_\_hash\_\_, \hyperpage{4}
     \subitem \_\_str\_\_, \hyperpage{4}
@@ -139,70 +161,71 @@
     \subitem toHexString, \hyperpage{8}
     \subitem toInt, \hyperpage{8}
     \subitem toMarkKassabStr, \hyperpage{8}
-  \item printFastSimArray, \hyperpage{14}
-  \item printFullInfo, \hyperpage{7}
-  \item printValues, \hyperpage{14}
-  \item Programmable LFSR, \hyperpage{17}
+  \item primitive polynomials, \hyperpage{9}
+  \item printFastSimArray, \hyperpage{16}
+  \item printFullInfo, \hyperpage{7}, \hyperpage{26}
+  \item printValues, \hyperpage{16}
+  \item Programmable LFSR, \hyperpage{19}
   \item ProgrammableLfsr\_object
-    \subitem \_\_init\_\_, \hyperpage{17}
-    \subitem addAllCombinationsSwitch, \hyperpage{22}
-    \subitem clear, \hyperpage{17}
-    \subitem getAllPosssibleTaps, \hyperpage{18}
-    \subitem getLfsrs, \hyperpage{18}
-    \subitem getPolynomials, \hyperpage{18}
-    \subitem getPolynomialsAndLfsrsDictionary, \hyperpage{18}
-    \subitem getSize, \hyperpage{18}
-    \subitem getUnusedTaps, \hyperpage{18}
-    \subitem getUsedTaps, \hyperpage{18}
-    \subitem toVerilog, \hyperpage{18}
+    \subitem \_\_init\_\_, \hyperpage{19}
+    \subitem addAllCombinationsSwitch, \hyperpage{23}
+    \subitem clear, \hyperpage{19}
+    \subitem getAllPosssibleTaps, \hyperpage{20}
+    \subitem getLfsrs, \hyperpage{20}
+    \subitem getPolynomials, \hyperpage{20}
+    \subitem getPolynomialsAndLfsrsDictionary, \hyperpage{20}
+    \subitem getSize, \hyperpage{20}
+    \subitem getUnusedTaps, \hyperpage{20}
+    \subitem getUsedTaps, \hyperpage{20}
+    \subitem toVerilog, \hyperpage{20}
 
   \indexspace
 
-  \item RemoteAio, \hyperpage{24}
+  \item RemoteAio, \hyperpage{28}
   \item RemoteAioNode\_object
-    \subitem \_\_init\_\_, \hyperpage{25}
-    \subitem addCustomServer, \hyperpage{25}
-    \subitem start, \hyperpage{25}
-    \subitem stop, \hyperpage{25}
+    \subitem \_\_init\_\_, \hyperpage{29}
+    \subitem addCustomServer, \hyperpage{29}
+    \subitem start, \hyperpage{29}
+    \subitem stop, \hyperpage{29}
   \item RemoteAioScheduler\_object
-    \subitem \_\_init\_\_, \hyperpage{26}
-    \subitem addTask, \hyperpage{26}
-    \subitem map, \hyperpage{26}
-    \subitem mapGenerator, \hyperpage{26}
-    \subitem mapUnorderedGenerator, \hyperpage{27}
-    \subitem start, \hyperpage{27}
-    \subitem stop, \hyperpage{27}
-  \item RemoteShell, \hyperpage{24}
-  \item reset, \hyperpage{15}
-  \item reverseTap, \hyperpage{15}
-  \item Ring Generator, \hyperpage{10}
-  \item Ring with manually specified taps, \hyperpage{10}
+    \subitem \_\_init\_\_, \hyperpage{30}
+    \subitem addTask, \hyperpage{30}
+    \subitem map, \hyperpage{30}
+    \subitem mapGenerator, \hyperpage{30}
+    \subitem mapUnorderedGenerator, \hyperpage{31}
+    \subitem start, \hyperpage{31}
+    \subitem stop, \hyperpage{31}
+  \item RemoteShell, \hyperpage{28}
+  \item reset, \hyperpage{17}
+  \item reverseTap, \hyperpage{17}
+  \item Ring Generator, \hyperpage{12}
+  \item Ring with manually specified taps, \hyperpage{12}
 
   \indexspace
 
-  \item send, \hyperpage{24}
+  \item send, \hyperpage{28}
   \item setStartingPointForIterator, \hyperpage{7}
-  \item simulateForDataString, \hyperpage{15}
-  \item start, \hyperpage{23}, \hyperpage{25}, \hyperpage{27}
-  \item stop, \hyperpage{24, 25}, \hyperpage{27}
+  \item simulateForDataString, \hyperpage{17}
+  \item start, \hyperpage{27}, \hyperpage{29}, \hyperpage{31}
+  \item stop, \hyperpage{28, 29}, \hyperpage{31}
 
   \indexspace
 
-  \item Tiger Ring Generator, \hyperpage{11}
+  \item Tiger Ring Generator, \hyperpage{13}
   \item toBitarray, \hyperpage{8}
   \item toHexString, \hyperpage{8}
   \item toInt, \hyperpage{8}
   \item toMarkKassabStr, \hyperpage{8}
-  \item toVerilog, \hyperpage{15}, \hyperpage{18}
+  \item toVerilog, \hyperpage{17}, \hyperpage{20}
 
   \indexspace
 
   \item UdpMonitor\_object
-    \subitem \_\_inint\_\_, \hyperpage{23}
-    \subitem start, \hyperpage{23}
-    \subitem stop, \hyperpage{24}
+    \subitem \_\_init\_\_, \hyperpage{27}
+    \subitem start, \hyperpage{27}
+    \subitem stop, \hyperpage{28}
   \item UdpSender\_object
-    \subitem \_\_inint\_\_, \hyperpage{24}
-    \subitem send, \hyperpage{24}
+    \subitem \_\_init\_\_, \hyperpage{28}
+    \subitem send, \hyperpage{28}
 
 \end{theindex}

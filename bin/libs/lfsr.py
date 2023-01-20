@@ -874,6 +874,13 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return Line
   
   @staticmethod
+  def firstTigerPrimitive(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0):
+    Polys = Polynomial.listTigerPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, 1, NoResultsSkippingIteration, StartingPolynomial, MinNotMatchingTapsCount)
+    if len(Polys) >= 1:
+      return Polys[0]
+    return None
+      
+  @staticmethod
   def printTigerPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0):
     Polys = Polynomial.listTigerPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, n, NoResultsSkippingIteration, StartingPolynomial, MinNotMatchingTapsCount)
     for p in Polys:

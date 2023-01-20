@@ -58,7 +58,7 @@ class Nlfsr(Lfsr):
       Result += "\n"
     return Result[:-1]
   def printFullInfo(self):
-    Aio.print(self.getFullInfo(Simplified))
+    Aio.print(self.getFullInfo())
   def getFullInfo(self, Header = False):
     Result = ""
     if Header:

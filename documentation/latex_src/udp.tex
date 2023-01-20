@@ -10,7 +10,7 @@ It is well known that UDP packets, dependent on MTU size, does not allow to tran
 
 This class is used to create monitor objects, which are working using a separate thread and may call a specified function if data arrives or may print the data to the screen. Below the object-related methods are listed:
 
-\cmd {UdpMonitor\_object} {\_\_inint\_\_} {PortList, Callback=None, BufferSize=4096, ReturnString=False, BindToIp=""} {
+\cmd {UdpMonitor\_object} {\_\_init\_\_} {PortList, Callback=None, BufferSize=4096, ReturnString=False,\\BindToIp=""} {
 	\UdpMonitor\ object initializer.
 	\begin{itemize}
 		\item \texttt{PortList} - port or list of ports to listen,
@@ -55,7 +55,7 @@ This class is used to create monitor objects, which are working using a separate
 
 The \UdpSender\ object is intended to make UDP messages sending easier. Its related methods:
 
-\cmd {UdpSender\_object} {\_\_inint\_\_} {Port=None, DestinationIp=None} {
+\cmd {UdpSender\_object} {\_\_init\_\_} {Port=None, DestinationIp=None} {
 	\UdpMonitor\ object initializer.
 	\begin{itemize}
 		\item \texttt{Port} - you may specify a default port if the \UdpSender\ object is used to send data on known port,

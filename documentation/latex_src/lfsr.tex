@@ -157,6 +157,7 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 
 \section{Lfsr object methods}
 
+\label{lfsr:str}
 \cmd {Lfsr\_object} {\_\_str\_\_} {} {
 	It returns a string containing binary value of the \Lfsr\ object (left MSb).
 }
@@ -229,7 +230,7 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 \end{lstlisting}
 
 \cmd {Lfsr\_object} {getPeriod} {} {
-	Does the standard simulation and finds a period of the \Lfsr\. May take much time! Consider using \texttt{isMaximum()} method if possible.
+	Does the standard simulation and finds a period of the \Lfsr. May take much time! Consider using \texttt{isMaximum()} method if possible.
 }
 \begin{lstlisting}[language=Python]
 		lfsr1 = Lfsr([4,1,0], GALOIS)
@@ -316,6 +317,7 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 	# >>> True
 \end{lstlisting}
 
+\label{lfsr:next}
 \cmd {Lfsr\_object} {next} {steps=1} {
 	Calculates (and also returns a reference to) the next value of the \Lfsr. This is the core method of LFSR simulation flow. If the specified \texttt{steps} > 1, then it engages Fast Simulation method \cite{lfsr:fastsim}. 
 }
