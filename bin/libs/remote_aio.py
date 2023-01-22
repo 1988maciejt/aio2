@@ -147,9 +147,18 @@ class _RemoteNodes:
     
     def isFree(self, Ip, Port):
         LastTime = self._LastSeenDict.get((Ip, Port), -10)
-        if time.time() - LastTime > 5:
+        if time.time() - LastTime <= 5:
             return True
         return False
+    
+    def getFreeNodes(self) -> list:
+        Now = time.time()
+        Result = []
+        for key in self._LastSeenDict.keys():
+            LastTime = self._LastSeenDict[key]
+            if Now - LastTime <= 5:
+                Result.append(key)
+        return Result        
     
     def sentTask(self, Ip, Port):
         self._LastSeenDict[(Ip, Port)] = time.time()
@@ -160,6 +169,7 @@ class _RemoteNodes:
             LastSeen = self._LastSeenDict[key]
             if Now - LastSeen > 5:
                 yield key
+    
     
     
 class RemoteAioTask:
@@ -318,6 +328,13 @@ class RemoteAioScheduler:
         
     def __del__(self) -> None:
         self.stop()
+        
+    def printAvailableNodes(self) -> None:
+        _RemoteAioMessage("", self._Port, _NOT_EMPTY_SCHEDULER).send(self._MySender)
+        sleep(1)
+        Nodes = self._Nodes.getFreeNodes()
+        for Node in Nodes:
+            print(f"{Node[0]}:{Node[1]}")
         
     def start(self):
         self._Enable = 1
