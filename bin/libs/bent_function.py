@@ -28,7 +28,7 @@ class BentFunction:
     return f'BentFunction({repr(self._lut)})'
   
   def value(self, Source : bitarray, MapList : list) -> int:
-    return self._lut[bau.ba2int(Bitarray.mapBits(Source, MapList), "little")]
+    return self._lut[bau.ba2int(Bitarray.mapBits(Source, MapList))]
   
   def listBentFunctionLuts(InputCount : int, n = 0) -> list:
     if InputCount <= 1:
@@ -105,6 +105,9 @@ class BentFunction:
   
   def getInputCount(self):
     return int(log2(len(self._lut)))
+  
+  def getLut(self) -> bitarray:
+    return self._lut()  
   
   def toVerilog(self, ModuleName : str):
     ICount = self.getInputCount()

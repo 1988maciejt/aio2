@@ -391,12 +391,12 @@ As in case of Hybrid Ring Generators, the polynomial used to implement Tiger Rin
 	Sets a new value of the Lfsr. It checks the length and generates error if not match the Lfsr size. Value must be given as a bitarray object or a string containing bit values counted from 0 to (N-1).
 }
 
-\cmd {Lfsr\_object} {simulateForDataString} {Sequence, InjectionAtBit=0, StartValue=None} {
+\cmd {Lfsr\_object} {simulateForDataString} {Sequence, InjectionAtBit=0, StartValue=0} {
 	Performs a simulation for the Lfsr object having one injector. Step count (number of clock cycles) is equal to the length of a given \texttt{Sequence}. Returns the last \Lfsr\ value.
 	\begin{itemize}
-		\item \texttt{Sequence} - any iterable object, whose consecutive values are convertible to \texttt{bool},
-		\item \texttt{InjectionAtBit} - index of flip-flop at which input the injector is placed,
-		\item \texttt{StartValue} - seed of the LFSR.
+		\item \texttt{Sequence} - any iterable object, whose consecutive values are convertible to \texttt{bool}. Most common cases are \texttt{str} or \texttt{bitarray}. It can also be a list of sequences. In such case the parallel processign is engadged and the ordered list of resultant values is returned,
+		\item \texttt{InjectionAtBit} - index of flip-flop at which input the injector is placed. It may also be a list of indexes if the consecutive Sequence bits are injected in many places at the same time,
+		\item \texttt{StartValue} - seed of the LFSR as \texttt{int} or \texttt{bitarray}.
 	\end{itemize}
 }
 \begin{lstlisting}[language=Python]

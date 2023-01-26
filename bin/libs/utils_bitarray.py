@@ -31,7 +31,7 @@ class Bitarray:
         return Result
     
     def mapBits(Source : bitarray, IndexesList : list) -> bitarray:
-        Result = bitarray(len(IndexesList))
+        Result = bitarray(len(IndexesList), endian='little')
         for i in range(len(IndexesList)):
             Result[i] = Source[IndexesList[i]]
         return Result

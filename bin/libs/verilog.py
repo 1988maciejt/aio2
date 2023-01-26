@@ -854,13 +854,20 @@ endmodule"""
     return self.Modules.TopModuleName
   def getTopModule(self) -> VerilogModule:
     return self.Modules.getModuleByName(self.Modules.TopModuleName)
-  def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechlibFileName = None, ReturnProcessedResult = False, AreaUnit = "#NAND", AreaFactor = 1, WriteSDF = False, ReportTiming = False):
+  def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechLibFileName = None, ReturnProcessedResult = False, AreaUnit = "#NAND", AreaFactor = 1, WriteSDF = False, ReportTiming = False):
     if shell_config.useDC():
       tmpFileName = "tmp.v"
       dcScriptFileName = "dc_script"
       self.writeToFile(tmpFileName)
-      copyfile(Aio.getPath() + "siemens/synopsys_dc.setup", ".synopsys_dc.setup")
-      copyfile(Aio.getPath() + "siemens/adk.db", "adk.db")
+      try: os.remove(".synopsys_dc.setup")
+      except: pass
+      try: os.remove("adk.db")
+      except: pass
+      os.symlink(Aio.getPath() + "siemens/synopsys_dc.setup", ".synopsys_dc.setup")
+      if TechLibFileName is not None:
+        os.symlink(TechLibFileName, "adk.db")
+      else:
+        os.symlink(Aio.getPath() + "siemens/adk.db", "adk.db")
       DcScript = f"""
 analyze -format verilog {tmpFileName}
 
@@ -876,7 +883,7 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
       if WriteSDF:
         DcScript += f"write_sdf {OutputFileName}.sdf\n"
       if ReportTiming:
-        DcScript += f"report_timing > {OutputFileName}.rpt\n"
+        DcScript += f"report_timing -path full -input_pins > {OutputFileName}.rpt\n"
       DcScript += "exit\n"
       writeFile(dcScriptFileName, DcScript)
       result = Aio.shellExecute(f'/home/tnt/tools/DC_SHELL/O-2018.06-SP4/base/bin/dc_shell -f {dcScriptFileName}', 1, 1)
@@ -1173,7 +1180,7 @@ class VerilogTestbench:
     
   def writeFullVerilog(self, FileName = "verilog_testbench_full.v", RndStr = "", OneTimeForce = ""):
     writeFile(FileName, f'''`timescale {self.TimeUnit}/{self.TimePrecision}\n\n''' + self.getBody(RndStr, OneTimeForce) + "\n\n" + self._my_verilog.getContent())
-    
+
   def showSchematic(self, DontRemoveVsimWorkspace = False):
     if shell_config.useQuesta():
       Path = f"questa_view/"
@@ -1200,7 +1207,7 @@ class VerilogTestbench:
           pass
     else:
       Aio.printError("The 'visualize' feature is only available with Questa sim")
-      
+    
   def simulate(self, OneTimeForce = "") -> dict:
     RndStr = str(int(uniform(1, 99999999999999)))
     Path = ""

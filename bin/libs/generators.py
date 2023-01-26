@@ -1,4 +1,6 @@
 from libs.utils_int import *
+from bitarray import *
+import bitarray.util as bau
 
 class Generators:
   __slots__ = ("_enabled")
@@ -59,3 +61,9 @@ class Generators:
         Result = []
     if len(Result) > 0:
       yield Result
+      
+  def allBitarraySequences(self, Length):
+    for i in range (1 << Length):
+      if not self._enabled:
+        return
+      yield bau.int2ba(i, length=Length, endian='little')

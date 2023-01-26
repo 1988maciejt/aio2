@@ -1907,9 +1907,8 @@ class Lfsr:
 #      perc = round(cnt * 100 / self._N, 1)
 #      Aio.printTemp("  Lfsr sim ", perc , "%             ")  
     return res
-  def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = None) -> int:
-    if "list" in str(type(Sequence)):
-      self._N = len(Sequence)
+  def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = 0) -> int:
+    if Aio.isType(Sequence, []):
       self._IBit = InjectionAtBit
       self._Start = StartValue
       man = multiprocess.Manager()
@@ -1919,13 +1918,23 @@ class Lfsr:
       Aio.printTemp("                                    ")
       del self._C
       return results
-    if not Aio.isType(StartValue, None):
+    if Aio.isType(StartValue, 0):
+      self._baValue = bau.int2ba(StartValue, length=self._size, endian='little')
+    if Aio.isType(StartValue, "bitarray"):
       self._baValue = StartValue
-    Index = InjectionAtBit
+    if Aio.isType(Sequence, ""):
+      Sequence = bitarray(Sequence)
+    Mask = self._baValue.copy()
+    Mask.setall(0)
+    if Aio.isType(InjectionAtBit, 0):
+      Mask[InjectionAtBit] = 1
+    else:
+      for I in InjectionAtBit:
+        Mask[I] = 1   
     for Bit in Sequence:
       self.next()
       if Bit:
-        self._baValue[Index] ^= 1
+        self._baValue ^= Mask
     return self._baValue
   
   def toVerilog(self, ModuleName : str, InjectorIndexesList = []) -> str:
