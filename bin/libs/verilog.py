@@ -9,6 +9,7 @@ from random import uniform
 from libs.asci_drawing import *
 from aio_config import *
 from shutil import copyfile, rmtree
+from functools import partial
 
 
 class VerilogSignalDirection(Enum):
@@ -991,24 +992,44 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
     Result = f'{BaseModule.getName()} {BaseModule.getDependencyInfoString()}'
     Aio.print(Result)
     
-  def showSchematic(self, DontRemoveVsimWorkspace = False):
+  def showSchematic(self, Libs = None, DontRemoveVsimWorkspace = False):
+    if Libs is not None and not Aio.isType(Libs, []):
+      Libs = [Libs]
     if shell_config.useQuesta():
       Path = f"questa_view/"
+      TopModuleName = self.getTopModuleName()
+      OptTopModuleName = TopModuleName
       os.mkdir(Path)
       FileName = f"full_verilog.v"
       self.writeToFile(f"{Path}{FileName}")
-      copyfile(Aio.getPath() + "siemens/modelsim.ini", "modelsim.ini")
+      os.symlink(Aio.getPath() + "siemens/modelsim.ini", "modelsim.ini")
       ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/pad_cells.v", 1, 1)
-      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+      if "** Error:" in ERR:
         Aio.print(ERR)
       ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/adk.v", 1, 1)
-      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+      if "** Error:" in ERR:
         Aio.print(ERR)
       ERR = Aio.shellExecute(f"cd {Path} && vlog {FileName}", 1, 1)
-      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+      if "** Error:" in ERR:
         Aio.print(ERR)
-      ERR = Aio.shellExecute(f'''cd {Path} && vsim {self.getTopModuleName()} -debugDB -do "add schematic -full sim:/{self.getTopModuleName()}"''', 1, 1)
-      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+      if Aio.isType(Libs, []):
+        LibFiles = ""
+        for Lib in Libs:
+          if Lib.endswith(".v"):
+            ERR = Aio.shellExecute(f"cd {Path} && vlog {Lib}", 1, 1)
+            if "** Error:" in ERR:
+              Aio.print(ERR)
+          elif Lib.endswith(".lib"):
+            if len(LibFiles) > 1:
+              LibFiles += ","
+            LibFiles += Lib
+        if len(LibFiles) > 1:
+            OptTopModuleName = "opt"
+            ERR = Aio.shellExecute(f"cd {Path} && vopt -o {OptTopModuleName} {TopModuleName} -libertyfiles={LibFiles} -debugdb", 1, 1)
+            if "** Error:" in ERR:
+              Aio.print(ERR)
+      ERR = Aio.shellExecute(f'''cd {Path} && vsim {TopModuleName} -debugDB -do "add schematic -full sim:/{TopModuleName}"''', 1, 1)
+      if "** Error:" in ERR:
         Aio.print(ERR)
       if not DontRemoveVsimWorkspace:
         try:
@@ -1181,24 +1202,44 @@ class VerilogTestbench:
   def writeFullVerilog(self, FileName = "verilog_testbench_full.v", RndStr = "", OneTimeForce = ""):
     writeFile(FileName, f'''`timescale {self.TimeUnit}/{self.TimePrecision}\n\n''' + self.getBody(RndStr, OneTimeForce) + "\n\n" + self._my_verilog.getContent())
 
-  def showSchematic(self, DontRemoveVsimWorkspace = False):
+  def showSchematic(self, Libs = None, DontRemoveVsimWorkspace = False):
+    if Libs is not None and not Aio.isType(Libs, []):
+      Libs = [Libs]
     if shell_config.useQuesta():
+      TopModuleName = self.Name
+      OptTopModuleName = TopModuleName
       Path = f"questa_view/"
       os.mkdir(Path)
       FileName = f"full_tb.v"
       self.writeFullVerilog(f"{Path}{FileName}")
-      copyfile(Aio.getPath() + "siemens/modelsim.ini", "modelsim.ini")
+      os.symlink(Aio.getPath() + "siemens/modelsim.ini", "modelsim.ini")
       ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/pad_cells.v", 1, 1)
-      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+      if "** Error:" in ERR:
         Aio.print(ERR)
       ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/adk.v", 1, 1)
-      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+      if "** Error:" in ERR:
         Aio.print(ERR)
       ERR = Aio.shellExecute(f"cd {Path} && vlog {FileName}", 1, 1)
-      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+      if "** Error:" in ERR:
         Aio.print(ERR)
-      ERR = Aio.shellExecute(f'''cd {Path} && vsim {self.Name} -debugDB -do "add schematic -full sim:/{self.Name}"''', 1, 1)
-      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+      if Aio.isType(Libs, []):
+        LibFiles = ""
+        for Lib in Libs:
+          if Lib.endswith(".v"):
+            ERR = Aio.shellExecute(f"cd {Path} && vlog {Lib}", 1, 1)
+            if "** Error:" in ERR:
+              Aio.print(ERR)
+          elif Lib.endswith(".lib"):
+            if len(LibFiles) > 1:
+              LibFiles += ","
+            LibFiles += Lib
+        if len(LibFiles) > 1:
+            OptTopModuleName = "opt"
+            ERR = Aio.shellExecute(f"cd {Path} && vopt -o {OptTopModuleName} {TopModuleName} -libertyfiles={LibFiles} -debugdb", 1, 1)
+            if "** Error:" in ERR:
+              Aio.print(ERR)
+      ERR = Aio.shellExecute(f'''cd {Path} && vsim {TopModuleName} -debugDB -do "add schematic -full sim:/{TopModuleName}"''', 1, 1)
+      if "** Error:" in ERR:
         Aio.print(ERR)
       if not DontRemoveVsimWorkspace:
         try:
@@ -1208,29 +1249,49 @@ class VerilogTestbench:
     else:
       Aio.printError("The 'visualize' feature is only available with Questa sim")
     
-  def simulate(self, OneTimeForce = "") -> dict:
+  def simulate(self, OneTimeForce = "", Libs = None) -> dict:
+    if Libs is not None and not Aio.isType(Libs, []):
+      Libs = [Libs]
     RndStr = str(int(uniform(1, 99999999999999)))
     Path = ""
     if shell_config.useQuesta():
+      TopModuleName = self.Name
+      OptTopModuleName = TopModuleName
       Path = f"questa_{RndStr}/"
       os.mkdir(Path)
       FileName = f"full_tb.v"
       self.writeFullVerilog(f"{Path}{FileName}", RndStr, OneTimeForce)
-      copyfile(Aio.getPath() + "siemens/modelsim.ini", "modelsim.ini")
+      os.symlink(Aio.getPath() + "siemens/modelsim.ini", "modelsim.ini")
       ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/pad_cells.v", 1, 1)
-      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+      if "** Error:" in ERR:
         Aio.print(ERR)
       ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/adk.v", 1, 1)
-      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+      if "** Error:" in ERR:
         Aio.print(ERR)
       ERR = Aio.shellExecute(f"cd {Path} && vlog {FileName}", 1, 1)
-      if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
+      if "** Error:" in ERR:
         Aio.print(ERR)
+      if Aio.isType(Libs, []):
+        LibFiles = ""
+        for Lib in Libs:
+          if Lib.endswith(".v"):
+            ERR = Aio.shellExecute(f"cd {Path} && vlog {Lib}", 1, 1)
+            if "** Error:" in ERR:
+              Aio.print(ERR)
+          elif Lib.endswith(".lib"):
+            if len(LibFiles) > 1:
+              LibFiles += ","
+            LibFiles += Lib
+        if len(LibFiles) > 1:
+            OptTopModuleName = "opt"
+            ERR = Aio.shellExecute(f"cd {Path} && vopt -o {OptTopModuleName} {TopModuleName} -libertyfiles={LibFiles} -debugdb", 1, 1)
+            if "** Error:" in ERR:
+              Aio.print(ERR)
       Batch = f'''
 run {self.SimulationStopTime} {self.TimeUnit}
 quit -f
 '''
-      ERR = Aio.shellExecute(f'''cd {Path} && vsim {self.Name} <<! {Batch}''', 1, 1)
+      ERR = Aio.shellExecute(f'''cd {Path} && vsim {TopModuleName} <<! {Batch}''', 1, 1)
       if re.match(r'Errors:\s*[1-9]', ERR, re.MULTILINE):
         Aio.print(ERR)
     else:
@@ -1261,12 +1322,12 @@ quit -f
         pass
     return Result
   
-  def simulateSingleStuckAtFaults(self):
-    reference = self.simulate()
+  def simulateSingleStuckAtFaults(self, Libs = None):
+    reference = self.simulate(Libs=Libs)
     Forces = self._my_verilog.getForceStatementsForSingleStuckAt()
     FaultsCount = len(Forces)
     NotDetectable = []
-    Results = p_map(self.simulate, Forces)
+    Results = p_map(partial(self.simulate, Libs=Libs), Forces)
     for i in range(len(Forces)):
       result = Results[i]
       force = Forces[i]
