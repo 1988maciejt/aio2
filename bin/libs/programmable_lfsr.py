@@ -1,8 +1,10 @@
 from libs.aio import *
 from libs.lfsr import *
 from libs.programmable_lfsr_config import *
+from libs.pandas_table import *
 import gc
 from math import log2
+import bitarray.util as bau
 
 class ProgrammableLfsr:
   _polys = {}
@@ -235,9 +237,9 @@ class ProgrammableLfsr:
       TapConfig = {}
       TapConfig["bus"] = Bus
       if Bus[0] == Bus[1]:
-        TapConfig["configbus"] = f"config[{Bus[0]}]"
+        TapConfig["configbus"] = f"config_vector[{Bus[0]}]"
       else:
-        TapConfig["configbus"] = f"config[{Bus[0]}:{Bus[1]}]"
+        TapConfig["configbus"] = f"config_vector[{Bus[0]}:{Bus[1]}]"
       TapConfig["sources"] = Sources
       TapConfig["destinations"] = Destinations
       ConfigDict[Value] = TapConfig
@@ -259,7 +261,7 @@ class ProgrammableLfsr:
         ConfigValue = Source
         if ConfigValue not in UsedConfigValues:
           SourceFlop = Sources[Source]
-          Always += f"  if ({ConfigBus} == {ConfigValue})) begin\n"
+          Always += f"  if ({ConfigBus} == {ConfigValue}) begin\n"
           Always += f"    {Key} <= {SourceFlop};\n"
           Always += f"  end\n"
           UsedConfigValues.append(ConfigValue)
@@ -309,6 +311,7 @@ f'''module {ModuleName} (
   input wire clk,
   input wire enable,
   input wire reset,
+  input wire [{ConfigBits-1}:0] config_vector,
 '''
     if len(InjectorIndexesList) > 0:
       Module += f"  input wire [{len(InjectorIndexesList)-1}:0] injectors,\n"
@@ -339,5 +342,69 @@ end
     
 endmodule'''
     return Module
+  
+  def getLfsr(self, Config):
+    try:
+      TapsList = []
+      if Aio.isType(Config, []):
+        for i in range(len(self._taps_list)):
+          tap = self._taps_list[i]
+          conf = Config[i]
+          iTap = tap[conf]
+          if iTap is not None:
+            TapsList.append(iTap)
+      else:
+        if Aio.isType(Config, 0):
+          Config = bau.int2ba(Config, self._size, endian='little')
+        elif Aio.isType(Config, "str"):
+          Config = bitarray(Config)
+        B0 = 0
+        for tap in self._taps_list:
+          Bits = ceil(log2(len(tap)))
+          B1 = B0 + Bits
+          S = Config[B0:B1]
+          B0 += Bits
+          S.reverse()
+          keys = list(tap.keys())
+          Index = bau.ba2int(S)
+          iTap = tap[keys[Index]]
+          if iTap is not None:
+            TapsList.append(iTap)
+      return Lfsr(self._size, RING_WITH_SPECIFIED_TAPS, TapsList)
+    except:
+      return None
     
-    
+  def getConfigVectorLength(self) -> int:
+    Result = 0
+    for tap in self._taps_list:
+      Result += ceil(log2(len(tap)))
+    return Result
+  
+  def printConfigVectorReport(self):
+    PT = PandasTable(["CONTROL_VECTOR_BITS", "CONTROL_VALUE", "CONTROL_NAME", "TAP"], AutoId=1, AddVerticalSpaces=0)
+    B0 = 0
+    for tap in self._taps_list:
+      Bits = ceil(log2(len(tap)))
+      B1 = B0 + Bits
+      BitsStr = f"[{B0}:{B1}]"
+      B0 += Bits
+      IndexStr = ""
+      NameStr = ""
+      ValStr = ""
+      Second = 0
+      Index = 0
+      for key in tap.keys():
+        val = tap[key]
+        istr = str(bau.int2ba(Index, Bits, endian='little'))[9:-1]
+        if Second:
+          IndexStr += "\n"
+          NameStr += "\n"
+          ValStr += "\n"
+        else:
+          Second = 1
+        IndexStr += f"{istr}"
+        NameStr += f"{key}"
+        ValStr += f"{val}"
+        Index += 1
+      PT.add([BitsStr, IndexStr, NameStr, ValStr])
+    PT.print()

@@ -3,6 +3,7 @@ import bitarray.util as bau
 from math import log2
 from libs.utils_bitarray import *
 from libs.utils_int import *
+from libs.utils_list import *
 from libs.aio import *
 from libs.generators import *
 from tqdm import *
@@ -11,7 +12,6 @@ from p_tqdm import *
 from functools import partial
 from multiprocessing import Value
 from pathos.multiprocessing import ProcessPool as Pool
-import copy
 
 
 _BF_STATE = None
@@ -26,6 +26,10 @@ class BentFunction:
     return str(self.value())
   def __repr__(self) -> str:
     return f'BentFunction({repr(self._lut)})'
+  
+  @staticmethod
+  def constructBentLUT(LUT1 : bitarray, LUT2 : bitarray) -> bitarray:
+    Aio.printError("Not yet implemented!!")
   
   def value(self, Source : bitarray, MapList : list) -> int:
     return self._lut[bau.ba2int(Bitarray.mapBits(Source, MapList))]
@@ -107,8 +111,39 @@ class BentFunction:
     return int(log2(len(self._lut)))
   
   def getLut(self) -> bitarray:
-    return self._lut()  
+    return self._lut 
   
+  def getMonomialsCount(self, Degree = None) -> list:
+    InputCount = self.getInputCount()
+    InputIndexes = [i for i in range(0, InputCount)]
+    NoVarList = []
+    SLen = 1
+    EveryN = 2
+    for _ in range(InputCount):
+      Lut = self._lut.copy()
+      Bitarray.resetSeriesOfBits(Lut, SLen, EveryN, SLen)
+      NoVarList.append(Lut)
+      SLen <<= 1
+      EveryN <<= 1    
+    ResultList = []
+    ReturnList = 1
+    if Degree is not None:
+      Iter = [Degree]
+      ReturnList = 0
+    else:
+      Iter = range(InputCount+1)
+    for Degree in Iter:
+      Result = 0
+      for NoVarComb in List.getCombinations(InputIndexes, InputCount-Degree):
+        Lut = self._lut.copy()
+        for i in NoVarComb:
+          Lut &= NoVarList[i]
+        Result += (Lut.count(1) & 1)
+      ResultList.append(Result)
+    if ReturnList:
+      return ResultList
+    return Result
+    
   def toVerilog(self, ModuleName : str):
     ICount = self.getInputCount()
     Module = \

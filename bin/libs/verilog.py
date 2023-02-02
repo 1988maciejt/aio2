@@ -421,15 +421,16 @@ class VerilogInstances:
 class VerilogModule:
   __slots__ = ("_name", "_content", "_signals", "_params", "_instances", "IndentationString", "MyModules")
   def __init__(self, Content : str, MyModules = None) -> None:
+    ContentOrig = Content
+    Content = re.sub(r'(\n\s*\\)', '', Content)
     self._name = ""
-    self._content : str
     self._signals = VerilogSignals()
     self._params = VerilogParameters()
     self._instances = VerilogInstances()
     self.IndentationString = ""
     self.MyModules = MyModules
     # Parse module name, parameters, nets
-    self._content = Content
+    self._content = ContentOrig
     CContent = ""
     for l in Content.split("\n"):
       CContent += re.sub(r'^(.*)\(\*.*\*\)(.*)$', r'\1\2', l) + "\n"
@@ -461,6 +462,8 @@ class VerilogModule:
         P = VerilogParameter(R.group(1), R.group(2))
         self._params.add(P)
     for io_ in ios_list:
+      if "(" in io_ or ")" in io_:
+        continue
       _direction = "inout"
       _type = "wire"
       _bush = 0
@@ -529,7 +532,7 @@ class VerilogModule:
       self._instances.addInstance(Instance)
     # internal signals
     RegexInternalSignal = f'(wire|reg)\s*((\[([0-9]+):([0-9]+)\])|())\s+([^=;]+)'
-    RegexIoSignal = f'(input|output|inout)\s*([^=;]+)'
+    RegexIoSignal = f'(input|output|inout)\s+([^=;]+)'
     CContent = CContent.replace(",\n", ",")
     for Line in CContent.split("\n"):
       Direction = VerilogSignalDirection.INTERNAL
@@ -562,6 +565,8 @@ class VerilogModule:
           _busl = int(_To)
         Bus = [_bush, _busl]
         for Name in _Names:
+          if "(" in Name or ")" in Name:
+            continue
           Name = Name.strip()
           if len(Name) < 1 or ")" in Name or "]" in Name:
             continue
@@ -573,7 +578,7 @@ class VerilogModule:
           Sig = VerilogSignal(Name, Type, Direction, Bus)
           self._signals.add(Sig)
   def __repr__(self) -> str:
-    return "VerilogMosule('" + self._name + "')"
+    return "VerilogModule('" + self._name + "')"
   def __str__(self) -> str:
     result = self.IndentationString + "VERILOG_MODULE {\n"
     result += self.IndentationString + "  Name: " +  self._name + "\n"
@@ -613,8 +618,10 @@ class VerilogModule:
       for instance in instances:
         IName = instance.InstanceName
         MName = instance.ModuleName
-        Module = self.MyModules.getModuleByName(MName)
-        Aux = Module.getSignalNames(RegexPattern, Direction, Type, OfInstance, MName)
+        Module = self.MyModules.getModuleByName(MName)  
+        if Module is None:
+          continue
+        Aux = Module.getSignalNames(RegexPattern, Direction, Type, OfInstance)
         for A in Aux:
           result.append(IName + "." + A)
     result.sort()
@@ -675,6 +682,8 @@ class VerilogModule:
       i = self._instances[index]
       iname = i.InstanceName
       imodule = MyVerilog.getModuleByName(i.ModuleName)
+      if imodule is None:
+        continue
       imodulename = imodule.getName()
       Result += f'\n{Indentation}{myindent}{iname}  ({imodulename}) {imodule.getDependencyInfoString(Indentation + AsciiDrawing_Characters.VERTICAL + " ")}'
     return Result
@@ -1249,7 +1258,7 @@ class VerilogTestbench:
     else:
       Aio.printError("The 'visualize' feature is only available with Questa sim")
     
-  def simulate(self, OneTimeForce = "", Libs = None) -> dict:
+  def simulate(self, OneTimeForce = "", Libs = None, RemoveWorkFiles = True) -> dict:
     if Libs is not None and not Aio.isType(Libs, []):
       Libs = [Libs]
     RndStr = str(int(uniform(1, 99999999999999)))
@@ -1261,7 +1270,7 @@ class VerilogTestbench:
       os.mkdir(Path)
       FileName = f"full_tb.v"
       self.writeFullVerilog(f"{Path}{FileName}", RndStr, OneTimeForce)
-      os.symlink(Aio.getPath() + "siemens/modelsim.ini", "modelsim.ini")
+      os.symlink(Aio.getPath() + "siemens/modelsim.ini", f"{Path}modelsim.ini")
       ERR = Aio.shellExecute(f"cd {Path} && vlog {Aio.getPath()}siemens/pad_cells.v", 1, 1)
       if "** Error:" in ERR:
         Aio.print(ERR)
@@ -1314,12 +1323,15 @@ quit -f
         Result[name] = readFile(CFname)
         os.remove(CFname)
       except:
+        Aio.printError(f"No result for '{name}' (work dir: '{Path}').")
+        RemoveWorkFiles = 0
         Result[name] = None
-    if len(Path) > 1:
-      try:
-        shutil.rmtree(Path[:-1])
-      except:
-        pass
+    if RemoveWorkFiles:
+      if len(Path) > 1:
+        try:
+          shutil.rmtree(Path[:-1])
+        except:
+          pass
     return Result
   
   def simulateSingleStuckAtFaults(self, Libs = None):

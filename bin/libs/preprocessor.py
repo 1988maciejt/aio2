@@ -12,6 +12,12 @@ def preprocessTextToPythonCode(Text : str, *args, **kwargs) -> str:
   for Line in Lines:
     if len(Line) == 0:
       continue
+    if re.match(r'^\s*`\s*else\s*:\s*$', Line):
+      if len(Spaces) > 0:
+        Spaces = Spaces[0:-1]
+      Result += f'{Spaces}else:\n'
+      Spaces += " "
+      continue
     if re.match(r'^\s*`\s*end\s*\S*$', Line):
       if len(Spaces) > 0:
         Spaces = Spaces[0:-1]

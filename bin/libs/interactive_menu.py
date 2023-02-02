@@ -76,11 +76,19 @@ def _categoryPolynomial_printTiger():
     return
   Result = Polynomial.listTigerPrimitives(Degree, CoeffsCount, Balancing, MinDistance=MinDist, n=N, NoResultsSkippingIteration=NS, MinNotMatchingTapsCount=NotMatchingTapsCount)
   String = "Found tiger polynomials:\n\n"
-  Aio.print(f'Found tiger primitives({Degree}, {CoeffsCount}, Balancing={Balancing}, MinimumDoistance={MinDist}):')
   for R in Result:
     String += f'{R.toTigerStr()}\n'
-    Aio.print(R.toTigerStr())
+  Aio.print(f'Found tiger primitives({Degree}, {CoeffsCount}, Balancing={Balancing}, MinimumDoistance={MinDist}):')
   message_dialog(title="Result", text=String).run()
+  if len(Result) > 0:
+    if MainMenu_static._draw_results.run():
+      for R in Result:
+        Aio.print(R.toTigerStr())
+        Lfsr(R, TIGER_RING).print()
+        Aio.print()
+    else:
+      for R in Result:
+        Aio.print(R.toTigerStr())
   
 def _categoryPolynomial_printHybrid():
   Degree = MainMenu_static.getPolynomialDegree()
@@ -111,8 +119,16 @@ def _categoryPolynomial_printHybrid():
   Aio.print(f'Found hybrid primitives({Degree}, {CoeffsCount}, Balancing={Balancing}, MinimumDoistance={MinDist}):')
   for R in Result:
     String += f'{R}\n'
-    Aio.print(R)
   message_dialog(title="Result", text=String).run()
+  if len(Result) > 0:
+    if MainMenu_static._draw_results.run():
+      for R in Result:
+        Aio.print(R.toTigerStr())
+        Lfsr(R, HYBRID_RING).print()
+        Aio.print()
+    else:
+      for R in Result:
+        Aio.print(R)
 
 def _categoryPolynomial_printDense():
   Degree = MainMenu_static.getPolynomialDegree()
@@ -684,6 +700,11 @@ class MainMenu_static:
     [3,6], [6,2]
     ..which means two taps: from FF3 output to the XOR at FF6 input and the second tap from FF6 output to the XOR at FF2 input."""
   )
+  _draw_results = yes_no_dialog(
+    title='ASCII Art',
+    text='Do you want to draw ring generators, based on found results, using ASCII Art?\nIf so, consider zooming-out the terminal window...'
+  )
+  
   _input_nlfsr_taps = input_dialog(
     title="Taps list",
     text="""Enter non-linear taps. Each tap is a list: [<Destination> [Source0>, <Source1>, ..., <SourceN>]]

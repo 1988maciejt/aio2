@@ -35,3 +35,21 @@ class Bitarray:
         for i in range(len(IndexesList)):
             Result[i] = Source[IndexesList[i]]
         return Result
+    
+    def setSeriesOfBits(Var : bitarray, Value, SerieLength : int, EveryNBit : int, StartFrom = 0):
+        Len = len(Var)
+        for i in range(StartFrom, Len, EveryNBit):
+            for j in range(0, SerieLength):
+                try:
+                    Var[i + j] = Value
+                except:
+                    pass
+    
+    def resetSeriesOfBits(Var : bitarray, SerieLength : int, EveryNBit : int, StartFrom = 0):
+        Len = len(Var)
+        for i in range(StartFrom, Len, EveryNBit):
+            for j in range(0, SerieLength):
+                try:
+                    Var[i + j] = 0
+                except:
+                    pass

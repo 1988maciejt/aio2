@@ -41,14 +41,56 @@ Consider, that there is no required to make common source or common destination 
 	See the example on page \pageref{programmablelfsrexample}
 }
 
-\cmd {ProgrammableLfsr\_object} {getSize} {} {
-	Returns a size (flip-flop count)of the Programmable Lfsr object.
-}
+\cmd {ProgrammableLfsr\_object} {getConfigVectorLength} {} {
+	Returns the length of the configuration vector.
+}\begin{lstlisting}[language=Python]
+		ProgLfsr1 = ProgrammableLfsr(8, [
+			{'tap1_0':None, 'tap1_1':[0,1], 'tap1_2':[1,2]},
+			{'tap2_off':None, 'tap2_on':[5,3]}
+		])
+		ProgLfsr1.getConfigVectorLength()
+		# >>> 3
+\end{lstlisting}
 
-\cmd {ProgrammableLfsr\_object} {getPolynomialsAndLfsrsDictionary} {Optimization=False} {
-	Returns a dictionary, containing all primitive polynomials the \ProgrammableLfsr\ object can implement and corresponding \Lfsr' objects (or tap lists). If \texttt{Optimization} is set to \texttt{True}, then it tries to optimize all configurations of the programmable LFSR so that as less taps are used, as possible.
-	See the example on page \pageref{programmablelfsrexample}
+\cmd {ProgrammableLfsr\_object} {getLfsr} {Config} {
+	Returns an \Lfsr\ object with respect to configuration given by the argument. Configuration may be described in one of the following forms:
+	\begin{itemize}
+		\item as \texttt{bitarray} - then configuration vector is compatible with Verilog version. Each tap is controlled by consecutive bits of the given binary word,
+		\item as \texttt{int} - is converted to the \texttt{bitarray} object,
+		\item as \texttt{str} - is converted to the \texttt{bitarray} object,
+		\item as a list of keys - each switchable tap is described as a dictionary, so the given list must contain keys needed to obtain the exact configuration
+	\end{itemize}
+	Returns \texttt{None} if the given configuration is invalid.
 }
+\begin{lstlisting}[language=Python]
+		ProgLfsr1 = ProgrammableLfsr(8, [
+			{'tap1_0':None, 'tap1_1':[0,1], 'tap1_2':[1,2]},
+			{'tap2_off':None, 'tap2_on':[5,3]}
+		])
+		# First tap needs 2 config bits, the other one - 1 bit.
+		# So, the config word looks like:
+		# bitarray('abc')
+		#           |||_ the second tap
+		#           ||__ the first tap
+		# Frst tap config word = {ba}
+		# Second tap config word = {c}
+		# {ba} = 0b00 = 0: None 
+		# {ba} = 0b01 = 1: [0,1] 
+		# {ba} = 0b10 = 2: [1,2] 
+		# {ba} = 0b11 = 3: <invalid>
+		# {c}  = 0b0  = 0: None
+		# {c}  = 0b1  = 1: [5,3]
+		ProgLfsr1.getLfsr('000')
+		# >>> Lfsr(8, LfsrType.RingWithSpecifiedTaps, [])
+		ProgLfsr1.getLfsr('100')
+		# >>> Lfsr(8, LfsrType.RingWithSpecifiedTaps, [[0, 1]])
+		ProgLfsr1.getLfsr('010')
+		# >>> Lfsr(8, LfsrType.RingWithSpecifiedTaps, [[1, 2]])
+		ProgLfsr1.getLfsr('011')
+		# >>> Lfsr(8, LfsrType.RingWithSpecifiedTaps, [[1, 2], [5, 3]])
+		ProgLfsr1.getLfsr(['tap1_1', 'tap2_on'])
+		# >>> Lfsr(8, LfsrType.RingWithSpecifiedTaps, [[0, 1], [5, 3]])
+\end{lstlisting}
 
 \cmd {ProgrammableLfsr\_object} {getLfsrs} {Optimization=True} {
 	Returns a list containing all maximum Lfsrs implemented by the \ProgrammableLfsr\ object. If \texttt{Optimization} is set to \texttt{True}, then it tries to optimize all configurations of the programmable LFSR so that as less taps are used, as possible.
@@ -60,6 +102,15 @@ Consider, that there is no required to make common source or common destination 
 	See the example on page \pageref{programmablelfsrexample}
 }
 
+\cmd {ProgrammableLfsr\_object} {getPolynomialsAndLfsrsDictionary} {Optimization=False} {
+	Returns a dictionary, containing all primitive polynomials the \ProgrammableLfsr\ object can implement and corresponding \Lfsr' objects (or tap lists). If \texttt{Optimization} is set to \texttt{True}, then it tries to optimize all configurations of the programmable LFSR so that as less taps are used, as possible.
+	See the example on page \pageref{programmablelfsrexample}
+}
+
+\cmd {ProgrammableLfsr\_object} {getSize} {} {
+	Returns a size (flip-flop count)of the Programmable Lfsr object.
+}
+
 \cmd {ProgrammableLfsr\_object} {getUsedTaps} {} {
 	Returns a list containing used connections (taps) after optimization. 
 	See the example on page \pageref{programmablelfsrexample}
@@ -69,6 +120,23 @@ Consider, that there is no required to make common source or common destination 
 	Returns a list containing unused connections (taps) after optimization. Removing those connections will not affect the primitive polynomials list implemented by this \ProgrammableLfsr\ object.
 	See the example on page \pageref{programmablelfsrexample}
 }
+
+\cmd {ProgrammableLfsr\_object} {printConfigVectorReport} {} {
+	Prints (to the screen and to the transcript) detailed info about bits of configuration vector (applicable also to Verilog).
+}
+\begin{lstlisting}[language=Python]
+		ProgLfsr1 = ProgrammableLfsr(8, [
+		{'tap1_0':None, 'tap1_1':[0,1], 'tap1_2':[1,2]},
+		{'tap2_off':None, 'tap2_on':[5,3]}
+		])
+		ProgLfsr1.printConfigVectorReport()
+		# >>> Id CONTROL_VECTOR_BITS CONTROL_VALUE CONTROL_NAME     TAP
+		# >>> 1               [0:2]          '00'       tap1_0    None
+		# >>>                                '10'       tap1_1  [0, 1]
+		# >>>                                '01'       tap1_2  [1, 2]
+		# >>> 2               [2:3]           '0'     tap2_off    None
+		# >>>                                 '1'      tap2_on  [5, 3]
+\end{lstlisting}
 
 \cmd {ProgrammableLfsr\_object} {toVerilog} {ModuleName, InjectorIndexesList=[]} {
 	Returns a string containing Verilog description of the \ProgrammableLfsr\ object.
@@ -92,10 +160,10 @@ Example of Programmable Lfsr analysis:
 #     of from output of FF[4] to a XOR at input of FF[2]
 #     with no-connection (disable) option
 plfsr = ProgrammableLfsr(8, [
-{'6-0_off': None, '6-0_on': [6, 0]},
-{'5-0_off': None, '5-0_on': [5, 0]},
-{'None': None, '4-3': [4, 3], '3-4': [3, 4]},
-{'None': None, '2-3': [2, 3], '4-2': [4, 2]}
+	{'6-0_off': None, '6-0_on': [6, 0]},
+	{'5-0_off': None, '5-0_on': [5, 0]},
+	{'None': None, '4-3': [4, 3], '3-4': [3, 4]},
+	{'None': None, '2-3': [2, 3], '4-2': [4, 2]}
 ], OperateOnTapsOnly = True)
 plfsr.getPolynomialsAndLfsrsDictionary()
 # >>> {Polynomial([8, 5, 3, 2, 0]): [[[6, 0], [3, 4]], [[6, 0], [2, 3]]]}
@@ -130,6 +198,7 @@ print(plfsr.toVerilog("MyProgrammableLfsr", [2,1,0]))
 # 	input wire clk,
 # 	input wire enable,
 # 	input wire reset,
+# 	input wire [3:0] config,
 # 	input wire [2:0] injectors,
 # 	output reg [7:0] O
 # );
@@ -148,18 +217,18 @@ print(plfsr.toVerilog("MyProgrammableLfsr", [2,1,0]))
 # 
 # always @ (*) begin
 # 	T0 <= 1'b0;
-# 	if (config[0] == 1'd1)) begin
+# 	if (config[0] == 1'd1) begin
 # 		T0 <= O[6];
 # 	end
 # end
 # 
 # always @ (*) begin
 # 	T1 <= 1'b0;
-# 	if (config[1] == 1'd1)) begin
+# 	if (config[1] == 1'd1) begin
 # 		T1 <= O[5];
 # 	end
 # end
-
+# 
 # always @ (*) begin
 # 	T2 <= 1'b0;
 # 	if (config[3:2] == 2'd1)) begin

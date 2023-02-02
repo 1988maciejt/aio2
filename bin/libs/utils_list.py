@@ -3,10 +3,19 @@ import numpy
 #import numba
 import random
 import multiprocessing
+import itertools
 
 
 
 class List:
+  
+  def getCombinations(List, k : int) -> list:
+    Result = []
+    for subset in itertools.combinations(List, k):
+      if subset is None:
+        break
+      Result.append(subset)
+    return Result
   
   def getPermutationsPfManyListsCount(lists) -> int:
     Result = 1
