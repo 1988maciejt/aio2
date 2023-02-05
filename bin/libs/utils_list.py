@@ -187,4 +187,5 @@ class List:
       result += r
     return result
     
-  
+  def intersection(lst1 : list, lst2 : list) -> list:
+    return [value for value in lst1 if value in lst2]

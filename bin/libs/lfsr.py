@@ -18,6 +18,8 @@ import gc
 from bitarray import *
 import bitarray.util as bau
 from libs.programmable_lfsr_config import *
+from sympy import *
+from sympy.logic import *
 #from tqdm.contrib.concurrent import process_map
 
 
@@ -1464,6 +1466,72 @@ class Lfsr:
     self.clear()
     self._taps.clear()
     self._my_poly.clear()    
+    
+  def getDestinationsDictionary(self) -> dict:
+    DestDict = {}
+    Size = self._size
+    for i in range(Size):
+      DestDict[i] = [(i + 1) % Size]
+    if self._type == LfsrType.RingGenerator or self._type == LfsrType.RingWithSpecifiedTaps:
+      Taps = self.getTaps()
+      for Tap in Taps:
+        S = Tap[0]
+        D = Tap[1]
+        Aux = DestDict[D]
+        Aux.append(S)
+        DestDict[D] = Aux    
+    elif self._type == LfsrType.Fibonacci:
+      Poly = self._my_poly
+      Aux = DestDict[Size-1]
+      for i in range(1, len(Poly)-1):
+        Aux.append(Poly[i])
+      DestDict[Size-1] = Aux
+    elif self._type == LfsrType.Galois:
+      Poly = self._my_poly
+      for i in range(1, len(Poly)-1):
+        Aux = DestDict[i-1]
+        Aux.append(0)
+        DestDict[i-1] = Aux
+    else:
+      Aio.printError("Not implemented")
+    return DestDict
+    
+  def simulateSymbolically(self, SequenceOfSymbols = [], InjectionAtBit = 0, StartFrom = None, ReturnAllResults = 0) -> list:
+    AllResults = []
+    Dict = self.getDestinationsDictionary()
+    Size = self._size
+    if Aio.isType(SequenceOfSymbols, 0):
+      SequenceOfSymbols = [symbols(f'I{i}') for i in range(SequenceOfSymbols)]
+    if Aio.isType(InjectionAtBit, 0):
+      InjectionAtBit = [InjectionAtBit]
+    if StartFrom is None:
+      Values = [False for i in range(Size)]
+    else:
+      if Aio.isType(StartFrom, []) and len(StartFrom) == Size:
+        Values = StartFrom
+      else:
+        Aio.printError(f"StartFrom must be a list of size {Size}.")
+    for Step in range(len(SequenceOfSymbols)):
+      Injector = SequenceOfSymbols[Step]
+      NewValues = []
+      for i in range(Size):
+        Sources = Dict[i]
+        V = Values[Sources[0]]
+        for Si in range(1, len(Sources)):
+          S = Sources[Si]
+          V ^= Values[S]
+        if i in InjectionAtBit:
+          V ^= Injector
+        NewValues.append(V)
+        #print(NewValues)
+      Values = NewValues
+      if ReturnAllResults:
+        AllResults.append(Values)
+    if ReturnAllResults:
+      return AllResults
+    else:
+      return Values
+    
   def clear(self):
     """Clears the fast-simulation array
     """
@@ -1907,7 +1975,7 @@ class Lfsr:
 #      perc = round(cnt * 100 / self._N, 1)
 #      Aio.printTemp("  Lfsr sim ", perc , "%             ")  
     return res
-  def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = 0) -> int:
+  def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = 0) -> bitarray:
     if Aio.isType(Sequence, []):
       self._IBit = InjectionAtBit
       self._Start = StartValue

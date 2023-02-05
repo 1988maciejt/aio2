@@ -17,17 +17,17 @@
 \contentsline {subsection}{\numberline {3.1.6}Tiger Ring Generator}{15}{subsection.3.1.6}%
 \contentsline {section}{\numberline {3.2}Lfsr object methods}{16}{section.3.2}%
 \contentsline {section}{\numberline {3.3}Lfsr static methods}{20}{section.3.3}%
-\contentsline {chapter}{\numberline {4}Class ProgrammableLfsr}{21}{chapter.4}%
-\contentsline {section}{\numberline {4.1}ProgrammableLfsr object methods}{21}{section.4.1}%
-\contentsline {section}{\numberline {4.2}ProgrammableLfsrConfig utility class}{26}{section.4.2}%
-\contentsline {chapter}{\numberline {5}Class Nlfsr}{28}{chapter.5}%
-\contentsline {section}{\numberline {5.1}Nlfsr object methods}{28}{section.5.1}%
-\contentsline {chapter}{\numberline {6}Network and distributed computing}{30}{chapter.6}%
-\contentsline {section}{\numberline {6.1}UDP}{30}{section.6.1}%
-\contentsline {subsection}{\numberline {6.1.1}UDP Monitor}{30}{subsection.6.1.1}%
-\contentsline {subsection}{\numberline {6.1.2}UDP Sender}{31}{subsection.6.1.2}%
-\contentsline {section}{\numberline {6.2}Distributed computing}{31}{section.6.2}%
-\contentsline {subsection}{\numberline {6.2.1}RemoteAioNode object}{32}{subsection.6.2.1}%
-\contentsline {subsection}{\numberline {6.2.2}RemoteAioScheduler object}{33}{subsection.6.2.2}%
-\contentsline {chapter}{\numberline {7}Utility classes and helpers}{35}{chapter.7}%
-\contentsline {chapter}{\numberline {8}Interactive menu}{36}{chapter.8}%
+\contentsline {chapter}{\numberline {4}Class ProgrammableLfsr}{22}{chapter.4}%
+\contentsline {section}{\numberline {4.1}ProgrammableLfsr object methods}{22}{section.4.1}%
+\contentsline {section}{\numberline {4.2}ProgrammableLfsrConfig utility class}{27}{section.4.2}%
+\contentsline {chapter}{\numberline {5}Class Nlfsr}{29}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Nlfsr object methods}{29}{section.5.1}%
+\contentsline {chapter}{\numberline {6}Network and distributed computing}{31}{chapter.6}%
+\contentsline {section}{\numberline {6.1}UDP}{31}{section.6.1}%
+\contentsline {subsection}{\numberline {6.1.1}UDP Monitor}{31}{subsection.6.1.1}%
+\contentsline {subsection}{\numberline {6.1.2}UDP Sender}{32}{subsection.6.1.2}%
+\contentsline {section}{\numberline {6.2}Distributed computing}{32}{section.6.2}%
+\contentsline {subsection}{\numberline {6.2.1}RemoteAioNode object}{33}{subsection.6.2.1}%
+\contentsline {subsection}{\numberline {6.2.2}RemoteAioScheduler object}{34}{subsection.6.2.2}%
+\contentsline {chapter}{\numberline {7}Utility classes and helpers}{36}{chapter.7}%
+\contentsline {chapter}{\numberline {8}Interactive menu}{37}{chapter.8}%

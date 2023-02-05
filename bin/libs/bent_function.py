@@ -12,16 +12,19 @@ from p_tqdm import *
 from functools import partial
 from multiprocessing import Value
 from pathos.multiprocessing import ProcessPool as Pool
+from sympy import *
+from sympy.logic import SOPform
 
 
 _BF_STATE = None
 
 class BentFunction:
   
-  __slots__ = ("_lut")
+  __slots__ = ("_lut", "_minterms")
   
   def __init__(self, LUT : bitarray) -> None:
     self._lut = LUT.copy()
+    self._minterms = None
   def __str__(self) -> str:
     return str(self.value())
   def __repr__(self) -> str:
@@ -109,6 +112,14 @@ class BentFunction:
   
   def getInputCount(self):
     return int(log2(len(self._lut)))
+  
+  def getMinterms(self) -> list:
+    if self._minterms is None:
+      self._minterms = self._lut.search(1)
+    return self._minterms.copy()
+  
+  def getSymbolicValue(self, InputList : list):
+    return simplify(SOPform(InputList, self.getMinterms()))
   
   def getLut(self) -> bitarray:
     return self._lut 

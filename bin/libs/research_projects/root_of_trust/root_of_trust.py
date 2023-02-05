@@ -8,6 +8,8 @@ from libs.verilog import *
 from libs.verilog_creator import *
 from libs.preprocessor import *
 from bitarray import *
+import sympy.logic.boolalg as SympyBoolalg
+from tqdm import tqdm 
 
 ########################################################################################
 #                          NEPTUN RG
@@ -150,8 +152,44 @@ class HashFunction:
                     OString += S
                 PT.add([IString, OString])
         if Print:
-            PT.print()        
+            PT.print()       
             
+    def symbolicSimulation(self, MessageLength : int, MsgInjectors : 0) -> list:
+        LfsrInValues = [False for _ in range(self.LfsrIn.getSize())]
+        LfsrOutValues = [False for _ in range(self.LfsrOut.getSize())] 
+        MsgBit = 0
+        for _ in tqdm(range(self.Cycles), desc="Simulation"):
+            if MsgBit < MessageLength:
+                LfsrInValues = self.LfsrIn.simulateSymbolically([symbols(f'M{MsgBit}')], MsgInjectors, LfsrInValues)
+                MsgBit += 1
+            else:
+                LfsrInValues = self.LfsrIn.simulateSymbolically([False], MsgInjectors, LfsrInValues)
+            BFs = []
+            for bfun in self.Functions:
+                Inputs = []
+                for Iindex in bfun[1]:
+                    Inputs.append(LfsrInValues[Iindex])
+                BFs.append([bfun[0].getSymbolicValue(Inputs), bfun[2]])
+            LfsrOutValues = self.LfsrOut.simulateSymbolically([False], 0, LfsrOutValues)
+            for bf in BFs:
+                Outputs = bf[1]
+                for O in Outputs:
+                    LfsrOutValues[O] = LfsrOutValues[O] ^ bf[0]
+        for i in tqdm(range(len(LfsrOutValues)), desc="Simplification"):
+            LfsrOutValues[i] = SympyBoolalg.simplify_logic(LfsrOutValues[i], 'dnf', force=1)
+        Result = {'MonomialDegree':{}, 'Expression':{}}
+        for i in range(len(LfsrOutValues)):
+            V = LfsrOutValues[i]
+            Highest = 0
+            for A in V.args:
+                try:
+                    deg = len(A.atoms())
+                    if deg > Highest: Highest = deg
+                except:
+                    pass
+            Result['MonomialDegree'][i] = Highest
+            Result['Expression'][i] = V
+        return Result
             
 class ProgrammableHashFunction(HashFunction):
     

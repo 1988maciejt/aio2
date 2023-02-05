@@ -1,4 +1,6 @@
 from bitarray import *
+from random import randint
+import bitarray.util as bau
 
 
 
@@ -53,3 +55,18 @@ class Bitarray:
                     Var[i + j] = 0
                 except:
                     pass
+                
+    def rand(Size : int) -> bitarray:
+        return bau.int2ba(randint(0, (1<<Size)-1), Size)
+    
+    def countNotMatchingBits(A : bitarray, B : bitarray):
+        return bau.count_xor(A, B)
+    
+    def getAllBitarrayWithSingleBitFlipped(Word : bitarray):
+        Results = []
+        Len = len(Word)
+        for i in range(Len):
+            Result = Word.copy()
+            Result[i] ^= 1
+            Results.append(Result)
+        return Results

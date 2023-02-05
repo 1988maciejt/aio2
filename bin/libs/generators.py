@@ -1,6 +1,7 @@
 from libs.utils_int import *
 from bitarray import *
 import bitarray.util as bau
+from libs.utils_bitarray import *
 
 class Generators:
   __slots__ = ("_enabled")
@@ -67,3 +68,19 @@ class Generators:
       if not self._enabled:
         return
       yield bau.int2ba(i, length=Length, endian='little')
+      
+  def randBitarray(self, Size : int, Count : int):
+    for i in range(Count):
+      if not self._enabled:
+        return
+      yield Bitarray.rand(Size)
+      
+  def flippedBitInBitarray(self, Word : bitarray):
+    Len = len(Word)
+    for i in range(Len):
+      if not self._enabled:
+        return
+      Result = Word.copy()
+      Result[i] ^= 1
+      yield Result
+    
