@@ -1496,7 +1496,7 @@ class Lfsr:
       Aio.printError("Not implemented")
     return DestDict
     
-  def simulateSymbolically(self, SequenceOfSymbols = [], InjectionAtBit = 0, StartFrom = None, ReturnAllResults = 0) -> list:
+  def simulateSymbolically(self, SequenceOfSymbols = 1, InjectionAtBit = 0, StartFrom = None, ReturnAllResults = 0) -> list:
     AllResults = []
     Dict = self.getDestinationsDictionary()
     Size = self._size
