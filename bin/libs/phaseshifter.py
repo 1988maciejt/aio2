@@ -1,5 +1,8 @@
 from bitarray import *
 from libs.aio import *
+from sympy import *
+from sympy.logic import *
+from libs.fast_anf_algebra import *
 
 class PhaseShifter:
     _xors = [] # reversed
@@ -10,15 +13,7 @@ class PhaseShifter:
         self.setSourceObject(SourceObject)
         self._size = len(XorList)
         self._bavalue = bitarray(self._size)
-        self.reset()
-        self._xors = []
-        for Xor in reversed(XorList):
-            if Aio.isType(Xor, 0):
-                Xor = [Xor]
-            Xor2 = []
-            for Input in Xor:
-                Xor2.append(-Input-1)
-            self._xors.append(Xor2)
+        self._xors = XorList.copy()
         self.update()
     def __str__(self) -> str:
         return str(self._bavalue)[10:-2]   
@@ -38,6 +33,8 @@ class PhaseShifter:
         else:
             self._next_iteration = True
         return self._bavalue
+    def getXors(self):
+        return self._xors
     def reset(self) -> bitarray:
         self._bavalue.setall(0)
         return self._bavalue
@@ -53,6 +50,25 @@ class PhaseShifter:
                 V ^= ival[Input]
             self._bavalue[i] = V
         return self._bavalue
+    
+    def symbolicValues(self, SourceValues : list) -> list:
+        Result = []
+        for Xor in self._xors:
+            Val = False
+            for I in Xor:
+                Val ^= SourceValues[I]
+            Result.append(Val)
+        return Result
+    
+    def fastANFValues(self, ANFSpace : FastANFSpace,  SourceValues : list) -> list:
+        Result = []
+        for Xor in self._xors:
+            Val = ANFSpace.createExpression()
+            for I in Xor:
+                Val ^= SourceValues[I]
+            Result.append(Val)
+        return Result
+        
     def next(self, steps = 1) -> bitarray:
         self._my_source.next(steps)
         return self.update()

@@ -20,6 +20,7 @@ import bitarray.util as bau
 from libs.programmable_lfsr_config import *
 from sympy import *
 from sympy.logic import *
+from libs.fast_anf_algebra import *
 #from tqdm.contrib.concurrent import process_map
 
 
@@ -1524,6 +1525,52 @@ class Lfsr:
           V ^= Injector
         NewValues.append(V)
         #print(NewValues)
+      Values = NewValues
+      if ReturnAllResults:
+        AllResults.append(Values)
+    if ReturnAllResults:
+      return AllResults
+    else:
+      return Values
+    
+  def simulateFastANF(self, ANFSpace : FastANFSpace, SequenceOfSymbols = 1, InjectionAtBit = 0, StartFrom = None, ReturnAllResults = 0) -> list:
+    AllResults = []
+    Dict = self.getDestinationsDictionary()
+    Size = self._size
+    if Aio.isType(SequenceOfSymbols, 0):
+      Len = SequenceOfSymbols
+      SequenceOfSymbols = []
+      for i in range(Len):
+        SequenceOfSymbols.append(ANFSpace.getVariableByIndex(i % len(ANFSpace._Variables)))
+    if Aio.isType(InjectionAtBit, 0):
+      InjectionAtBit = [InjectionAtBit]
+    if StartFrom is None:
+      Values = [ANFSpace.createExpression() for i in range(Size)]
+    else:
+      if Aio.isType(StartFrom, []) and len(StartFrom) == Size:
+        Values = []
+        for V in StartFrom:
+          if not Aio.isType(V, "FastANFExpression"):
+            AV = ANFSpace.createExpression()
+            AV.addMonomial(ANFSpace.getMonomial(V))
+            Values.append(AV)
+          else:
+            Values.append(V)
+      else:
+        Aio.printError(f"StartFrom must be a list of size {Size}.")
+    for Step in range(len(SequenceOfSymbols)):
+      Injector = ANFSpace.createExpression()
+      Injector.addMonomial(ANFSpace.getMonomial(SequenceOfSymbols[Step]))
+      NewValues = []
+      for i in range(Size):
+        Sources = Dict[i]
+        V = Values[Sources[0]]
+        for Si in range(1, len(Sources)):
+          S = Sources[Si]
+          V ^= Values[S]
+        if i in InjectionAtBit:
+          V ^= Injector
+        NewValues.append(V)
       Values = NewValues
       if ReturnAllResults:
         AllResults.append(Values)

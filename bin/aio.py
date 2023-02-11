@@ -41,6 +41,7 @@ from libs.database import *
 from libs.eseries import *
 from libs.esp32 import *
 from libs.esp8266 import *
+from libs.fast_anf_algebra import *
 from libs.files import *
 from libs.gcd import *
 from libs.gcode import *
@@ -65,6 +66,7 @@ from libs.generators import *
 from libs.udp import *
 from libs.utils_serial import *
 from libs.utils_str import *
+from libs.utils_sympy import *
 from libs.verilog import *
 from libs.verilog_creator import *
 from tqdm import *

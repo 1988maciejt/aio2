@@ -14,19 +14,30 @@ from multiprocessing import Value
 from pathos.multiprocessing import ProcessPool as Pool
 from sympy import *
 from sympy.logic import SOPform
+import sympy.logic.boolalg as SympyBoolalg
+from libs.utils_sympy import *
+from libs.fast_anf_algebra import *
+from functools import partial
 
 
 _BF_STATE = None
 
 class BentFunction:
   
-  __slots__ = ("_lut", "_minterms")
+  __slots__ = ("_lut", "_minterms", "_anf", "_notanf", "_iList", "_FastAnfList", '_FastAnfNot')
   
   def __init__(self, LUT : bitarray) -> None:
     self._lut = LUT.copy()
     self._minterms = None
+    self._anf = None
+    self._notanf = 0
+    self._iList = None
+    self._FastAnfList = None
+    self._FastAnfNot = 0
+        
   def __str__(self) -> str:
     return str(self.value())
+  
   def __repr__(self) -> str:
     return f'BentFunction({repr(self._lut)})'
   
@@ -118,8 +129,85 @@ class BentFunction:
       self._minterms = self._lut.search(1)
     return self._minterms.copy()
   
+  def getFastANFValue(self, ANFSpace : FastANFSpace, InputList : List, Parallel = False):
+    if self._anf is None:
+      self._iList = [symbols(f'_bf_x_{i}') for i in range(self.getInputCount())]
+      self._anf = SOPform(self._iList, self.getMinterms()).to_anf()
+      if type(self._anf) == Not:
+        self._notanf = 1
+        self._anf = self._ang.args[0]
+    if self._FastAnfList is None:
+      AnfList = []
+      self._FastAnfNot = self._notanf
+      try:
+        for SymMonomial in self._anf.args:
+          MonoList = []
+          SymAtoms = SymMonomial.atoms()
+          for SymAtom in SymAtoms:
+            if SymAtom == True:
+              self._FastAnfNot = 1
+            else:
+              R = re.search(r'_bf_x_([0-9]+)', str(SymAtom))
+              if R:
+                MonoList.append(int(R.group(1)))
+          if len(MonoList) > 0:
+            AnfList.append(MonoList)
+        self._FastAnfList = AnfList
+      except:
+        pass
+    Result = ANFSpace.createExpression()
+    if Parallel:
+      Len = 0
+      for IV in InputList:
+        Len += len(IV)
+      if Len < 50000:
+        Parallel = 0
+    if Parallel:
+      Combos = []
+      for Mono in self._FastAnfList:
+        Combo = []
+        for i in Mono:
+          Combo.append(InputList[i])
+        Combos.append(Combo)
+      for N in p_uimap(partial(ANFSpace.multiplyList), Combos, desc="BentFunction PAR"):
+        Result.add(N)
+    else:
+      for Mono in self._FastAnfList:
+        First = 1
+        MonoResult = None
+        for i in Mono:
+          if First:
+            MonoResult = InputList[i].copy()
+            First = 0
+          else:
+            MonoResult.mul(InputList[i])
+        Result.add(MonoResult)
+    if self._FastAnfNot:
+      Result.negate()
+    return Result
+    
+              
+    
+  
   def getSymbolicValue(self, InputList : list):
-    return simplify(SOPform(InputList, self.getMinterms()))
+    if self._anf is None:
+      self._iList = [symbols(f'_bf_x_{i}') for i in range(self.getInputCount())]
+      self._anf = SOPform(self._iList, self.getMinterms()).to_anf()
+      if type(self._anf) == Not:
+        self._notanf = 1
+        self._anf = self._ang.args[0]
+    iDict = {}
+    for i in range(len(self._iList)):
+      iDict[self._iList[i]] = InputList[i]
+    Result = self._anf.copy()
+    Result = Result.subs(iDict)
+    if self._notanf:
+      Result ^= True
+    try:
+      Result = Result.to_anf()
+    except:
+      pass
+    return Result
   
   def getLut(self) -> bitarray:
     return self._lut 

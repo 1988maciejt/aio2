@@ -6,10 +6,13 @@ from libs.programmable_lfsr import *
 from libs.bent_function import *
 from libs.verilog import *
 from libs.verilog_creator import *
+from libs.phaseshifter import *
 from libs.preprocessor import *
 from bitarray import *
 import sympy.logic.boolalg as SympyBoolalg
 from tqdm import tqdm 
+from libs.fast_anf_algebra import *
+from time import sleep, time
 
 ########################################################################################
 #                          NEPTUN RG
@@ -48,21 +51,61 @@ def createNeptunLfsr(Size : int, UseDemuxes = False) -> ProgrammableLfsr:
 ########################################################################################
 #                          HASH FUNCTION
 ########################################################################################
+
+_VarsToExpr = {}
+_ExprToVars = {}
+_CanWrite = 1
+_ExprVarsSize = 0
+
+
+def _bf_evaluate(BFComb):
+    return BFComb[0].getSymbolicValue(BFComb[1])
+
+def _to_anf(Expr):
+    try:
+        return Expr.to_anf()
+    except:
+        return False
+    
+def _expr_expand(Expr):
+    global _VarsToExpr
+    try:
+        Expr = Expr.subs(_VarsToExpr)
+    except:
+        pass
+    return Expr
+
+def _expr_collapse(Expr):
+    global _ExprToVars, _VarsToExpr
+    try:
+        Aux = Expr.subs(_VarsToExpr)
+        return Aux.subs(_ExprToVars)
+    except:
+        return Expr
+
 class HashFunction:
     
-    __slots__ = ("Size", "Cycles", "LfsrIn", "LfsrOut", "Functions")
+    __slots__ = ("Size", "Cycles", "LfsrIn", "LfsrOut", "Functions", "DirectConnections", "LfsrInPhaseShifter")
     
     def __init__(self, FileName = None) -> None:
         self.Size = 0
         self.Cycles = 0
         self.LfsrIn = None
         self.LfsrOut = None
+        self.LfsrInPhaseShifter = None
         self.Functions = []
+        self.DirectConnections = []
         if FileName is not None:
             self.fromFile(FileName)
 
+    def addDirectConnection(self, SourceInLfsrIn : int, DestinationInLfsrOut : int):
+        self.DirectConnections.append([SourceInLfsrIn, DestinationInLfsrOut])
+
     def setLfsrIn(self, LfsrObject : Lfsr):
         self.LfsrIn = LfsrObject
+        
+    def setLfsrInPhaseShifter(self, LfsrInPhaseShifter : PhaseShifter):
+        self.LfsrInPhaseShifter = LfsrInPhaseShifter
 
     def setLfsrOut(self, LfsrObject : Lfsr):
         self.LfsrOut = LfsrObject
@@ -153,42 +196,200 @@ class HashFunction:
                 PT.add([IString, OString])
         if Print:
             PT.print()       
-            
-    def symbolicSimulation(self, MessageLength : int, MsgInjectors : 0) -> list:
-        LfsrInValues = [False for _ in range(self.LfsrIn.getSize())]
+        
+    def symbolicSimulation(self, MessageLength : int, MsgInjectors : 0, PrintExpressionsEveryCycle = 0, KeyAsSeed = 0) -> list:
+        global _VarsToExpr, _ExprToVars, _ExprVarsSize
+        if KeyAsSeed:
+            LfsrInValues = [symbols(f"K{i}") for i in range(self.LfsrIn.getSize())]
+        else:
+            LfsrInValues = [False for _ in range(self.LfsrIn.getSize())]
         LfsrOutValues = [False for _ in range(self.LfsrOut.getSize())] 
         MsgBit = 0
-        for _ in tqdm(range(self.Cycles), desc="Simulation"):
+        _VarsToExpr = {}
+        _ExprToVars = {}
+        _ExprVarsSize = 0
+        MsgVariables = [symbols(f'M{i}') for i in range(MessageLength)]
+        AllVariables = MsgVariables
+        if KeyAsSeed:
+            AllVariables + LfsrInValues
+        VIndex = 0
+        Avg = len(AllVariables)>>1
+        kValues = [i  for i in range(Avg-0, Avg+0 + 1, 1) if i > 0]
+        for k in kValues:
+            for C in List.getCombinations(AllVariables, k):
+                Expr = True
+                for Cx in C:
+                    Expr &= Cx
+                GVar = symbols(f"G{VIndex}")
+                VIndex += 1
+                _VarsToExpr[GVar] = Expr
+                _ExprToVars[Expr] = GVar
+        for Iter in tqdm(range(self.Cycles), desc="SIMULATION"):
             if MsgBit < MessageLength:
                 LfsrInValues = self.LfsrIn.simulateSymbolically([symbols(f'M{MsgBit}')], MsgInjectors, LfsrInValues)
                 MsgBit += 1
             else:
                 LfsrInValues = self.LfsrIn.simulateSymbolically([False], MsgInjectors, LfsrInValues)
-            BFs = []
+            if self.LfsrInPhaseShifter is not None:
+                LfsrInPhaseShifterValues = self.LfsrInPhaseShifter.symbolicValues(LfsrInValues)
+            BFValues = []
+            BFOutputs = []
             for bfun in self.Functions:
                 Inputs = []
                 for Iindex in bfun[1]:
-                    Inputs.append(LfsrInValues[Iindex])
-                BFs.append([bfun[0].getSymbolicValue(Inputs), bfun[2]])
+                    if Iindex >= 100000:
+                        Inputs.append(LfsrOutValues[Iindex - 100000])
+                    else:
+                        Inputs.append(LfsrInValues[Iindex])
+                BFValues.append(bfun[0].getSymbolicValue(Inputs))
+                BFOutputs.append(bfun[2])
+            BFs = []
+            for i in range(len(BFValues)):
+                BFs.append([BFValues[i], BFOutputs[i]])
             LfsrOutValues = self.LfsrOut.simulateSymbolically([False], 0, LfsrOutValues)
+            AllOutputs = []
+            for bf in BFs:
+                Outputs = bf[1]
+                AllOutputs += Outputs
+                for O in Outputs:
+                    LfsrOutValues[O] = LfsrOutValues[O] ^ bf[0]
+            for SD in self.DirectConnections:
+                if SD[0] >= 1000000:
+                    LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInPhaseShifterValues[SD[0]-1000000]
+                else:
+                    LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInValues[SD[0]]
+            LfsrOutValues = p_map(_to_anf, LfsrOutValues, desc="To ANF")
+            #AllOutputs = [i for i in range(len(LfsrInValues))]
+            ColList = []
+            for i in AllOutputs:
+                ColList.append(LfsrOutValues[i])
+            i = -1
+            for Collapsed in p_imap(_expr_collapse, ColList, desc="Collapsing expr"):
+                i += 1
+                LfsrOutValues[AllOutputs[i]] = Collapsed
+            if PrintExpressionsEveryCycle:
+                Aio.print(f"CYCLE {Iter}:")
+                for i in range(len(LfsrOutValues)):
+                    Val = LfsrOutValues[i]
+                    Aio.print(f"FF{i} \t= {Val}")
+                Aio.print()
+        #ResultValues = p_map(SympyBoolalg.to_anf, LfsrOutValues, desc="To ANF")
+        Result = {'MonomialDegree':{}, 'Expression':{}, 'Histogram': {}}
+        i = -1
+        for Vaux in p_imap(_expr_expand, LfsrOutValues, desc="Postprocessing"):
+            i += 1
+            try:
+                Vaux = Vaux.subs(_VarsToExpr)
+            except:
+                pass
+            try:
+                Vaux = Vaux.to_anf()
+            except:
+                pass
+            #print(f"{i}  =  {Vaux}\n")
+            Histogram = {}
+            Highest = 0
+            V = False
+            try:
+                if Vaux.func == Not:
+                    V = Vaux.args[0]
+                    Histogram[0] = 1
+                    Highest = 1
+                else:
+                    V = Vaux
+            except:
+                pass
+            try:
+                for A in V.args:
+                    try:
+                        deg = len(A.atoms())
+                        if deg > Highest: Highest = deg
+                        HV = Histogram.get(deg, 0)
+                        Histogram[deg] = HV + 1
+                    except:
+                        HV = Histogram.get(0, 0)
+                        Histogram[0] = HV + 1
+            except:
+                pass
+            Result['MonomialDegree'][i] = Highest
+            Result['Histogram'][i] = Histogram
+            Result['Expression'][i] = V
+        _VarsToExpr = {}
+        _ExprToVars = {}
+        return Result
+            
+    def FastANFSimulation(self, MessageLength : int, MsgInjectors : 0, PrintExpressionsEveryCycle = 0, KeyAsSeed = 0) -> list:
+        AllVariables = [f'M{i}' for i in range(MessageLength)]
+        if KeyAsSeed:
+            AllVariables += [f"K{i}" for i in range(self.LfsrIn.getSize())]
+        ANFSpace = FastANFSpace(AllVariables)
+        if KeyAsSeed:
+            LfsrInValues = [ANFSpace.createExpression(InitValue=f"K{i}") for i in range(self.LfsrIn.getSize())]
+        else:
+            LfsrInValues = [ANFSpace.createExpression() for _ in range(self.LfsrIn.getSize())]
+        LfsrOutValues = [ANFSpace.createExpression() for _ in range(self.LfsrOut.getSize())] 
+        MsgBit = 0
+        if KeyAsSeed:
+            AllVariables + LfsrInValues
+        for Iter in range(self.Cycles):
+            print(f"// RoT sim - iteration {Iter+1} / {self.Cycles}")
+            if MsgBit < MessageLength:
+                LfsrInValues = self.LfsrIn.simulateFastANF(ANFSpace, [f'M{MsgBit}'], MsgInjectors, LfsrInValues)
+                MsgBit += 1
+            else:
+                LfsrInValues = self.LfsrIn.simulateFastANF(ANFSpace, [None], MsgInjectors, LfsrInValues)
+            if self.LfsrInPhaseShifter is not None:
+                LfsrInPhaseShifterValues = self.LfsrInPhaseShifter.fastANFValues(ANFSpace, LfsrInValues)
+            BFValues = []
+            BFOutputs = []
+            for bfun_i in range(len(self.Functions)):
+                bfun = self.Functions[bfun_i]
+                Inputs = []
+                for Iindex in bfun[1]:
+                    if Iindex >= 100000:
+                        Inputs.append(LfsrOutValues[Iindex - 100000])
+                    else:
+                        Inputs.append(LfsrInValues[Iindex])
+                print(f"// RoT BentFunction {bfun_i+1} / {len(self.Functions)}")
+                BFValues.append(bfun[0].getFastANFValue(ANFSpace, Inputs, Parallel=1))
+                BFOutputs.append(bfun[2])
+            BFs = []
+            for i in range(len(BFValues)):
+                BFs.append([BFValues[i], BFOutputs[i]])
+            LfsrOutValues = self.LfsrOut.simulateFastANF(ANFSpace, [ANFSpace.createExpression()], 0, LfsrOutValues)
             for bf in BFs:
                 Outputs = bf[1]
                 for O in Outputs:
                     LfsrOutValues[O] = LfsrOutValues[O] ^ bf[0]
-        for i in tqdm(range(len(LfsrOutValues)), desc="Simplification"):
-            LfsrOutValues[i] = SympyBoolalg.simplify_logic(LfsrOutValues[i], 'dnf', force=1)
-        Result = {'MonomialDegree':{}, 'Expression':{}}
-        for i in range(len(LfsrOutValues)):
-            V = LfsrOutValues[i]
+            for SD in self.DirectConnections:
+                if SD[0] >= 1000000:
+                    LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInPhaseShifterValues[SD[0]-1000000]
+                else:
+                    LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInValues[SD[0]]
+            if PrintExpressionsEveryCycle:
+                Aio.print(f"CYCLE {Iter}:")
+                for i in range(len(LfsrOutValues)):
+                    Val = LfsrOutValues[i]
+                    Aio.print(f"FF{i} \t= {Val}")
+                Aio.print()
+        #ResultValues = p_map(SympyBoolalg.to_anf, LfsrOutValues, desc="To ANF")
+        Result = {'MonomialDegree':{}, 'Expression':{}, 'Histogram': {}}
+        for i in tqdm(range(len(LfsrOutValues)), desc="Postprocessing"):
+            Vaux = LfsrOutValues[i]
+            #print(f"{i}  =  {Vaux}\n")
+            HistogramList = Vaux.getMonomialsHistogram()
             Highest = 0
-            for A in V.args:
-                try:
-                    deg = len(A.atoms())
-                    if deg > Highest: Highest = deg
-                except:
-                    pass
+            Histogram = {}
+            for j in range(len(HistogramList)):
+                HV = HistogramList[j]
+                Histogram[j] = HV
+                if HV > 0:
+                    Highest = i
             Result['MonomialDegree'][i] = Highest
-            Result['Expression'][i] = V
+            Result['Histogram'][i] = Histogram
+            Result['Expression'][i] = str(Vaux)
+        _VarsToExpr = {}
+        _ExprToVars = {}
         return Result
             
 class ProgrammableHashFunction(HashFunction):

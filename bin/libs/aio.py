@@ -90,7 +90,8 @@ class Aio:
         </script>
       """
     html = conv.convert(text)
-    html = re.sub(r'(\.ansi2html-content\s+)(\{)', '\g<1>{ font-family: "Cascadia Code", Cascadia, Consolas, Monospace;', html)
+    html = re.sub(r'(\.ansi2html-content\s+)(\{)', '\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
+    html = re.sub(r'(\*\s+)(\{)', '\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
     open(FileName, "w").write(html)
   def resetTranscript():
     Aio._transcript = ""    
