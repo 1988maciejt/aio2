@@ -13,6 +13,7 @@ import sympy.logic.boolalg as SympyBoolalg
 from tqdm import tqdm 
 from libs.fast_anf_algebra import *
 from time import sleep, time
+from libs.simple_threading import *
 
 ########################################################################################
 #                          NEPTUN RG
@@ -59,7 +60,7 @@ _ExprVarsSize = 0
 
 
 def _bf_evaluate(BFComb):
-    return BFComb[0].getSymbolicValue(BFComb[1])
+    return BFComb[0].getFastANFValue(BFComb[1], BFComb[2], 1)
 
 def _to_anf(Expr):
     try:
@@ -332,7 +333,7 @@ class HashFunction:
         if KeyAsSeed:
             AllVariables + LfsrInValues
         for Iter in range(self.Cycles):
-            print(f"// RoT sim - iteration {Iter+1} / {self.Cycles}")
+            print(f"// RoT sim - ITERATION {Iter+1} / {self.Cycles} --------------------------")
             if MsgBit < MessageLength:
                 LfsrInValues = self.LfsrIn.simulateFastANF(ANFSpace, [f'M{MsgBit}'], MsgInjectors, LfsrInValues)
                 MsgBit += 1
@@ -342,6 +343,7 @@ class HashFunction:
                 LfsrInPhaseShifterValues = self.LfsrInPhaseShifter.fastANFValues(ANFSpace, LfsrInValues)
             BFValues = []
             BFOutputs = []
+            BFCombos = []
             for bfun_i in range(len(self.Functions)):
                 bfun = self.Functions[bfun_i]
                 Inputs = []
@@ -350,9 +352,15 @@ class HashFunction:
                         Inputs.append(LfsrOutValues[Iindex - 100000])
                     else:
                         Inputs.append(LfsrInValues[Iindex])
-                print(f"// RoT BentFunction {bfun_i+1} / {len(self.Functions)}")
-                BFValues.append(bfun[0].getFastANFValue(ANFSpace, Inputs, Parallel=1))
+                #print(f"// RoT BentFunction {bfun_i+1} / {len(self.Functions)}")
+                BFCombos.append([bfun[0], ANFSpace, Inputs])
+                #BFValues.append(bfun[0].getFastANFValue(ANFSpace, Inputs, Parallel=1))
                 BFOutputs.append(bfun[2])
+            BVDone = 1
+            for BV in SimpleThread.imap(_bf_evaluate, BFCombos):
+                BFValues.append(BV)
+                print(f"// RoT sim - BentFunction {BVDone} / {len(self.Functions)}") 
+                BVDone += 1
             BFs = []
             for i in range(len(BFValues)):
                 BFs.append([BFValues[i], BFOutputs[i]])

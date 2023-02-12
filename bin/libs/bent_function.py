@@ -18,6 +18,7 @@ import sympy.logic.boolalg as SympyBoolalg
 from libs.utils_sympy import *
 from libs.fast_anf_algebra import *
 from functools import partial
+from libs.simple_threading import *
 
 
 _BF_STATE = None
@@ -168,9 +169,15 @@ class BentFunction:
         Combo = []
         for i in Mono:
           Combo.append(InputList[i])
-        Combos.append(Combo)
-      for N in p_uimap(partial(ANFSpace.multiplyList), Combos, desc="BentFunction PAR"):
+        if len(Combo) == 1:
+          Result.add(Combo[0])
+        else:
+          Combos.append(Combo)
+      pm = 1
+      for N in SimpleThread.uimap(partial(ANFSpace.multiplyList), Combos):
         Result.add(N)
+        print(f"// BentFunction: parallel AND {pm} / {len(Combos)}")
+        pm += 1
     else:
       for Mono in self._FastAnfList:
         First = 1
