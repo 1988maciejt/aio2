@@ -4,6 +4,7 @@ from functools import partial
 from p_tqdm import *
 from tqdm import tqdm
 import bitarray.util as bau
+import itertools
 
 
 class FastANFSpace:
@@ -68,7 +69,7 @@ class FastANFExpression:
         self._Table ^= Another._Table
             
     def _mul_par(self, M1, Monomials2) -> bitarray:
-        Result = self._MySpace._Zero.copy()
+        Result = bau.zerps(1 << self._MonomialSize)
         for M2 in Monomials2:
             Result[M1 | M2] ^= 1
         return Result
@@ -109,10 +110,15 @@ class FastANFExpression:
                 Result += f"{VL}"
         return Result
 
-    def getMonomialsHistogram(self) -> list:
+    def getMonomialsHistogram(self, MinMonomial = None, MaxMonomial = None) -> list:
+        if MinMonomial is None:
+            MinMonomial = 0
+        if MaxMonomial is None:
+            MaxMonomial = 1 << self._MonomialSize
         Result = [0 for _ in range(self._MonomialSize + 1)]
         for M in self.getMonomials():
-            Result[bau.int2ba(M, self._MonomialSize).count(1)] += 1        
+            if MinMonomial <= M <= MaxMonomial:
+                Result[bau.int2ba(M, self._MonomialSize).count(1)] += 1        
         return Result
     
         

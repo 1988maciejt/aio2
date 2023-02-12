@@ -382,10 +382,14 @@ class HashFunction:
                 Aio.print()
         #ResultValues = p_map(SympyBoolalg.to_anf, LfsrOutValues, desc="To ANF")
         Result = {'MonomialDegree':{}, 'Expression':{}, 'Histogram': {}}
+        if KeyAsSeed:
+            Result['KeyHistogram'] = {}
         for i in tqdm(range(len(LfsrOutValues)), desc="Postprocessing"):
             Vaux = LfsrOutValues[i]
             #print(f"{i}  =  {Vaux}\n")
             HistogramList = Vaux.getMonomialsHistogram()
+            if KeyAsSeed:
+                KeyHistogramList = Vaux.getMonomialsHistogram((1 << self.LfsrIn.getSize()))
             Highest = 0
             Histogram = {}
             for j in range(len(HistogramList)):
@@ -393,8 +397,15 @@ class HashFunction:
                 Histogram[j] = HV
                 if HV > 0:
                     Highest = i
+            if KeyAsSeed:
+                KeyHistogram = {}
+                for j in range(len(HistogramList)):
+                    HV = KeyHistogramList[j]
+                    KeyHistogram[j] = HV
             Result['MonomialDegree'][i] = Highest
             Result['Histogram'][i] = Histogram
+            if KeyAsSeed:
+                Result['KeyHistogram'][i] = KeyHistogram
             Result['Expression'][i] = str(Vaux)
         _VarsToExpr = {}
         _ExprToVars = {}
