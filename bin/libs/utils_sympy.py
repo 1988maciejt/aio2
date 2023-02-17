@@ -2,9 +2,36 @@
 from sympy import *
 #from sympy.logic import SOPform
 import sympy.logic.boolalg as SympyBoolalg
-
+import sympy.parsing
 
 class SymPy:
+    
+    @staticmethod
+    def anf(expr : str):
+        try:
+            expr = expr.replace("+", "^")
+            expr = expr.replace("*", "&")
+            return sympy.parsing.parse_expr(expr).to_anf()
+        except:
+            return None
+        
+    @staticmethod
+    def cnf(expr : str):
+        try:
+            expr = expr.replace("+", "^")
+            expr = expr.replace("*", "&")
+            return SympyBoolalg.simplify_logic(sympy.parsing.parse_expr(expr), 'cnf', 1, 1)
+        except:
+            return None
+        
+    @staticmethod
+    def dnf(expr : str):
+        try:
+            expr = expr.replace("+", "^")
+            expr = expr.replace("*", "&")
+            return SympyBoolalg.simplify_logic(sympy.parsing.parse_expr(expr), 'dnf', 1, 1)
+        except:
+            return None
     
     @staticmethod
     def anfsAND(expr1, expr2):

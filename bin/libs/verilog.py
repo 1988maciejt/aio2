@@ -772,10 +772,10 @@ class Verilog:
   __slots__ = ("Modules", "IndentationString", "Constraints")
   def __init__(self, Content = "") -> None:
     self.Modules = VerilogModules(self)
-    if len(Content) > 10:
-      self.addContent(Content)
     self.IndentationString = ""
     self.Constraints = VerilogConstraints()
+    if len(Content) > 10:
+      self.addContent(Content)
   def __bool__(self) -> bool:
     return bool(self.Modules)
   def __contains__(self, item) -> bool:
@@ -981,6 +981,8 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
     dd = self.getModulesDependencyDict()
     tops = dd["top_candidates"]
     ccounts = dd["all_children_count"]
+    if len(tops) == 1:
+      return tops[0]
     besttop = ""
     bestcc = 0
     for top in tops:

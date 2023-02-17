@@ -6,6 +6,7 @@ from prompt_toolkit.shortcuts import *
 import ast
 import pandas
 from libs.pandas_table import *
+from libs.utils_sympy import *
 
 
 
@@ -549,8 +550,46 @@ def _categoryBent():
     if SubCategory is not None:
       SubCategory()
   
-
-
+def _categoryLogExpr_anf():
+  expr = MainMenu_static.getLogicExpression()
+  if expr is None:
+    return
+  Result = SymPy.anf(expr)
+  if Result is None:
+    message_dialog(title="Expression error", text="Invalid expression").run()
+  else:
+    message_dialog(title="Conversion to ANF", text=f"ANF form of expression\n{expr}\nis\n{Result}").run()
+    Aio.print(f"ANF({expr}) = {Result}")
+    
+def _categoryLogExpr_cnf():
+  expr = MainMenu_static.getLogicExpression()
+  if expr is None:
+    return
+  Result = SymPy.cnf(expr)
+  if Result is None:
+    message_dialog(title="Expression error", text="Invalid expression").run()
+  else:
+    message_dialog(title="Conversion to CNF", text=f"CNF form of expression\n{expr}\nis\n{Result}").run()
+    Aio.print(f"CNF({expr}) = {Result}")
+    
+def _categoryLogExpr_dnf():
+  expr = MainMenu_static.getLogicExpression()
+  if expr is None:
+    return
+  Result = SymPy.dnf(expr)
+  if Result is None:
+    message_dialog(title="Expression error", text="Invalid expression").run()
+  else:
+    message_dialog(title="Conversion to DNF", text=f"DNF form of expression\n{expr}\nis\n{Result}").run()
+    Aio.print(f"DNF({expr}) = {Result}")
+    
+def _categoryLogicExpressions():
+  SubCategory = -1
+  while SubCategory is not None:
+    SubCategory = MainMenu_static._logic_expressions_menu.run()
+    if SubCategory is not None:
+      SubCategory()
+    
 class MainMenu_static:
   _main_menu = radiolist_dialog(
     title="Main menu",
@@ -562,6 +601,16 @@ class MainMenu_static:
       (_categoryTigerRingGenerator,         "Hybrid/Tiger Ring Generators"),
       (_categoryNlfsrs,                     "Nonlinear shift registers"),
       (_categoryBent,                       "Bent functions"),
+      (_categoryLogicExpressions,           "Logic expressions"),
+    ]
+  )
+  _logic_expressions_menu = radiolist_dialog(
+    title="Logic expressions",
+    text="What do you want to do:",
+    values=[
+      (_categoryLogExpr_anf,      "Convert to ANF"),
+      (_categoryLogExpr_cnf,      "Convert to CNF"),
+      (_categoryLogExpr_dnf,      "Convert to DNF"),
     ]
   )
   _prim_polys_menu = radiolist_dialog(
@@ -629,6 +678,10 @@ class MainMenu_static:
     values=[
       (_categoryBent_printLuts,             "Search for bent sequences (LUTs)"),
     ]
+  )
+  _input_logic_expression = input_dialog(
+    title="Logic expression",
+    text="Enter any logic expression:",
   )
   _input_bent_inputs = input_dialog(
     title="Bent function inputs",
@@ -715,6 +768,13 @@ class MainMenu_static:
     [1, [6,7]], [4, [4,-5]]
     """
   )
+  
+  def getLogicExpression() -> str:
+    while 1:
+      Result = MainMenu_static._input_logic_expression.run()
+      if Result is None:
+        return None
+      return Result
   
   def getNoSuccess() -> list:
     while 1:

@@ -100,6 +100,16 @@ class HashFunction:
             self.fromFile(FileName)
 
     def addDirectConnection(self, SourceInLfsrIn : int, DestinationInLfsrOut : int):
+        s, i = Int.splitLettersAndInt(SourceInLfsrIn)
+        if 'p' in s.lower():
+            i += 1000000
+        elif 'o' in s.lower():
+            i += 100000
+        SourceInLfsrIn = i
+        s, i = Int.splitLettersAndInt(DestinationInLfsrOut)
+        if 'i' in s.lower():
+            i += 100000
+        DestinationInLfsrOut = i
         self.DirectConnections.append([SourceInLfsrIn, DestinationInLfsrOut])
 
     def setLfsrIn(self, LfsrObject : Lfsr):
@@ -113,7 +123,17 @@ class HashFunction:
         self.Size = LfsrObject.getSize()
         
     def addBentFunction(self, Function : BentFunction, LfsrInInputs : list, LfsrOutInjectors : list):
-        self.Functions.append([Function, LfsrInInputs, LfsrOutInjectors])
+        Inputs = []
+        for Input in LfsrInInputs:        
+            s, i = Int.splitLettersAndInt(Input)
+            if 'o' in s.lower():
+                i += 100000
+            Inputs.append(i)
+        Outputs = []
+        for Output in LfsrOutInjectors:        
+            s, i = Int.splitLettersAndInt(Output)
+            Outputs.append(i)
+        self.Functions.append([Function, Inputs, Outputs])
         
     def setCycles(self, Cycles : int):
         self.Cycles = Cycles
@@ -256,9 +276,20 @@ class HashFunction:
                     LfsrOutValues[O] = LfsrOutValues[O] ^ bf[0]
             for SD in self.DirectConnections:
                 if SD[0] >= 1000000:
-                    LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInPhaseShifterValues[SD[0]-1000000]
+                    if SD[1] >= 100000:
+                        LfsrInValues[SD[1]-100000] = LfsrInValues[SD[1]-100000] ^ LfsrInPhaseShifterValues[SD[0]-1000000]
+                    else:
+                        LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInPhaseShifterValues[SD[0]-1000000]
+                elif SD[0] >= 100000:
+                    if SD[1] >= 100000:
+                        LfsrInValues[SD[1]-100000] = LfsrInValues[SD[1]-100000] ^ LfsrOutValues[SD[0]-100000]
+                    else:
+                        LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrOutValues[SD[0]-100000]
                 else:
-                    LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInValues[SD[0]]
+                    if SD[1] >= 100000:
+                        LfsrInValues[SD[1]-100000] = LfsrInValues[SD[1]-100000] ^ LfsrInValues[SD[0]]
+                    else:
+                        LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInValues[SD[0]]
             LfsrOutValues = p_map(_to_anf, LfsrOutValues, desc="To ANF")
             #AllOutputs = [i for i in range(len(LfsrInValues))]
             ColList = []
@@ -319,7 +350,7 @@ class HashFunction:
         _ExprToVars = {}
         return Result
             
-    def FastANFSimulation(self, MessageLength : int, MsgInjectors : 0, PrintExpressionsEveryCycle = 0, KeyAsSeed = 0) -> list:
+    def FastANFSimulation(self, MessageLength : int, MsgInjectors : 0, PrintExpressionsEveryCycle = 0, KeyAsSeed = 0, DumpStatsEveryNCycles = 0, DumpFileName = "HASH", PrintDumpedStats = 1, ReturnMonomialCountPerCycle = 0) -> list:
         AllVariables = [f'M{i}' for i in range(MessageLength)]
         if KeyAsSeed:
             AllVariables += [f"K{i}" for i in range(self.LfsrIn.getSize())]
@@ -329,6 +360,8 @@ class HashFunction:
         else:
             LfsrInValues = [ANFSpace.createExpression() for _ in range(self.LfsrIn.getSize())]
         LfsrOutValues = [ANFSpace.createExpression() for _ in range(self.LfsrOut.getSize())] 
+        if ReturnMonomialCountPerCycle:
+            MonomialCountList = []
         MsgBit = 0
         if KeyAsSeed:
             AllVariables + LfsrInValues
@@ -371,45 +404,113 @@ class HashFunction:
                     LfsrOutValues[O] = LfsrOutValues[O] ^ bf[0]
             for SD in self.DirectConnections:
                 if SD[0] >= 1000000:
-                    LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInPhaseShifterValues[SD[0]-1000000]
+                    if SD[1] >= 100000:
+                        LfsrInValues[SD[1]-100000] = LfsrInValues[SD[1]-100000] ^ LfsrInPhaseShifterValues[SD[0]-1000000]
+                    else:
+                        LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInPhaseShifterValues[SD[0]-1000000]
+                elif SD[0] >= 100000:
+                    if SD[1] >= 100000:
+                        LfsrInValues[SD[1]-100000] = LfsrInValues[SD[1]-100000] ^ LfsrOutValues[SD[0]-100000]
+                    else:
+                        LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrOutValues[SD[0]-100000]
                 else:
-                    LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInValues[SD[0]]
+                    if SD[1] >= 100000:
+                        LfsrInValues[SD[1]-100000] = LfsrInValues[SD[1]-100000] ^ LfsrInValues[SD[0]]
+                    else:
+                        LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInValues[SD[0]]
             if PrintExpressionsEveryCycle:
                 Aio.print(f"CYCLE {Iter}:")
                 for i in range(len(LfsrOutValues)):
                     Val = LfsrOutValues[i]
                     Aio.print(f"FF{i} \t= {Val}")
                 Aio.print()
-        #ResultValues = p_map(SympyBoolalg.to_anf, LfsrOutValues, desc="To ANF")
-        Result = {'MonomialDegree':{}, 'Expression':{}, 'Histogram': {}}
+            if DumpStatsEveryNCycles > 0:
+                self.reportMonomials(f'{DumpFileName}_Cycle{Iter+1}', LfsrOutValues, len(AllVariables), KeyAsSeed, PrintDumpedStats, PrintDumpedStats)
+                if PrintDumpedStats:
+                    Aio.transcriptToHTML()
+            if ReturnMonomialCountPerCycle:
+                Sum = 0
+                for V in LfsrOutValues:
+                    Sum += V.getMonomialCount()
+                MonomialCountList.append(Sum)
+        if ReturnMonomialCountPerCycle:
+            return MonomialCountList
+        return LfsrOutValues
+                    
+    def reportMonomials(self, FileName : str, LfsrOutValues : list, AllVariablesLength : int, KeyAsSeed = False, PrintTables = 0, PrintExpressions = 0):
+        Result = {'Expression':{}, 'Histogram': {}, 'GlobalMonomialCount': {}, 'MonomialCount': 0}
         if KeyAsSeed:
             Result['KeyHistogram'] = {}
+        Sum = 0
         for i in tqdm(range(len(LfsrOutValues)), desc="Postprocessing"):
             Vaux = LfsrOutValues[i]
             #print(f"{i}  =  {Vaux}\n")
             HistogramList = Vaux.getMonomialsHistogram()
+            Sumi = Vaux.getMonomialCount()
+            Sum += Sumi
             if KeyAsSeed:
                 KeyHistogramList = Vaux.getMonomialsHistogram((1 << self.LfsrIn.getSize()))
-            Highest = 0
             Histogram = {}
             for j in range(len(HistogramList)):
                 HV = HistogramList[j]
                 Histogram[j] = HV
-                if HV > 0:
-                    Highest = i
             if KeyAsSeed:
                 KeyHistogram = {}
                 for j in range(len(HistogramList)):
                     HV = KeyHistogramList[j]
                     KeyHistogram[j] = HV
-            Result['MonomialDegree'][i] = Highest
             Result['Histogram'][i] = Histogram
             if KeyAsSeed:
                 Result['KeyHistogram'][i] = KeyHistogram
             Result['Expression'][i] = str(Vaux)
-        _VarsToExpr = {}
-        _ExprToVars = {}
-        return Result
+            Result['MonomialCount'][i] = Sumi
+        Result['GlobalMonomialCount'][i] = Sum
+        if PrintTables or PrintExpressions:
+            Aio.printSection(FileName)
+        PT = PandasTable(["#FF"] + [f"Deg{i}" for i in range(AllVariablesLength+1)])
+        Histograms = Result['Histogram']
+        for key in Histograms:
+            Histogram = Histograms[key]
+            Values = [key]
+            for i in range(AllVariablesLength+1):
+                Values.append(Histogram.get(i, 0))
+            PT.add(Values)
+        if PrintTables:
+            Aio.printSubsection(f'full monomials degrees')
+            PT.print()
+        PT.toXls(f"{FileName}__full_monomials.xlsx")
+        if KeyAsSeed:
+            PT = PandasTable(["#FF"] + [f"Deg{i}" for i in range(AllVariablesLength+1)])
+            Histograms = Result['KeyHistogram']
+            for key in Histograms:
+                Histogram = Histograms[key]
+                Values = [key]
+                for i in range(AllVariablesLength+1):
+                    Values.append(Histogram.get(i, 0))
+                PT.add(Values)
+            if PrintTables:
+                Aio.printSubsection(f'monomials with key degrees')
+                PT.print()
+            PT.toXls(f"{FileName}__monomials_with_key_degrees.xlsx")
+        Expressions = Result['Expression']
+        ExprStr = ""
+        Second = 0
+        for i in range(len(Expressions)):
+            if Second:
+                ExprStr += "\n\n"
+            else:
+                Second = 1
+            E = Expressions[i]
+            ExprStr += f"FF{i} = {str(E)}"
+        if PrintExpressions:
+            Aio.printSubsection(f'Expressions')
+            Aio.print(ExprStr)
+        writeFile(f"{FileName}__expressions.txt", ExprStr)
+        writeObjectToFile(f"{FileName}__LfsrOutValues_raw.bin", LfsrOutValues)
+        
+    
+    
+            
             
 class ProgrammableHashFunction(HashFunction):
     

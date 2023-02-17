@@ -2,6 +2,7 @@ from curses.ascii import isprint
 import re
 from math import sqrt
 from libs.utils_str import *
+from libs.aio import *
 
 class Int:
   
@@ -148,3 +149,18 @@ class Int:
       
   def toGray(Value : int) -> int:
     return (Value ^ (Value>>1))
+  
+  def splitLettersAndInt(Value : str, DefaultStr = "", DefaultInt = 0) -> tuple:
+    if Aio.isType(Value, 0):
+      return (DefaultStr, Value)
+    R = re.search(r'([^0^1^2^3^4^5^6^7^8^9]*)\s*([0-9]*)', str(Value))
+    if R:
+      s = R.group(1)
+      n = R.group(2)
+      try:
+        n = int(n)
+      except:
+        n = DefaultInt
+      if s == "":
+        s = DefaultStr
+    return (s, n)
