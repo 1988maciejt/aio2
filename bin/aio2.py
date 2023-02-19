@@ -22,13 +22,13 @@ def tc(filename="driver.py"):
     Aio.print ("Testcase mode. Output redirected to 'transcript.txt'.\n")
     Aio.printTranscriptEnable()
   if os.path.isfile(SFile):
-    exec(open(SFile).read())
-##    from driver import *
-##    try:
-#    with open(SFile) as src:
-#      imp.load_module('__MAIN__', src, SFile, (".py", "r", imp.PY_SOURCE))
-##    except:
-##      Aio.printError("TC processing error!")
+#    exec(open(SFile).read())
+#    from driver import *
+#    try:
+    with open(SFile) as src:
+      imp.load_module('__MAIN__', src, SFile, (".py", "r", imp.PY_SOURCE))
+#    except:
+#      Aio.printError("TC processing error!")
   else:
     Aio.printError("No file '" + SFile + "'")    
   os.chdir("../")
