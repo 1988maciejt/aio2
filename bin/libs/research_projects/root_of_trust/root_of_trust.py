@@ -350,7 +350,7 @@ class HashFunction:
         _ExprToVars = {}
         return Result
             
-    def FastANFSimulation(self, MessageLength : int, MsgInjectors : 0, PrintExpressionsEveryCycle = 0, KeyAsSeed = 0, DumpStatsEveryNCycles = 0, DumpFileName = "HASH", PrintDumpedStats = 1, ReturnMonomialCountPerCycle = 0) -> list:
+    def FastANFSimulation(self, MessageLength : int, MsgInjectors : 0, PrintExpressionsEveryCycle = 0, KeyAsSeed = 0, DumpStatsEveryNCycles = 0, DumpFileName = "HASH", PrintDumpedStats = 1, ReturnMonomialCountPerCycle = 0, MonomialsCountPerFlop = None) -> list:
         AllVariables = [f'M{i}' for i in range(MessageLength)]
         if KeyAsSeed:
             AllVariables += [f"K{i}" for i in range(self.LfsrIn.getSize())]
@@ -361,7 +361,7 @@ class HashFunction:
             LfsrInValues = [ANFSpace.createExpression() for _ in range(self.LfsrIn.getSize())]
         LfsrOutValues = [ANFSpace.createExpression() for _ in range(self.LfsrOut.getSize())] 
         if ReturnMonomialCountPerCycle:
-            MonomialCountList = []
+            MonomialCountList = {}
         MsgBit = 0
         if KeyAsSeed:
             AllVariables + LfsrInValues
@@ -429,10 +429,19 @@ class HashFunction:
                 if PrintDumpedStats:
                     Aio.transcriptToHTML()
             if ReturnMonomialCountPerCycle:
-                Sum = 0
-                for V in LfsrOutValues:
-                    Sum += V.getMonomialCount()
-                MonomialCountList.append(Sum)
+                if MonomialsCountPerFlop is None:
+                    for i in range(len(LfsrOutValues)):
+                        List = MonomialCountList.get(i, [])
+                        List.append(LfsrOutValues[i].getMonomialCount())
+                        MonomialCountList[i] = List
+                else:
+                    Val = LfsrOutValues[MonomialsCountPerFlop]  
+                    MH = Val.getMonomialsHistogram()
+                    for i in range(len(AllVariables)+1):
+                        List = MonomialCountList.get(i, [])
+                        List.append(MH[i])
+                        MonomialCountList[i] = List
+                    
         if ReturnMonomialCountPerCycle:
             return MonomialCountList
         return LfsrOutValues
