@@ -23,6 +23,14 @@ from sympy.logic import *
 from libs.fast_anf_algebra import *
 #from tqdm.contrib.concurrent import process_map
 
+# TUI =====================================================
+
+import textual.app as TextualApp
+import textual.widgets as TextualWidgets
+import textual.reactive as TextualReactive
+
+_LFSR = None
+_LFSR_SIM = []
 
 
 
@@ -1473,7 +1481,8 @@ class Lfsr:
     
   def tui(self) -> Lfsr:
     global _LFSR
-    LfsrTui(self).run()
+    _LFSR = self.copy()
+    LfsrTui().run()
     return _LFSR
     
   def getDestinationsDictionary(self) -> dict:
@@ -1613,15 +1622,18 @@ class Lfsr:
   def __init__(self, polynomial, lfsr_type = LfsrType.Fibonacci, manual_taps = []):
     poly = polynomial
     if "Lfsr" in str(type(polynomial)):
-        self._my_poly = copy.deepcopy(polynomial._my_poly)
-        self._my_signs = copy.deepcopy(polynomial._my_signs)
-        self._type = copy.deepcopy(polynomial._type)
+        self._my_poly = polynomial._my_poly.copy()
+        self._my_signs = polynomial._my_signs.copy()
+        self._type = polynomial._type
         self._hval = copy.deepcopy(polynomial._hval)
-        self._size = copy.deepcopy(polynomial._size)
-        self._baValue = copy.deepcopy(polynomial._baValue)
-        self._bamask = copy.deepcopy(polynomial._bamask)
-        self._ba_fast_sim_array = copy.deepcopy(polynomial._ba_fast_sim_array)
-        self._taps = copy.deepcopy(polynomial._taps)
+        self._size = polynomial._size
+        self._baValue = polynomial._baValue.copy()
+        self._bamask = polynomial._bamask.copy()
+        try:
+          self._ba_fast_sim_array = polynomial._ba_fast_sim_array.copy()
+        except:
+          self._ba_fast_sim_array = polynomial._ba_fast_sim_array
+        self._taps = polynomial._taps.copy()
         self._notes = copy.deepcopy(polynomial._notes)
         return
     if type(Polynomial([0])) != type(polynomial):
@@ -1787,6 +1799,27 @@ class Lfsr:
         FSA[r][c] = res
     self._ba_fast_sim_array = FSA
     self._baValue = oldVal
+  def rotateTap(self, TapIndex : int, FFs : int) -> bool:
+    if 0 <= TapIndex < len(self._taps):
+      Size = self._size
+      Tap = self._taps[TapIndex]
+      S = Tap[0]
+      D = Tap[1]
+      S += FFs
+      D += FFs
+      while S >= Size:
+        S -= Size
+      while D >= Size:
+        D -= Size
+      while S < 0:
+        S += Size
+      while D < 0:
+        D += Size
+      Tap = [S, D]
+      self._taps[TapIndex] = Tap
+      self._type = LfsrType.RingWithSpecifiedTaps
+      return True
+    return False
   def reverseTap(self, TapIndex : int) -> bool:
     if 0 <= TapIndex < len(self._taps):
       Size = self._size
@@ -1800,6 +1833,7 @@ class Lfsr:
       while S2 >= Size: 
           S2 -= Size
       self._taps[TapIndex] = [S2, D2]
+      self._type = LfsrType.RingWithSpecifiedTaps
       return True
     return False
   def getDual(self):
@@ -2485,14 +2519,7 @@ class _BerlekampMassey:
 
   
 
-# TUI =====================================================
-
-import textual.app as TextualApp
-import textual.widgets as TextualWidgets
-import textual.reactive as TextualReactive
-
-_LFSR = None
-_LFSR_SIM = []
+# TUI =====================================================/
 
 def _lfsr_sim_refresh(n = 32):
     global _LFSR, _LFSR_SIM
@@ -2509,13 +2536,28 @@ def _lfsr_sim_append():
 class _LeftMenu(TextualWidgets.Static):
     def compose(self) -> TextualApp.ComposeResult:
         global _LFSR
+        yield TextualWidgets.Button("Append sim table", id="asim")
         yield TextualWidgets.Button("DUAL", id="dual")
         yield TextualWidgets.Button("RECIPROCAL", id="reci")
+        yield TextualWidgets.DataTable()
+    def on_mount(self):
+        global _LFSR
         Taps = _LFSR.getTaps()
-        for i in range(len(Taps)):
-            yield TextualWidgets.Button(f"REVERT TAP #{i} ", id=f"itap{i}")
-        yield TextualWidgets.Button("Append sim table", id="asim")
-            
+        if len(Taps) > 0:
+          table = self.query_one(TextualWidgets.DataTable)
+          table.add_columns("<<", "INV", ">>")
+          for i in range(len(Taps)):
+              table.add_row("<", i, ">")
+    def on_data_table_cell_selected(self, event: TextualWidgets.DataTable.CellSelected) -> None:
+        global _LFSR
+        TapIndex = event.coordinate.row
+        if event.coordinate.column == 0:
+            _LFSR.rotateTap(TapIndex, -1)
+        elif event.coordinate.column == 2:
+            _LFSR.rotateTap(TapIndex, 1)
+        else:
+            _LFSR.reverseTap(TapIndex)
+        _lfsr_sim_refresh()
     def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
         global _LFSR, _LFSR_SIM
         if event.button.id == "dual":
@@ -2526,10 +2568,6 @@ class _LeftMenu(TextualWidgets.Static):
             _lfsr_sim_refresh()
         if event.button.id == "asim":
             _lfsr_sim_append()
-        elif "itap" in event.button.id:
-            i = int(str(event.button.id).replace("itap", ""))
-            _LFSR.reverseTap(i)
-            _lfsr_sim_refresh()
         
 class _VTop(TextualWidgets.Static):
     LfsrDraw = TextualReactive.reactive("")
@@ -2541,7 +2579,7 @@ class _VTop(TextualWidgets.Static):
         self.set_interval(0.2, self.update_LfsrDraw)
     def update_LfsrDraw(self):
         global _LFSR
-        self.LfsrDraw = _LFSR.getDraw()
+        self.LfsrDraw = _LFSR.copy().getDraw()
     def watch_LfsrDraw(self):
         self.Lbl.update(self.LfsrDraw)
         
@@ -2553,8 +2591,10 @@ class _VMiddle(TextualWidgets.Static):
         global _LFSR
         self.LfsrPoly = Polynomial.decodeUsingBerlekampMassey(_LFSR)
     def watch_LfsrPoly(self):
+        global _LFSR
         Prim = "IS PRIMITIVE" if self.LfsrPoly.isPrimitive() else "Is NOT primitive"
-        self.update(f"Characteristic polynomial {Prim}:\n{self.LfsrPoly}")
+        Taps = f"TAPS: {_LFSR._taps}\n" if len(_LFSR._taps) > 0 else ""
+        self.update(f"{Taps}Characteristic polynomial {Prim}:\n{self.LfsrPoly}")
         
 class _VBottom(TextualWidgets.Static):
     SimROws = TextualReactive.reactive([])
@@ -2563,6 +2603,7 @@ class _VBottom(TextualWidgets.Static):
         yield TextualWidgets.DataTable()
         yield TextualWidgets.Label("")
     def on_mount(self):
+        _lfsr_sim_refresh()
         self.set_interval(0.5, self.update_simdata)
         table = self.query_one(TextualWidgets.DataTable)
         table.add_columns("#Cycle", "Value (n-1, ..., 0)", "#1s")
@@ -2591,11 +2632,6 @@ class _HLayout(TextualWidgets.Static):
 class LfsrTui(TextualApp.App):
     BINDINGS = [("q", "quit", "Quit"), ('d', 'dual', 'Dual'), ('r', 'reci', 'Reciprocal'), ('a', 'asim', 'Append values')]
     CSS_PATH = "tui/lfsr.css"
-    def __init__(self, LFSR : Lfsr):
-        global _LFSR
-        _LFSR = LFSR.copy()
-        _lfsr_sim_refresh()
-        super().__init__()
     def compose(self) -> TextualApp.ComposeResult:
         self.dark=False
         yield TextualWidgets.Header()
