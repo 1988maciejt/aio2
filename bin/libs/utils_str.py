@@ -37,18 +37,23 @@ _sub_retrans = str.maketrans(
   
 class Str:
   
+  @staticmethod
   def toSuperScript(Text : str) -> str:
     return str(Text).translate(_super_trans)
   
+  @staticmethod
   def toSubScript(Text : str) -> str:
     return str(Text).translate(_sub_trans)
   
+  @staticmethod
   def fromSuperScript(Text : str) -> str:
     return str(Text).translate(_super_retrans)
   
+  @staticmethod
   def fromSubScript(Text : str) -> str:
     return str(Text).translate(_sub_retrans)
   
+  @staticmethod
   def color(Text : str, Color : int) -> str:
     Code = 0
     if type(Color) == type(0):
@@ -74,4 +79,3 @@ class Str:
       elif 'whi' in color:
         Code += 7
     return f'\033[{Code}m{Text}\033[0m'
-    

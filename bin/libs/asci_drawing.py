@@ -190,18 +190,42 @@ class AsciiDrawingCanvas:
     self.clear()
     
   def __str__(self) -> str:
+    return self.toStr()
+  
+  def toStr(self, MaxWidth = 0, Overlap = 3) -> str:
     Result = ""
     Second = 0
-    for y in range(self._height):
-      Line = ""
-      for x in range(self._width):
-        Line += str(self._array[x][y])  
-      if Second:
-        Result += "\n"
-      else:
-        Second = 1
-      Result += Line
+    if MaxWidth > 0:
+      XStart = 0
+      XStop = MaxWidth
+      if XStop > self._width:
+        XStop = self._width
+      while XStop > XStart:
+        for y in range(self._height):
+          Line = ""
+          for x in range(XStart, XStop):
+            Line += str(self._array[x][y])  
+          if Second:
+            Result += "\n"
+          else:
+            Second = 1
+          Result += Line
+        XStart += MaxWidth - Overlap
+        XStop = XStart + MaxWidth
+        if XStop > self._width:
+          XStop = self._width
+    else:
+      for y in range(self._height):
+        Line = ""
+        for x in range(self._width):
+          Line += str(self._array[x][y])  
+        if Second:
+          Result += "\n"
+        else:
+          Second = 1
+        Result += Line
     return Result
+    
   
   def print(self) -> None:
     Aio.print(str(self))

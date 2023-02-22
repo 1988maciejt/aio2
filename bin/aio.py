@@ -85,8 +85,11 @@ import re
 import cProfile, pstats, io
 from libs.utils_list import *
 from libs.rpi import *
+import pint
 # research projects - libs
 import libs.research_projects.root_of_trust.root_of_trust as RootOfTrust
+
+unit = pint.UnitRegistry()
 
 pbar = tqdm
 sleep = time.sleep

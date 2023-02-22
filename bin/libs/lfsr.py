@@ -1468,6 +1468,9 @@ class Lfsr:
     self._taps.clear()
     self._my_poly.clear()    
     
+  def tui(self):
+    LfsrTui(self).run()
+    
   def getDestinationsDictionary(self) -> dict:
     DestDict = {}
     Size = self._size
@@ -2100,7 +2103,7 @@ end
     
 endmodule'''
     return Module
-  def print(self):
+  def getDraw(self, MaxWidth = 0, Overlap = 3) -> str:
     if self._type == LfsrType.Fibonacci:
       Canvas = AsciiDrawingCanvas(self._size*5+3, 5)
       Canvas.drawBox(0, 0, Canvas._width-1, 3)
@@ -2125,7 +2128,6 @@ endmodule'''
           Canvas.drawConnectorVV(i*5+6, 3, i*5+6, 0)
           Canvas.drawXor(i*5+6, 3)
       Canvas.drawChar(1, 3, AsciiDrawing_Characters.RIGHT_ARROW)
-      Canvas.print()
     else:
       Uffs = self._size >> 1
       Lffs = self._size - Uffs
@@ -2134,6 +2136,8 @@ endmodule'''
         Uoffset = 6
       Canvas = AsciiDrawingCanvas(Lffs*6+2, 9)
       Canvas.drawBox(0, 1, Canvas._width-1, 6)
+      Canvas.drawChar(1, 7, AsciiDrawing_Characters.RIGHT_ARROW)
+      Canvas.drawChar(Canvas._width-2, 1, AsciiDrawing_Characters.LEFT_ARROW)
       for i in range(Lffs):
         ffindex = Lffs - i - 1
         Canvas.drawBox(i*6+2, 6, 3, 2, str(ffindex))
@@ -2175,9 +2179,9 @@ endmodule'''
           Canvas.drawConnectorVV(Bx, 7, Ex, 1)
           Canvas.drawXor(Ex, 1)
           Canvas.fixLinesAtPoint(Bx, 4)      
-      Canvas.drawChar(1, 7, AsciiDrawing_Characters.RIGHT_ARROW)
-      Canvas.drawChar(Canvas._width-2, 1, AsciiDrawing_Characters.LEFT_ARROW)
-      Canvas.print()
+    return Canvas.toStr(MaxWidth, Overlap)
+  def print(self):
+    Aio.print(self.getDraw())
   def getJTIndex(self, index):
     if self._type == LfsrType.RingGenerator:
       One = self._size & 1
@@ -2452,3 +2456,72 @@ class _BerlekampMassey:
 
 
   
+
+# TUI =====================================================
+
+import textual.app as TextualApp
+import textual.widgets as TextualWidgets
+import textual.reactive as TextualReactive
+
+_LFSR = None
+
+class _LeftMenu(TextualWidgets.Static):
+    def compose(self) -> TextualApp.ComposeResult:
+        global _LFSR
+        yield TextualWidgets.Button("DUAL", id="dual")
+        Taps = _LFSR.getTaps()
+        for i in range(len(Taps)):
+            yield TextualWidgets.Button(f"INV TAP #{i} ", id=f"itap{i}")
+            
+    def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
+        global _LFSR
+        if event.button.id == "dual":
+            _LFSR = _LFSR.getDual()
+        elif "itap" in event.button.id:
+            i = int(str(event.button.id).replace("itap", ""))
+            _LFSR.reverseTap(i)
+        
+class _VTop(TextualWidgets.Static):
+    LfsrDraw = TextualReactive.reactive("")
+    def on_mount(self):
+        self.set_interval(0.2, self.update_LfsrDraw)
+    def update_LfsrDraw(self):
+        global _LFSR
+        self.LfsrDraw = _LFSR.getDraw(int(Aio.getTerminalColumns()*0.85)-10)
+    def watch_LfsrDraw(self):
+        self.update(self.LfsrDraw)
+        
+class _VMiddle(TextualWidgets.Static):
+    LfsrPoly = TextualReactive.reactive(Polynomial([1,0]))
+    def on_mount(self):
+        self.set_interval(0.2, self.update_LfsrPoly)
+    def update_LfsrPoly(self):
+        global _LFSR
+        self.LfsrPoly = Polynomial.decodeUsingBerlekampMassey(_LFSR)
+    def watch_LfsrPoly(self):
+        Prim = "IS PRIMITIVE" if self.LfsrPoly.isPrimitive() else "Is NOT primitive"
+        self.update(f"Characteristic polynomial {Prim}:\n{self.LfsrPoly}")
+        
+class _HRight(TextualWidgets.Static):
+    def compose(self) -> TextualApp.ComposeResult:
+        yield _VTop()
+        yield _VMiddle()
+                
+class _HLayout(TextualWidgets.Static):
+    def compose(self) -> TextualApp.ComposeResult:
+        yield _LeftMenu()
+        yield _HRight()
+    
+class LfsrTui(TextualApp.App):
+    BINDINGS = [("q", "quit", "Quit")]
+    CSS_PATH = "tui/lfsr.css"
+    def __init__(self, LFSR : Lfsr):
+        global _LFSR
+        super().__init__()
+        _LFSR = LFSR
+    def compose(self) -> TextualApp.ComposeResult:
+        self.dark=False
+        yield TextualWidgets.Header()
+        yield _HLayout()
+        yield TextualWidgets.Footer()
+
