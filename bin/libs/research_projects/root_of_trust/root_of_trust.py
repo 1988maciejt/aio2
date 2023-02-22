@@ -350,7 +350,7 @@ class HashFunction:
         _ExprToVars = {}
         return Result
             
-    def FastANFSimulation(self, MessageLength : int, MsgInjectors : 0, PrintExpressionsEveryCycle = 0, KeyAsSeed = 0, DumpStatsEveryNCycles = 0, DumpFileName = "HASH", PrintDumpedStats = 1, ReturnMonomialCountPerCycle = 0, MonomialsCountPerFlop = None) -> list:
+    def FastANFSimulation(self, MessageLength : int, MsgInjectors : 0, PrintExpressionsEveryCycle = 0, KeyAsSeed = 0, DumpStatsEveryNCycles = 0, DumpFileName = "HASH", PrintDumpedStats = 1, ReturnMonomialCountPerCycle = 0, MonomialsCountPerFlop = None, InitialCycles = 0) -> list:
         AllVariables = [f'M{i}' for i in range(MessageLength)]
         if KeyAsSeed:
             AllVariables += [f"K{i}" for i in range(self.LfsrIn.getSize())]
@@ -365,6 +365,13 @@ class HashFunction:
         MsgBit = 0
         if KeyAsSeed:
             AllVariables + LfsrInValues
+        for InitialIter in range(InitialCycles):
+            print(f"// RoT sim - INITIAL ITERATION {InitialIter+1} / {InitialCycles} --------------------------")
+            if MsgBit < MessageLength:
+                LfsrInValues = self.LfsrIn.simulateFastANF(ANFSpace, [f'M{MsgBit}'], MsgInjectors, LfsrInValues)
+                MsgBit += 1
+            else:
+                LfsrInValues = self.LfsrIn.simulateFastANF(ANFSpace, [None], MsgInjectors, LfsrInValues)
         for Iter in range(self.Cycles):
             print(f"// RoT sim - ITERATION {Iter+1} / {self.Cycles} --------------------------")
             if MsgBit < MessageLength:
