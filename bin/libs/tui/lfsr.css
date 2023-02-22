@@ -23,7 +23,7 @@ _HRight {
 _VTop {
   layout: vertical;
   overflow: auto scroll; 
-  height: 60%;
+  height: 11;
   margin: 0;
   width: 100%;
   padding: 0;
@@ -37,10 +37,18 @@ _VMiddle {
   padding: 0;
   background: rgb(230,230,230);
 }
+_VBottom {
+  layout: vertical;
+  overflow: auto scroll; 
+  height: 100%;
+  margin: 1;
+  width: 100%;
+  padding: 0;
+  background: rgb(230,230,230);
+}
 Button {
   width: 100%;
 }
 Label {
-  width: 100%;
   overflow: auto scroll;
 }

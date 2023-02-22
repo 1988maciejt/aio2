@@ -1155,7 +1155,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     """
     polys = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance)
     if type(polys) == type(None):
-      Aio.printError("No candidate polynomials found. Consider relaxing of requirements.")
+      Aio.printError("No candidate polynomials found. Consider relaxing the requirements.")
       if ReturnAlsoAllCandidaes:
         return [[], []]
       return []
@@ -1448,7 +1448,10 @@ STAR_RING = LfsrType.StarRing
 STAR_TIGER_RING = LfsrType.StarTigerRing
 STAR_HYBRID_RING = LfsrType.StarHybridRing
 
+
 # LFSR BEGIN ======================
+class Lfsr:
+  pass
 class Lfsr:
   """An LFSR object. Used for all 3 LFSR implementations, like 
   Galois, Fibonacci (default), RingGenerator.
@@ -1468,8 +1471,10 @@ class Lfsr:
     self._taps.clear()
     self._my_poly.clear()    
     
-  def tui(self):
+  def tui(self) -> Lfsr:
+    global _LFSR
     LfsrTui(self).run()
+    return _LFSR
     
   def getDestinationsDictionary(self) -> dict:
     DestDict = {}
@@ -1705,10 +1710,31 @@ class Lfsr:
     self._hval = 1 << (poly.getDegree()-1)
     
   def getReciprocal(self):
-    Aio.print("NOT FINISHED!!!!")
     if self._type == LfsrType.RingWithSpecifiedTaps:
       L = self.copy()
-      
+      H = (L._size + 1) >> 1
+      for i in range(len(L._taps)):
+        S = L._taps[i][0]
+        D = L._taps[i][1]
+        if S < H:
+          S = H - S
+        else:
+          S = H + (L._size - S) 
+        if D < H:
+          D = H - D - 2
+        else:
+          D = H + (L._size - D) - 2
+        L._taps[i] = [S, D]
+      return L
+    if self._type == LfsrType.RingGenerator:
+      Poly = Polynomial(self._my_poly)
+      return Lfsr(Poly.getReciprocal(), LfsrType.RingGenerator)
+    if self._type == LfsrType.Fibonacci:
+      Poly = Polynomial(self._my_poly)
+      return Lfsr(Poly.getReciprocal(), LfsrType.Fibonacci)
+    if self._type == LfsrType.Galois:
+      Poly = Polynomial(self._my_poly)
+      return Lfsr(Poly.getReciprocal(), LfsrType.Galois)
     else:
       Aio.printError("'getReciprocal' is available only for Lfsrs of type RING_WITH_SPECIFIED_TAPS")
       return None
@@ -1785,6 +1811,7 @@ class Lfsr:
       Result = self.copy()
       for i in range(len(Result._taps)):
         Result.reverseTap(i)
+      Result._type = LfsrType.RingWithSpecifiedTaps
       return Result
     
   def getTaps(self):
@@ -1945,7 +1972,7 @@ class Lfsr:
     self._baValue.setall(0)
     self._baValue[0] = 1
     return self._baValue
-  def getValues(self, n = 0, step = 1, reset = True) -> list:
+  def getValues(self, n = 0, step = 1, reset = True, AsStrings = False) -> list:
     """Returns a list containing consecutive values of the LFSR.
 
     Args:
@@ -1959,12 +1986,13 @@ class Lfsr:
     if n <= 0:
       n = self.getPeriod()
     if reset:
-      val0 = self._baValue.copy()
-      n = self.getPeriod()
-      self._baValue = val0
+      self.reset()
     result = []
     for i in range(n):
-      result.append(self._baValue.copy())
+      if AsStrings:
+        result.append(Bitarray.toString(self._baValue))
+      else:
+        result.append(self._baValue.copy())
       self.next(step)
     return result
   def printValues(self, n = 0, step = 1, reset = True) -> None:
@@ -2464,32 +2492,58 @@ import textual.widgets as TextualWidgets
 import textual.reactive as TextualReactive
 
 _LFSR = None
+_LFSR_SIM = []
+
+def _lfsr_sim_refresh(n = 32):
+    global _LFSR, _LFSR_SIM
+    Lst2 = []
+    Lst1 = _LFSR.getValues(n)
+    for I in Lst1:
+      Lst2.append([Bitarray.toString(I), I.count(1)])
+    _LFSR_SIM = Lst2
+
+def _lfsr_sim_append():
+    global _LFSR_SIM
+    _lfsr_sim_refresh(len(_LFSR_SIM)<<1)
 
 class _LeftMenu(TextualWidgets.Static):
     def compose(self) -> TextualApp.ComposeResult:
         global _LFSR
         yield TextualWidgets.Button("DUAL", id="dual")
+        yield TextualWidgets.Button("RECIPROCAL", id="reci")
         Taps = _LFSR.getTaps()
         for i in range(len(Taps)):
-            yield TextualWidgets.Button(f"INV TAP #{i} ", id=f"itap{i}")
+            yield TextualWidgets.Button(f"REVERT TAP #{i} ", id=f"itap{i}")
+        yield TextualWidgets.Button("Append sim table", id="asim")
             
     def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
-        global _LFSR
+        global _LFSR, _LFSR_SIM
         if event.button.id == "dual":
             _LFSR = _LFSR.getDual()
+            _lfsr_sim_refresh()
+        if event.button.id == "reci":
+            _LFSR = _LFSR.getReciprocal()
+            _lfsr_sim_refresh()
+        if event.button.id == "asim":
+            _lfsr_sim_append()
         elif "itap" in event.button.id:
             i = int(str(event.button.id).replace("itap", ""))
             _LFSR.reverseTap(i)
+            _lfsr_sim_refresh()
         
 class _VTop(TextualWidgets.Static):
     LfsrDraw = TextualReactive.reactive("")
+    Lbl = None
+    def compose(self):
+        self.Lbl = TextualWidgets.Label()
+        yield self.Lbl 
     def on_mount(self):
         self.set_interval(0.2, self.update_LfsrDraw)
     def update_LfsrDraw(self):
         global _LFSR
-        self.LfsrDraw = _LFSR.getDraw(int(Aio.getTerminalColumns()*0.85)-10)
+        self.LfsrDraw = _LFSR.getDraw()
     def watch_LfsrDraw(self):
-        self.update(self.LfsrDraw)
+        self.Lbl.update(self.LfsrDraw)
         
 class _VMiddle(TextualWidgets.Static):
     LfsrPoly = TextualReactive.reactive(Polynomial([1,0]))
@@ -2502,10 +2556,32 @@ class _VMiddle(TextualWidgets.Static):
         Prim = "IS PRIMITIVE" if self.LfsrPoly.isPrimitive() else "Is NOT primitive"
         self.update(f"Characteristic polynomial {Prim}:\n{self.LfsrPoly}")
         
+class _VBottom(TextualWidgets.Static):
+    SimROws = TextualReactive.reactive([])
+    def compose(self):
+        self.Data = TextualWidgets.DataTable()
+        yield TextualWidgets.DataTable()
+        yield TextualWidgets.Label("")
+    def on_mount(self):
+        self.set_interval(0.5, self.update_simdata)
+        table = self.query_one(TextualWidgets.DataTable)
+        table.add_columns("#Cycle", "Value (n-1, ..., 0)", "#1s")
+    def update_simdata(self):
+        global _LFSR_SIM
+        self.SimROws = _LFSR_SIM
+    def watch_SimROws(self):
+        global _LFSR_SIM
+        table = self.query_one(TextualWidgets.DataTable)
+        table.clear()
+        for i in range(len(_LFSR_SIM)):
+          v = _LFSR_SIM[i]
+          table.add_row(i, v[0], v[1])
+        
 class _HRight(TextualWidgets.Static):
     def compose(self) -> TextualApp.ComposeResult:
         yield _VTop()
         yield _VMiddle()
+        yield _VBottom()
                 
 class _HLayout(TextualWidgets.Static):
     def compose(self) -> TextualApp.ComposeResult:
@@ -2513,15 +2589,27 @@ class _HLayout(TextualWidgets.Static):
         yield _HRight()
     
 class LfsrTui(TextualApp.App):
-    BINDINGS = [("q", "quit", "Quit")]
+    BINDINGS = [("q", "quit", "Quit"), ('d', 'dual', 'Dual'), ('r', 'reci', 'Reciprocal'), ('a', 'asim', 'Append values')]
     CSS_PATH = "tui/lfsr.css"
     def __init__(self, LFSR : Lfsr):
         global _LFSR
+        _LFSR = LFSR.copy()
+        _lfsr_sim_refresh()
         super().__init__()
-        _LFSR = LFSR
     def compose(self) -> TextualApp.ComposeResult:
         self.dark=False
         yield TextualWidgets.Header()
         yield _HLayout()
         yield TextualWidgets.Footer()
+    def action_dual(self):
+        global _LFSR
+        _LFSR = _LFSR.getDual()
+        _lfsr_sim_refresh()
+    def action_reci(self):
+        global _LFSR
+        _LFSR = _LFSR.getReciprocal()
+        _lfsr_sim_refresh()
+    def action_asim(self):
+        _lfsr_sim_append()
+      
 
