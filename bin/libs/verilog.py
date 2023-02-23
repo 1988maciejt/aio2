@@ -12,6 +12,17 @@ from shutil import copyfile, rmtree
 from functools import partial
 
 
+# TUI =====================================================
+
+import textual.app as TextualApp
+import textual.widgets as TextualWidgets
+import textual.reactive as TextualReactive
+
+_VERILOG = None
+_VMODULENAME = None
+
+
+
 class VerilogSignalDirection(Enum):
   INPUT     = 1
   OUTPUT    = 2
@@ -1053,7 +1064,12 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
     else:
       Aio.printError("The 'visualize' feature is only available with Questa sim")
     
-    
+  def tui(self):
+    global _VERILOG, _VMODULENAME
+    _VERILOG = self
+    _VMODULENAME = "VERILOG"
+    VerilogTui().run()
+    return _VERILOG
     
     
     
@@ -1365,3 +1381,73 @@ quit -f
     Aio.print(f'Fault coverage: {Coverage} %')
     return [Coverage, NotDetectable]
           
+
+
+# TUI ==================================================
+
+class _LeftMenu(TextualWidgets.Static):
+  def add_children(self, mname, tree, ChildrenDict):
+    Children = ChildrenDict.get(mname, [])
+    for Child in Children:
+      CTree = tree.add(Child)
+      self.add_children(Child, CTree, ChildrenDict)
+  def compose(self):
+    global _VERILOG
+    tree = TextualWidgets.Tree("VERILOG")
+    tree.root.expand()
+    Dependencies = _VERILOG.getModulesDependencyDict()
+    ChildrenDict = Dependencies["children"]
+    for TopName in Dependencies["top_candidates"]:
+      TopTree = tree.root.add(TopName)
+      self.add_children(TopName, TopTree, ChildrenDict)
+    yield tree
+  def on_tree_node_selected(self, event : TextualWidgets.Tree.NodeSelected):
+    global _VMODULENAME
+    name = str(event.node.label)
+    _VMODULENAME = name
+    
+  
+class _CodeView(TextualWidgets.Static):
+  mname = TextualReactive.reactive("")
+  def compose(self):
+    yield TextualWidgets.Static(id="code")
+  def update_mname(self):
+    global _VMODULENAME
+    self.mname = _VMODULENAME
+  def on_mount(self):
+    self.set_interval(0.2, self.update_mname)
+  def watch_mname(self):
+    global _VERILOG
+    from rich.syntax import Syntax
+    St = self.query_one(TextualWidgets.Static)
+    if self.mname != "VERILOG":
+      M = _VERILOG.getModuleByName(self.mname)
+    else:
+      M = "VERILOG"
+    if M is None:
+      St.update(f"// No code for {self.mname}")
+    else:
+      if M == "VERILOG":
+        Code = _VERILOG.getContent()
+      else:
+        Code = M.getContent()
+      SCode = Syntax(Code, "verilog", theme="ansi-light", line_numbers=True, word_wrap=1)
+      St.update(SCode)
+
+class _HLayout(TextualWidgets.Static):
+  def compose(self):
+    yield _LeftMenu()
+    yield _CodeView()
+  def on_mount(self):
+    pass
+
+class VerilogTui(TextualApp.App):
+  BINDINGS = [('q', 'quit', 'Quit')]
+  CSS_PATH = "tui/verilog.css"
+  def compose(self):
+    yield TextualWidgets.Header()
+    yield _HLayout()
+    yield TextualWidgets.Footer()
+  def on_mount(self):
+    self.dark = False
+    pass
