@@ -6,6 +6,16 @@ import gc
 from math import log2
 import bitarray.util as bau
 
+
+import textual.app as TextualApp
+import textual.widgets as TextualWidgets
+import textual.reactive as TextualReactive
+
+
+_PROG_LFSR = None
+_LFSR = None
+
+
 class ProgrammableLfsr:
   _polys = {}
   _polys_done = 0
@@ -408,3 +418,51 @@ endmodule'''
         Index += 1
       PT.add([BitsStr, IndexStr, NameStr, ValStr])
     PT.print()
+    
+  def tui(self):
+    global _PROG_LFSR, _LFSR
+    _PROG_LFSR = self
+    _LFSR = self.getLfsr(0)
+    ProgrammableLfsrTui().run()
+    return _LFSR
+  
+  
+  
+class _VTop(TextualWidgets.Static):
+  LfsrDraw = TextualReactive.reactive("")
+  Lbl = None
+  def compose(self):
+    self.Lbl = TextualWidgets.Label()
+    yield self.Lbl 
+  def on_mount(self):
+    self.set_interval(0.2, self.update_LfsrDraw)
+  def update_LfsrDraw(self):
+    global _LFSR
+    self.LfsrDraw = _LFSR.getDraw()
+  def watch_LfsrDraw(self):
+    self.Lbl.update(self.LfsrDraw)
+
+class _VMiddle(TextualWidgets.Static):
+  pass
+
+class _VBottom(TextualWidgets.Static):
+  pass
+  
+class _LeftMenu(TextualWidgets.Static):
+  pass
+
+class _HRight(TextualWidgets.Static):
+  def compose(self) -> None:
+    yield _VTop()
+    yield _VMiddle()
+    yield _VBottom()
+  
+class _HLayout(TextualWidgets.Static):
+  def compose(self) -> None:
+    yield _LeftMenu()
+    yield _HRight()
+
+class ProgrammableLfsrTui(TextualApp.App):
+  CSS_PATH = "tui/programmable_lfsr.css"
+  def compose(self) -> None:
+    yield _HLayout()
