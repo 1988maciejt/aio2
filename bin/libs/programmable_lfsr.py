@@ -14,6 +14,8 @@ import textual.reactive as TextualReactive
 
 _PROG_LFSR = None
 _LFSR = None
+_SELECTED_TAPS = None
+_LFSR_SIM = []
 
 
 class ProgrammableLfsr:
@@ -420,13 +422,41 @@ endmodule'''
     PT.print()
     
   def tui(self):
-    global _PROG_LFSR, _LFSR
+    global _PROG_LFSR, _LFSR, _SELECTED_TAPS
     _PROG_LFSR = self
     _LFSR = self.getLfsr(0)
     ProgrammableLfsrTui().run()
     return _LFSR
   
   
+# TUI ===========================================================  
+  
+def _lfsr_sim_refresh(n = 32):
+    global _LFSR, _LFSR_SIM
+    Lst2 = []
+    Lst1 = _LFSR.getValues(n)
+    for I in Lst1:
+      Lst2.append([Bitarray.toString(I), I.count(1)])
+    _LFSR_SIM = Lst2
+
+def _lfsr_sim_append():
+    global _LFSR_SIM
+    _lfsr_sim_refresh(len(_LFSR_SIM)<<1)
+  
+class _TTap(TextualWidgets.DataTable):
+  TAP_DICT = {}
+  TAP_INDEX = 0
+  def on_mount(self):
+    self.add_columns(f"Switch {self.TAP_INDEX}", "Connection")
+    for Switch in self.TAP_DICT.keys():
+      self.add_row(Switch, self.TAP_DICT[Switch])
+  def on_data_table_cell_selected(self, event: TextualWidgets.DataTable.CellSelected) -> None:
+    global _SELECTED_TAPS, _LFSR, _PROG_LFSR
+    TapValue = event.coordinate.row
+    TapSwitch = list(self.TAP_DICT.keys())[TapValue]
+    _SELECTED_TAPS[self.TAP_INDEX] = TapSwitch
+    _LFSR = _PROG_LFSR.getLfsr(_SELECTED_TAPS)
+    _lfsr_sim_refresh()
   
 class _VTop(TextualWidgets.Static):
   LfsrDraw = TextualReactive.reactive("")
@@ -443,14 +473,58 @@ class _VTop(TextualWidgets.Static):
     self.Lbl.update(self.LfsrDraw)
 
 class _VMiddle(TextualWidgets.Static):
-  pass
+  LfsrPoly = TextualReactive.reactive(Polynomial([1,0]))
+  def on_mount(self):
+    self.set_interval(0.2, self.update_LfsrPoly)
+  def update_LfsrPoly(self):
+    global _LFSR
+    self.LfsrPoly = Polynomial.decodeUsingBerlekampMassey(_LFSR)
+  def watch_LfsrPoly(self):
+    global _LFSR
+    Prim = "IS PRIMITIVE" if self.LfsrPoly.isPrimitive() else "Is NOT primitive"
+    Taps = f"TAPS: {_LFSR._taps}\n" if len(_LFSR._taps) > 0 else ""
+    self.update(f"{Taps}Characteristic polynomial {Prim}:\n{self.LfsrPoly}")
 
 class _VBottom(TextualWidgets.Static):
-  pass
+    SimROws = TextualReactive.reactive([])
+    def compose(self):
+        self.Data = TextualWidgets.DataTable()
+        yield TextualWidgets.DataTable()
+        yield TextualWidgets.Label("")
+    def on_mount(self):
+        _lfsr_sim_refresh()
+        self.set_interval(0.5, self.update_simdata)
+        table = self.query_one(TextualWidgets.DataTable)
+        table.add_columns("#Cycle", "Value (n-1, ..., 0)", "#1s")
+    def update_simdata(self):
+        global _LFSR_SIM
+        self.SimROws = _LFSR_SIM
+    def watch_SimROws(self):
+        global _LFSR_SIM
+        table = self.query_one(TextualWidgets.DataTable)
+        table.clear()
+        for i in range(len(_LFSR_SIM)):
+          v = _LFSR_SIM[i]
+          table.add_row(i, v[0], v[1])
   
 class _LeftMenu(TextualWidgets.Static):
-  pass
-
+  def compose(self):
+    global _SELECTED_TAPS, _PROG_LFSR
+    _SELECTED_TAPS = []
+    TapsDicts = _PROG_LFSR._taps_list
+    yield TextualWidgets.Button("Append sim table", id="asim")
+    for i in range(len(TapsDicts)):
+      TapsDict = TapsDicts[i]
+      _SELECTED_TAPS.append(list(TapsDict.keys())[0])
+      TTap = _TTap()
+      TTap.TAP_DICT = TapsDict
+      TTap.TAP_INDEX = i
+      yield TTap
+  def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
+    global _LFSR, _LFSR_SIM
+    if event.button.id == "asim":
+      _lfsr_sim_append()
+      
 class _HRight(TextualWidgets.Static):
   def compose(self) -> None:
     yield _VTop()
@@ -463,6 +537,12 @@ class _HLayout(TextualWidgets.Static):
     yield _HRight()
 
 class ProgrammableLfsrTui(TextualApp.App):
+  BINDINGS = [("q", "quit", "Quit"), ('a', 'asim', 'Append values')]
   CSS_PATH = "tui/programmable_lfsr.css"
   def compose(self) -> None:
+    self.dark=False
+    yield TextualWidgets.Header()
     yield _HLayout()
+    yield TextualWidgets.Footer()
+  def action_asim(self):
+    _lfsr_sim_append()

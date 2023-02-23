@@ -41,3 +41,12 @@ class Siemens:
         elif TechnologyNm == 7:
             return Siemens.get7nmLibFiles()
         return Siemens.get65nmLibFiles()
+    
+    @staticmethod
+    def getNandGateArea(TechnologyNm = 65) -> int:
+        if TechnologyNm == 16:
+            return 0.18144
+        elif TechnologyNm == 7:
+            return 0.05472
+        return 1.0
+    

@@ -864,7 +864,7 @@ endmodule"""
     return self.Modules.TopModuleName
   def getTopModule(self) -> VerilogModule:
     return self.Modules.getModuleByName(self.Modules.TopModuleName)
-  def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechLibFileName = None, ReturnProcessedResult = False, AreaUnit = "#NAND", AreaFactor = 1, WriteSDF = False, ReportTiming = False):
+  def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechLibFileName = None, ReturnProcessedResult = False, AreaUnit = "Grid", AreaFactor = 1, WriteSDF = False, ReportTiming = False):
     if shell_config.useDC():
       tmpFileName = "tmp.v"
       dcScriptFileName = "dc_script"
@@ -913,9 +913,12 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
                      "Macro/Black Box area",
                      "Total cell area"]
         for Param in ParamList:
-          R = re.search(f'{Param}:\s+([0-9]+)', result, re.MULTILINE)
+          R = re.search(f'{Param}:\s+([0-9.]+)', result, re.MULTILINE)
           if R:
-            DictVal = int(R.group(1))
+            try:
+              DictVal = int(R.group(1))
+            except:
+              DictVal = float(R.group(1))
             if "area" in Param:
               DictKey = F"{Param} [{AreaUnit}]"
               DictVal *= AreaFactor

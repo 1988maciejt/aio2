@@ -1,12 +1,36 @@
 from aio import *
 
+import textual.app as TextualApp
+import textual.widgets as TextualWidgets
+import textual.reactive as TextualReactive
+
+_PROG_LFSR_CONF = None
+
 class ProgrammableLfsrConfiguration:
   __slots__ = ("_taps", "_size")
   def __init__(self, Size : int) -> None:
     self._taps = []
     self._size = Size
+  def __bool__(self) -> bool:
+    return len(self._taps) > 0
+  def __ne__(self, __o: object) -> bool:
+    return not (self.__eq__(__o))
+  def __eq__(self, __o: object) -> bool:
+    if len(self._taps) != len(__o._taps):
+      return False
+    TheirTaps = __o._taps
+    for t in self._taps:
+      if t not in TheirTaps:
+        return False
+    return True
   def remove(self, TapDict : dict) -> None:
     self._taps.remove(TapDict)
+  def removeAt(self, TapDictIndex : int) -> None:
+    try:
+      TapDict = self._taps[TapDictIndex]
+      self._taps.remove(TapDict)
+    except:
+      pass
   def addMandatory(self, From : int, To : int) -> dict:
     Dict = { f'{From}-{To}': [From, To] }
     self._taps.append(Dict)
@@ -43,3 +67,23 @@ class ProgrammableLfsrConfiguration:
   def print(self):
     for Tap in self._taps:
       Aio.print(Tap)
+  def toListOfStrings(self) -> list:
+    Result = []
+    for Tap in self._taps:
+      TapType = "MANDATORY"
+      TapPositions = ""
+      Values = list(Tap.values())
+      if len(Values) == 2 and Values[0] is None and Values[1] is not None:
+        TapType = "GATED"
+        TapPositions = str(Values[1])
+      elif len(Values) > 1:
+        TapType = "SWITCHED"
+        TapPositions = str(Values)
+      else:
+        TapPositions = str(Values[0])
+      Result.append([TapType, TapPositions])
+    return Result
+
+
+# TUI ===============================================
+

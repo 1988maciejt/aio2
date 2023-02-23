@@ -9,9 +9,8 @@ _HLayout {
     layout: vertical;
     overflow: auto scroll; 
     height: 100%;
-    margin: 1;
-    width: 25%;
-    padding: 0;
+    margin: 0;
+    width: 20%;
   }
 
   _HRight {
@@ -19,7 +18,7 @@ _HLayout {
     overflow: auto scroll; 
     height: 100%;
     margin: 1;
-    width: 75%;
+    width: 80%;
     padding: 0;
   }
   _VTop {
@@ -33,7 +32,7 @@ _HLayout {
   _VMiddle {
     layout: vertical;
     overflow: auto scroll; 
-    height: 2;
+    height: 3;
     margin: 0;
     width: 100%;
     padding: 0;
@@ -48,8 +47,17 @@ _HLayout {
     padding: 0;
     background: rgb(230,230,230);
   }
+  _TTap {
+    layout: vertical;
+    overflow: auto scroll; 
+    height: auto;
+    margin: 1;
+    width: 100%;
+    padding: 0;
+  }
   Button {
     width: 100%;
+    margin: 1;
   }
   Label {
     overflow: auto scroll;
