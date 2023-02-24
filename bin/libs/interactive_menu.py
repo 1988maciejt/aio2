@@ -231,16 +231,37 @@ def _categoryLfsrWithManualTaps():
       SubCategory()
 
 
-_GlobalProgrammableRingConfig = ProgrammableLfsrConfiguration(32)
-_GlobalProgrammable = None
 
-def _categoryProgrammableRingGenerator_subCreate():
+_GlobalProgrammableRingConfig = ProgrammableLfsrConfiguration(32)
+_GlobalProgrammable = ProgrammableLfsr(_GlobalProgrammableRingConfig)
+
+def _categoryProgrammableRingGenerator_subEdit():
   global _GlobalProgrammableRingConfig, _GlobalProgrammable
-  Size = MainMenu_static.getLfsrSize()
+  _GlobalProgrammableRingConfig = _GlobalProgrammableRingConfig.tui()
+  _GlobalProgrammable = ProgrammableLfsr(_GlobalProgrammableRingConfig)
+  
+def _categoryProgrammableRingGenerator_subExplore():
+  global _GlobalProgrammableRingConfig, _GlobalProgrammable
+  _GlobalProgrammable.tui()
+  
+def _categoryProgrammableRingGenerator_subCreateNeptun():
+  global _GlobalProgrammableRingConfig, _GlobalProgrammable
+  from libs.research_projects.root_of_trust.root_of_trust import createNeptunLfsr
+  Size = Aio.inputBox("Neptun Programmable LFSR", "Enter size of the LFSR:")
   if Size is None:
     return
-  _GlobalProgrammableRingConfig = ProgrammableLfsrConfiguration(Size)
-  _GlobalProgrammable = None
+  try:
+    Size = int(Size)
+    assert Size > 0
+  except:
+    Aio.msgBox("Neptun Programmable LFSR", "Size must be a positive integer.")
+    return
+  Demuxes = Aio.msgBox("Neptun Programmable LFSR", "Do you want to use demuxes instead of simple, gated taps?", YesNo=1)
+  _GlobalProgrammable = createNeptunLfsr(Size, Demuxes)
+  _GlobalProgrammableRingConfig = _GlobalProgrammable.getConfig()
+  _GlobalProgrammableRingConfig.tui()
+  
+  
   
 def _categoryProgrammableRingGenerator_subStore():
   global _GlobalProgrammableRingConfig, _GlobalProgrammable
@@ -259,7 +280,7 @@ def _categoryProgrammableRingGenerator_subRestore():
     Obj = readObjectFromFile(Filename)
     if Aio.isType(Obj, _GlobalProgrammableRingConfig):
       _GlobalProgrammableRingConfig = Obj
-      _categoryProgrammableRingGenerator_subDisplay()
+      _categoryProgrammableRingGenerator_subStore()
     else:
       message_dialog(
         title="Error",
@@ -270,92 +291,7 @@ def _categoryProgrammableRingGenerator_subRestore():
       title="Error",
       text=f'Loading error.'
     ).run()
-  
-def _categoryProgrammableRingGenerator_subDisplay():
-  global _GlobalProgrammableRingConfig, _GlobalProgrammable
-  Text = f'SIZE: {_GlobalProgrammableRingConfig.getSize()}\n'
-  for TapD in _GlobalProgrammableRingConfig.getTaps():
-    TapValues = list(TapD.values())
-    if len(TapValues) == 1: #<amdatory
-      Tap = TapValues[0]
-      Text += f'- Mandatory tap    : {Tap}\n'
-    elif len(TapValues) == 2 and None in TapValues: #gated
-      TapValues.remove(None)
-      Tap = TapValues[0]
-      Text += f'- Gated tap        : {Tap}\n'
-    elif None in TapValues: #muxed with off
-      TapValues.remove(None)
-      Text += f'- (de)mux with off : {TapValues}\n'
-    else: #muxed
-      Text += f'- (de)mux          : {TapValues}\n'
-  message_dialog(title="Programmable ring config", text=Text).run()
-  
-def _categoryProgrammableRingGenerator_subRemove():
-  global _GlobalProgrammableRingConfig, _GlobalProgrammable
-  RemList = []
-  for TapD in _GlobalProgrammableRingConfig.getTaps():
-    TapValues = list(TapD.values())
-    if len(TapValues) == 1: #<amdatory
-      Tap = TapValues[0]
-      RemList.append( (TapD, f'Mandatory tap    : {Tap}') )
-    elif len(TapValues) == 2 and None in TapValues: #gated
-      TapValues.remove(None)
-      Tap = TapValues[0]
-      RemList.append( (TapD, f'Gated tap        : {Tap}') )
-    elif None in TapValues: #muxed with off
-      TapValues.remove(None)
-      RemList.append( (TapD, f'(de)mux with off : {TapValues}') )
-    else: #muxed
-      RemList.append( (TapD, f'(de)mux          : {TapValues}') )
-  RT = radiolist_dialog(
-    title="Tap removing",
-    text="Which tap to remove?",
-    values=RemList
-  ).run()
-  if RT is None:
-    return
-  _GlobalProgrammableRingConfig.remove(RT)
-  _GlobalProgrammable = None
-  _categoryProgrammableRingGenerator_subDisplay()
-  
-def _categoryProgrammableRingGenerator_subAddMandatory():
-  global _GlobalProgrammableRingConfig, _GlobalProgrammable
-  Taps = MainMenu_static.getTaps(1)
-  if Taps is None:
-    return
-  for Tap in Taps:
-    _GlobalProgrammableRingConfig.addMandatory(Tap[0], Tap[1])
-  _GlobalProgrammable = None
-  _categoryProgrammableRingGenerator_subDisplay()
-  
-def _categoryProgrammableRingGenerator_subAddGated():
-  global _GlobalProgrammableRingConfig, _GlobalProgrammable
-  Taps = MainMenu_static.getTaps(1)
-  if Taps is None:
-    return
-  for Tap in Taps:
-    _GlobalProgrammableRingConfig.addGated(Tap[0], Tap[1])
-  _GlobalProgrammable = None
-  _categoryProgrammableRingGenerator_subDisplay()
-  
-def _categoryProgrammableRingGenerator_subAddMuxed():
-  global _GlobalProgrammableRingConfig, _GlobalProgrammable
-  Taps = MainMenu_static.getTaps(1)
-  if Taps is None:
-    return
-  _GlobalProgrammableRingConfig.addMux(*Taps)
-  _GlobalProgrammable = None
-  _categoryProgrammableRingGenerator_subDisplay()
-  
-def _categoryProgrammableRingGenerator_subAddMuxedWithOff():
-  global _GlobalProgrammableRingConfig, _GlobalProgrammable
-  Taps = MainMenu_static.getTaps(1)
-  if Taps is None:
-    return
-  _GlobalProgrammableRingConfig.addMux(None, *Taps)
-  _GlobalProgrammable = None
-  _categoryProgrammableRingGenerator_subDisplay()
-  
+   
 def _categoryProgrammableRingGenerator_subDoCalculations():
   global _GlobalProgrammableRingConfig, _GlobalProgrammable
   if _GlobalProgrammable is None:
@@ -597,7 +533,7 @@ class MainMenu_static:
     values=[
       (_categoryPolynomial,                 "Primitive polynomials"),
       (_categoryLfsrWithManualTaps,         "Ring generators with manually specified taps"),
-      (_categoryProgrammableRingGenerator,  "Programmable ring renegrator"),
+      (_categoryProgrammableRingGenerator,  "Programmable LFSRs"),
       (_categoryTigerRingGenerator,         "Hybrid/Tiger Ring Generators"),
       (_categoryNlfsrs,                     "Nonlinear shift registers"),
       (_categoryBent,                       "Bent functions"),
@@ -637,18 +573,14 @@ class MainMenu_static:
     ]
   )
   _programmable_ring_generator_menu = radiolist_dialog(
-    title="Programmable ring generators",
+    title="Programmable LFSRs",
     text="What do you want to do:",
     values=[
-      (_categoryProgrammableRingGenerator_subDisplay,         "Display programmable ring"),
-      (_categoryProgrammableRingGenerator_subCreate,          "Create new (set size)"),
+      (_categoryProgrammableRingGenerator_subEdit,            "Edit the programmable LFSR"),
+      (_categoryProgrammableRingGenerator_subExplore,         "Explore the programmable LFSR"),
+      (_categoryProgrammableRingGenerator_subCreateNeptun,    "Create a Neptun programmable LFSR"),
       (_categoryProgrammableRingGenerator_subRestore,         "Read config from file"),
       (_categoryProgrammableRingGenerator_subStore,           "Save config to file"),
-      (_categoryProgrammableRingGenerator_subAddMandatory,    "Add mandatory taps"),
-      (_categoryProgrammableRingGenerator_subAddGated,        "Add gated taps"),
-      (_categoryProgrammableRingGenerator_subAddMuxed,        "Add (de)muxed taps"),
-      (_categoryProgrammableRingGenerator_subAddMuxedWithOff, "Add (de)muxed taps with off"),
-      (_categoryProgrammableRingGenerator_subRemove,          "Remove tap"),
       (_categoryProgrammableRingGenerator_subDoCalculations,  "Stats"),
     ]
   )

@@ -6,6 +6,7 @@ from libs.files import getAioPath
 from ansi2html import *
 import time
 from libs.utils_str import *
+from prompt_toolkit.shortcuts import *
 
 class Aio:
   _transcript = "" 
@@ -262,6 +263,18 @@ class Aio:
       SCode += "  " + Line + "\n"
     TCode = f'dt = 0\nfor i in range({str(Iterations)}):\n  t0 = time.time()\n{SCode}\n  dt += time.time() - t0\nprint(dt/{str(Iterations)},"s")'
     return compile(TCode, 'dummy', 'exec')
+  
+  @staticmethod
+  def msgBox(Title : str, Text : str, YesNo = False):
+    if YesNo:
+      return yes_no_dialog(title=str(Title), text=str(Text)).run()
+    else:
+      message_dialog(title=str(Title), text=str(Text)).run()
+    return None
+  
+  @staticmethod
+  def inputBox(Title : str, Text : str, Default = "", Password = False):
+    return input_dialog(title=str(Title), text=str(Text), password=bool(Password), default=str(Default)).run()
     
 class Tc:
   def step(name = "transcript.txt") -> None:

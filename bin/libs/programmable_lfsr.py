@@ -355,6 +355,14 @@ end
 endmodule'''
     return Module
   
+  def getSize(self) -> int:
+    return self._size
+  
+  def getConfig(self) -> ProgrammableLfsrConfiguration:
+    Result = ProgrammableLfsrConfiguration(self._size)
+    Result._taps = self._taps_list
+    return Result
+  
   def getLfsr(self, Config):
     try:
       TapsList = []
@@ -366,14 +374,22 @@ endmodule'''
           if iTap is not None:
             TapsList.append(iTap)
       else:
+        ConfLen = self.getConfigVectorLength()
+        if ConfLen <= 0:
+          return Lfsr(self._size, RING_WITH_SPECIFIED_TAPS, [])
         if Aio.isType(Config, 0):
-          Config = bau.int2ba(Config, self._size, endian='little')
+          Config = bau.int2ba(Config, self.getConfigVectorLength(), endian='little')
         elif Aio.isType(Config, "str"):
           Config = bitarray(Config)
         B0 = 0
         for tap in self._taps_list:
           Bits = ceil(log2(len(tap)))
           B1 = B0 + Bits
+          if Bits == 0:
+            iTap = list(tap.values())[0]
+            if iTap is not None:
+              TapsList.append(iTap)
+            continue
           S = Config[B0:B1]
           B0 += Bits
           S.reverse()
@@ -383,7 +399,8 @@ endmodule'''
           if iTap is not None:
             TapsList.append(iTap)
       return Lfsr(self._size, RING_WITH_SPECIFIED_TAPS, TapsList)
-    except:
+    except Exception as inst:
+      Aio.printError(inst)
       return None
     
   def getConfigVectorLength(self) -> int:
@@ -427,6 +444,10 @@ endmodule'''
     _LFSR = self.getLfsr(0)
     ProgrammableLfsrTui().run()
     return _LFSR
+  
+  def tuiEdit(self):
+    Config = self.getConfig().tui()
+    self.__init__(Config)
   
   
 # TUI ===========================================================  
@@ -481,9 +502,10 @@ class _VMiddle(TextualWidgets.Static):
     self.LfsrPoly = Polynomial.decodeUsingBerlekampMassey(_LFSR)
   def watch_LfsrPoly(self):
     global _LFSR
+    Max = "IS MAXIMUM" if _LFSR.isMaximum() else "is NOT maximum"
     Prim = "IS PRIMITIVE" if self.LfsrPoly.isPrimitive() else "Is NOT primitive"
     Taps = f"TAPS: {_LFSR._taps}\n" if len(_LFSR._taps) > 0 else ""
-    self.update(f"{Taps}Characteristic polynomial {Prim}:\n{self.LfsrPoly}")
+    self.update(f"{Taps}This LFSR {Max}.\nCharacteristic polynomial {Prim}: {self.LfsrPoly}")
 
 class _VBottom(TextualWidgets.Static):
     SimROws = TextualReactive.reactive([])
