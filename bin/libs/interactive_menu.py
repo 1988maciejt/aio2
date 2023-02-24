@@ -7,6 +7,7 @@ import ast
 import pandas
 from libs.pandas_table import *
 from libs.utils_sympy import *
+from libs.utils_tui import *
 
 
 
@@ -344,6 +345,10 @@ decoded characteristic polynomial:
   message_dialog(title="Result", text=Result).run()
   
 def _categoryTigerRingGenerator():
+  Result = Tui.searchForHybridLfsrs()
+  for R in Result:
+    Aio.print(R)
+  return
   SubCategory = -1
   while SubCategory is not None:
     SubCategory = MainMenu_static._tiger_ring_generator_menu.run()

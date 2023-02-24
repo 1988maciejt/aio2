@@ -1098,7 +1098,9 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
               else:
                 SkippingCounter -= 1
               if SkippingCounter <= 0:
-                break            
+                break         
+        if len(Polys) >= n > 0:
+          break   
     while len(lfsrs) > 0 and (len(Polys) < n or n <= 0) and not SkipAll:
       if NoResultsSkippingIteration > 0 and SkippingCounter <= 0:
         break
@@ -2564,10 +2566,10 @@ class _LeftMenu(TextualWidgets.Static):
         if event.button.id == "dual":
             _LFSR = _LFSR.getDual()
             _lfsr_sim_refresh()
-        if event.button.id == "reci":
+        elif event.button.id == "reci":
             _LFSR = _LFSR.getReciprocal()
             _lfsr_sim_refresh()
-        if event.button.id == "asim":
+        elif event.button.id == "asim":
             _lfsr_sim_append()
         
 class _VTop(TextualWidgets.Static):

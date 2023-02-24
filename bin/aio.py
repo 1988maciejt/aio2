@@ -63,6 +63,7 @@ from libs.unitnumber import *
 from libs.utils_array import *
 from libs.utils_bitarray import *
 from libs.utils_int import *
+from libs.utils_tui import *
 from libs.generators import *
 from libs.udp import *
 from libs.utils_serial import *

@@ -1,0 +1,43 @@
+_TuiWidgetLfsrViewer {
+  overflow: auto scroll; 
+  height: 11;
+  margin: 0;
+  width: 100%;
+  padding: 0;
+}
+
+Button {
+  width: 100%;
+  margin: 1;
+}
+
+#text_with_label_label {
+  width: 45%;
+}
+#text_with_label_text {
+  width: 45%;
+}
+
+#lfsr_search_params {
+  width: 30%;
+}
+#lfsr_search_separator {
+  width: 1;
+  height: 100%;
+  background: rgb(210, 210, 210);
+}
+#lfsr_search_table {
+  overflow: auto scroll;
+  height: 70%;
+  width: 70%;
+  margin: 1;
+}
+#lfsr_search_vcontainer {
+  overflow: auto scroll;
+}
+#lfsr_search_viewer {
+  width: 70%;
+  height: 30%;
+  min-height: 11;
+}
+

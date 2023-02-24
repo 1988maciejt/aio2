@@ -164,3 +164,10 @@ class Int:
       if s == "":
         s = DefaultStr
     return (s, n)
+  
+  @staticmethod
+  def toInt(Value, Default: int = 0) -> int:
+    try:
+      return int(Value)
+    except:
+      return Default
