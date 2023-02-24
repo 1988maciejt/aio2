@@ -122,7 +122,7 @@ class ProgrammableLfsrConfiguration:
   def tui(self):
     global _PROG_LFSR_CONF
     _PROG_LFSR_CONF = self.copy()
-    ProgrammableLfsrConfigTui().run()
+    _ProgrammableLfsrConfigTui().run()
     return _PROG_LFSR_CONF
 
 
@@ -231,7 +231,7 @@ class _HLayout(TextualWidgets.Static):
     yield _Config()
     yield _Table()
   
-class ProgrammableLfsrConfigTui(TextualApp.App):
+class _ProgrammableLfsrConfigTui(TextualApp.App):
   BINDINGS = [("q", "quit", "Quit")]
   CSS_PATH = "tui/programmable_lfsr_config.css"
   def compose(self):
