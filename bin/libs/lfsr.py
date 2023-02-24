@@ -2539,7 +2539,8 @@ class _LeftMenu(TextualWidgets.Static):
         yield TextualWidgets.Button("Append sim table", id="asim")
         yield TextualWidgets.Button("DUAL", id="dual")
         yield TextualWidgets.Button("RECIPROCAL", id="reci")
-        yield TextualWidgets.DataTable()
+        yield TextualWidgets.Static("  \n")
+        yield TextualWidgets.DataTable(id="dt")
     def on_mount(self):
         global _LFSR
         Taps = _LFSR.getTaps()

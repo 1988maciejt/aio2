@@ -52,3 +52,7 @@ Button {
 Label {
   overflow: auto scroll;
 }
+
+#dt {
+  height: auto;
+}
