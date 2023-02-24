@@ -1,64 +1,17 @@
-_HLayout {
-    layout: horizontal;
-    overflow: auto scroll; 
-    width: 100%;
-    height: 100%;
+ProgrammableLfsrConfigTui {
+  layout: horizontal;
+  overflow: auto scroll; 
+  width: 100%;
+  height: 100%;
 }
   
-  _LeftMenu {
-    layout: vertical;
-    overflow: auto scroll; 
-    height: 100%;
-    margin: 0;
-    width: 20%;
-  }
-
-  _HRight {
-    layout: vertical;
-    overflow: auto scroll; 
-    height: 100%;
-    margin: 1;
-    width: 80%;
-    padding: 0;
-  }
-  _VTop {
-    layout: vertical;
-    overflow: auto scroll; 
-    height: 11;
-    margin: 0;
-    width: 100%;
-    padding: 0;
-  }
-  _VMiddle {
-    layout: vertical;
-    overflow: auto scroll; 
-    height: 3;
-    margin: 0;
-    width: 100%;
-    padding: 0;
-    background: rgb(230,230,230);
-  }
-  _VBottom {
-    layout: vertical;
-    overflow: auto scroll; 
-    height: 100%;
-    margin: 1;
-    width: 100%;
-    padding: 0;
-    background: rgb(230,230,230);
-  }
-  _TTap {
-    layout: vertical;
-    overflow: auto scroll; 
-    height: auto;
-    margin: 1;
-    width: 100%;
-    padding: 0;
-  }
-  Button {
-    width: 100%;
-    margin: 1;
-  }
-  Label {
-    overflow: auto scroll;
-  }
+_Table {
+  layout: vertical;
+  margin: 1;
+  height: 100%;
+  width: 50%;
+}
+#code {
+  height: auto;
+  overflow: auto scroll;
+}

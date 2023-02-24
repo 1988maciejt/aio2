@@ -83,7 +83,40 @@ class ProgrammableLfsrConfiguration:
         TapPositions = str(Values[0])
       Result.append([TapType, TapPositions])
     return Result
+  
+  def tui(self):
+    global _PROG_LFSR_CONF
+    _PROG_LFSR_CONF = self
+    ProgrammableLfsrConfigTui().run()
+    return _PROG_LFSR_CONF
 
 
 # TUI ===============================================
 
+class _Table(TextualWidgets.Static):
+  Config = TextualReactive.reactive([])
+  def compose(self):
+    yield TextualWidgets.DataTable(id="config")
+  def on_mount(self):
+    self.set_interval(0.2, self.refresh_variables)
+    ConfTable = self.query_one(TextualWidgets.DataTable)
+    ConfTable.add_columns("Type", "Connections", "REMOVE?")
+  def refresh_variables(self):
+    global _PROG_LFSR_CONF
+    self.Config = _PROG_LFSR_CONF.toListOfStrings()
+  def watch_Config(self):
+    ConfTable = self.query_one(TextualWidgets.DataTable)
+    ConfTable.clear()
+    for Tap in self.Config:
+      ConfTable.add_row(Tap[0], Tap[1], "[REMOVE]")
+  
+
+class ProgrammableLfsrConfigTui(TextualApp.App):
+  BINDINGS = [("q", "quit", "Quit")]
+  CSS_PATH = "tui/programmable_lfsr.css"
+  def compose(self):
+    yield TextualWidgets.Header()
+    yield _Table()
+    yield TextualWidgets.Footer()
+  def on_mount(self):
+    self.dark = False
