@@ -51,10 +51,10 @@ _HLayout {
     margin: 1;
  }
  #set_size_lbl {
-    width: 50%;
+    width: 45%;
  }
  #set_size {
-    width: 50%;
+    width: 45%;
  }
 
  #input_switched {
@@ -67,14 +67,14 @@ _HLayout {
     margin: 1;
  }
  #add_tap_from {
-    width: 30%;
+   width: 25%;
  }
  #add_tap_to {
-    width: 30%;
+   width: 25%;
  }
  #add_tap_from_lbl {
-    width: 15%;
+   width: 15%;
  }
  #add_tap_to_lbl {
-    width: 15%;
+   width: 15%;
  }

@@ -181,55 +181,10 @@ def _categoryPolynomial():
       SubCategory()
 
 
-_GlobalLfsr = Lfsr(16, RING_WITH_SPECIFIED_TAPS, [])
-
-def _categoryLfsrWithManualTaps_subDisplay():
-  global _GlobalLfsr
-  Text = f'Size: {_GlobalLfsr.getSize()}\nTAPS [\n'
-  for Tap in _GlobalLfsr.getTaps():
-    Text += f'  {Tap},\n'
-  Text += "]"
-  message_dialog(
-    title="Current Lfsr",
-    text=Text
-  ).run()
-  
-def _categoryLfsrWithManualTaps_subInfoDisplay():
-  global _GlobalLfsr
-  IsMax = "is MAXIMUM" if _GlobalLfsr.isMaximum() else "is NOT MAXIMUM"
-  P = Polynomial.decodeUsingBerlekampMassey(_GlobalLfsr)
-  PP = "PRIMITIVE" if P.isPrimitive() else "NOT PRIMITIVE"
-  Poly = f'Decoded polynomial: {P} ({PP})'
-  Text = IsMax + "\n" + Poly
-  message_dialog(
-    title="Information",
-    text=Text
-  ).run()
-  
-def _categoryLfsrWithManualTaps_subCreate():
-  global _GlobalLfsr
-  Size = MainMenu_static.getLfsrSize()
-  if Size is None:
-    return
-  Taps = MainMenu_static.getTaps()
-  if Taps is None:
-    return
-  del _GlobalLfsr
-  _GlobalLfsr = Lfsr(Size, RING_WITH_SPECIFIED_TAPS, Taps)
-  _categoryLfsrWithManualTaps_subDisplay()
-  
-def _categoryLfsrWithManualTaps_subMakeDual():
-  global _GlobalLfsr
-  _GlobalLfsr = _GlobalLfsr.getDual()
-  _categoryLfsrWithManualTaps_subDisplay()
-  
-
 def _categoryLfsrWithManualTaps():
-  SubCategory = -1
-  while SubCategory is not None:
-    SubCategory = MainMenu_static._lfsr_manual_taps_menu.run()
-    if SubCategory is not None:
-      SubCategory()
+  Result = Lfsr.tuiCreateRing()
+  if Result is not None:
+    Aio.print(repr(Result))
 
 
 
@@ -238,12 +193,17 @@ _GlobalProgrammable = ProgrammableLfsr(_GlobalProgrammableRingConfig)
 
 def _categoryProgrammableRingGenerator_subEdit():
   global _GlobalProgrammableRingConfig, _GlobalProgrammable
-  _GlobalProgrammableRingConfig = _GlobalProgrammableRingConfig.tui()
-  _GlobalProgrammable = ProgrammableLfsr(_GlobalProgrammableRingConfig)
+  New = _GlobalProgrammableRingConfig.tui()
+  if New is not None:
+    _GlobalProgrammableRingConfig = New
+    _GlobalProgrammable = ProgrammableLfsr(_GlobalProgrammableRingConfig)
   
 def _categoryProgrammableRingGenerator_subExplore():
   global _GlobalProgrammableRingConfig, _GlobalProgrammable
-  _GlobalProgrammable.tui()
+  try:
+    _GlobalProgrammable.tui()
+  except:
+    pass
   
 def _categoryProgrammableRingGenerator_subCreateNeptun():
   global _GlobalProgrammableRingConfig, _GlobalProgrammable
@@ -565,16 +525,6 @@ class MainMenu_static:
       (_categoryPolynomial_printTiger,      "Print Tiger polynomials"),
       (_categoryPolynomial_printHybrid,     "Print Hybrid polynomials"),
       (_categoryPolynomial_decode,          "Decode using Berlekamp-Massey algorithm")
-    ]
-  )
-  _lfsr_manual_taps_menu = radiolist_dialog(
-    title="Ring generators with manually specified taps",
-    text="What do you want to do:",
-    values=[
-      (_categoryLfsrWithManualTaps_subDisplay,  "Display ring generator"),
-      (_categoryLfsrWithManualTaps_subCreate,   "Define ring generator"),
-      (_categoryLfsrWithManualTaps_subInfoDisplay, "Is maximum? What is the polynomial?"),
-      (_categoryLfsrWithManualTaps_subMakeDual,   "Make dual ring")
     ]
   )
   _programmable_ring_generator_menu = radiolist_dialog(

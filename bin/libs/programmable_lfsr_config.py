@@ -122,8 +122,12 @@ class ProgrammableLfsrConfiguration:
   def tui(self):
     global _PROG_LFSR_CONF
     _PROG_LFSR_CONF = self.copy()
-    _ProgrammableLfsrConfigTui().run()
-    return _PROG_LFSR_CONF
+    tui = _ProgrammableLfsrConfigTui()
+    tui.run()
+    #time.sleep(0.2)
+    if tui.EXE == "ok":
+      return _PROG_LFSR_CONF
+    return None
 
 
 # TUI ===============================================
@@ -191,12 +195,17 @@ class _Config(TextualWidgets.Static):
     yield TextualWidgets.Label(
 """To add switched tap, define taps i.e.:
   [1,2], [5,6], [3,6]
-To add all combinations switch enter sources and destinations lists, i.e.:
+To add all combinations switch enter sources
+and destinations lists, i.e.:
   [1,2,3], [6,7,8]
 """)
     yield TextualWidgets.Input("[<from>, <to>], ...", id="input_switched")
     yield TextualWidgets.Button("Add switched taps", id="btn_add_switched")
     yield TextualWidgets.Button("Add All-Combinations switch", id="btn_add_all_switched")
+    yield TextualWidgets.Button("Add All-Combinations switch with OFF", id="btn_add_all_switched_with_off")
+    yield TextualWidgets.Label(" ")
+    yield TextualWidgets.Button("OK", id="btn_ok", variant="success")
+    yield TextualWidgets.Button("Cancel", id="btn_cancel", variant="error")
   def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
     global _PROG_LFSR_CONF
     id = event.button.id
@@ -205,24 +214,61 @@ To add all combinations switch enter sources and destinations lists, i.e.:
         SizeW = self.query_one(_SetSize)
         Size = int(SizeW.query_one("#set_size").value)
         if Size > 0:
+          for TapDict in _PROG_LFSR_CONF._taps:
+            for Tap in TapDict.values():
+              if Tap is not None:
+                for V in Tap:
+                  if V >= SizeW:
+                    break
           _PROG_LFSR_CONF._size = Size
       elif id == "btn_add_mandatory":
         ATap = self.query_one(_AddTap)
         From = int(ATap.query_one("#add_tap_from").value)
         To = int(ATap.query_one("#add_tap_to").value)
-        _PROG_LFSR_CONF.addMandatory(From, To)
+        Size = _PROG_LFSR_CONF.getSize()
+        if (0 <= From < Size) and (0 <= To < Size):
+          _PROG_LFSR_CONF.addMandatory(From, To)
       elif id == "btn_add_gated":
         ATap = self.query_one(_AddTap)
         From = int(ATap.query_one("#add_tap_from").value)
         To = int(ATap.query_one("#add_tap_to").value)
-        _PROG_LFSR_CONF.addGated(From, To)
+        Size = _PROG_LFSR_CONF.getSize()
+        if (0 <= From < Size) and (0 <= To < Size):
+          _PROG_LFSR_CONF.addGated(From, To)
       elif id == "btn_add_switched":
         Val = list(ast.literal_eval(self.query_one("#input_switched", TextualWidgets.Input).value))
+        Size = _PROG_LFSR_CONF.getSize()
+        for Tap in Val:
+          if len(Tap) != 2:
+            return
+          for V in Tap:
+            if not (0 <= V < Size):
+              return
         _PROG_LFSR_CONF.addSwitched(*Val)
       elif id == "btn_add_all_switched":
         Val = list(ast.literal_eval(self.query_one("#input_switched", TextualWidgets.Input).value))
+        Size = _PROG_LFSR_CONF.getSize()
+        for Vs in Val:
+          for V in Vs:
+            if not (0 <= V < Size):
+              return
         if len(Val) == 2:
           _PROG_LFSR_CONF.addAllCombinationsSwitch(*Val)
+      elif id == "btn_add_all_switched_with_off":
+        Val = list(ast.literal_eval(self.query_one("#input_switched", TextualWidgets.Input).value))
+        Size = _PROG_LFSR_CONF.getSize()
+        for Vs in Val:
+          for V in Vs:
+            if not (0 <= V < Size):
+              return
+        if len(Val) == 2:
+          _PROG_LFSR_CONF.addAllCombinationsSwitch(*Val, IncludeNone=1)
+      elif id == "btn_ok":
+        self.app.EXE = "ok"
+        self.app.exit()
+      elif id == "btn_cancel":
+        self.app.EXE = "cancel"
+        self.app.exit()
     except:
       pass
   
@@ -235,6 +281,7 @@ class _ProgrammableLfsrConfigTui(TextualApp.App):
   BINDINGS = [("q", "quit", "Quit")]
   CSS_PATH = "tui/programmable_lfsr_config.css"
   def compose(self):
+    self.EXE = ""
     yield TextualWidgets.Header()
     yield _HLayout()
     yield TextualWidgets.Footer()

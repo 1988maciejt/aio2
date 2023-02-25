@@ -8,16 +8,16 @@ _LeftMenu {
   layout: vertical;
   overflow: auto scroll; 
   height: 100%;
-  margin: 1;
-  width: 15%;
+  margin: 0;
+  width: 30%;
   padding: 0;
 }
 _HRight {
   layout: vertical;
   overflow: auto scroll; 
   height: 100%;
-  margin: 1;
-  width: 85%;
+  margin: 0;
+  width: 70%;
   padding: 0;
 }
 _VTop {
@@ -48,11 +48,45 @@ _VBottom {
 }
 Button {
   width: 100%;
+  margin: 0;
 }
 Label {
   overflow: auto scroll;
 }
 
+#btn_ok, #btn_cancel  {
+  margin: 1;
+}
 #dt {
   height: auto;
+}
+
+_SetSize {
+  width: 100%;
+  layout: horizontal;
+  margin: 0;
+}
+#set_size_lbl {
+  width: 45%;
+}
+#set_size {
+  width: 45%;
+}
+
+_AddTap {
+  width: 100%;
+  layout: horizontal;
+  margin: 0;
+}
+#add_tap_from {
+  width: 25%;
+}
+#add_tap_to {
+  width: 25%;
+}
+#add_tap_from_lbl {
+  width: 15%;
+}
+#add_tap_to_lbl {
+  width: 15%;
 }

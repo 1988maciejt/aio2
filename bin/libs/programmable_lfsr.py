@@ -442,12 +442,23 @@ endmodule'''
     global _PROG_LFSR, _LFSR, _SELECTED_TAPS
     _PROG_LFSR = self
     _LFSR = self.getLfsr(0)
-    ProgrammableLfsrTui().run()
-    return _LFSR
+    tui = _ProgrammableLfsrTui()
+    tui.run()
+    if tui.EXE == "ok":
+      return _LFSR
+    return None
   
   def tuiEdit(self):
     Config = self.getConfig().tui()
-    self.__init__(Config)
+    if Config is not None:
+      self.__init__(Config)
+    
+  @staticmethod
+  def tuiCreate(Size = 32):
+    Config = ProgrammableLfsrConfiguration(Size).tui()
+    if Config is None:
+      return None
+    return ProgrammableLfsr(Config)
   
   
 # TUI ===========================================================  
@@ -542,10 +553,19 @@ class _LeftMenu(TextualWidgets.Static):
       TTap.TAP_DICT = TapsDict
       TTap.TAP_INDEX = i
       yield TTap
+    yield TextualWidgets.Label(" ")
+    yield TextualWidgets.Button("OK", id="btn_ok", variant="success")
+    yield TextualWidgets.Button("Cancel", id="btn_cancel", variant="error")
   def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
     global _LFSR, _LFSR_SIM
     if event.button.id == "asim":
       _lfsr_sim_append()
+    elif event.button.id == "btn_ok":
+      self.app.EXE = "ok"
+      self.app.exit()
+    elif event.button.id == "btn_cancel":
+      self.app.EXE = "cancel"
+      self.app.exit()
       
 class _HRight(TextualWidgets.Static):
   def compose(self) -> None:
@@ -558,11 +578,12 @@ class _HLayout(TextualWidgets.Static):
     yield _LeftMenu()
     yield _HRight()
 
-class ProgrammableLfsrTui(TextualApp.App):
+class _ProgrammableLfsrTui(TextualApp.App):
   BINDINGS = [("q", "quit", "Quit"), ('a', 'asim', 'Append values')]
   CSS_PATH = "tui/programmable_lfsr.css"
   def compose(self) -> None:
     self.dark=False
+    self.EXE = ""
     yield TextualWidgets.Header()
     yield _HLayout()
     yield TextualWidgets.Footer()

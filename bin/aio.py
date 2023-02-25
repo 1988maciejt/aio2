@@ -89,6 +89,9 @@ from libs.rpi import *
 import pint
 # research projects - libs
 import libs.research_projects.root_of_trust.root_of_trust as RootOfTrust
+import warnings
+warnings.simplefilter("ignore")
+
 
 unit = pint.UnitRegistry()
 
