@@ -62,7 +62,7 @@ def configure(repl):
 
     # Fuzzy and dictionary completion.
     repl.enable_fuzzy_completion = True
-    repl.enable_dictionary_completion = False
+    repl.enable_dictionary_completion = True
 
     # Vi mode.
     repl.vi_mode = False
@@ -121,7 +121,7 @@ def configure(repl):
 
     # Min/max brightness
     repl.min_brightness = 0.0  # Increase for dark terminal backgrounds.
-    repl.max_brightness = 1.0  # Decrease for light terminal backgrounds.
+    repl.max_brightness = 0.8  # Decrease for light terminal backgrounds.
 
     # Syntax.
     repl.enable_syntax_highlighting = True

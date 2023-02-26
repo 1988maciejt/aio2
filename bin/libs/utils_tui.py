@@ -28,31 +28,36 @@ class _TuiWidgetTextWithLabel(TextualWidgets.Static):
         return Txt.value
     
 class _TuiWidgetLfsrSearchParameters(TextualWidgets.Static):
-    def __init__(self, Size = 16, Taps = 3, Balancing = 0, MinDistance = 0, N = 0, ResultsAvailable = 0, id: str | None = None) -> None:
+    def __init__(self, Size = 16, Taps = 3, Balancing = 0, MinDistance = 0, N = 0, MinNotMatchingTaps = 0, ResultsAvailable = 0, id: str | None = None) -> None:
         super().__init__(id=id)
         self.Size = Size
         self.Taps = Taps
         self.Balancing = Balancing
         self.MinDistance = MinDistance
         self.N = N
+        self.MinNotMatchingTaps = MinNotMatchingTaps
         self.ResultsAvailable = ResultsAvailable
     def compose(self):
         self.dark = False
         yield _TuiWidgetTextWithLabel("Size:", self.Size, id="txt_size")
-        yield _TuiWidgetTextWithLabel("Taps:", self.Taps, id="txt_taps")
-        yield _TuiWidgetTextWithLabel("Balancing:", self.Balancing, id="txt_balancing")
-        yield _TuiWidgetTextWithLabel("Min Distance:", self.MinDistance, id="txt_mindistance")
-        yield _TuiWidgetTextWithLabel("Min results count:", self.N, id="txt_n")
+        yield _TuiWidgetTextWithLabel("Taps count:", self.Taps, id="txt_taps")
+        yield _TuiWidgetTextWithLabel("Balancing (0=any):", self.Balancing, id="txt_balancing")
+        yield _TuiWidgetTextWithLabel("Min Distance (0=any):", self.MinDistance, id="txt_mindistance")
+        yield _TuiWidgetTextWithLabel("Results count (0=all):", self.N, id="txt_n")
+        yield _TuiWidgetTextWithLabel("Min # different taps:", self.MinNotMatchingTaps, id="txt_different")
         yield TextualWidgets.Button("Search for TIGER LFSRs", id="btn_search_tiger")
         yield TextualWidgets.Button("Search for ANY HYBRID LFSRs", id="btn_search_hybrid")
         if self.ResultsAvailable:
             yield TextualWidgets.Button("Export results to XLSX", id="btn_search_xlsx", variant="primary")
+        yield TextualWidgets.Label(" ")
+        yield TextualWidgets.Button("OK", id="btn_ok", variant="success")
     def updateParams(self):
         self.app.Size = Int.toInt(self.query_one("#txt_size").getValue(), 8)
         self.app.Taps = Int.toInt(self.query_one("#txt_taps").getValue(), 0)
         self.app.Balancing = Int.toInt(self.query_one("#txt_balancing").getValue(), 0)
         self.app.MinDistance = Int.toInt(self.query_one("#txt_mindistance").getValue(), 0)
         self.app.N = Int.toInt(self.query_one("#txt_n").getValue(), 0)
+        self.app.MinNotMatchingTaps = Int.toInt(self.query_one("#txt_different").getValue(), 0)
     def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
         if event.button.id == "btn_search_hybrid":
             self.app.EXE = "h"
@@ -60,6 +65,8 @@ class _TuiWidgetLfsrSearchParameters(TextualWidgets.Static):
             self.app.EXE = "t"
         if event.button.id == "btn_search_xlsx":
             self.app.EXE = "xlsx"
+        if event.button.id == "btn_ok":
+            self.app.EXE = ""
         self.updateParams()
         self.app.exit()
         
@@ -76,13 +83,14 @@ class _TuiWidgetLfsrViewer(TextualWidgets.Static):
 class _TuiHybridLfsrSearching(TextualApp.App):   
     BINDINGS = [("q", "quit", "Quit")]     
     CSS_PATH = "tui/utils_tui.css"
-    def __init__(self, Size = 16, Taps = 3, Balancing = 0, MinDistance = 0, N = 0, Lfsrs = [], Polys = [], CPolys = [], driver_class = None, css_path = None, watch_css = False):
+    def __init__(self, Size = 16, Taps = 3, Balancing = 0, MinDistance = 0, N = 0, MinNotMatchingTaps = 0, Lfsrs = [], Polys = [], CPolys = [], driver_class = None, css_path = None, watch_css = False):
         super().__init__(driver_class, css_path, watch_css)
         self.Size = Size
         self.Taps = Taps
         self.Balancing = Balancing
         self.MinDistance = MinDistance
         self.N = N
+        self.MinNotMatchingTaps = MinNotMatchingTaps
         self.Lfsrs = Lfsrs
         self.Polys = Polys
         self.CPolys = CPolys
@@ -91,10 +99,11 @@ class _TuiHybridLfsrSearching(TextualApp.App):
         self.dark = False
         yield TextualWidgets.Header()
         yield TextualContainers.Horizontal(
-            _TuiWidgetLfsrSearchParameters(self.Size, self.Taps, self.Balancing, self.MinDistance, self.N, len(self.Lfsrs)>0, id="lfsr_search_params"),
+            _TuiWidgetLfsrSearchParameters(self.Size, self.Taps, self.Balancing, self.MinDistance, self.N, self.MinNotMatchingTaps, len(self.Lfsrs)>0, id="lfsr_search_params"),
             TextualWidgets.Static(id="lfsr_search_separator"),
             TextualContainers.Vertical(
                 _TuiWidgetLfsrViewer(id="lfsr_search_viewer"),
+                TextualWidgets.Label(f" Found: {len(self.Lfsrs)}"),
                 TextualWidgets.DataTable(zebra_stripes=1, id="lfsr_search_table"),
                 id="lfsr_search_vcontainer"
             )
@@ -127,9 +136,9 @@ class Tui:
         Result = []
         Lfsrs = []
         CPolys = []
-        Size, Taps, Balancing, MinDistance, N = 32, 5, 4, 2, 10
+        Size, Taps, Balancing, MinDistance, N, MinNotMatchingTaps = 32, 5, 4, 2, 10, 0
         while 1:
-            tui = _TuiHybridLfsrSearching(Size, Taps, Balancing, MinDistance, N, Lfsrs, Result, CPolys)
+            tui = _TuiHybridLfsrSearching(Size, Taps, Balancing, MinDistance, N, MinNotMatchingTaps, Lfsrs, Result, CPolys)
             tui.run()
             Exe = tui.EXE
             Size = tui.Size
@@ -137,13 +146,15 @@ class Tui:
             Balancing = tui.Balancing
             MinDistance = tui.MinDistance
             N = tui.N
+            MinNotMatchingTaps = tui.MinNotMatchingTaps
             if Exe == "t":
                 Result = Polynomial.listTigerPrimitives(
                     tui.Size,
                     tui.Taps+2,
                     tui.Balancing,
                     MinDistance=tui.MinDistance,
-                    n=tui.N
+                    n=tui.N,
+                    MinNotMatchingTapsCount=MinNotMatchingTaps
                 )
                 Lfsrs = [Lfsr(P, LfsrType.TigerRing) for P in Result]
             elif Exe == "h":
@@ -152,7 +163,8 @@ class Tui:
                     tui.Taps+2,
                     tui.Balancing,
                     MinDistance=tui.MinDistance,
-                    n=tui.N
+                    n=tui.N,
+                    MinNotMatchingTapsCount=MinNotMatchingTaps
                 )
                 Lfsrs = [Lfsr(P, LfsrType.HybridRing) for P in Result]
             elif Exe == "xlsx":

@@ -30,7 +30,7 @@ Button {
   overflow: auto scroll;
   height: 70%;
   width: 70%;
-  margin: 1;
+  margin: 0;
 }
 #lfsr_search_vcontainer {
   overflow: auto scroll;

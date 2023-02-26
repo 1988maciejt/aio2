@@ -513,10 +513,10 @@ class _VMiddle(TextualWidgets.Static):
     self.LfsrPoly = Polynomial.decodeUsingBerlekampMassey(_LFSR)
   def watch_LfsrPoly(self):
     global _LFSR
-    Max = "IS MAXIMUM" if _LFSR.isMaximum() else "is NOT maximum"
+    l = _LFSR.copy()
+    Max = "IS MAXIMUM" if l.isMaximum() else "is NOT maximum"
     Prim = "IS PRIMITIVE" if self.LfsrPoly.isPrimitive() else "Is NOT primitive"
-    Taps = f"TAPS: {_LFSR._taps}\n" if len(_LFSR._taps) > 0 else ""
-    self.update(f"{Taps}This LFSR {Max}.\nCharacteristic polynomial {Prim}: {self.LfsrPoly}")
+    self.update(f"This LFSR {Max}.\nCharacteristic polynomial {Prim}: {self.LfsrPoly}")
 
 class _VBottom(TextualWidgets.Static):
     SimROws = TextualReactive.reactive([])

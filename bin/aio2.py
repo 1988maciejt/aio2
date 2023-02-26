@@ -36,9 +36,6 @@ def tc(filename="driver.py"):
 
 
 if len(sys.argv) > 2:
-#  pool = pathos.multiprocessing.ThreadingPool()
-#  xp = pool.amap(tc, [str(sys.argv[2])])
-#  xp.wait()
   tc(str(sys.argv[2]))
     
 class Shell:
@@ -73,7 +70,7 @@ class Shell:
     except:
       print("History loading error!")
       
-  
+print = rich.pretty.pprint
       
 Cache.store("globals", list(globals().keys()).copy())
 #========================================================

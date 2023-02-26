@@ -78,6 +78,8 @@ import pathos
 import pandas
 from sympy import *
 import matplotlib
+import rich
+import rich.pretty
 #import matplotlib_inline
 import matplotlib.pyplot as plt
 import latex
@@ -98,21 +100,8 @@ unit = pint.UnitRegistry()
 pbar = tqdm
 sleep = time.sleep
 
-def printf(something):
-    """Prints formatted data.
-    Uses Aio.format() proc in the back.
-
-    EXAMPLE
-    
-    printf([10,20,30])
-    >>>
-    [
-        10
-        20
-        30
-    ]
-    """
-    print(Aio.format(something))
+printf = rich.pretty.pprint
+inspect = rich.inspect
 
 def timeIt(Code : str, Iterations = 1):
     exec(Aio.timeItCode(Code, Iterations))

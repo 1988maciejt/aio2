@@ -900,6 +900,9 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
   @staticmethod
   def listTigerPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0) -> list:
     Poly0 = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance)
+    Signs = Poly0._sign_list
+    for i in range(len(Signs)-2, 0, -2):
+      Signs[i] = -1
     if Poly0 is None:
       return []
     if not Poly0.setStartingPointForIterator(StartingPolynomial):
@@ -1002,6 +1005,8 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
           lpol = Polynomial(l._my_poly.copy())
           Polys.append(Polynomial(lpol))      
       print(f'Found so far: {len(Polys)}')
+    for P in Polys:      
+      P._sign_list = Signs
     return Polys
             
 
@@ -2672,13 +2677,14 @@ class _VMiddle(TextualWidgets.Static):
     def on_mount(self):
         self.set_interval(0.2, self.update_LfsrPoly)
     def update_LfsrPoly(self):
-        global _LFSR
+        global _LFSR, _WATCH
         self.LfsrPoly = Polynomial.decodeUsingBerlekampMassey(_LFSR)
     def watch_LfsrPoly(self):
         global _LFSR
+        l = _LFSR.copy()
+        Max = "IS MAXIMUM" if l.isMaximum() else "is NOT maximum"
         Prim = "IS PRIMITIVE" if self.LfsrPoly.isPrimitive() else "Is NOT primitive"
-        Taps = f"TAPS: {_LFSR._taps}\n" if len(_LFSR._taps) > 0 else ""
-        self.update(f"{Taps}Characteristic polynomial {Prim}:\n{self.LfsrPoly}")
+        self.update(f"This LFSR {Max}.\nCharacteristic polynomial {Prim}: {self.LfsrPoly}")
         
 class _VBottom(TextualWidgets.Static):
     SimROws = TextualReactive.reactive([])
