@@ -2455,6 +2455,13 @@ endmodule'''
   def tuiCreateRing(Size = 32) -> Lfsr:
     return Lfsr(int(Size), LfsrType.RingWithSpecifiedTaps, []).tui()
     
+  @staticmethod
+  def tuiCreateFibonacci(Size = 32) -> Lfsr:
+    return Lfsr([int(Size), 0], LfsrType.Fibonacci).tui()
+    
+  @staticmethod
+  def tuiCreateGalois(Size = 32) -> Lfsr:
+    return Lfsr([int(Size), 0], LfsrType.Galois).tui()
         
 def _analyseSequences_helper(lfsr) -> MSequencesReport:
   return lfsr.analyseSequences()
@@ -2564,14 +2571,17 @@ class _AddTap(TextualWidgets.Static):
 class _LeftMenu(TextualWidgets.Static):
     def compose(self) -> TextualApp.ComposeResult:
         global _LFSR
-        IsRing = (_LFSR._type == LfsrType.RingGenerator) or (_LFSR._type == LfsrType.RingWithSpecifiedTaps)
-        if IsRing:
+        self.IsRing = (_LFSR._type == LfsrType.RingGenerator) or (_LFSR._type == LfsrType.RingWithSpecifiedTaps)
+        if self.IsRing:
           yield _SetSize()
           yield TextualWidgets.Button("Set size", id="btn_set_size")
           yield TextualWidgets.Label(" ")
           yield _AddTap()
           yield TextualWidgets.Button("Add tap", id="btn_add_tap")
           yield TextualWidgets.Label(" ")
+        else:
+          yield TextualWidgets.Label("\n  POLYNOMIAL:")
+          yield TextualWidgets.Input(str(_LFSR._my_poly), id="left_menu_polynomial")
         yield TextualWidgets.DataTable(id="dt")
         yield TextualWidgets.Label(" ")
         yield TextualWidgets.Button("DUAL", id="dual")
@@ -2591,11 +2601,23 @@ class _LeftMenu(TextualWidgets.Static):
               table.add_row(str(Tap), "[ROTL]", "[INV]", "[ROTR]", "[REMOVE]")
     def on_mount(self):
         global _LFSR
-        IsRing = (_LFSR._type == LfsrType.RingGenerator) or (_LFSR._type == LfsrType.RingWithSpecifiedTaps)
-        if IsRing:
+        if self.IsRing:
           table = self.query_one(TextualWidgets.DataTable)
           table.add_columns("TAP", ".", ".", ".", ".")
           self.refreshTable()
+        else:
+          self.set_interval(0.2, self.on_my_interval)
+    def refreshPolynomial(self, Poly : Polynomial):
+      if not self.IsRing:
+        self.query_one("#left_menu_polynomial").value = str(Poly)
+    def on_my_interval(self):
+      global _LFSR
+      try:
+        p = Polynomial(list(ast.literal_eval(self.query_one("#left_menu_polynomial").value)))
+        _LFSR.__init__(p, _LFSR._type)
+        _lfsr_sim_refresh()
+      except:
+        pass
     def on_data_table_cell_selected(self, event: TextualWidgets.DataTable.CellSelected) -> None:
         global _LFSR
         if event.coordinate.column > 0:
@@ -2619,6 +2641,8 @@ class _LeftMenu(TextualWidgets.Static):
             _lfsr_sim_refresh()
         elif event.button.id == "reci":
             _LFSR = _LFSR.getReciprocal()
+            if not self.IsRing:
+              self.refreshPolynomial(_LFSR._my_poly)
             self.refreshTable()
             _lfsr_sim_refresh()
         elif event.button.id == "btn_add_tap":

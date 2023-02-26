@@ -107,6 +107,7 @@ class _TuiHybridLfsrSearching(TextualApp.App):
                 TextualWidgets.DataTable(zebra_stripes=1, id="lfsr_search_table"),
                 id="lfsr_search_vcontainer"
             )
+            ,id="lfsr_search_horizontal_container"
         )
         yield TextualWidgets.Footer()
     def on_mount(self):

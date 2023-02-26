@@ -383,7 +383,7 @@ class HashFunction:
                 LfsrInPhaseShifterValues = self.LfsrInPhaseShifter.fastANFValues(ANFSpace, LfsrInValues)
             BFValues = []
             BFOutputs = []
-            BFCombos = []
+            #BFCombos = []
             for bfun_i in range(len(self.Functions)):
                 bfun = self.Functions[bfun_i]
                 Inputs = []
@@ -392,15 +392,15 @@ class HashFunction:
                         Inputs.append(LfsrOutValues[Iindex - 100000])
                     else:
                         Inputs.append(LfsrInValues[Iindex])
-                #print(f"// RoT BentFunction {bfun_i+1} / {len(self.Functions)}")
-                BFCombos.append([bfun[0], ANFSpace, Inputs])
-                #BFValues.append(bfun[0].getFastANFValue(ANFSpace, Inputs, Parallel=1))
+                #BFCombos.append([bfun[0], ANFSpace, Inputs])
+                BFValues.append(bfun[0].getFastANFValue(ANFSpace, Inputs, Parallel=1))
+                print(f"// RoT BentFunction {bfun_i+1} / {len(self.Functions)}")
                 BFOutputs.append(bfun[2])
-            BVDone = 1
-            for BV in SimpleThread.imap(_bf_evaluate, BFCombos):
-                BFValues.append(BV)
-                print(f"// RoT sim - BentFunction {BVDone} / {len(self.Functions)}") 
-                BVDone += 1
+            #BVDone = 1
+            #for BV in SimpleThread.imap(_bf_evaluate, BFCombos):
+            #    BFValues.append(BV)
+            #    print(f"// RoT sim - BentFunction {BVDone} / {len(self.Functions)}") 
+            #    BVDone += 1
             BFs = []
             for i in range(len(BFValues)):
                 BFs.append([BFValues[i], BFOutputs[i]])

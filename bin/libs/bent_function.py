@@ -158,12 +158,6 @@ class BentFunction:
         pass
     Result = ANFSpace.createExpression()
     if Parallel:
-      Len = 0
-      for IV in InputList:
-        Len += len(IV)
-      if Len < 50000:
-        Parallel = 0
-    if Parallel:
       Combos = []
       for Mono in self._FastAnfList:
         Combo = []
@@ -179,6 +173,7 @@ class BentFunction:
         print(f"// BentFunction: parallel AND {pm} / {len(Combos)}")
         pm += 1
     else:
+      AndNo = 1
       for Mono in self._FastAnfList:
         First = 1
         MonoResult = None
@@ -188,6 +183,8 @@ class BentFunction:
             First = 0
           else:
             MonoResult.mul(InputList[i])
+            print(f"// BentFunction: serial AND {AndNo}")
+            AndNo += 1
         Result.add(MonoResult)
     if self._FastAnfNot:
       Result.negate()

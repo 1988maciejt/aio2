@@ -5,6 +5,8 @@ from p_tqdm import *
 from tqdm import tqdm
 import bitarray.util as bau
 import itertools
+import numpy as np
+from libs.simple_threading import *
 
 
 class FastANFSpace:
@@ -16,12 +18,13 @@ class FastANFExpression:
 
 class FastANFExpression:
     
-    __slots__ = ("_MySpace", "_MonomialSize", "_Table")
+    __slots__ = ("_MySpace", "_MonomialSize", "_Table", "_Empty")
     
     def __init__(self, MySpace : FastANFSpace, VarCount : int) -> None:
         self._MySpace = MySpace
         self._MonomialSize = VarCount
-        self._Table = MySpace._Zero.copy()
+        self._Table = np.zeros((1<<self._MonomialSize), dtype=np.bool_)
+        self._Empty = True
         
     def __str__(self) -> str:
         return self.toStr()
@@ -50,55 +53,79 @@ class FastANFExpression:
     def copy(self) -> FastANFExpression:
         New = FastANFExpression(self._MySpace, self._MonomialSize)
         New._Table = self._Table.copy()
+        New._Empty = self._Empty
         return New
         
     def addMonomial(self, Monomial : int):
+        self._Empty = False
         if Monomial is not None:
             self._Table[Monomial] ^= 1
-                   
+    
     def getMonomials(self):
-        return self._Table.search(1)
+        return [np.int64(i) for i in range(len(self._Table)) if self._Table[i]] 
     
     def getMonomialCount(self):
-        return len(self._Table.search(1))
+        return len(self.getMonomials())
     
     def clear(self):
-        self._Table.setall(0)
+        self._Empty = True
+        self._Table = np.zeros((1<<self._MonomialSize), dtype=np.bool_)
 
     def add(self, Another : FastANFExpression):
         self._Table ^= Another._Table
-            
-    def _mul_par(self, M1, Monomials2) -> bitarray:
-        Result = bau.zerps(1 << self._MonomialSize)
-        for M2 in Monomials2:
-            Result[M1 | M2] ^= 1
+        self._Empty = False
+
+    @staticmethod
+    def _mulArrays(A : bytes, B : bytes) -> bytes:
+        a = pickle.loads(A)
+        b = pickle.loads(B)
+        r = np.zeros(len(a), dtype=np.bool_)
+        Monomials1 = [np.int64(i) for i in range(len(a)) if a[i]] 
+        Monomials2 = [np.int64(i) for i in range(len(b)) if b[i]] 
+        for M1 in Monomials1:
+            for M2 in Monomials2:
+                r[M1 | M2] ^= 1
+        return pickle.dumps(r)        
+
+    def _mul(self, M1, Monomials2) -> list:
+        Result = np.zeros(len(Monomials2), dtype=np.int64)
+        for i in range(len(Monomials2)):
+            Result[i] = M1 | Monomials2[i]
         return Result
-        
-    def mul(self, Another : FastANFExpression, Parallel = 0):
-        Monomials1 = self._Table.search(1)
-        Monomials2 = Another._Table.search(1)
-        self._Table.setall(0)
-        if Parallel:
-            if len(Monomials1) < len(Monomials2):
-                for Table in p_uimap(partial(self._mul_par, Monomials2=Monomials2), Monomials1, desc="FastANF MUL PAR"):
-                    self._Table ^= Table            
-            else:
-                for Table in p_uimap(partial(self._mul_par, Monomials2=Monomials1), Monomials2, desc="FastANF MUL PAR"):
-                    self._Table ^= Table            
+    
+    def mul(self, Another : FastANFExpression):
+        if self.isZero():
+            return
+        if Another.isZero():
+            self.clear()
+            return
+        Monomials1 = self.getMonomials()
+        Monomials2 = Another.getMonomials()
+        self.clear()
+        if 0:
+            for R in SimpleThread.uimap(partial(self._mul, Monomials2=Monomials2), Monomials1):
+                for N in R:
+                    self._Table[N] ^= 1
         else:
             for M1 in Monomials1:
                 for M2 in Monomials2:
                     self._Table[M1 | M2] ^= 1
+        self._Empty = False
                 
     def negate(self):
         self._Table[0] ^= 1
+        self._Empty = False
+
+    def isZero(self):
+        return self._Empty
 
     def toStr(self) -> str:
-        if self.getMonomialCount() == 0:
+        Monomials = self.getMonomials()
+        if len(Monomials) == 0:
             return "0"
         Result = ""
         Second = 0
-        for M in self.getMonomials():
+        for M in Monomials:
             if Second:
                 Result += " + "
             else:
@@ -116,7 +143,8 @@ class FastANFExpression:
         if MaxMonomial is None:
             MaxMonomial = 1 << self._MonomialSize
         Result = [0 for _ in range(self._MonomialSize + 1)]
-        for M in self.getMonomials():
+        for npM in self.getMonomials():
+            M = int(npM)
             if MinMonomial <= M <= MaxMonomial:
                 Result[bau.int2ba(M, self._MonomialSize).count(1)] += 1        
         return Result
@@ -126,12 +154,12 @@ class FastANFExpression:
 
 class FastANFSpace:
     
-    __slots__ = ("_Variables", "_Zero")
+    __slots__ = ("_Variables")
     
     def __init__(self, Variables : list) -> None:
+        if len(Variables) > 64:
+            Aio.printError("FastANF can operate on 64 variables max")
         self._Variables = Variables.copy()
-        self._Zero = bitarray(1 << len(Variables))
-        self._Zero.setall(0)
         
     def getVariableByIndex(self, Index : int):
         return self._Variables[Index]
@@ -141,7 +169,7 @@ class FastANFSpace:
             return self._Variables.copy()
         if Monomial == 0:
             return 1
-        BAMonomial = bau.int2ba(Monomial, len(self._Variables), 'little')
+        BAMonomial = bau.int2ba(int(Monomial), len(self._Variables), 'little')
         IntVars = BAMonomial.search(1)
         Result = []
         for IntV in IntVars:

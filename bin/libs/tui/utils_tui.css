@@ -34,6 +34,10 @@ Button {
 }
 #lfsr_search_vcontainer {
   overflow: auto scroll;
+  height: 100%;
+}
+#lfsr_search_horizontal_container {
+  height: auto;
 }
 #lfsr_search_viewer {
   width: 70%;
