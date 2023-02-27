@@ -19,6 +19,8 @@ from libs.utils_sympy import *
 from libs.fast_anf_algebra import *
 from functools import partial
 from libs.simple_threading import *
+from libs.remote_aio import RemoteAioScheduler
+import rich.pretty
 
 
 _BF_STATE = None
@@ -130,7 +132,7 @@ class BentFunction:
       self._minterms = self._lut.search(1)
     return self._minterms.copy()
   
-  def getFastANFValue(self, ANFSpace : FastANFSpace, InputList : List, Parallel = False):
+  def getFastANFValue(self, ANFSpace : FastANFSpace, InputList : List, Parallel = False, TaskScheduler : RemoteAioScheduler = None):
     if self._anf is None:
       self._iList = [symbols(f'_bf_x_{i}') for i in range(self.getInputCount())]
       self._anf = SOPform(self._iList, self.getMinterms()).to_anf()
@@ -159,19 +161,43 @@ class BentFunction:
     Result = ANFSpace.createExpression()
     if Parallel:
       Combos = []
-      for Mono in self._FastAnfList:
-        Combo = []
-        for i in Mono:
-          Combo.append(InputList[i])
-        if len(Combo) == 1:
-          Result.add(Combo[0])
-        else:
-          Combos.append(Combo)
-      pm = 1
-      for N in SimpleThread.uimap(partial(ANFSpace.multiplyList), Combos):
-        Result.add(N)
-        print(f"// BentFunction: parallel AND {pm} / {len(Combos)}")
-        pm += 1
+      if TaskScheduler is not None:
+        for Mono in self._FastAnfList:
+          if len(Mono) == 1:
+            Result.add(InputList[Mono[0]])
+          else:
+            Combo = "FastANFExpression._mul_bitarrays("
+            Second = 0
+            for i in Mono:
+              if Second:
+                Combo += ","
+              else:
+                Second = 1 
+              Combo += '"'
+              Combo += Str.objectToString(InputList[i]._Table)
+              Combo += '"'
+            Combo += ")"
+            Combos.append(Combo)
+        if len(Combos) > 0:
+          pm = 1
+          for N in TaskScheduler.mapUnorderedGenerator(Combos):          
+            Result._Table ^= Str.stringToObject(N)
+            print(f"// BentFunction: remote AND {pm} / {len(Combos)}")
+            pm += 1
+      else:
+        for Mono in self._FastAnfList:
+          Combo = []
+          for i in Mono:
+            Combo.append(InputList[i])
+          if len(Combo) == 1:
+            Result.add(Combo[0])
+          else:
+            Combos.append(Combo)
+        pm = 1
+        for N in SimpleThread.uimap(partial(ANFSpace.multiplyList), Combos):
+          Result.add(N)
+          print(f"// BentFunction: parallel AND {pm} / {len(Combos)}")
+          pm += 1
     else:
       AndNo = 1
       for Mono in self._FastAnfList:

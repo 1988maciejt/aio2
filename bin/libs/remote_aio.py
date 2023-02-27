@@ -141,13 +141,13 @@ class _RemoteNodes:
     
     def isBusy(self, Ip, Port):
         LastTime = self._LastSeenDict.get((Ip, Port), -10)
-        if time.time() - LastTime > 5:
-            return False
-        return True
+        if time.time() - LastTime < 5:
+            return True
+        return False
     
     def isFree(self, Ip, Port):
         LastTime = self._LastSeenDict.get((Ip, Port), -10)
-        if time.time() - LastTime <= 5:
+        if time.time() - LastTime >= 5:
             return True
         return False
     
@@ -165,10 +165,13 @@ class _RemoteNodes:
         
     def iterateOverFree(self):
         Now = time.time()
-        for key in self._LastSeenDict.keys():
-            LastSeen = self._LastSeenDict[key]
-            if Now - LastSeen > 5:
-                yield key
+        try:
+            for key in self._LastSeenDict.keys():
+                LastSeen = self._LastSeenDict[key]
+                if Now - LastSeen > 5:
+                    yield key
+        except:
+            pass
     
     
     
@@ -199,9 +202,9 @@ class RemoteAioTask:
     def isProcessed(self) -> bool:
         if self._Locked:
             return True
-        if time.time() - self._Timestamp > 3:
-            return False
-        return True
+        if time.time() - self._Timestamp < 3:
+            return True
+        return False
 
 
 
@@ -448,7 +451,7 @@ class RemoteAioScheduler:
     
 class RemoteAioNode:
     
-    __slots__ = ("_LastChangedCounterTimeStamp", "_CustomServers", "_Port", "_MySender", "_MyMonitor", "_Enable", "_Locked", "_MsgBuffer", "_MyMsg", "_MyCounter")
+    __slots__ = ("_LastChangedCounterTimeStamp", "_CustomServers", "_Port", "_MySender", "_MyMonitor", "_Enable", "_Locked", "_MsgBuffer", "_MyMsg", "_MyCounter", "_LastTaskId", "_LastTaskTime")
     
     def _ping(self):
         while self._Enable:
@@ -492,28 +495,30 @@ class RemoteAioNode:
                     #self._MyMonitor.stop()
                     Task = Msg.Data
                     Id = Task.Id
-                    for CS in self._CustomServers:
-                        if CS[0] == FromIp:
-                            FromPort = CS[1]
-                            Msg.Port = FromPort
-                            break
-                    self._MyMsg = _RemoteAioMessage(FromIp, FromPort, _PING, [Id, self._Port])
-                    self._Locked = 1
-                    print(Str.color(f"// REMOTE_AIO_NODE: Received task {Id} from {FromIp}:{FromPort}", 'yellow'))
-                    try:
-                        Result = eval(Task.Code)
-                    except Exception as inst2:
-                        Result = None
-                        Aio.printError(f"// REMOTE_AIO_NODE: INVALID TASK: {inst2}")
-                    Task.Code = None
-                    Task.Response = Result
-                    del self._MyMsg
-                    self._MyMsg = None
-                    self._Locked = 9
-                    Msg.Command = _RESPONSE
-                    Msg.Data = Task
-                    Msg.send(self._MySender)
-                    print(Str.color(f"// REMOTE_AIO_NODE: Sent response {Id} to {FromIp}:{FromPort}", 'yellow'))
+                    if (self._LastTaskId != Id) or (time.time() - self._LastTaskTime > 5):
+                        self._LastTaskId = Id
+                        for CS in self._CustomServers:
+                            if CS[0] == FromIp:
+                                FromPort = CS[1]
+                                Msg.Port = FromPort
+                                break
+                        self._MyMsg = _RemoteAioMessage(FromIp, FromPort, _PING, [Id, self._Port])
+                        self._Locked = 1
+                        print(Str.color(f"// REMOTE_AIO_NODE: Received task {Id} from {FromIp}:{FromPort}", 'yellow'))
+                        try:
+                            Result = eval(Task.Code)
+                        except Exception as inst2:
+                            Result = None
+                            Aio.printError(f"// REMOTE_AIO_NODE: INVALID TASK: {inst2}")
+                        Task.Code = None
+                        Task.Response = Result
+                        del self._MyMsg
+                        self._MyMsg = None
+                        self._Locked = 9
+                        Msg.Command = _RESPONSE
+                        Msg.Data = Task
+                        Msg.send(self._MySender)
+                        print(Str.color(f"// REMOTE_AIO_NODE: Sent response {Id} to {FromIp}:{FromPort}", 'yellow'))
                 except Exception as inst:
                     Aio.printError(f"// REMOTE_AIO_NODE: {inst}")                
                 self._MyCounter = _randomId()
@@ -533,6 +538,8 @@ class RemoteAioNode:
         self._LastChangedCounterTimeStamp = time.time()
         self._MySender = UdpSender(self._Port) 
         self._CustomServers = []
+        self._LastTaskId = -1
+        self._LastTaskTime = -10
         for CS in CustomServers:
             try:
                 if Aio.isType(CS, []) or Aio.isType(CS, ()):

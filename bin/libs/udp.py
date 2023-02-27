@@ -141,8 +141,12 @@ class UdpMonitor:
         self._working = False
         return
       for s in readable:
-        data, addr = s.recvfrom(1024)
-        port = self._port_list[self._listeners.index(s)]
+        try:
+          data, addr = s.recvfrom(1024)
+          port = self._port_list[self._listeners.index(s)]
+        except:
+          data = bytes(0)
+          port = 1
         try:
           Fragment = pickle.loads(data)
           if Aio.isType(Fragment, "_UdpFragmenterMessage"):

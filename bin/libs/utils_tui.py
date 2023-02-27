@@ -9,7 +9,7 @@ from libs.aio import *
 from libs.pandas_table import *
 
 class _TuiWidgetTextWithLabel(TextualWidgets.Static):
-    def __init__(self, Label : str, Value: str = "", Password = False, id: str | None = None) -> None:
+    def __init__(self, Label : str, Value: str = "", Password = False, id = None) -> None:
         super().__init__(id=id)
         self._Label = str(Label)
         self._Value = str(Value)
@@ -28,7 +28,7 @@ class _TuiWidgetTextWithLabel(TextualWidgets.Static):
         return Txt.value
     
 class _TuiWidgetLfsrSearchParameters(TextualWidgets.Static):
-    def __init__(self, Size = 16, Taps = 3, Balancing = 0, MinDistance = 0, N = 0, MinNotMatchingTaps = 0, ResultsAvailable = 0, id: str | None = None) -> None:
+    def __init__(self, Size = 16, Taps = 3, Balancing = 0, MinDistance = 0, N = 0, MinNotMatchingTaps = 0, ResultsAvailable = 0, id = None) -> None:
         super().__init__(id=id)
         self.Size = Size
         self.Taps = Taps

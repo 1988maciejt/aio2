@@ -14,6 +14,7 @@ from tqdm import tqdm
 from libs.fast_anf_algebra import *
 from time import sleep, time
 from libs.simple_threading import *
+from libs.remote_aio import RemoteAioScheduler
 
 ########################################################################################
 #                          NEPTUN RG
@@ -102,7 +103,7 @@ class HashFunction:
     def addDirectConnection(self, SourceInLfsrIn : int, DestinationInLfsrOut : int):
         s, i = Int.splitLettersAndInt(SourceInLfsrIn)
         if 'p' in s.lower():
-            i += 1000000
+            i += 100000000
         elif 'o' in s.lower():
             i += 100000
         SourceInLfsrIn = i
@@ -275,11 +276,11 @@ class HashFunction:
                 for O in Outputs:
                     LfsrOutValues[O] = LfsrOutValues[O] ^ bf[0]
             for SD in self.DirectConnections:
-                if SD[0] >= 1000000:
+                if SD[0] >= 100000000:
                     if SD[1] >= 100000:
-                        LfsrInValues[SD[1]-100000] = LfsrInValues[SD[1]-100000] ^ LfsrInPhaseShifterValues[SD[0]-1000000]
+                        LfsrInValues[SD[1]-100000] = LfsrInValues[SD[1]-100000] ^ LfsrInPhaseShifterValues[SD[0]-100000000]
                     else:
-                        LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInPhaseShifterValues[SD[0]-1000000]
+                        LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInPhaseShifterValues[SD[0]-100000000]
                 elif SD[0] >= 100000:
                     if SD[1] >= 100000:
                         LfsrInValues[SD[1]-100000] = LfsrInValues[SD[1]-100000] ^ LfsrOutValues[SD[0]-100000]
@@ -350,7 +351,7 @@ class HashFunction:
         _ExprToVars = {}
         return Result
             
-    def FastANFSimulation(self, MessageLength : int, MsgInjectors : 0, PrintExpressionsEveryCycle = 0, KeyAsSeed = 0, DumpStatsEveryNCycles = 0, DumpFileName = "HASH", PrintDumpedStats = 1, ReturnMonomialCountPerCycle = 0, MonomialsCountPerFlop = None, InitialCycles = 0) -> list:
+    def FastANFSimulation(self, MessageLength : int, MsgInjectors : 0, PrintExpressionsEveryCycle = 0, KeyAsSeed = 0, DumpStatsEveryNCycles = 0, DumpFileName = "HASH", PrintDumpedStats = 1, ReturnMonomialCountPerCycle = 0, MonomialsCountPerFlop = None, InitialCycles = 0, TaskScheduler : RemoteAioScheduler = None) -> list:
         AllVariables = [f'M{i}' for i in range(MessageLength)]
         if KeyAsSeed:
             AllVariables += [f"K{i}" for i in range(self.LfsrIn.getSize())]
@@ -393,7 +394,7 @@ class HashFunction:
                     else:
                         Inputs.append(LfsrInValues[Iindex])
                 #BFCombos.append([bfun[0], ANFSpace, Inputs])
-                BFValues.append(bfun[0].getFastANFValue(ANFSpace, Inputs, Parallel=1))
+                BFValues.append(bfun[0].getFastANFValue(ANFSpace, Inputs, Parallel=1, TaskScheduler=TaskScheduler))
                 print(f"// RoT BentFunction {bfun_i+1} / {len(self.Functions)}")
                 BFOutputs.append(bfun[2])
             #BVDone = 1
@@ -410,11 +411,11 @@ class HashFunction:
                 for O in Outputs:
                     LfsrOutValues[O] = LfsrOutValues[O] ^ bf[0]
             for SD in self.DirectConnections:
-                if SD[0] >= 1000000:
+                if SD[0] >= 100000000:
                     if SD[1] >= 100000:
-                        LfsrInValues[SD[1]-100000] = LfsrInValues[SD[1]-100000] ^ LfsrInPhaseShifterValues[SD[0]-1000000]
+                        LfsrInValues[SD[1]-100000] = LfsrInValues[SD[1]-100000] ^ LfsrInPhaseShifterValues[SD[0]-100000000]
                     else:
-                        LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInPhaseShifterValues[SD[0]-1000000]
+                        LfsrOutValues[SD[1]] = LfsrOutValues[SD[1]] ^ LfsrInPhaseShifterValues[SD[0]-100000000]
                 elif SD[0] >= 100000:
                     if SD[1] >= 100000:
                         LfsrInValues[SD[1]-100000] = LfsrInValues[SD[1]-100000] ^ LfsrOutValues[SD[0]-100000]
@@ -448,7 +449,6 @@ class HashFunction:
                         List = MonomialCountList.get(i, [])
                         List.append(MH[i])
                         MonomialCountList[i] = List
-                    
         if ReturnMonomialCountPerCycle:
             return MonomialCountList
         return LfsrOutValues

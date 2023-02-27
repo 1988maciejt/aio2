@@ -1,3 +1,8 @@
+import zlib
+import pickle
+import ast
+import base64
+
 _superscript_map = {
     "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶",
     "7": "⁷", "8": "⁸", "9": "⁹", "a": "ᵃ", "b": "ᵇ", "c": "ᶜ", "d": "ᵈ",
@@ -79,3 +84,17 @@ class Str:
       elif 'whi' in color:
         Code += 7
     return f'\033[{Code}m{Text}\033[0m'
+  
+  @staticmethod
+  def objectToString(object) -> str:
+    message_bytes = pickle.dumps(object)
+    base64_bytes = base64.b64encode(message_bytes)
+    txt = base64_bytes.decode('ascii')
+    return txt
+    
+  @staticmethod 
+  def stringToObject(string):
+    base64_bytes = string.encode('ascii')
+    message_bytes = base64.b64decode(base64_bytes)
+    obj = pickle.loads(message_bytes)
+    return obj
