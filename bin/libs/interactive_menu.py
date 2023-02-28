@@ -228,11 +228,6 @@ def _categoryProgrammableRingGenerator_subCreateNeptun():
   Demuxes = Aio.msgBox("Neptun Programmable LFSR", "Do you want to use demuxes instead of simple, gated taps?", YesNo=1)
   _GlobalProgrammable = createNeptunLfsr(Size, Demuxes)
   _GlobalProgrammableRingConfig = _GlobalProgrammable.getConfig()
-  try:
-    _GlobalProgrammableRingConfig.tui()
-  except:
-    pass
-  sleep(0.5)
   
   
   
