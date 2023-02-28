@@ -1388,7 +1388,7 @@ quit -f
 class _LeftMenu(TextualWidgets.Static):
   def add_children(self, mname, tree, ChildrenDict):
     Children = ChildrenDict.get(mname, [])
-    for Child in Children:
+    for Child in reversed(Children):
       CTree = tree.add(Child)
       self.add_children(Child, CTree, ChildrenDict)
   def compose(self):

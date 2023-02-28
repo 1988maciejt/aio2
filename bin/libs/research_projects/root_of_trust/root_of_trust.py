@@ -143,14 +143,22 @@ class HashFunction:
         self.Functions.clear()
         
     def fromFile(self, FileName : str):
+        self.Size = 32
+        self.Cycles = 32
         Data = readFile(FileName)
         R = re.search(r'Poly\s*size:\s*([0-9]+),\s*cycles:\s*([0-9]+)', Data, re.MULTILINE)
-        self.Size = int(R.group(1))
-        self.Cycles = int(R.group(2))
+        if R:
+            self.Size = int(R.group(1))
+            self.Cycles = int(R.group(2))
         R = re.search(r'RING\s*IN:\s*([\-\s0-9]+)\n', Data, re.MULTILINE)
         self.LfsrIn = Lfsr(Polynomial(list(ast.literal_eval(R.group(1).strip().replace(" ", ",")))), HYBRID_RING)
         R = re.search(r'RING\s*OUT:\s*([\-\s0-9]+)\n', Data, re.MULTILINE)
-        self.LfsrOut = Lfsr(Polynomial(list(ast.literal_eval(R.group(1).strip().replace(" ", ",")))), HYBRID_RING)
+        if R:
+            self.LfsrOut = Lfsr(Polynomial(list(ast.literal_eval(R.group(1).strip().replace(" ", ",")))), HYBRID_RING)
+        else:
+            R = re.search(r'RING\s*OUT\s*SIZE:\s*([0-9]+)\s*\n', Data, re.MULTILINE)
+            LfsrOutSize = int(R.group(1))
+            self.LfsrOut = Lfsr([LfsrOutSize, 0], HYBRID_RING)
         self.Functions = []
         for R in re.finditer(r'Function:\s*([0-9]+)\s+Inputs:\s+([ 0-9]+)\s+Outputs:\s+([ 0-9^]+)', Data, re.MULTILINE):
             Inputs = list(ast.literal_eval(R.group(2).replace(" ", ",")))
@@ -158,25 +166,68 @@ class HashFunction:
             LUT = bau.int2ba(int(R.group(1)), 1<<len(Inputs), "little")  
             Function = BentFunction(LUT)
             self.Functions.append([Function, Inputs, Outputs])
+        for R in re.finditer(r'Inputs:\s*([ iop0-9]+)\s+Output.*:\s*([ io0-9]+)\s+Function:\s*([0-9]+)', Data, re.MULTILINE):
+            Inputs_ = R.group(1).split(" ")
+            Outputs_ = R.group(2).split(" ")
+            Inputs = []
+            Outputs = []
+            for Input in Inputs_:
+                s, i = Int.splitLettersAndInt(Input, DefaultInt=-1)
+                if i < 0: 
+                    continue
+                if s == "o":
+                    Inputs.append(i + 100000)
+                else:
+                    Inputs.append(i)
+            for Output in Outputs_:
+                s, i = Int.splitLettersAndInt(Output, DefaultInt=-1)
+                if i < 0: 
+                    continue
+                Outputs.append(i)
+            LUT = bau.int2ba(int(R.group(3)), 1<<len(Inputs), "little") 
+            Function = BentFunction(LUT)
+            self.Functions.append([Function, Inputs, Outputs])
+        R = re.search(r'Phase\s*shifter:\s+([ \n:OInputsiop0-9]+)', Data, re.MULTILINE)
+        if R:
+            Gates = []
+            Outputs = []
+            for R in re.finditer(r'Inputs:\s*([ i[0-9]+)\s+Output:\s*([o0-9]+)', R.group(1), re.MULTILINE):
+                Inputs_ = R.group(1).split(" ")
+                Output_ = R.group(2).split(" ")
+                Inputs = []
+                for Input in Inputs_:
+                    s, i = Int.splitLettersAndInt(Input, DefaultInt=-1)
+                    if i < 0: 
+                        continue
+                    Inputs.append(i)
+                s, i = Int.splitLettersAndInt(Output_)
+                Outputs.append(i)
+                Gates.append(Inputs)
+            self.setLfsrInPhaseShifter(PhaseShifter(self.LfsrIn, Gates))
+            for i in range(len(Outputs)):
+                self.addDirectConnection(i+100000000, Outputs[i])
         
     def toVerilogObject(self) -> Verilog:
         Ver = Verilog(self.toVerilog())
         return Ver
         
     def toVerilog(self) -> str:
-        LfsrOutInjectorList = []
-        for bf in self.Functions:
-            LfsrOutInjectorList += bf[2]
         Content = self.LfsrIn.toVerilog("lfsr_in", [0])
-        Content += "\n\n" + self.LfsrOut.toVerilog("lfsr_out", LfsrOutInjectorList)
+        Content += "\n\n" + self.LfsrOut.toVerilog("lfsr_out", [i for i in range(self.LfsrOut.getSize())])
+        if self.LfsrInPhaseShifter is not None:
+            Content += "\n\n" + self.LfsrInPhaseShifter.toVerilog("phase_shifter")
         for i in range(len(self.Functions)):
             Bent = self.Functions[i][0]
             Content += "\n\n" + Bent.toVerilog(f"bent_{i}")
+        PS = None
+        if self.LfsrInPhaseShifter is not None:
+            PS = self.LfsrInPhaseShifter._xors
         Content += "\n\n" + preprocessString(readFile(Aio.getPath() + "libs/research_projects/root_of_trust/hash_top.v"),
                                              bent_functions=self.Functions,
-                                             lfsr_out_injectors_list=LfsrOutInjectorList,
                                              lfsr_in_size=self.LfsrIn.getSize(),
-                                             lfsr_out_size=self.LfsrOut.getSize(),)
+                                             lfsr_out_size=self.LfsrOut.getSize(),
+                                             phase_shifter=PS,
+                                             direct_connections=self.DirectConnections)
         return Content
     
     def simReset(self):
@@ -524,67 +575,3 @@ class HashFunction:
         writeFile(f"{FileName}__expressions.txt", ExprStr)
         writeObjectToFile(f"{FileName}__LfsrOutValues_raw.bin", LfsrOutValues)
         
-    
-    
-            
-            
-class ProgrammableHashFunction(HashFunction):
-    
-    __slots__ = ("Size", "Cycles", "LfsrIn", "LfsrOut", "Functions")
-    
-    def __init__(self, FileName = None) -> None:
-        self.Size = 0
-        self.Cycles = 0
-        self.LfsrIn = None
-        self.LfsrOut = None
-        self.Functions = []
-        if FileName is not None:
-            self.fromFile(FileName)
-        
-    def fromFile(self, FileName : str):
-        Data = readFile(FileName)
-        R = re.search(r'Poly\s*size:\s*([0-9]+),\s*cycles:\s*([0-9]+)', Data, re.MULTILINE)
-        self.Size = int(R.group(1))
-        self.Cycles = int(R.group(2))
-        R = re.search(r'RING\s*IN:\s*([\-\s0-9]+)\n', Data, re.MULTILINE)
-        self.LfsrIn = createNeptunLfsr(Polynomial(list(ast.literal_eval(R.group(1).strip().replace(" ", ",")))).getDegree())  
-        R = re.search(r'RING\s*OUT:\s*([\-\s0-9]+)\n', Data, re.MULTILINE)
-        self.LfsrOut = createNeptunLfsr(Polynomial(list(ast.literal_eval(R.group(1).strip().replace(" ", ",")))).getDegree())  
-        self.Functions = []
-        for R in re.finditer(r'Function:\s*([0-9]+)\s+Inputs:\s+([ 0-9]+)\s+Outputs:\s+([ 0-9^]+)', Data, re.MULTILINE):
-            Inputs = list(ast.literal_eval(R.group(2).replace(" ", ",")))
-            Outputs = list(ast.literal_eval(R.group(3).replace(" ", ",")))
-            LUT = bau.int2ba(int(R.group(1)), 1<<len(Inputs), "little")  
-            Function = BentFunction(LUT)
-            self.Functions.append([Function, Inputs, Outputs])
-        
-    def setLfsrIn(self, Size : int, UseDemuxes = False):
-        self.LfsrIn = createNeptunLfsr(Size, UseDemuxes)
-
-    def setLfsrOut(self, Size : int, UseDemuxes = False):
-        self.LfsrOut = createNeptunLfsr(Size, UseDemuxes)
-        self.Size = Size
-    
-    def addBentFunction(self, Function : BentFunction, LfsrInInputs : list, LfsrOutInjectors : list):
-        self.Functions.append([Function, LfsrInInputs, LfsrOutInjectors])
-        
-    def toVerilog(self) -> str:
-        LfsrOutInjectorList = []
-        for bf in self.Functions:
-            LfsrOutInjectorList += bf[2]
-        Content = self.LfsrIn.toVerilog("lfsr_in", [0])
-        Content += "\n\n" + self.LfsrOut.toVerilog("lfsr_out", LfsrOutInjectorList)
-        for i in range(len(self.Functions)):
-            Bent = self.Functions[i][0]
-            Content += "\n\n" + Bent.toVerilog(f"bent_{i}")
-        Content += "\n\n" + VerilogCreator.createShiftRegister("lfsr_in_config_reg", self.LfsrIn.getConfigVectorLength())
-        Content += "\n\n" + VerilogCreator.createShiftRegister("lfsr_out_config_reg", self.LfsrOut.getConfigVectorLength())
-        Content += "\n\n" + VerilogCreator.createShiftRegister("johnsons_counter", 2)
-        Content += "\n\n" + preprocessString(readFile(Aio.getPath() + "libs/research_projects/root_of_trust/programmable_hash_top.v"),
-                                             bent_functions=self.Functions,
-                                             lfsr_out_injectors_list=LfsrOutInjectorList,
-                                             lfsr_in_size=self.LfsrIn.getSize(),
-                                             lfsr_out_size=self.LfsrOut.getSize(),
-                                             lfsr_in_config_size=self.LfsrIn.getConfigVectorLength(),
-                                             lfsr_out_config_size=self.LfsrOut.getConfigVectorLength(),)
-        return Content

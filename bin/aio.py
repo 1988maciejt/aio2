@@ -101,6 +101,7 @@ pbar = tqdm
 sleep = time.sleep
 
 printf = rich.pretty.pprint
+pprint = rich.pretty.pprint
 inspect = rich.inspect
 
 def timeIt(Code : str, Iterations = 1):

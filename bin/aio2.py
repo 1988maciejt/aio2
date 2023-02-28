@@ -117,7 +117,6 @@ class Shell:
     except:
       print("History loading error!")
       
-print = rich.pretty.pprint
       
 Cache.store("globals", list(globals().keys()).copy())
 #========================================================

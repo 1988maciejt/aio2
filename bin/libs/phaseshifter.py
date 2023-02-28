@@ -33,7 +33,11 @@ class PhaseShifter:
         else:
             self._next_iteration = True
         return self._bavalue
-    def getXors(self):
+    def __len__(self) -> int:
+        return self.getSize()
+    def getSize(self) -> int:
+        return len(self._xors)
+    def getXors(self) -> list:
         return self._xors
     def reset(self) -> bitarray:
         self._bavalue.setall(0)
@@ -120,3 +124,26 @@ class PhaseShifter:
             else:
                 Aio.print(self)
             self.next(step)
+            
+    def toVerilog(self, ModuleName : str):
+        Inputs = self._my_source.getSize()
+        Outputs = len(self._xors)
+        Result = f"""module {ModuleName} (
+  input wire [{Inputs-1}:0] I,
+  output wire [{Outputs-1}:0] O
+);
+"""
+        for i in range(len(self._xors)):
+            Expr = f"assign O[{i}] = "
+            Second = 0
+            for Input in self._xors[i]:
+                if Second:
+                    Expr += " ^ "
+                else:
+                    Second = 1
+                Expr += f"I[{Input}]"
+            Expr += ";"
+            Result += "\n" + Expr
+        Result += "\n\nendmodule"
+        return Result
+

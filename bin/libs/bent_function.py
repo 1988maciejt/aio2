@@ -278,17 +278,16 @@ class BentFunction:
     Module = \
 f'''module {ModuleName} (
   input wire [{ICount-1}:0] I,
-  output reg O
+  output wire O
 );
 
-always @ (*) begin
-  O = '''
+assign O = '''
     Second = False;
     Lut = self._lut;
     for i in range(len(Lut)):
       if Lut[i]:
         if Second:
-          Module += "\n    | "
+          Module += "\n         | "
         else:
           Second = True
         Expr = ""
@@ -303,7 +302,6 @@ always @ (*) begin
         Module += Expr
     Module += \
 f''';
-end
 
 endmodule'''
     return Module
