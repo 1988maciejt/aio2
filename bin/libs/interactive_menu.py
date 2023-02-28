@@ -182,10 +182,13 @@ def _categoryPolynomial():
 
 
 def _categoryLfsrWithManualTaps():
-  Result = Lfsr.tuiCreateRing()
-  if Result is not None:
-    Aio.print(repr(Result))
-
+  try:
+    Result = Lfsr.tuiCreateRing()
+    sleep(0.5)
+    if Result is not None:
+      Aio.print(repr(Result))
+  except:
+    return None
 
 
 _GlobalProgrammableRingConfig = ProgrammableLfsrConfiguration(32)
@@ -193,10 +196,14 @@ _GlobalProgrammable = ProgrammableLfsr(_GlobalProgrammableRingConfig)
 
 def _categoryProgrammableRingGenerator_subEdit():
   global _GlobalProgrammableRingConfig, _GlobalProgrammable
-  New = _GlobalProgrammableRingConfig.tui()
-  if New is not None:
-    _GlobalProgrammableRingConfig = New
-    _GlobalProgrammable = ProgrammableLfsr(_GlobalProgrammableRingConfig)
+  try:
+    New = _GlobalProgrammableRingConfig.tui()
+    if New is not None:
+      _GlobalProgrammableRingConfig = New
+      _GlobalProgrammable = ProgrammableLfsr(_GlobalProgrammableRingConfig)
+  except:
+    pass
+  sleep(0.5)
   
 def _categoryProgrammableRingGenerator_subExplore():
   global _GlobalProgrammableRingConfig, _GlobalProgrammable
@@ -204,6 +211,7 @@ def _categoryProgrammableRingGenerator_subExplore():
     _GlobalProgrammable.tui()
   except:
     pass
+  sleep(0.5)
   
 def _categoryProgrammableRingGenerator_subCreateNeptun():
   global _GlobalProgrammableRingConfig, _GlobalProgrammable
@@ -220,7 +228,11 @@ def _categoryProgrammableRingGenerator_subCreateNeptun():
   Demuxes = Aio.msgBox("Neptun Programmable LFSR", "Do you want to use demuxes instead of simple, gated taps?", YesNo=1)
   _GlobalProgrammable = createNeptunLfsr(Size, Demuxes)
   _GlobalProgrammableRingConfig = _GlobalProgrammable.getConfig()
-  _GlobalProgrammableRingConfig.tui()
+  try:
+    _GlobalProgrammableRingConfig.tui()
+  except:
+    pass
+  sleep(0.5)
   
   
   

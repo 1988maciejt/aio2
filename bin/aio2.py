@@ -1,8 +1,6 @@
 from aio import *
 from aio_config import *
 
-
-
 # auto install missing libs
 _required_libs = [
   "setuptools",
@@ -22,7 +20,6 @@ _required_libs = [
   "latex",
   "bitarray",
   "p_tqdm",
-  "ipywidgets",
   "pandas",
   "netifaces",
   "pint",
