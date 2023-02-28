@@ -95,14 +95,15 @@ class UdpSender:
       SubMessages = List.splitIntoSublists(gzip.compress(Message), 800)
       MaxIndex = len(SubMessages)
       Down = True
-      for _ in range(Repeatitions*2):
+      for Repetition in range(Repeatitions):
         Index = 1
         if Down:
           Index = MaxIndex
-        for _ in range(MaxIndex):
+        for _ in range(Repetition, MaxIndex):
           subMessage = SubMessages[Index-1]
           Frag = _UdpFragmenterMessage(subMessage, Id, Index, MaxIndex)
           self._send(sock, pickle.dumps(Frag), _ip, _port)
+          sleep(0.05)
           #print(f"Sent {Id} \t{Index}/{MaxIndex}")
           if Down:
             Index -= 1

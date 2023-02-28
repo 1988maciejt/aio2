@@ -124,54 +124,50 @@ class _RemoteAioMessage:
     
 class _RemoteNodes:
     
-    __slots__ = ("_LastSeenDict")
+    __slots__ = ("_LastSeenDict", "_BusyDict")
     
     def __init__(self) -> None:
         self._LastSeenDict = {}
+        self._BusyDict = {}
         
     def ping(self, Ip, Port):
-        self._LastSeenDict[(Ip, Port)] = time.time()
+        self._BusyDict[(Ip, Port)] = time.time()
         
     def ready(self, Ip, Port):
-        if self.isFree(Ip, Port):
-            self._LastSeenDict[(Ip, Port)] = -10
+        self._LastSeenDict[(Ip, Port)] = time.time()
         
     def finishedTask(self, Ip, Port):
+        self._BusyDict.pop((Ip, Port))
         self._LastSeenDict.pop((Ip, Port))
     
     def isBusy(self, Ip, Port):
-        LastTime = self._LastSeenDict.get((Ip, Port), -10)
-        if time.time() - LastTime < 5:
+        LastTime = self._BusyDict.get((Ip, Port), -10)
+        if time.time() - LastTime <= 5:
             return True
         return False
     
     def isFree(self, Ip, Port):
-        LastTime = self._LastSeenDict.get((Ip, Port), -10)
-        if time.time() - LastTime >= 5:
-            return True
+        if not self.isBusy(Ip, Port):
+            LastTime = self._LastSeenDict.get((Ip, Port), -10)
+            if time.time() - LastTime <= 5:
+                return True
         return False
     
     def getFreeNodes(self) -> list:
         Now = time.time()
         Result = []
-        for key in self._LastSeenDict.keys():
-            LastTime = self._LastSeenDict[key]
-            if Now - LastTime <= 5:
+        for key in list(self._LastSeenDict.keys()):
+            if self.isFree(*key):
                 Result.append(key)
         return Result        
     
     def sentTask(self, Ip, Port):
-        self._LastSeenDict[(Ip, Port)] = time.time()
+        self._BusyDict[(Ip, Port)] = time.time()
         
     def iterateOverFree(self):
         Now = time.time()
-        try:
-            for key in self._LastSeenDict.keys():
-                LastSeen = self._LastSeenDict[key]
-                if Now - LastSeen > 5:
-                    yield key
-        except:
-            pass
+        for key in self.getFreeNodes():
+            yield key
     
     
     
@@ -202,7 +198,7 @@ class RemoteAioTask:
     def isProcessed(self) -> bool:
         if self._Locked:
             return True
-        if time.time() - self._Timestamp < 3:
+        if time.time() - self._Timestamp < 6:
             return True
         return False
 
@@ -300,6 +296,7 @@ class RemoteAioScheduler:
                         if self._Verbose:
                             print(Str.color(f"// REMOTE_AIO_SCHEDULER: Sent task {Task.Id} to {Ip}:{Port}", 'yellow'))
                         Task._Timestamp = time.time()
+                        sleep(0.1)
                         break       
                 if self._LocalExecution and not self._Busy:
                     self._OneTime = True   
@@ -310,7 +307,7 @@ class RemoteAioScheduler:
                         _thread.start_new_thread(self._doLocal, tuple([Task]))  
                         break       
                 self._OneTime = False 
-                sleep(0.5)
+                sleep(1)
         except Exception as inst:
             Aio.printError(f"// REMOTE_AIO_SCHEDULER: 'hello' process: {inst}")
     
@@ -455,7 +452,7 @@ class RemoteAioNode:
     
     def _ping(self):
         while self._Enable:
-            sleep(0.4)
+            sleep(2)
             if self._Locked and (self._MyMsg is not None):
                 self._MyMsg.send(self._MySender)
             if not self._Locked:
@@ -514,11 +511,12 @@ class RemoteAioNode:
                         Task.Response = Result
                         del self._MyMsg
                         self._MyMsg = None
-                        self._Locked = 9
+                        #self._Locked = 9
                         Msg.Command = _RESPONSE
                         Msg.Data = Task
                         Msg.send(self._MySender)
                         print(Str.color(f"// REMOTE_AIO_NODE: Sent response {Id} to {FromIp}:{FromPort}", 'yellow'))
+                        sleep(0.1)
                 except Exception as inst:
                     Aio.printError(f"// REMOTE_AIO_NODE: {inst}")                
                 self._MyCounter = _randomId()
