@@ -85,15 +85,19 @@ def _expr_collapse(Expr):
     except:
         return Expr
 
+
+
 class HashFunction:
     
-    __slots__ = ("Size", "Cycles", "LfsrIn", "LfsrOut", "Functions", "DirectConnections", "LfsrInPhaseShifter")
+    __slots__ = ("Size", "Cycles", "LfsrIn", "LfsrOut", "Functions", "DirectConnections", "LfsrInPhaseShifter", "MessageLength", "MessageInjectors")
     
     def __init__(self, FileName = None) -> None:
         self.Size = 0
         self.Cycles = 0
+        self.MessageLength = 0
         self.LfsrIn = None
         self.LfsrOut = None
+        self.MessageInjectors = []
         self.LfsrInPhaseShifter = None
         self.Functions = []
         self.DirectConnections = []
@@ -146,6 +150,16 @@ class HashFunction:
         self.Size = 32
         self.Cycles = 32
         Data = readFile(FileName)
+        R = re.search(r'INJECTORS\s*:\s*([i 0-9]+[0-9])', Data, re.MULTILINE)
+        if R:
+            self.MessageInjectors = []
+            aux = R.group(1).split(" ")
+            for inj in aux:
+                s, i = Int.splitLettersAndInt(inj)
+                self.MessageInjectors.append(i)
+        R = re.search(r'message\s+length\s*:\s*([0-9]+)', Data, re.MULTILINE)
+        if R:
+            self.MessageLength = int(R.group(1)) 
         R = re.search(r'Poly\s*size:\s*([0-9]+),\s*cycles:\s*([0-9]+)', Data, re.MULTILINE)
         if R:
             self.Size = int(R.group(1))
@@ -240,7 +254,25 @@ class HashFunction:
             BF = F[0]
             Inputs = F[1]
             Outputs = F[2]
-            FValues.append([Outputs, BF.value(self.LfsrIn.getValue(), Inputs)])
+            InputWord = bitarray(len(Inputs))
+            for i in range(len(Inputs)):
+                Input = Inputs[i]
+                if Input >= 100000:
+                    InputWord[i] = self.LfsrOut.getValue()[Input-100000]
+                else:
+                    InputWord[i] = self.LfsrIn.getValue()[Input]
+            FValues.append([Outputs, BF.value(InputWord, [i for i in range(len(Inputs))])])
+        Direct = []
+        if self.LfsrInPhaseShifter is not None:
+            self.LfsrInPhaseShifter.update()
+        for DC in self.DirectConnections:
+            Src = DC[0]
+            if Src >= 100000000:
+                Direct.append([self.LfsrInPhaseShifter.getValue()[Src-100000000], DC[1]])
+            elif Src >= 100000:
+                Direct.append([self.LfsrOut.getValue()[Src-100000], DC[1]])
+            else:
+                Direct.append([self.LfsrIn.getValue()[Src-100000], DC[1]])
         self.LfsrIn.next()
         self.LfsrOut.next()
         for FVal in FValues:
@@ -250,15 +282,46 @@ class HashFunction:
             for O in Outputs:
                 OLValue[O] ^= Value
             self.LfsrOut.setValue(OLValue)
-            
-    def sim(self, Steps : int, LfsrInSeed : bitarray, LfsrOutSeed : bitarray, Print = False):
+        for DC in Direct:
+            Val = DC[0]
+            Dest = DC[1]
+            if Dest >= 100000:
+                OLValue = self.LfsrIn.getValue()
+                OLValue[Dest-100000] ^= Val
+                self.LfsrIn.setValue(OLValue)
+            else:
+                OLValue = self.LfsrOut.getValue()
+                OLValue[Dest] ^= Val
+                self.LfsrOut.setValue(OLValue)
+                
+    def sim(self, Steps : int, LfsrInSeed : bitarray = None, LfsrOutSeed : bitarray = None, Message : bitarray = None, Print = False):
+        AddMessage = (Message is not None) and (len(self.MessageInjectors) > 0)
         if Print:
             PT = PandasTable(["LfsrIn", "LfsrOut"], AutoId=1)
         self.simReset()
-        self.LfsrIn.setValue(LfsrInSeed)
-        self.LfsrOut.setValue(LfsrOutSeed)
+        if LfsrOutSeed is None:
+            Val = self.LfsrIn.getValue()
+            Val.setall(0)
+            self.LfsrIn.setValue(Val)
+        else:
+            self.LfsrIn.setValue(LfsrInSeed)
+        if LfsrOutSeed is None:
+            Val = self.LfsrOut.getValue()
+            Val.setall(0)
+            self.LfsrOut.setValue(Val)
+        else:
+            self.LfsrOut.setValue(LfsrOutSeed)
+        MBit = 0
         for i in range(Steps):
             self.simStep()
+            if AddMessage:
+                IVal = self.LfsrIn.getValue()
+                for B in self.MessageInjectors:
+                    IVal[B] ^= Message[MBit]
+                self.LfsrIn.setValue(IVal)
+                MBit += 1
+                if MBit >= len(Message):
+                    AddMessage = False
             if Print:
                 IString = ""
                 for S in reversed(str(self.LfsrIn)):
@@ -269,6 +332,7 @@ class HashFunction:
                 PT.add([IString, OString])
         if Print:
             PT.print()       
+        return self.LfsrOut.getValue()
         
     def symbolicSimulation(self, MessageLength : int, MsgInjectors : 0, PrintExpressionsEveryCycle = 0, KeyAsSeed = 0) -> list:
         global _VarsToExpr, _ExprToVars, _ExprVarsSize
@@ -505,7 +569,7 @@ class HashFunction:
         return LfsrOutValues
                     
     def reportMonomials(self, FileName : str, LfsrOutValues : list, AllVariablesLength : int, KeyAsSeed = False, PrintTables = 0, PrintExpressions = 0):
-        Result = {'Expression':{}, 'Histogram': {}, 'GlobalMonomialCount': {}, 'MonomialCount': 0}
+        Result = {'Expression':{}, 'Histogram': {}, 'GlobalMonomialCount': {}, 'MonomialCount': {}}
         if KeyAsSeed:
             Result['KeyHistogram'] = {}
         Sum = 0

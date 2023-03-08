@@ -10,6 +10,7 @@ from libs.asci_drawing import *
 from aio_config import *
 from shutil import copyfile, rmtree
 from functools import partial
+from libs.siemens import *
 
 
 # TUI =====================================================
@@ -17,6 +18,8 @@ from functools import partial
 import textual.app as TextualApp
 import textual.widgets as TextualWidgets
 import textual.reactive as TextualReactive
+import textual.containers as TextualContainers
+from libs.utils_tui import _TuiWidgetTextWithLabel
 
 _VERILOG = None
 _VMODULENAME = None
@@ -447,8 +450,8 @@ class VerilogModule:
       CContent += re.sub(r'^(.*)\(\*.*\*\)(.*)$', r'\1\2', l) + "\n"
     ios = ""
     params = ""
-    RegexModule = "module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\;"
-    RegexModuleWithParams = "module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\s*\#\s*\(([^)]*)\);"
+    RegexModule = "module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\s*\;"
+    RegexModuleWithParams = "module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\s*\#\s*\(([^)]*)\)\s*;"
     R = re.search(RegexModule,CContent,re.MULTILINE)
     if R:
       self._name = R.group(1)
@@ -875,6 +878,10 @@ endmodule"""
     return self.Modules.TopModuleName
   def getTopModule(self) -> VerilogModule:
     return self.Modules.getModuleByName(self.Modules.TopModuleName)
+  def quickSynthAtSiemens(self, TechnologyNm : int, OutputFIleName = "/tmp/junk.v") -> dict:
+    DBFile = Siemens.getDbFile(TechnologyNm)
+    AreaFactor = 1 / Siemens.getNandGateArea(TechnologyNm)
+    return self.synthesize(OutputFIleName, self.getTopModuleName(), TechLibFileName=DBFile, AreaUnit="#NAND", AreaFactor=AreaFactor, ReturnProcessedResult=True, ReportTiming=True, WriteSDF=True)
   def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechLibFileName = None, ReturnProcessedResult = False, AreaUnit = "Grid", AreaFactor = 1, WriteSDF = False, ReportTiming = False):
     if shell_config.useDC():
       tmpFileName = "tmp.v"
@@ -936,6 +943,15 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
             else:
               DictKey = Param.replace("Number of", "#")
             ResDict[DictKey] = DictVal
+        if ReportTiming:
+          TimingReport = readFile(f"{OutputFileName}.rpt")
+          R = re.search(f'data\s+arrival\s+time\s+([.0-9]+)', TimingReport, re.MULTILINE)
+          if R:
+            try:
+              Delay = float(R.group(1))
+            except:
+              Delay = "ERR"
+          ResDict["Critical Path Delay [ns]"] = Delay
         return ResDict
       return result
     else:
@@ -1068,7 +1084,8 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
     global _VERILOG, _VMODULENAME
     _VERILOG = self
     _VMODULENAME = "VERILOG"
-    VerilogTui().run()
+    _VerilogTui().run()
+    time.sleep(0.5)
     return _VERILOG
     
     
@@ -1080,6 +1097,10 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
 class VerilogTestbenchClock:
   __slots__ = ("Name", "Period", "DutyCycle", "EnableInput")
   def __init__(self, Name : str, Period = 1, DutyCycle = 0.5, EnableInput = False) -> None:
+    if DutyCycle > 1:
+      DutyCycle = 1
+    if DutyCycle < 0:
+      DutyCycle = 0
     self.Period = Period
     self.DutyCycle = DutyCycle
     self.Name = Name
@@ -1215,6 +1236,10 @@ class VerilogTestbench:
     self._code.append(VerilogCode)
   
   def addSignalCatcher(self, SignalName : str, CatchingTime : int):
+    for C in self._catchers:
+      if C[0] == SignalName:
+        self._catchers.remove(C)
+        break
     self._catchers.append([str(SignalName), CatchingTime])
   
   def addForce(self, ForceLine : str):
@@ -1441,7 +1466,7 @@ class _HLayout(TextualWidgets.Static):
   def on_mount(self):
     pass
 
-class VerilogTui(TextualApp.App):
+class _VerilogTui(TextualApp.App):
   BINDINGS = [('q', 'quit', 'Quit')]
   CSS_PATH = "tui/verilog.css"
   def compose(self):
@@ -1451,3 +1476,117 @@ class VerilogTui(TextualApp.App):
   def on_mount(self):
     self.dark = False
     pass
+  
+  
+  
+  
+_VERILOG_TB = VerilogTestbench(Verilog())
+_VERILOG_TB.addClock(VerilogTestbenchClock("testclk", 10, 0.4))
+_VERILOG_TB.addSignalCatcher("my_sig", "100")
+
+class _VerilogTestbenchClocks(TextualWidgets.Static):
+  txtName = None
+  txtPeriod = None
+  txtDuty = None
+  def compose(self):
+    self.txtName = _TuiWidgetTextWithLabel("Name:", "clk")
+    self.txtPeriod = _TuiWidgetTextWithLabel("Period [time unit]:", "1")
+    self.txtDuty = _TuiWidgetTextWithLabel("Duty cycle (0-1):", "0.5")
+    yield self.txtName
+    yield self.txtPeriod
+    yield self.txtDuty
+    yield TextualContainers.Horizontal(
+      TextualWidgets.Label("\n'enable' input:"),
+      TextualWidgets.Switch(id="sw_enable"),
+      id="hcont_clock_en"
+    )
+    yield TextualWidgets.Label(" ")
+    yield TextualWidgets.Button("Add clock", id="btn_add_clock")
+    yield TextualWidgets.Label(" \n")
+    yield TextualWidgets.DataTable(id="table_clocks", zebra_stripes=1)
+  def on_mount(self):
+    Table = self.query_one("#table_clocks", TextualWidgets.DataTable)
+    Table.add_columns("Name", "Period", "Duty", "Enable in", ".")
+    self.refreshTable()
+  def refreshTable(self):
+    global _VERILOG_TB
+    Table = self.query_one("#table_clocks", TextualWidgets.DataTable)
+    Table.clear()
+    for C in _VERILOG_TB.Clocks:
+      En = ""
+      if C.EnableInput:
+        En = C.Name + "_enable"
+      Table.add_row(C.Name, str(C.Period), str(C.DutyCycle), En, "[REMOVE]")
+  def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
+    global _VERILOG_TB
+    if event.button.id == "btn_add_clock":
+      try:
+        _VERILOG_TB.addClock(VerilogTestbenchClock(
+          str(self.txtName.getValue()),
+          float(self.txtPeriod.getValue()),
+          float(self.txtDuty.getValue()),
+          self.query_one("#sw_enable").value            
+        ))
+        self.refreshTable()
+      except: 
+        pass
+  def on_data_table_cell_selected(self, event: TextualWidgets.DataTable.CellSelected) -> None:
+    global _VERILOG_TB
+    if event.coordinate.column == 4:
+      ClockIndex = event.coordinate.row
+      _VERILOG_TB.Clocks.remove(_VERILOG_TB.Clocks[ClockIndex])
+      self.refreshTable()
+      
+class _VerilogTestbenchCatchers(TextualWidgets.Static):
+  txtSigName = None
+  txtCatchTime = None
+  def compose(self):
+    self.txtSigName = _TuiWidgetTextWithLabel("Signal name:", "my_signal")
+    self.txtCatchTime = _TuiWidgetTextWithLabel("Latching time:", "100")
+    yield self.txtSigName
+    yield self.txtCatchTime
+    yield TextualWidgets.Label(" ")
+    yield TextualWidgets.Button("Add signal catcher", id="btn_add_catcher")
+    yield TextualWidgets.Label(" \n")
+    yield TextualWidgets.DataTable(id="table_catchers", zebra_stripes=1)
+  def on_mount(self):
+    Table = self.query_one("#table_catchers", TextualWidgets.DataTable)
+    Table.add_columns("Signal name", "Catching time", ".")
+    self.refreshTable()
+  def refreshTable(self):
+    global _VERILOG_TB
+    Table = self.query_one("#table_catchers", TextualWidgets.DataTable)
+    Table.clear()
+    for C in _VERILOG_TB._catchers:
+      Table.add_row(C[0], C[1], "[REMOVE]")
+  def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
+    global _VERILOG_TB
+    if event.button.id == "btn_add_catcher":
+      try:
+        _VERILOG_TB.addSignalCatcher(str(self.txtSigName.getValue()), float(self.txtCatchTime.getValue()))
+        self.refreshTable()
+      except: 
+        pass
+  def on_data_table_cell_selected(self, event: TextualWidgets.DataTable.CellSelected) -> None:
+    global _VERILOG_TB
+    if event.coordinate.column == 2:
+      Index = event.coordinate.row
+      _VERILOG_TB._catchers.remove(_VERILOG_TB._catchers[Index])
+      self.refreshTable()
+      
+  
+class VerilogTestbenchTui(TextualApp.App):
+  CSS_PATH = "tui/verilog.css"
+  BINDINGS = [("q", "quit", "Quit")]
+  def compose(self):
+    self.dark = False
+    yield TextualWidgets.Header()
+    yield TextualContainers.Horizontal(
+      TextualContainers.Vertical(
+        TextualWidgets.Static("  TEST CLOCKS", id="section_name1"),
+        _VerilogTestbenchClocks(),
+        TextualWidgets.Static("  SIGNAL CATCHERS ", id="section_name2"),
+        _VerilogTestbenchCatchers()
+      )
+    )
+    yield TextualWidgets.Footer()

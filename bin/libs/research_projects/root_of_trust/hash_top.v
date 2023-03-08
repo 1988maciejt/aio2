@@ -32,7 +32,7 @@ wire bent_`(i`)_out;
 `  for j in range(len(bent_inputs)):
 `    Input = bent_inputs[j]
 `    if Input > 100000:
-`      IString = f"lfsr_out_output[{Input-100000}]"
+`      IString = f"O[{Input-100000}]"
 `    else:
 `      IString = f"lfsr_in_output[{Input}]"
 `    endif

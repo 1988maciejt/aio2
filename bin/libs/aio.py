@@ -93,7 +93,9 @@ class Aio:
     html = conv.convert(text)
     html = re.sub(r'(\.ansi2html-content\s+)(\{)', '\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
     html = re.sub(r'(\*\s+)(\{)', '\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
-    open(FileName, "w").write(html)
+    HtmlFile = open(FileName, "w")
+    HtmlFile.write(html)
+    HtmlFile.close()
   def resetTranscript():
     Aio._transcript = ""    
     Aio._sections = False

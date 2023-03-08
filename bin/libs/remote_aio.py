@@ -137,6 +137,8 @@ class _RemoteNodes:
         self._LastSeenDict[(Ip, Port)] = time.time()
         
     def finishedTask(self, Ip, Port):
+        self._BusyDict[Ip, Port] = 0
+        self._LastSeenDict[Ip, Port] = 0
         self._BusyDict.pop((Ip, Port))
         self._LastSeenDict.pop((Ip, Port))
     
