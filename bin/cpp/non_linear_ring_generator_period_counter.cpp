@@ -96,6 +96,7 @@ int main(int argc, char* argv[])
 `endif
 
    int* Value = new int[Size];
+   int* AuxValue = new int[Size];
    int OneInFlop = 0;
    unsigned long long int Max = 1<<Size;
    unsigned long long int Period = 0;
@@ -134,11 +135,16 @@ int main(int argc, char* argv[])
 `endif
             int OldBit = Value[DestinationIndex];
             int NewBit = OldBit ^ AndResult;
-            Value[DestinationIndex] = NewBit;
+            AuxValue[DestinationIndex] = NewBit;
             if (OldBit != NewBit) {
                if (NewBit == 1) OnesCount++;
                else OnesCount--;
             }
+         }
+         for (int TapIndex = 0; TapIndex < TapsCount; ++TapIndex) {
+            int* Tap = TapsRow[TapIndex];
+            int DestinationIndex = Tap[0];
+            Value[DestinationIndex] = AuxValue[DestinationIndex];
          }
          Offset = (Offset+1) % Size;
          if (OnesCount <= 1) {

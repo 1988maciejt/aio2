@@ -82,12 +82,12 @@ class Nlfsr(Lfsr):
       for C in Config:
         D = C[0]
         S = C[1]
-        if Aio.isType(S, []):
-          S.sort()
+      #  if Aio.isType(S, []):
+      #    S.sort()
         self._Config.append([D, S])
-      def msortf(e):
-        return abs(e[0])%Size
-      self._Config.sort(key=msortf)
+      #def msortf(e):
+      #  return abs(e[0])%Size
+      #self._Config.sort(key=msortf)
       self._baValue = bitarray(self._size)
       self._exename = ""
       self.reset()
@@ -755,6 +755,45 @@ class Nlfsr(Lfsr):
         if Add:
           Dests.append(D)
     return ((self.getFanout('max') <= FanoutMax) and self.isCrossingFree()) 
+  def createPhaseShifter(self):
+    """Use 'createExpander' instead. It will return a PhaseSHifter object too."""
+    Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
+  def createExpander(self, NumberOfUniqueSequences : int, XorInputsLimit = 3):
+    MaxK = self._size
+    if self._size >= XorInputsLimit > 0:
+      MaxK = XorInputsLimit
+    Values = self.getValues(reset=1)
+    SequenceLength = len(Values)
+    XorsList = []
+    SingleSequences = [bitarray() for i in range(self._size)]
+    UniqueSequences = []
+    for word_index in range(SequenceLength):
+      Word = Values[word_index]
+      for flop_index in range(self._size):
+        SingleSequences[flop_index].append(Word[flop_index])
+    k = 1
+    MyFlopIndexes = [i for i in range(self._size)]
+    while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
+      for XorToTest in List.getCombinations(MyFlopIndexes, k):
+        ThisSequence = bau.zeros(SequenceLength)
+        for i in XorToTest:
+          ThisSequence ^= SingleSequences[i]
+        IsUnique = 1
+        for Reference in UniqueSequences:
+          if Bitarray.getShiftBetweenSequences(ThisSequence, Reference) is not None:
+            IsUnique = 0
+            break
+        if IsUnique:
+          UniqueSequences.append(ThisSequence)
+          XorsList.append(list(XorToTest))
+          if len(XorsList) == NumberOfUniqueSequences > 0:
+            break
+      k += 1
+    if len(XorsList) < NumberOfUniqueSequences > 0:
+      Aio.printError(f"Cannot found {NumberOfUniqueSequences} unique sequences. Only {len(XorsList)} was found.")
+    return PhaseShifter(self, XorsList)
+        
+    
         
         
     

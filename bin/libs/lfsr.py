@@ -21,6 +21,7 @@ from libs.programmable_lfsr_config import *
 from sympy import *
 from sympy.logic import *
 from libs.fast_anf_algebra import *
+from libs.pandas_table import *
 #from tqdm.contrib.concurrent import process_map
 
 # TUI =====================================================
@@ -37,20 +38,14 @@ _LFSR_SIM = []
 class MSequencesReport:
   """This class is used to hold the result of MSequence analysis.
   """
-  _xor2 = False
-  _xor3 = False
-  _dict = {}
+  _rep = {}
+  _uniques = {}
+  _max = 0
   _title = ""
   SourceObject = None
+  
   def __str__(self) -> str:
     return self.getReport() 
-  
-  def _psmaxlevel(self) -> int:
-    if self._xor3:
-      return 3
-    elif self._xor2:
-      return 2
-    return 2
   
   def getTitle(self) -> str:
     """Returns a string containing the report's title.
@@ -63,9 +58,12 @@ class MSequencesReport:
     Args:
         PhaseShifterGatesInputs (int, optional): maximum count of inputs of phase shifter's XORs.. Defaults to 0 (no limit).
     """
-    if PhaseShifterGatesInputs <= 0 or PhaseShifterGatesInputs > 3:
-      PhaseShifterGatesInputs = self._psmaxlevel()
-    return self._dict[PhaseShifterGatesInputs]["unique_count"]
+    if PhaseShifterGatesInputs <= 0 or PhaseShifterGatesInputs > self._max:
+      PhaseShifterGatesInputs = self._max
+    Sum = 0
+    for i in range(1, PhaseShifterGatesInputs+1):
+      Sum += self._uniques[i]
+    return Sum
   
   def getReport(self, PhaseShifterGatesInputs = 0) -> str:
     """returns a string containing the full report of MSequence analysis.
@@ -74,16 +72,15 @@ class MSequencesReport:
         PhaseShifterGatesInputs (int, optional): maximum count of inputs of phase shifter's XORs.. Defaults to 0 (no limit).
     """
     Lines = ""
-    if PhaseShifterGatesInputs <= 0 or PhaseShifterGatesInputs > 3:
-      PhaseShifterGatesInputs = self._psmaxlevel()
-    SDict = self._dict[PhaseShifterGatesInputs]
-    keys = list(SDict.keys())
-    keys.sort()
-    Lines += f'UNIQUE SEQUENCES: {SDict["unique_count"]}'
-    for key in keys:
-      if key == "unique_count":
-        continue
-      Lines += (f'\n{key}{" " * (18 - len(key))}=>  {SDict[key]}')
+    if PhaseShifterGatesInputs <= 0 or PhaseShifterGatesInputs > self._max:
+      PhaseShifterGatesInputs = self._max
+    Lines += f'\nUNIQUE SEQUENCES: {self.getUniqueCount(PhaseShifterGatesInputs)}'
+    PT = PandasTable(["XOR size", "XORed signals", "Sequence"])
+    for i in range(1, PhaseShifterGatesInputs+1):
+      SDict = self._rep[i]
+      for key in SDict.keys():
+        PT.add([i, key, SDict[key]])
+    Lines += "\n\n" + PT.toString()  
     return Lines
   
   def printReport(self, PhaseShifterGatesInputs = 0):
@@ -2267,95 +2264,58 @@ endmodule'''
     #return process_map(_analyseSequences_helper, ListOfObjects, chunkside=2, desc="Sequences analysis")
     R = p_map(_analyseSequences_helper, ListOfObjects)
     return R
-  def analyseSequences(self, Reset = True, WithXor2 = True, WithXor3 = True) -> MSequencesReport:
-    Values = self.getValues(reset=Reset)
-    Sequences = [bitarray() for i in range(self._size)]
-    for word_index in range(len(Values)):
+  def _sumstr(self,Sum) -> str:
+    Second = 0
+    Result = ""
+    for S in Sum:
+      if Second:
+        Result += "+"
+      else:
+        Second = 1
+      Result += f"Q{S}"
+    return Result
+  def analyseSequences(self, XorInputsLimit = 0) -> MSequencesReport:
+    MaxK = self._size
+    if self._size >= XorInputsLimit > 0:
+      MaxK = XorInputsLimit
+    Values = self.getValues(reset=1)
+    SequenceLength = len(Values)
+    SingleSequences = [bitarray() for i in range(self._size)]
+    UniqueSequences = {}
+    ResultDict = {}
+    ResultUDict = {}
+    for word_index in range(SequenceLength):
       Word = Values[word_index]
       for flop_index in range(self._size):
-        Sequences[flop_index].append(Word[flop_index])
-    Results = {}
-    BaseDict = {}
-    BaseUniques = {}
-    FlopIndex = 0
-    for Sequence in Sequences:
-      Found = 0
-      for key in BaseUniques.keys():
-        Shift = Bitarray.getShiftBetweenSequences(BaseUniques[key], Sequence)
-        if Shift is not None:
-          BaseDict[f'Q{FlopIndex}'] = f'{key}{" " * (18-len(key))}delayed by {Shift}'
-          Found = 1
-        else:
-          NotShift = Bitarray.getShiftBetweenSequences(~BaseUniques[key], Sequence)
-          if NotShift is not None:
-            BaseDict[f'Q{FlopIndex}'] = f'~{key}{" " * (17-len(key))}delayed by {NotShift}'
-            Found = 1
-      if not Found:        
-        BaseDict[f'Q{FlopIndex}'] = "Unique"
-        BaseUniques[f'Q{FlopIndex}'] = Sequence
-      FlopIndex += 1      
-    BaseDict["unique_count"] = len(BaseUniques)
-    Results[1] = BaseDict.copy()
-    Xor2Sequences = {}
-    Xor3Sequences = {}
-    if WithXor2 or WithXor3:
-      for q1 in range(self._size-1):
-        for q2 in range(1, self._size):
-          if q1 < q2:
-            q1r = self._size - q1 - 1
-            q2r = self._size - q2 - 1
-            Name2 = f'Q{q1}+Q{q2}'
-            Sequence2 = Sequences[q1r] ^ Sequences[q2r]
-            Xor2Sequences[Name2] = Sequence2
-            if WithXor3:
-              for q3 in range(2, self._size):
-                if q2 < q3:
-                  q3r = self._size - q3 - 1
-                  Name3 = f'Q{q1}+Q{q2}+Q{q3}'
-                  Sequence3 = Sequence2 ^ Sequences[q3r]
-                  Xor3Sequences[Name3] = Sequence3
-    if WithXor2:
-      for SequenceName in Xor2Sequences.keys():
-        Sequence = Xor2Sequences[SequenceName]
-        Found = 0
-        for key in BaseUniques.keys():
-          Shift = Bitarray.getShiftBetweenSequences(BaseUniques[key], Sequence)
+        SingleSequences[flop_index].append(Word[flop_index])
+    k = 1
+    MyFlopIndexes = [i for i in range(self._size)]
+    while (k <= MaxK):
+      Uniques = 0
+      ResultDict[k] = {}
+      for XorToTest in List.getCombinations(MyFlopIndexes, k):
+        XorToTestStr = self._sumstr(XorToTest)
+        ThisSequence = bau.zeros(SequenceLength)
+        for i in XorToTest:
+          ThisSequence ^= SingleSequences[i]
+        IsUnique = 1
+        for ReferenceKey in UniqueSequences.keys():
+          Reference = UniqueSequences[ReferenceKey]
+          Shift = Bitarray.getShiftBetweenSequences(ThisSequence, Reference)
           if Shift is not None:
-            BaseDict[SequenceName] = f'{key}{" " * (18-len(key))}delayed by {Shift}'
-            Found = 1
-          else:
-            NotShift = Bitarray.getShiftBetweenSequences(~BaseUniques[key], Sequence)
-            if NotShift is not None:
-              BaseDict[SequenceName] = f'~({key}){" " * (15-len(key))}delayed by {NotShift}'
-              Found = 1
-        if not Found:        
-          BaseDict[SequenceName] = "Unique"
-          BaseUniques[SequenceName] = Sequence
-      BaseDict["unique_count"] = len(BaseUniques)
-      Results[2] = BaseDict.copy()
-    if WithXor3:
-      for SequenceName in Xor3Sequences.keys():
-        Sequence = Xor3Sequences[SequenceName]
-        Found = 0
-        for key in BaseUniques.keys():
-          Shift = Bitarray.getShiftBetweenSequences(BaseUniques[key], Sequence)
-          if Shift is not None:
-            BaseDict[SequenceName] = f'{key}{" " * (18-len(key))}delayed by {Shift}'
-            Found = 1
-          else:
-            NotShift = Bitarray.getShiftBetweenSequences(~BaseUniques[key], Sequence)
-            if NotShift is not None:
-              BaseDict[SequenceName] = f'~({key}{" " * (15-len(key))}) delayed by {NotShift}'
-              Found = 1
-        if not Found:        
-          BaseDict[SequenceName] = "Unique"
-          BaseUniques[SequenceName] = Sequence
-      BaseDict["unique_count"] = len(BaseUniques)
-      Results[3] = BaseDict.copy()
+            IsUnique = 0
+            ResultDict[k][self._sumstr(XorToTest)] = f"{ReferenceKey} delayed by {Shift}"
+            break
+        if IsUnique:
+          UniqueSequences[XorToTestStr] = ThisSequence
+          ResultDict[k][XorToTestStr] = f"Unique"
+          Uniques += 1
+        ResultUDict[k] = Uniques
+      k += 1
     Report = MSequencesReport()
-    Report._xor2 = WithXor2
-    Report._xor3 = WithXor3
-    Report._dict = Results
+    Report._rep = ResultDict
+    Report._max = MaxK
+    Report._uniques = ResultUDict
     Report._title = repr(self)
     Report.SourceObject = self
     return Report

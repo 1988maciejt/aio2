@@ -381,8 +381,8 @@ class RemoteAioScheduler:
         print(Str.color(f"// REMOTE_AIO_SCHEDULER: MAP FINISHED", 'green'))
         return Results
     
-    def mapGenerator(self, CodeList, SHowStatus = False):
-        if SHowStatus:
+    def mapGenerator(self, CodeList, ShowStatus = False):
+        if ShowStatus:
             self._Verbose = 0
         InfoTimeStamp = 0
         TaskList = []
@@ -390,27 +390,27 @@ class RemoteAioScheduler:
             TaskList.append(self.addTask(Code))
         for T in TaskList:
             while not T:
-                if SHowStatus:
+                if ShowStatus:
                     if time.time() - InfoTimeStamp >= 1:
                         self._printTasksStatus(TaskList)
                         InfoTimeStamp = time.time()
                 sleep(0.1)
             yield copy.deepcopy(T.Response)
         TaskList.clear()
-        if SHowStatus:
+        if ShowStatus:
             self._Verbose = 1
     
-    def mapUnorderedGenerator(self, CodeList, SHowStatus = False):
-        if SHowStatus:
+    def mapUnorderedGenerator(self, CodeList, ShowStatus = False):
+        if ShowStatus:
             self._Verbose = 0
         InfoTimeStamp = 0
         TaskList = []
         for Code in CodeList:
             TaskList.append(self.addTask(Code))
-        if SHowStatus:
+        if ShowStatus:
             InfoTaskList = TaskList.copy()
         while len(TaskList) > 0:
-            if SHowStatus:
+            if ShowStatus:
                 if time.time() - InfoTimeStamp >= 1:
                     self._printTasksStatus(InfoTaskList)
                     InfoTimeStamp = time.time()
@@ -421,7 +421,7 @@ class RemoteAioScheduler:
                     TaskList.remove(T)
                     break
         TaskList.clear()
-        if SHowStatus:
+        if ShowStatus:
             self._Verbose = 1
                 
     def _printTasksStatus(self, TaskList):
