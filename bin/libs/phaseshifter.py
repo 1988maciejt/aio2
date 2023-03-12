@@ -86,6 +86,18 @@ class PhaseShifter:
         return False
     def getSourceObject(self):
         return self._my_source
+    def getSequences(self) -> list:
+        Values = self.getValues()
+        if len(Values) < 1:
+            return []
+        SequenceLength = len(Values)
+        Result = [bitarray() for i in range(self._size)]
+        for word_index in range(SequenceLength):
+            Word = Values[word_index]
+            for flop_index in range(self._size):
+                Result[flop_index].append(Word[flop_index])
+        return Result
+        
     def getValues(self, n = 0, step = 1, reset = True) -> list:
         """Returns a list containing consecutive values of the LFSR.
 
@@ -103,7 +115,8 @@ class PhaseShifter:
             self._my_source.reset()
         result = []
         for i in range(n):
-            result._my_source.append(self._bavalue.copy())
+            self.update()
+            result.append(self._bavalue.copy())
             self.next(step)
         return result
     def printValues(self, n = 0, step = 1, reset = True, IncludeSource = False) -> None:

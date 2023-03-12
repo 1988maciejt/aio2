@@ -758,10 +758,13 @@ class Nlfsr(Lfsr):
   def createPhaseShifter(self):
     """Use 'createExpander' instead. It will return a PhaseSHifter object too."""
     Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
-  def createExpander(self, NumberOfUniqueSequences : int, XorInputsLimit = 3):
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1):
     MaxK = self._size
     if self._size >= XorInputsLimit > 0:
       MaxK = XorInputsLimit
+    MinK = 1
+    if MaxK >= MinXorInputs > 0:
+      MinK = MinXorInputs
     Values = self.getValues(reset=1)
     SequenceLength = len(Values)
     XorsList = []
@@ -771,7 +774,7 @@ class Nlfsr(Lfsr):
       Word = Values[word_index]
       for flop_index in range(self._size):
         SingleSequences[flop_index].append(Word[flop_index])
-    k = 1
+    k = MinK
     MyFlopIndexes = [i for i in range(self._size)]
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       for XorToTest in List.getCombinations(MyFlopIndexes, k):
