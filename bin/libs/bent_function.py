@@ -21,6 +21,7 @@ from functools import partial
 from libs.simple_threading import *
 from libs.remote_aio import RemoteAioScheduler
 import rich.pretty
+from libs.binstr import *
 
 
 _BF_STATE = None
@@ -214,7 +215,11 @@ class BentFunction:
         Result.add(MonoResult)
     if self._FastAnfNot:
       Result.negate()
-    return Result
+    return Result    
+  def toHexString(self, shorten=True) -> str:
+    ival = bau.ba2int(self._lut)
+    bs = BinString(len(self._lut), ival)
+    return bs.toHexString(shorten)
     
               
     

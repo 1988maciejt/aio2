@@ -104,6 +104,21 @@ class HashFunction:
         if FileName is not None:
             self.fromFile(FileName)
 
+    def getBentFunctionsHexString(self) -> str:
+        Second = 0
+        Result = ""
+        for F in self.Functions:
+            BF = F[0]
+            if Second:
+                Result += ", "
+            else:
+                Second = 1
+            Result += BF.toHexString()
+        return Result
+    
+    def getLfsrInHexString(self) -> str:
+        return Polynomial(self.LfsrIn._my_poly).toHexString()
+
     def addDirectConnection(self, SourceInLfsrIn : int, DestinationInLfsrOut : int):
         s, i = Int.splitLettersAndInt(SourceInLfsrIn)
         if 'p' in s.lower():
