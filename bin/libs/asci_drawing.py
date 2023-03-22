@@ -31,6 +31,7 @@ class AsciiDrawing_Characters:
   DOWN_LEFT_ARROW = '\U00002199'
   DOWN_RIGHT_ARROW = '\U00002198'
   CIRCLED_PLUS = '\U00002A01'
+  MULTIPLY = '\U000000D7'
 
 class AsciiDrawing_Direction:
   Left = 8

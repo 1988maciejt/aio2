@@ -65,6 +65,9 @@ class MSequencesReport:
       Sum += self._uniques[i]
     return Sum
   
+  def printReport(self, PhaseShifterGatesInputs = 0) -> str:
+    Aio.print(self.getReport(PhaseShifterGatesInputs))
+    
   def getReport(self, PhaseShifterGatesInputs = 0) -> str:
     """returns a string containing the full report of MSequence analysis.
 
@@ -2381,6 +2384,18 @@ endmodule'''
     if CountOnly:
       return Count
     return ToReturn
+  
+  def getSequences(self, Length=0):
+    Values = self.getValues(n = Length)
+    if len(Values) < 1:
+      return []
+    SequenceLength = len(Values)
+    Result = [bitarray() for i in range(self._size)]
+    for word_index in range(SequenceLength):
+      Word = Values[word_index]
+      for flop_index in range(self._size):
+        Result[flop_index].append(Word[flop_index])
+    return Result
       
   def _checkMaximumSerial(LfsrsList : list) -> list:
     Results = []

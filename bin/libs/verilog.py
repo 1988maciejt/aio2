@@ -11,6 +11,7 @@ from aio_config import *
 from shutil import copyfile, rmtree
 from functools import partial
 from libs.siemens import *
+import pint 
 
 
 # TUI =====================================================
@@ -878,11 +879,11 @@ endmodule"""
     return self.Modules.TopModuleName
   def getTopModule(self) -> VerilogModule:
     return self.Modules.getModuleByName(self.Modules.TopModuleName)
-  def quickSynthAtSiemens(self, TechnologyNm : int, OutputFIleName = "/tmp/junk.v") -> dict:
+  def quickSynthAtSiemens(self, TechnologyNm : int, OutputFIleName = "/tmp/junk.v", SwitchingActivityDictionary = {}) -> dict:
     DBFile = Siemens.getDbFile(TechnologyNm)
     AreaFactor = 1 / Siemens.getNandGateArea(TechnologyNm)
-    return self.synthesize(OutputFIleName, self.getTopModuleName(), TechLibFileName=DBFile, AreaUnit="#NAND", AreaFactor=AreaFactor, ReturnProcessedResult=True, ReportTiming=True, WriteSDF=True)
-  def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechLibFileName = None, ReturnProcessedResult = False, AreaUnit = "Grid", AreaFactor = 1, WriteSDF = False, ReportTiming = False):
+    return self.synthesize(OutputFIleName, self.getTopModuleName(), TechLibFileName=DBFile, AreaUnit="#NAND", AreaFactor=AreaFactor, ReturnProcessedResult=True, ReportTiming=True, WriteSDF=True, SwitchingActivityDictionary=SwitchingActivityDictionary)
+  def synthesize(self, OutputFileName : str, TopModuleName = None, Xilinx = False, TechLibFileName = None, ReturnProcessedResult = False, AreaUnit = "Grid", AreaFactor = 1, WriteSDF = False, ReportTiming = False, SwitchingActivityDictionary = {}):
     if shell_config.useDC():
       tmpFileName = "tmp.v"
       dcScriptFileName = "dc_script"
@@ -896,6 +897,25 @@ endmodule"""
         os.symlink(TechLibFileName, "adk.db")
       else:
         os.symlink(Aio.getPath() + "siemens/adk.db", "adk.db")
+      SA = ""
+      unit = pint.UnitRegistry()
+      for SignalName in SwitchingActivityDictionary.keys():
+        Data = SwitchingActivityDictionary[SignalName]
+        if Aio.isType(Data, "str"):
+          Val = unit(Data)
+        else:
+          Val = int(Data)
+        if Aio.isType(Val, "Quantity"):
+          try:
+            Val.ito("ns")
+          except:
+            Val = 1/Val
+            Val.ito("ns")
+            ToggleRste = 1 / Val.magnitude
+          Line = f"set_switching_activity -toggle_rate {ToggleRste} {SignalName}"
+        else:
+          Line = f"set_switching_activity -static_probability {Val} -toggle_rate 0 {SignalName}"
+        SA += f"\n{Line}"
       DcScript = f"""
 analyze -format verilog {tmpFileName}
 
@@ -905,6 +925,9 @@ check_design
 
 compile
 report_area
+
+{SA}
+report_power
 
 write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hier
 """
@@ -916,6 +939,7 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
       writeFile(dcScriptFileName, DcScript)
       result = Aio.shellExecute(f'/home/tnt/tools/DC_SHELL/O-2018.06-SP4/base/bin/dc_shell -f {dcScriptFileName}', 1, 1)
       if ReturnProcessedResult:
+        print(result)
         ResDict = {}
         ParamList = ["Number of ports",
                      "Number of nets",
@@ -942,6 +966,20 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
               DictVal *= AreaFactor
             else:
               DictKey = Param.replace("Number of", "#")
+            ResDict[DictKey] = DictVal
+        ParamList = ["Total Dynamic Power",
+                     "Cell Leakage Power"]
+        for Param in ParamList:
+          R = re.search(f'{Param}\s*=\s*([.0-9]+\s*[numW]+)', result, re.MULTILINE)
+          if R:
+            try:
+              unit = pint.UnitRegistry()
+              Power = unit(R.group(1))
+              Power.ito("W")
+              DictVal = Power.magnitude * 1000000
+            except:
+              DictVal = 0
+            DictKey = f"{Param} [uW]"
             ResDict[DictKey] = DictVal
         if ReportTiming:
           TimingReport = readFile(f"{OutputFileName}.rpt")

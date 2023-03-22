@@ -331,6 +331,9 @@ class RemoteAioScheduler:
     def __del__(self) -> None:
         self.stop()
         
+    def clearTasks(self):
+        self.TaskList.clear()
+        
     def printAvailableNodes(self) -> None:
         _RemoteAioMessage("", self._Port, _NOT_EMPTY_SCHEDULER).send(self._MySender)
         sleep(1)
@@ -361,7 +364,7 @@ class RemoteAioScheduler:
             TaskList.append(self.addTask(Code))
         AllDone = 0
         LastDone = -1
-        while not AllDone:
+        while not AllDone and len(self.TaskList) > 0:
             sleep(1)
             AllDone = 1
             Done = 0
@@ -389,6 +392,8 @@ class RemoteAioScheduler:
         for Code in CodeList:
             TaskList.append(self.addTask(Code))
         for T in TaskList:
+            if len(self.TaskList) == 0:
+                break
             while not T:
                 if ShowStatus:
                     if time.time() - InfoTimeStamp >= 1:
@@ -410,6 +415,8 @@ class RemoteAioScheduler:
         if ShowStatus:
             InfoTaskList = TaskList.copy()
         while len(TaskList) > 0:
+            if len(self.TaskList) == 0:
+                break
             if ShowStatus:
                 if time.time() - InfoTimeStamp >= 1:
                     self._printTasksStatus(InfoTaskList)

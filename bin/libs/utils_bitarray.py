@@ -70,3 +70,12 @@ class Bitarray:
             Result[i] ^= 1
             Results.append(Result)
         return Results
+    
+    def movingWindowIterator(Word : bitarray, WindowSize : int):
+        W = Word.copy()
+        Steps = len(Word)
+        while len(W) < WindowSize:
+            W += W
+        W += W[:WindowSize]
+        for i in range(Steps):
+            yield W[i:i+WindowSize]

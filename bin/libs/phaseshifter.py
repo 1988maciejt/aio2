@@ -86,8 +86,8 @@ class PhaseShifter:
         return False
     def getSourceObject(self):
         return self._my_source
-    def getSequences(self) -> list:
-        Values = self.getValues()
+    def getSequences(self, Length=0) -> list:
+        Values = self.getValues(n = Length)
         if len(Values) < 1:
             return []
         SequenceLength = len(Values)

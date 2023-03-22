@@ -7,6 +7,7 @@ from libs.pandas_table import *
 from p_tqdm import *
 from bitarray import *
 from libs.generators import *
+from libs.remote_aio import *
 
   
 class Nlfsr(Lfsr):
@@ -46,7 +47,7 @@ class Nlfsr(Lfsr):
         First = True
         for S in Slist:
           if not First:
-            Result += " AND"
+            Result += " " + AsciiDrawing_Characters.MULTIPLY
           First = False
           Result += " "
           if S < 0:
@@ -69,6 +70,8 @@ class Nlfsr(Lfsr):
     Result += " R " + self.toBooleanExpressionFromRing(0, 1, True) + "\n"
     Result += "CR " + self.toBooleanExpressionFromRing(1, 1, True) + "\n"
     return Result
+  def getTaps(self) -> int:
+    return self._Config.copy()
   def __init__(self, Size : int, Config = []) -> None:
     if Aio.isType(Size, "Nlfsr"):
       self._size = Size._size      
@@ -155,8 +158,8 @@ class Nlfsr(Lfsr):
         Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
     try:
       return int(Res)
-    except:
-      Aio.printError(f"Nlfsr.getPeriod - cpp program returns weird result:\n{Res}\nArgs: {ArgStr}")
+    except Exception as inst:
+      Aio.printError(f"Nlfsr.getPeriod - cpp program returns weird result:\n{Res}\nArgs: {ArgStr}", inst)
       return -1
   def isMaximum(self):
     return self.getPeriod() == ((1<<self._size)-1)
@@ -327,8 +330,11 @@ class Nlfsr(Lfsr):
         return max(FFs)
     return sum(FFs) / self._size
     
-  def _makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, LeftRightAllowedShift = 2, InvertersAllowed = 1, MaxAndCount = 0, BeautifullOnly = False, Filter = True) -> list:
-    RG = Lfsr(Poly, RING_GENERATOR)
+  def _makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, LeftRightAllowedShift = 2, InvertersAllowed = 1, MaxAndCount = 0, BeautifullOnly = False, Filter = True, Tiger = False) -> list:
+    LType = RING_GENERATOR
+    if Tiger:
+      LType = TIGER_RING
+    RG = Lfsr(Poly, LType)
     Taps = RG._taps
     Size = RG._size
     AOptionsList = []
@@ -336,31 +342,41 @@ class Nlfsr(Lfsr):
       AOptions = []
       S = Tap[0]
       D = Tap[1]
-      for ai in range(S-LeftRightAllowedShift, S+LeftRightAllowedShift+1):
-        if ai == S:
-          continue
-        A = ai
-        while A <= 0: 
-          A += Size
-        while A > Size:
-          A -= Size
-        AOptions.append(A)
+      if D == 0:
+        D = Size
+      AInputs = [(i % Size if i >= 0 else i + Size) for i in range(S-LeftRightAllowedShift, S+LeftRightAllowedShift+1, 1)]
+      AProposals = []
+      for k in range(2, len(AInputs) +1):
+        AProposals += List.getCombinations(AInputs, k)
       ProposedTaps = [ [D, [S]] ]
-      for AIn in AOptions:
-        if D == 0:
-          D = Size
-        ProposedTaps.append([D, [S, AIn]])
+      for AProposal in AProposals:
+        ProposedTaps.append([D, list(AProposal)])
         if InvertersAllowed:
-          ProposedTaps.append([-D, [S, AIn]])
-          ProposedTaps.append([D, [-S, AIn]])
-          ProposedTaps.append([D, [S, -AIn]])
-#        for DS in range(1, -2 if InvertersAllowed else 0, -2):
-#          ProposedTaps.append([DS * D, [S, AIn]])
-#          if InvertersAllowed:
-#            ProposedTaps.append([DS * D, [-S, AIn]])
-#            ProposedTaps.append([DS * D, [S, -AIn]])
-#            ProposedTaps.append([DS * D, [-S, -AIn]])
+          ProposedTaps.append([-D, list(AProposal)])
+          for aindex in range(len(AProposal)):
+            AP = list(AProposal)
+            AP[aindex] *= -1            
+            ProposedTaps.append([D, AP])
       AOptionsList.append(ProposedTaps)
+#      for ai in range(S-LeftRightAllowedShift, S+LeftRightAllowedShift+1):
+#        if ai == S:
+#          continue
+#        A = ai
+#        while A <= 0: 
+#          A += Size
+#        while A > Size:
+#          A -= Size
+#        AOptions.append(A)
+#      ProposedTaps = [ [D, [S]] ]
+#      for AIn in AOptions:
+#        if D == 0:
+#          D = Size
+#        ProposedTaps.append([D, [S, AIn]])
+#        if InvertersAllowed:
+#          ProposedTaps.append([-D, [S, AIn]])
+#          ProposedTaps.append([D, [-S, AIn]])
+#          ProposedTaps.append([D, [S, -AIn]])
+#      AOptionsList.append(ProposedTaps)
     First = 1
     for Permutations in List.getPermutationsPfManyListsGenerator(AOptionsList, MaximumNonBaseElements=MaxAndCount, UseAsGenerator_Chunk=100000):
       if First:
@@ -391,7 +407,7 @@ class Nlfsr(Lfsr):
         Results = Nlfsr.filter(Results)
       yield Results
   
-  def printNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 1, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = True, MaxAndCount = 0, BeautifullOnly = False, Filter = True, Iterate = True, n = 0, BreakIfNoResultAfterNIterations = 0) -> int:
+  def printNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 1, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = True, MaxAndCount = 0, BeautifullOnly = False, Filter = True, Iterate = True, n = 0, BreakIfNoResultAfterNIterations = 0, Tiger = False) -> int:
     """Tries to find and prints a specified type of NLFSR (Ring-like). Returns a list of found objects.
 
     Args:
@@ -407,7 +423,7 @@ class Nlfsr(Lfsr):
         n (int, optional): enough count of results. Defaults to 0 (no limit).
         BreakIfNoResultAfterNIterations (int, optional): if > 0 (default 0), breaks iterating if no results after given #iterations
     """
-    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, Iterate, n, BreakIfNoResultAfterNIterations)
+    Results = Nlfsr.findNLRGsWithSpecifiedPeriod(Poly, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, Iterate, n, BreakIfNoResultAfterNIterations, Tiger)
     Canonical = "Canonical"
     NlfsrObject = "Python Object"
     Equations = "Taps"
@@ -428,7 +444,7 @@ class Nlfsr(Lfsr):
     Aio.print()
     return len(FullPT)
     
-  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 1, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = True, MaxAndCount = 0, BeautifullOnly = False, Filter = True, Iterate = True, n = 0, BreakIfNoResultAfterNIterations = 0) -> list:
+  def findNLRGsWithSpecifiedPeriod(Poly : Polynomial, LeftRightAllowedShift = 1, PeriodLengthMinimumRatio = 1, OnlyPrimePeriods = False, InvertersAllowed = True, MaxAndCount = 0, BeautifullOnly = False, Filter = True, Iterate = True, n = 0, BreakIfNoResultAfterNIterations = 0, Tiger = False, TaskScheduler = None) -> list:
     """Tries to find a specified type of NLFSR (Ring-like). Returns a list of found objects.
 
     Args:
@@ -443,6 +459,8 @@ class Nlfsr(Lfsr):
         Iterate (bool, optional): iterate through all polynomials. Defaults to True.
         n (int, optional): enough count of results. Defaults to 0 (no limit).
         BreakIfNoResultAfterNIterations (int, optional): if > 0 (default 0), breaks iterating if no results after given #iterations
+        Tiger (bool, optional): 
+        
     """
     if not Aio.isType(Poly, "Polynomial"):
       Poly = Polynomial(Poly)
@@ -450,34 +468,48 @@ class Nlfsr(Lfsr):
       Results = []
       Exclude = []
       NoResultCounter = 0
-      for p in Poly:
-        if p in Exclude:
-          continue
-        Exclude.append(p.getReciprocal())
-        print(f'Looking for {p}     Found so far: {len(Results)}')
-        ResultsSub = Nlfsr.findNLRGsWithSpecifiedPeriod(p, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, False, n-len(Results))
-        if len(ResultsSub) == 0:
-          NoResultCounter += 1
-          if NoResultCounter >= BreakIfNoResultAfterNIterations > 0:
+      if TaskScheduler is None:
+        for p in Poly:
+          if p in Exclude:
+            continue
+          Exclude.append(p.getReciprocal())
+          print(f'Looking for {p}     Found so far: {len(Results)}')
+          ResultsSub = Nlfsr.findNLRGsWithSpecifiedPeriod(p, LeftRightAllowedShift, PeriodLengthMinimumRatio, OnlyPrimePeriods, InvertersAllowed, MaxAndCount, BeautifullOnly, Filter, False, n-len(Results), Tiger=Tiger)
+          if len(ResultsSub) == 0:
+            NoResultCounter += 1
+            if NoResultCounter >= BreakIfNoResultAfterNIterations > 0:
+              break
+            continue
+          NoResultCounter = 0
+          if Filter and len(ResultsSub) > 0 and len(Results) > 0:
+            ResultsSub2 = []
+            for R in tqdm(ResultsSub, desc="Filtering all results"):
+              Add = 1
+              for Ref in Results:
+                if R.isEquivalent(Ref):
+                  Add = 0
+                  break
+              if Add:
+                ResultsSub2.append(R)
+            Results += ResultsSub2  
+          else:
+            Results += ResultsSub
+          if len(Results) >= n > 0:
             break
-          continue
-        NoResultCounter = 0
-        if Filter and len(ResultsSub) > 0 and len(Results) > 0:
-          ResultsSub2 = []
-          for R in tqdm(ResultsSub, desc="Filtering all results"):
-            Add = 1
-            for Ref in Results:
-              if R.isEquivalent(Ref):
-                Add = 0
-                break
-            if Add:
-              ResultsSub2.append(R)
-          Results += ResultsSub2  
-        else:
-          Results += ResultsSub
-        if len(Results) >= n > 0:
-          break
-        LastLen = len(Results)
+      else:
+        CodeList = []
+        for p in Poly:
+          if p in Exclude:
+            continue
+          Exclude.append(p.getReciprocal())
+          CodeList.append(f"""Nlfsr.findNLRGsWithSpecifiedPeriod({p}, {LeftRightAllowedShift}, {PeriodLengthMinimumRatio}, {OnlyPrimePeriods}, {InvertersAllowed}, {MaxAndCount}, {BeautifullOnly}, {Filter}, False, {n}, Tiger={Tiger}) """)
+        for R in TaskScheduler.mapUnorderedGenerator(CodeList):
+          Results += R
+          if Filter and len(R) > 0:
+            Results = Nlfsr.filter(Results)
+          if len(Results) > n > 0:
+            TaskScheduler.clearTasks()
+          print(f'Found so far: {len(Results)}')
       if len(Results) > n > 0:
         Results = Results[:n]
       return Results
@@ -503,7 +535,7 @@ class Nlfsr(Lfsr):
     pmax = Int.mersenne(Size)
     eps = 0.0
     PMR = PeriodLengthMinimumRatio - eps
-    for InputSet in Nlfsr._makeNLRingGeneratorsFromPolynomial(Poly, LeftRightAllowedShift, InvertersAllowed, MaxAndCount, BeautifullOnly, False):
+    for InputSet in Nlfsr._makeNLRingGeneratorsFromPolynomial(Poly, LeftRightAllowedShift, InvertersAllowed, MaxAndCount, BeautifullOnly, False, Tiger):
       for i in range(len(InputSet)):
         InputSet[i]._exename = exename
       Generator = Generators()
@@ -585,6 +617,8 @@ class Nlfsr(Lfsr):
         GlobalInv = not(GlobalInv)
         D = abs(D)
       D = D % self._size
+      if D > (self._size>>1):
+        return("<Impossible to determine>")
       S = Tap[1]
       if Aio.isType(S, 0):
         if S == 0:
@@ -755,10 +789,28 @@ class Nlfsr(Lfsr):
         if Add:
           Dests.append(D)
     return ((self.getFanout('max') <= FanoutMax) and self.isCrossingFree()) 
+  
+  def reset(self) -> bitarray:
+    """Resets the LFSR value to the 0b0...001
+
+    Returns:
+        bitarray: The new value
+    """
+    self._baValue.setall(0)
+    self._baValue[0] = 1
+    thisval = self._baValue
+    if self.next() == thisval:
+      self._baValue.setall(0)
+      self._baValue[1] = 1
+    else:
+      self._baValue.setall(0)
+      self._baValue[0] = 1
+    return self._baValue
+  
   def createPhaseShifter(self):
     """Use 'createExpander' instead. It will return a PhaseSHifter object too."""
     Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1):
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = 0, StoreSeqStatesData = 0):
     MaxK = self._size
     if self._size >= XorInputsLimit > 0:
       MaxK = XorInputsLimit
@@ -794,7 +846,21 @@ class Nlfsr(Lfsr):
       k += 1
     if len(XorsList) < NumberOfUniqueSequences > 0:
       Aio.printError(f"Cannot found {NumberOfUniqueSequences} unique sequences. Only {len(XorsList)} was found.")
-    return PhaseShifter(self, XorsList)
+    PS = PhaseShifter(self, XorsList)
+    if StoreLinearComplexityData:
+      LCData = []
+      for US in UniqueSequences:
+        LCData.append(Polynomial.decodeUsingBerlekampMassey(US).getDegree())
+      PS.LinearComplexity = LCData
+    if StoreSeqStatesData:
+      SSData = []
+      for US in UniqueSequences:
+        Nums = bau.zeros(1<<self._size)
+        for x in Bitarray.movingWindowIterator(US, self._size):
+          Nums[bau.ba2int(x)] = 1
+        SSData.append(Nums.count(1))
+      PS.SeqStats = SSData
+    return PS
         
     
         
@@ -803,20 +869,148 @@ class Nlfsr(Lfsr):
 class NlfsrList:
   def analyseSequences(NlfsrsList) -> list:      
     return Nlfsr.analyseSequencesBatch(NlfsrsList)
-  def toPandasTable(NlfsrsList) -> PandasTable:
-    PT = PandasTable(['RC', 'Polynomial', 'Architecture'], 1, 1)
+  def toPandasTable(NlfsrsList, Polys=True) -> PandasTable:
+    if Polys:
+      PT = PandasTable(['RC', 'Polynomial', 'Architecture', 'Nlfsr'], 1, 1)
+    else:
+      PT = PandasTable(['RC', 'Architecture', 'Nlfsr'], 1, 1)
     RC = "  \nR \n C\nRC"
     for N in NlfsrsList:
-      Polys =  N.toBooleanExpressionFromRing(0, 0, 1) + "\n"
-      Polys += N.toBooleanExpressionFromRing(0, 1, 1) + "\n"
-      Polys += N.toBooleanExpressionFromRing(1, 0, 1) + "\n"
-      Polys += N.toBooleanExpressionFromRing(1, 1, 1)
       Arch = N.getArchitecture()
-      PT.add([RC, Polys, Arch])
+      if Polys:
+        Polys =  N.toBooleanExpressionFromRing(0, 0, 1) + "\n"
+        Polys += N.toBooleanExpressionFromRing(0, 1, 1) + "\n"
+        Polys += N.toBooleanExpressionFromRing(1, 0, 1) + "\n"
+        Polys += N.toBooleanExpressionFromRing(1, 1, 1)
+        PT.add([RC, Polys, Arch, repr(N)])
+      else:
+        PT.add([RC, Arch, repr(N)])
     return PT
-        
+  def fromFile(FileName : str, Size = 0, TapsCount = 0) -> list:
+    Data = readFile(FileName)
+    Results = []
+    for Line in Data.split("\n"):
+      R = re.search(r'Nlfsr\(([0-9]+),\s*(\[.*\])\)', Line)
+      if R:
+        NSize = ast.literal_eval(str(R.group(1)))
+        if NSize != Size > 0:
+          continue
+        NConfig = ast.literal_eval(str(R.group(2)))
+        if len(NConfig) != TapsCount > 0:
+          continue
+        N = Nlfsr(NSize, NConfig)
+        Results.append(N)
+    return Results
+  def reprToFile(NlfsrsList, FileName : str):
+    Text = ""
+    Second = 0
+    for n in NlfsrsList:
+      if Second:
+        Text += "\n"
+      else:
+        Second = 1
+      Text += repr(n)
+    writeFile(FileName, Text)
+    
+  def toResearchDataBase(NlfsrsList, FileName : str):
+    PT = PandasTable(["Size", "#Taps", "Equations", "SingleSeq", "DoubleSeq", "TripleSeq"], 1, 1)
+    i = 0
+    exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+    for N in NlfsrsList:
+      N._exename = exename
+    for R in p_imap(_nlfsr_list_database_helper, NlfsrsList):
+      NLFSR = NlfsrsList[i]
+      Equations = NLFSR.toBooleanExpressionFromRing(0, 0, 1) + "\n"
+      Equations += NLFSR.getArchitecture().replace("\n", ", ") + "\n"
+      Equations += " R  " + NLFSR.toBooleanExpressionFromRing(0, 1, 1) + "\n"
+      Equations += "C  " + NLFSR.toBooleanExpressionFromRing(2, 0, 1) + "\n"
+      Equations += "CR  " + NLFSR.toBooleanExpressionFromRing(2, 1, 1)
+      PT.add([NLFSR.getSize(), len(NLFSR.getTaps()), Equations, R[0], R[1], R[2]])
+      writeFile(FileName, PT.toString('left'))
+      i += 1
+      
+  def toXlsDatabase(NlfsrsList):
+    os.mkdir("data")
+    exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+    for N in NlfsrsList:
+      N._exename = exename
+    PT = PandasTable(["Size", "# Taps", "Architecture", "Reed-Muller form", "# Single uniques", "# 2-in uniques","# 3-in uniques", "DETAILS"])
+    for combo in p_imap(_make_expander, NlfsrsList):
+      nlfsr = combo[0]
+      Expander = combo[1]
+      FileName = f"data/{repr(nlfsr)}.txt"
+      Eq = nlfsr.toBooleanExpressionFromRing(0, 0, 1)
+      EqC = nlfsr.toBooleanExpressionFromRing(1, 0, 1)
+      EqR = nlfsr.toBooleanExpressionFromRing(0, 1, 1)
+      EqCR = nlfsr.toBooleanExpressionFromRing(1, 1, 1)
+      Architecture = nlfsr.getArchitecture()
+      Single, Double, Triple = 0,0,0
+      Xors = Expander.getXors()
+      try:
+        LCData = Expander.LinearComplexity
+      except:
+        pass
+      try:
+        SeqStats = Expander.SeqStats
+      except:
+        pass
+      LCTable = PandasTable(["XORed_FFs", "Linear_complexity", "#Unique_values"])
+      for i in range(len(Xors)):
+        XOR = Xors[i]
+        try:
+          LC = LCData[i]
+        except:
+          LC = "-"
+        try:
+          SS = SeqStats[i]
+        except:
+          SS = "-"
+        LCTable.add([XOR, LC, SS])
+        if len(XOR) == 1:
+          Single += 1
+        elif len(XOR) == 2:
+          Double += 1
+        else:
+          Triple += 1
+      FileText = f"""{repr(nlfsr)}
+
+Size   : {nlfsr.getSize()}
+# Taps : {len(nlfsr.getTaps())}
+
+EQ               : {Eq}
+EQ Complementary : {EqC} 
+EQ Reversed      : {EqR}
+EQ Comp-Rev      : {EqCR}
+
+ARCHITECTURE:
+{Architecture}
+
+UNIQUE SEQUENCES:
+  Single: {Single}, Double: {Double}, Triple: {Triple}
+  
+EXPANDER:
+{LCTable.toString()}
+    """
+      writeFile(FileName, FileText)
+      PT.add([nlfsr.getSize(), len(nlfsr.getTaps()), Architecture.replace("\n",", "), Eq, Single, Double, Triple, f"""=HYPERLINK("{FileName}", "[CLICK_HERE]")"""])
+    PT.toXls("DATABASE.xlsx")
+
+def _make_expander(nlfsr) -> list:
+  if nlfsr.getSize() <= 10:
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1) ]
+  elif nlfsr.getSize() <= 14:
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=0) ]
+  else:
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=0) ]
+      
       
     
+def _nlfsr_list_database_helper(NLFSR : Nlfsr) -> list:
+  Rep = NLFSR.analyseSequences(3)
+  Single = Rep.getUniqueCount(1)
+  Double = Rep.getUniqueCount(2) - Single
+  Triple = Rep.getUniqueCount(3) - Single - Double
+  return [Single, Double, Triple]
     
 def _nlfsr_find_spec_period_helper(nlrglist : Nlfsr) -> int:
   for nlrg in nlrglist:
