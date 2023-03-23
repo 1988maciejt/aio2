@@ -732,7 +732,7 @@ class Nlfsr(Lfsr):
     if Shorten:
       RE = RE.replace("x", "")
       if GlobalInv:
-        RE = f'NOT ( {RE} )'
+        RE = f'~( {RE} )'
     return RE
         
   def makeBeauty(self, FanoutMax = 2, CheckMaximum = True) -> bool:
@@ -938,7 +938,7 @@ class NlfsrList:
     for combo in p_imap(_make_expander, NlfsrsList):
       nlfsr = combo[0]
       Expander = combo[1]
-      FileName = f"data/{repr(nlfsr)}.txt"
+      FileName = f"data/{repr(nlfsr)}.html"
       Eq = nlfsr.toBooleanExpressionFromRing(0, 0, 1)
       EqC = nlfsr.toBooleanExpressionFromRing(1, 0, 1)
       EqR = nlfsr.toBooleanExpressionFromRing(0, 1, 1)
@@ -991,7 +991,16 @@ UNIQUE SEQUENCES:
 EXPANDER:
 {LCTable.toString()}
     """
-      writeFile(FileName, FileText)
+      #writeFile(FileName, FileText)
+      conv = Ansi2HTMLConverter(escaped=False, dark_bg=0, title=repr(nlfsr), line_wrap=1, linkify=0)
+      html = conv.convert(FileText)
+      html = re.sub(r'(\.ansi2html-content\s+)(\{)', '\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
+      html = re.sub(r'(\*\s+)(\{)', '\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
+      html = re.sub(r'.body_background { background-color: #AAAAAA; }', '.body_background { background-color: #FFFFFF; }', html)
+
+      HtmlFile = open(FileName, "w")
+      HtmlFile.write(html)
+      HtmlFile.close()
       PT.add([nlfsr.getSize(), len(nlfsr.getTaps()), Architecture.replace("\n",", "), Eq, Single, Double, Triple, f"""=HYPERLINK("{FileName}", "[CLICK_HERE]")"""])
     PT.toXls("DATABASE.xlsx")
 
