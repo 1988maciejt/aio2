@@ -79,3 +79,9 @@ class Bitarray:
         W += W[:WindowSize]
         for i in range(Steps):
             yield W[i:i+WindowSize]
+            
+    def fromStringOfHex(Text : str, GroupSize=32) -> bitarray:
+        Result = bitarray()
+        for Group in Text.strip().split(" "):
+            Result += bau.int2ba(int(Group, 16), GroupSize)
+        return Result

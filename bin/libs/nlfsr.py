@@ -156,6 +156,7 @@ class Nlfsr(Lfsr):
         Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
       else:
         Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
+      print(Res)
     try:
       return int(Res)
     except Exception as inst:
@@ -1136,4 +1137,48 @@ def _nlfsr_find_spec_period_helper2(nlrglist : Nlfsr) -> int:
   return Results
 
 
+
+
+
+
+class NlfsrFpgaBooster:
+
+  __slots__ = ("_size")
+
+  def __init__(self, Size : int) -> None:
+    self._size = Size
+    
+  def getSize(self) -> int:
+    return self._size
   
+  def getNlfsrFromHexString(self, Text : str) -> Nlfsr:
+    Config = Bitarray.fromStringOfHex(Text, 32)
+    Config.reverse()
+    Taps = []
+    TapCount = (self._size - int(self._size/2))-3
+    for i in range(TapCount):
+      FirstInputIndex = self._size - i
+      Destination = 1 + i
+      TapConfig = Config[(i*11):(i*11+11)]
+      Sources = []
+      for j in range(5):
+        if TapConfig[2*j]:
+          if TapConfig[2*j+1]:
+            Sources.append(-1 * (FirstInputIndex - j))
+          else:
+            Sources.append(FirstInputIndex - j)
+      if len(Sources) > 0:
+        if TapConfig[10]:
+          Destination *= 1
+        Taps.append([Destination, Sources])
+      print(FirstInputIndex, TapConfig, [Destination, Sources])
+    print(TapCount, Config, Taps)
+    Success = 0
+    for Tap in Taps:
+      if len(Tap[1]) > 1:
+        Success = 1
+        break
+    if Success | 1:
+      return Nlfsr(self._size, Taps)
+    return None
+
