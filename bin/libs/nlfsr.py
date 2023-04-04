@@ -946,6 +946,8 @@ class NlfsrList:
       Architecture = nlfsr.getArchitecture()
       Single, Double, Triple = 0,0,0
       Xors = Expander.getXors()
+      LCData = []
+      SeqStats = []
       try:
         LCData = Expander.LinearComplexity
       except:
