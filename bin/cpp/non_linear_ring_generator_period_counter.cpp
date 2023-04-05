@@ -114,6 +114,11 @@ int main(int argc, char* argv[])
          for (int TapIndex = 0; TapIndex < TapsCount; ++TapIndex) {
             int* Tap = TapsRow[TapIndex];
             int DestinationIndex = Tap[0];
+            AuxValue[DestinationIndex] = Value[DestinationIndex];
+         }
+         for (int TapIndex = 0; TapIndex < TapsCount; ++TapIndex) {
+            int* Tap = TapsRow[TapIndex];
+            int DestinationIndex = Tap[0];
             int TapMaxIndex = Tap[1];
             int AndResult = 1;
             for (int AIndex = 2; AIndex < TapMaxIndex; ++AIndex) {           
@@ -133,18 +138,18 @@ int main(int argc, char* argv[])
                AndResult = !AndResult;
             }
 `endif
-            int OldBit = Value[DestinationIndex];
-            int NewBit = OldBit ^ AndResult;
-            AuxValue[DestinationIndex] = NewBit;
-            if (OldBit != NewBit) {
-               if (NewBit == 1) OnesCount++;
-               else OnesCount--;
-            }
+            AuxValue[DestinationIndex] ^= AndResult;
          }
          for (int TapIndex = 0; TapIndex < TapsCount; ++TapIndex) {
             int* Tap = TapsRow[TapIndex];
             int DestinationIndex = Tap[0];
-            Value[DestinationIndex] = AuxValue[DestinationIndex];
+            int OldBit = Value[DestinationIndex];
+            int NewBit = AuxValue[DestinationIndex];
+            Value[DestinationIndex] = NewBit;
+            if (OldBit != NewBit) {
+               if (NewBit == 1) OnesCount++;
+               else OnesCount--;
+            }
          }
          Offset = (Offset+1) % Size;
          if (OnesCount <= 1) {

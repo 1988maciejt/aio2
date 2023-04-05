@@ -606,7 +606,53 @@ class Nlfsr(Lfsr):
       if Add:
         Result.append(n1)
     return Result
-  def toBooleanExpressionFromRing(self, Complementary = False, Reversed = False, Shorten = False) -> str:
+  
+  def toBooleanExpressionFromRing(self, Complementary = False, Reversed = False):
+    N = self.copy()
+    if N.toFibonacci():
+      Size = N._size
+      Taps = N._Config
+      print(Taps)
+      expr = "false"
+      for Tap in Taps:
+        D = Tap[0]
+        S = Tap[1]
+        if Aio.isType(S, 0):
+          S = [S]
+        Monomial = "true"
+        for Si in S:
+          if Complementary:
+            Si *= -1
+          SSign = -1 if Si < 0 else 1
+          Sabs = abs(Si) % Size
+          if Reversed:
+            Sabs = (Size - Sabs)
+          if SSign > 0:
+            Monomial += f" & x{Sabs}"
+          else:
+            Monomial += f" & (true ^ x{Sabs})"
+        expr += f" ^ ({Monomial})"
+        if D < 0:
+          expr += " ^ true"
+      expr += " ^ x0"
+      sexpr = str(SymPy.anf(expr))
+      inv = 0
+      if ("True" in sexpr):
+        inv = 1
+      sexpr = sexpr.replace("True ^ ", "")
+      sexpr = sexpr.replace(" ^ True", "")
+      sexpr = sexpr.replace(" ^ ", ", ")
+      sexpr = sexpr.replace(" & ", ", ")
+      sexpr = sexpr.replace("x", "")
+      if inv:
+        sexpr = f"~({sexpr})"
+      return sexpr
+    else:
+      Aio.printError("Converting to ANF expression impossible.")
+  
+  toAnf = toBooleanExpressionFromRing
+  
+  def _old_toBooleanExpressionFromRing(self, Complementary = False, Reversed = False, Shorten = False) -> str:
 #    if not self.isCrossingFree():
 #      return "Error: NLFSR must be crossing-free!"
     GlobalInv = False
@@ -861,6 +907,62 @@ class Nlfsr(Lfsr):
         SSData.append(Nums.count(1))
       PS.SeqStats = SSData
     return PS
+  
+  def rotateTap(self, TapIndex : int, FFs : int) -> bool:
+    if 0 <= TapIndex < len(self._Config):
+      Size = self._size
+      Tap = self._Config[TapIndex]
+      S = Tap[1]
+      D = Tap[0]
+      DSig = 1 if (D >= 0) else -1
+      D = abs(D)
+      D += FFs
+      while D >= Size:
+        D -= Size
+      while D < 0:
+        D += Size
+      if (DSig < 0) and (D == 0):
+        D += Size
+      D *= DSig
+      if Aio.isType(S, 0):
+        S += FFs
+        SSig = 1 if (S >= 0) else -1
+        S = abs(S)
+        while S >= Size:
+          S -= Size
+        while S < 0:
+          S += Size
+        if (SSig < 0) and (S == 0):
+          S += Size
+        S *= SSig
+      else:
+        NewS = []
+        for Si in S:
+          SSig = 1 if (Si >= 0) else -1
+          Si = abs(Si)
+          Si += FFs
+          while Si >= Size:
+            Si -= Size
+          while Si < 0:
+            Si += Size
+          if (SSig < 0) and (Si == 0):
+            Si += Size
+          Si *= SSig
+          NewS.append(Si)
+        S = NewS
+      Tap = [D, S]
+      self._Config[TapIndex] = Tap
+      self._period = None
+      return True
+    return False
+  
+  def toFibonacci(self) -> bool:
+    Size = self._size
+    Success = True
+    for i in range(len(self._Config)):
+      D = self._Config[i][0]
+      Success &= self.rotateTap(i, Size-1-D)
+    return Success
         
     
         
