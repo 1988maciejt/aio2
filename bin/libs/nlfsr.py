@@ -79,6 +79,7 @@ class Nlfsr(Lfsr):
       self._baValue = Size._baValue.copy()
       self._points = Size._points
       self._exename = Size._exename
+      self._period = Size._period
     else:  
       self._size = Size
       self._Config = []
@@ -93,6 +94,7 @@ class Nlfsr(Lfsr):
       #self._Config.sort(key=msortf)
       self._baValue = bitarray(self._size)
       self._exename = ""
+      self._period = None
       self.reset()
   def __repr__(self) -> str:
     result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ")"
@@ -131,6 +133,8 @@ class Nlfsr(Lfsr):
         self._next1()
     return self._baValue
   def getPeriod(self):
+    if self._period is not None:
+      return self._period
     ArgStr = str(self._size)
     WithInverters = 0
     for C in self._Config:
@@ -156,10 +160,12 @@ class Nlfsr(Lfsr):
         Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
       else:
         Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
-      print(Res)
+      #print(Res)
     try:
-      return int(Res)
+      self._period = int(Res)
+      return self._period
     except Exception as inst:
+      self._period = None
       Aio.printError(f"Nlfsr.getPeriod - cpp program returns weird result:\n{Res}\nArgs: {ArgStr}", inst)
       return -1
   def isMaximum(self):
@@ -613,7 +619,7 @@ class Nlfsr(Lfsr):
     if N.toFibonacci():
       Size = N._size
       Taps = N._Config
-      print(Taps)
+      #print(Taps)
       expr = "false"
       for Tap in Taps:
         D = Tap[0]
@@ -652,6 +658,8 @@ class Nlfsr(Lfsr):
       Aio.printError("Converting to ANF expression impossible.")
   
   toAnf = toBooleanExpressionFromRing
+  toANF = toBooleanExpressionFromRing
+  
   
   def _old_toBooleanExpressionFromRing(self, Complementary = False, Reversed = False, Shorten = False) -> str:
 #    if not self.isCrossingFree():
@@ -964,6 +972,15 @@ class Nlfsr(Lfsr):
       D = self._Config[i][0]
       Success &= self.rotateTap(i, Size-1-D)
     return Success
+  
+  def isLfsr(self) -> bool:
+    Taps = self._Config
+    for Tap in Taps:
+      S = Tap[1]
+      if Aio.isType(Tap, []):
+        if len(S) > 1:
+          return False
+    return True
         
     
         
@@ -1145,11 +1162,44 @@ class NlfsrFpgaBooster:
 
   __slots__ = ("_size")
 
-  def __init__(self, Size : int) -> None:
+  def __init__(self, Size = 32) -> None:
     self._size = Size
     
   def getSize(self) -> int:
     return self._size
+  
+  def getNlfsrListFromFile(self, FileName : str, Verify = 1, DIscardLfsrs = 1, OnlyMaximum = 0) -> list:
+    Result = []
+    Max = (1 << self._size) - 1
+    Data = readFile(FileName)
+    for Line in Data.split("\n"):
+      R = re.search(r'size\s*[:=]\s*([0-9]+)', Line)
+      if R:
+        self._size = int(R.group(1))
+        Aio.print(f"// Found size: {self._size}")    
+        Max = (1 << self._size) - 1
+      R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Pointer\s*[:=]\s*([0-9a-fA-Fx]+)', Line)
+      if R:
+        n = self.getNlfsrFromHexString(R.group(2))
+        if DIscardLfsrs:
+          if n.isLfsr():
+            continue
+        n._period = bau.ba2int(Bitarray.fromStringOfHex(R.group(1)))
+        if OnlyMaximum:
+          if n._period < Max:
+            continue
+        Result.append(n)
+    Result = Nlfsr.filter(Result)
+    if Verify:
+      CppPrograms.NLSFRPeriodCounterInvertersAllowed.compile()
+      exe = CppPrograms.NLSFRPeriodCounterInvertersAllowed.ExeFileName
+      for R in Result:
+        R._exename = exe
+      Res2 = []
+      for Res in p_imap(_verify_nlfsr, Result, desc="Verification"):
+        Res2 += Res
+      return Res2
+    return Result
   
   def getNlfsrFromHexString(self, Text : str) -> Nlfsr:
     Config = Bitarray.fromStringOfHex(Text, 32)
@@ -1169,10 +1219,10 @@ class NlfsrFpgaBooster:
             Sources.append(FirstInputIndex - j)
       if len(Sources) > 0:
         if TapConfig[10]:
-          Destination *= 1
+          Destination *= -1
         Taps.append([Destination, Sources])
-      print(FirstInputIndex, TapConfig, [Destination, Sources])
-    print(TapCount, Config, Taps)
+      #print(FirstInputIndex, TapConfig, [Destination, Sources])
+    #print(TapCount, Config, Taps)
     Success = 0
     for Tap in Taps:
       if len(Tap[1]) > 1:
@@ -1182,3 +1232,11 @@ class NlfsrFpgaBooster:
       return Nlfsr(self._size, Taps)
     return None
 
+
+def _verify_nlfsr(nlfsr : Nlfsr) -> Nlfsr:
+  P = nlfsr._period
+  nlfsr._period = None
+  if (P != nlfsr.getPeriod()):
+    Aio.print(f"Period invalid - {P} while should be {nlfsr._period}:\n  {repr(nlfsr)}")
+    return []
+  return [nlfsr]

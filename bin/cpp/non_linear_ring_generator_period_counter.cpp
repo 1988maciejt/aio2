@@ -98,7 +98,8 @@ int main(int argc, char* argv[])
    int* Value = new int[Size];
    int* AuxValue = new int[Size];
    int OneInFlop = 0;
-   unsigned long long int Max = 1<<Size;
+   unsigned long long int Max = 1;
+   Max <<= Size;
    unsigned long long int Period = 0;
    while (1) {
       for (int i = 0; i < Size; i++) {
