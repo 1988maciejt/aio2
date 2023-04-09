@@ -440,9 +440,9 @@ class Nlfsr(Lfsr):
       FullPT.add([
         f'  \nComplement\nReversed\nRev.,Compl.',
         f'{R.toBooleanExpressionFromRing(Shorten=1)}\n\
-  {R.toBooleanExpressionFromRing(Complementary=1, Shorten=1)}\n\
+  {R.toBooleanExpressionFromRing(Complement=1, Shorten=1)}\n\
   {R.toBooleanExpressionFromRing(Reversed=1, Shorten=1)}\n\
-  {R.toBooleanExpressionFromRing(Reversed=1, Complementary=1, Shorten=1)}',
+  {R.toBooleanExpressionFromRing(Reversed=1, Complement=1, Shorten=1)}',
         R.getFullInfo(Header=0),
         repr(R)
       ])     
@@ -614,7 +614,7 @@ class Nlfsr(Lfsr):
         Result.append(n1)
     return Result
   
-  def toBooleanExpressionFromRing(self, Complementary = False, Reversed = False):
+  def toBooleanExpressionFromRing(self, Complement = False, Reversed = False):
     N = self.copy()
     if N.toFibonacci():
       Size = N._size
@@ -628,7 +628,7 @@ class Nlfsr(Lfsr):
           S = [S]
         Monomial = "true"
         for Si in S:
-          if Complementary:
+          if Complement:
             Si *= -1
           SSign = -1 if Si < 0 else 1
           Sabs = abs(Si) % Size
@@ -661,7 +661,7 @@ class Nlfsr(Lfsr):
   toANF = toBooleanExpressionFromRing
   
   
-  def _old_toBooleanExpressionFromRing(self, Complementary = False, Reversed = False, Shorten = False) -> str:
+  def _old_toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Shorten = False) -> str:
 #    if not self.isCrossingFree():
 #      return "Error: NLFSR must be crossing-free!"
     GlobalInv = False
@@ -678,7 +678,7 @@ class Nlfsr(Lfsr):
       if Aio.isType(S, 0):
         if S == 0:
           S = self._size
-        if Complementary:
+        if Complement:
           S *= -1
         if S < 0:
           GlobalInv = not(GlobalInv)
@@ -695,7 +695,7 @@ class Nlfsr(Lfsr):
           Siinv = False
           if Si == 0:
             Si = self._size
-          if Complementary:
+          if Complement:
             Si *= -1
           #print(Si)
           if Si < 0:
@@ -1100,7 +1100,7 @@ Size   : {nlfsr.getSize()}
 # Taps : {len(nlfsr.getTaps())}
 
 EQ               : {Eq}
-EQ Complementary : {EqC} 
+EQ Complement : {EqC} 
 EQ Reversed      : {EqR}
 EQ Comp-Rev      : {EqCR}
 

@@ -351,8 +351,8 @@ def _categoryNlfsrs_info():
   global _GlobalNlfsr
   Text =  f'Polynomial:          {_GlobalNlfsr.toBooleanExpressionFromRing(Shorten=1)}\n'
   Text += f'Polynomial REV:      {_GlobalNlfsr.toBooleanExpressionFromRing(Reversed=1, Shorten=1)}\n'
-  Text += f'Polynomial COMP:     {_GlobalNlfsr.toBooleanExpressionFromRing(Complementary=1, Shorten=1)}\n'
-  Text += f'Polynomial REV,COMP: {_GlobalNlfsr.toBooleanExpressionFromRing(Complementary=1, Reversed=1, Shorten=1)}\n'
+  Text += f'Polynomial COMP:     {_GlobalNlfsr.toBooleanExpressionFromRing(Complement=1, Shorten=1)}\n'
+  Text += f'Polynomial REV,COMP: {_GlobalNlfsr.toBooleanExpressionFromRing(Complement=1, Reversed=1, Shorten=1)}\n'
   Text += f'CROSSING-FREE: {_GlobalNlfsr.isCrossingFree()}\n'
   Text += _GlobalNlfsr.getFullInfo()
   message_dialog(title="Nlfsr - info", text=Text).run()
@@ -415,9 +415,9 @@ def _categoryNlfsrs_searchForMaximum():
     FullPT.add([
       f'  \nComplement\nReversed\nRev.,Compl.',
       f'{R.toBooleanExpressionFromRing(Shorten=1)}\n\
-{R.toBooleanExpressionFromRing(Complementary=1, Shorten=1)}\n\
+{R.toBooleanExpressionFromRing(Complement=1, Shorten=1)}\n\
 {R.toBooleanExpressionFromRing(Reversed=1, Shorten=1)}\n\
-{R.toBooleanExpressionFromRing(Reversed=1, Complementary=1, Shorten=1)}',
+{R.toBooleanExpressionFromRing(Reversed=1, Complement=1, Shorten=1)}',
       R.getFullInfo(Header=0),
       repr(R)
     ])
