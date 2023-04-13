@@ -1059,23 +1059,21 @@ class NlfsrList:
       nlfsr = combo[0]
       Expander = combo[1]
       FileName = f"data/{repr(nlfsr)}.html"
-      Eq = nlfsr.toBooleanExpressionFromRing(0, 0, 1)
-      EqC = nlfsr.toBooleanExpressionFromRing(1, 0, 1)
-      EqR = nlfsr.toBooleanExpressionFromRing(0, 1, 1)
-      EqCR = nlfsr.toBooleanExpressionFromRing(1, 1, 1)
+      Eq = nlfsr.toBooleanExpressionFromRing(0, 0)
+      EqC = nlfsr.toBooleanExpressionFromRing(1, 0)
+      EqR = nlfsr.toBooleanExpressionFromRing(0, 1)
+      EqCR = nlfsr.toBooleanExpressionFromRing(1, 1)
       Architecture = nlfsr.getArchitecture()
       Single, Double, Triple = 0,0,0
       Xors = Expander.getXors()
-      LCData = []
-      SeqStats = []
       try:
         LCData = Expander.LinearComplexity
       except:
-        pass
+        LCData = []
       try:
         SeqStats = Expander.SeqStats
       except:
-        pass
+        SeqStats = []
       LCTable = PandasTable(["XORed_FFs", "Linear_complexity", "#Unique_values"])
       for i in range(len(Xors)):
         XOR = Xors[i]
@@ -1129,8 +1127,10 @@ EXPANDER:
 def _make_expander(nlfsr) -> list:
   if nlfsr.getSize() <= 14:
     return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1) ]
-  else:
+  elif nlfsr.getSize() <= 24:
     return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1) ]
+  else:
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=0) ]
       
       
     
