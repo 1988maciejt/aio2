@@ -894,6 +894,7 @@ class Nlfsr(Lfsr):
         for i in XorToTest:
           ThisSequence ^= SingleSequences[i]
         if OperateOnHash:
+          print("HERE")
           H = Bitarray.getCircularInsensitiveHash(ThisSequence, HBlockSize)
           if H not in UniqueSequences:
             UniqueSequences.append(H)

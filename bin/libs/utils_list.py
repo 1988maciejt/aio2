@@ -222,7 +222,7 @@ class List:
     IndexOfFirstItem = (IndexOfFirstItem % Modulus)
     return lst[IndexOfFirstItem:] + lst[:IndexOfFirstItem]
   
-  def circularSort(ListOfNumbers) -> list:
+  def circularAlign(ListOfNumbers) -> list:
     Min = min(ListOfNumbers)
     MinIndices = List.search(ListOfNumbers, Min)
     Dict = {}

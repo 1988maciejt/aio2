@@ -90,9 +90,8 @@ class Bitarray:
     
 
     def getCircularInsensitiveHash(Word : bitarray, BlockSize) -> int:
-        W = Word.copy()
-        WLen = len(W)
-        W += W[0:BlockSize-1]
+        WLen = len(Word)
+        W = Word + Word[0:BlockSize-1]
         Z = bau.zeros(BlockSize)
         Z[0] = 1
         Z[BlockSize-1] = 1
@@ -102,8 +101,10 @@ class Bitarray:
         elif len(Zeros) == 1:
             RZeros = 0
         else:
-            RZeros = List.circularSort(List.circularDiff(Zeros, WLen))
+            RZeros = List.circularAlign(List.circularDiff(Zeros, WLen))
+        Zeros.clear()
         #print(RZeros)
         #HZ = hashlib.sha1(pickle.dumps(RZeros)).hexdigest()
         HZ = hash(pickle.dumps(RZeros))
+        RZeros.clear()
         return HZ
