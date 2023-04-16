@@ -877,12 +877,13 @@ class Nlfsr(Lfsr):
     Values = self.getValues(reset=1)
     SequenceLength = len(Values)
     XorsList = []
-    SingleSequences = [bitarray() for i in range(self._size)]
+    SingleSequences = [bitarray(SequenceLength) for i in range(self._size)]
     UniqueSequences = []
     for word_index in range(SequenceLength):
       Word = Values[word_index]
       for flop_index in range(self._size):
-        SingleSequences[flop_index].append(Word[flop_index])
+        SingleSequences[flop_index][word_index] = Word[flop_index]
+    Values.clear()
     k = MinK
     MyFlopIndexes = [i for i in range(self._size)]
     HBlockSize = (self._size>>1) + 2
@@ -899,6 +900,7 @@ class Nlfsr(Lfsr):
             #print(f"Added {XorToTest}")
             if len(XorsList) == NumberOfUniqueSequences > 0:
               break
+          ThisSequence.clear()
         else:
           IsUnique = 1
           for Reference in UniqueSequences:
