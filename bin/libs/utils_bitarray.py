@@ -1,7 +1,9 @@
 from bitarray import *
 from random import randint
 import bitarray.util as bau
-
+import hashlib
+import pickle
+from libs.utils_list import *
 
 
 class Bitarray:
@@ -85,3 +87,22 @@ class Bitarray:
         for Group in Text.strip().split(" "):
             Result += bau.int2ba(int(Group, 16), GroupSize)
         return Result
+    
+
+    def getCircularInsensitiveHash(Word : bitarray, BlockSize) -> int:
+        W = Word.copy()
+        WLen = len(W)
+        W += W[0:BlockSize-1]
+        Z = bau.zeros(BlockSize)
+        Z[0] = 1
+        Z[BlockSize-1] = 1
+        Zeros = W.search(Z)
+        if len(Zeros) == 0:
+            RZeros = -1
+        elif len(Zeros) == 1:
+            RZeros = 0
+        else:
+            RZeros = List.circularSort(List.circularDiff(Zeros, WLen))
+        #print(RZeros)
+        HZ = hashlib.sha1(pickle.dumps(RZeros)).hexdigest()
+        return HZ

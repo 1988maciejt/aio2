@@ -8,6 +8,7 @@ from p_tqdm import *
 from bitarray import *
 from libs.generators import *
 from libs.remote_aio import *
+import hashlib
 
   
 class Nlfsr(Lfsr):
@@ -65,10 +66,10 @@ class Nlfsr(Lfsr):
     if Header:
       Result = f'{self._size}-bit NLFSRs  and taps list and equations:\n'
     Result += self.getArchitecture() + "\n"
-    Result += "   " + self.toBooleanExpressionFromRing(0, 0, True) + "\n"
-    Result += "C  " + self.toBooleanExpressionFromRing(1, 0, True) + "\n"
-    Result += " R " + self.toBooleanExpressionFromRing(0, 1, True) + "\n"
-    Result += "CR " + self.toBooleanExpressionFromRing(1, 1, True) + "\n"
+    Result += "   " + self.toBooleanExpressionFromRing(0, 0) + "\n"
+    Result += "C  " + self.toBooleanExpressionFromRing(1, 0) + "\n"
+    Result += " R " + self.toBooleanExpressionFromRing(0, 1) + "\n"
+    Result += "CR " + self.toBooleanExpressionFromRing(1, 1) + "\n"
     return Result
   def getTaps(self) -> int:
     return self._Config.copy()
@@ -867,6 +868,7 @@ class Nlfsr(Lfsr):
     Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
   def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = 0, StoreSeqStatesData = 0):
     MaxK = self._size
+    OperateOnHash = 0 if (StoreLinearComplexityData or StoreSeqStatesData) else 1
     if self._size >= XorInputsLimit > 0:
       MaxK = XorInputsLimit
     MinK = 1
@@ -883,21 +885,31 @@ class Nlfsr(Lfsr):
         SingleSequences[flop_index].append(Word[flop_index])
     k = MinK
     MyFlopIndexes = [i for i in range(self._size)]
+    HBlockSize = (self._size>>1) + 2
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       for XorToTest in List.getCombinations(MyFlopIndexes, k):
         ThisSequence = bau.zeros(SequenceLength)
         for i in XorToTest:
           ThisSequence ^= SingleSequences[i]
-        IsUnique = 1
-        for Reference in UniqueSequences:
-          if Bitarray.getShiftBetweenSequences(ThisSequence, Reference) is not None:
-            IsUnique = 0
-            break
-        if IsUnique:
-          UniqueSequences.append(ThisSequence)
-          XorsList.append(list(XorToTest))
-          if len(XorsList) == NumberOfUniqueSequences > 0:
-            break
+        if OperateOnHash:
+          H = Bitarray.getCircularInsensitiveHash(ThisSequence, HBlockSize)
+          if H not in UniqueSequences:
+            UniqueSequences.append(H)
+            XorsList.append(list(XorToTest))
+            #print(f"Added {XorToTest}")
+            if len(XorsList) == NumberOfUniqueSequences > 0:
+              break
+        else:
+          IsUnique = 1
+          for Reference in UniqueSequences:
+            if Bitarray.getShiftBetweenSequences(ThisSequence, Reference) is not None:
+              IsUnique = 0
+              break
+          if IsUnique:
+            UniqueSequences.append(ThisSequence)
+            XorsList.append(list(XorToTest))
+            if len(XorsList) == NumberOfUniqueSequences > 0:
+              break
       k += 1
     if len(XorsList) < NumberOfUniqueSequences > 0:
       Aio.printError(f"Cannot found {NumberOfUniqueSequences} unique sequences. Only {len(XorsList)} was found.")

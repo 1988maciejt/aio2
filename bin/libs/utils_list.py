@@ -189,3 +189,53 @@ class List:
     
   def intersection(lst1 : list, lst2 : list) -> list:
     return [value for value in lst1 if value in lst2]
+  
+  def search(lst : list, item) -> list:
+    indices = []
+    for idx, value in enumerate(lst):
+        if value == item:
+            indices.append(idx)
+    return indices
+  
+  def circularDiff(ListOfNumbers : list, Modulus : int) -> list:
+    Result = []
+    for i in range(len(ListOfNumbers)):
+      D = ListOfNumbers[i] - ListOfNumbers[i-1]
+      if i == 0:
+        D += Modulus
+      Result.append(D)
+    return Result
+  
+  def circularIterator(lst : list, FromIndex : int, ToIndex : int):
+    Modulus = len(lst)
+    while FromIndex < 0:
+      FromIndex += Modulus
+    while ToIndex < FromIndex:
+      ToIndex += Modulus
+    for i in range(FromIndex, ToIndex+1):
+      yield lst[i % Modulus]
+      
+  def circularShift(lst, IndexOfFirstItem : int)-> list:
+    Modulus = len(lst)
+    while IndexOfFirstItem < 0:
+      IndexOfFirstItem += Modulus
+    IndexOfFirstItem = (IndexOfFirstItem % Modulus)
+    return lst[IndexOfFirstItem:] + lst[:IndexOfFirstItem]
+  
+  def circularSort(ListOfNumbers) -> list:
+    Min = min(ListOfNumbers)
+    MinIndices = List.search(ListOfNumbers, Min)
+    Dict = {}
+    for i in range(len(MinIndices)):
+      Num = 0
+      for CItem in List.circularIterator(ListOfNumbers, MinIndices[i-1], MinIndices[i]-1):
+        Num = (Num * 10) + CItem
+      Dict[MinIndices[i-1]] = Num
+    MaxIndex = -1
+    MaxValue = -1
+    for k in Dict.keys():
+      v = Dict[k]
+      if v > MaxValue:
+        MaxValue = v
+        MaxIndex = k
+    return List.circularShift(ListOfNumbers, MaxIndex)
