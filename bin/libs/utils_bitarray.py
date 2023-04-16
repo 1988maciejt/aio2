@@ -104,5 +104,6 @@ class Bitarray:
         else:
             RZeros = List.circularSort(List.circularDiff(Zeros, WLen))
         #print(RZeros)
-        HZ = hashlib.sha1(pickle.dumps(RZeros)).hexdigest()
+        #HZ = hashlib.sha1(pickle.dumps(RZeros)).hexdigest()
+        HZ = hash(pickle.dumps(RZeros))
         return HZ

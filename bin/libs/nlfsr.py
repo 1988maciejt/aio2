@@ -886,7 +886,8 @@ class Nlfsr(Lfsr):
     Values.clear()
     k = MinK
     MyFlopIndexes = [i for i in range(self._size)]
-    HBlockSize = (self._size>>1) + 2
+    #HBlockSize = (self._size>>1) + 2
+    HBlockSize = (self._size - 4)
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       for XorToTest in List.getCombinations(MyFlopIndexes, k):
         ThisSequence = bau.zeros(SequenceLength)
