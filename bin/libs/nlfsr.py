@@ -874,16 +874,20 @@ class Nlfsr(Lfsr):
     MinK = 1
     if MaxK >= MinXorInputs > 0:
       MinK = MinXorInputs
-    Values = self.getValues(reset=1)
-    SequenceLength = len(Values)
+    #Values = self.getValues(reset=1)
+    #SequenceLength = len(Values)
+    SequenceLength = self.getPeriod()
     XorsList = []
     SingleSequences = [bitarray(SequenceLength) for i in range(self._size)]
     UniqueSequences = []
+    self.reset()
     for word_index in range(SequenceLength):
-      Word = Values[word_index]
+      #Word = Values[word_index]
+      Word = self._baValue
+      self.next()
       for flop_index in range(self._size):
         SingleSequences[flop_index][word_index] = Word[flop_index]
-    Values.clear()
+    #Values.clear()
     k = MinK
     MyFlopIndexes = [i for i in range(self._size)]
     #HBlockSize = (self._size>>1) + 2
@@ -894,7 +898,6 @@ class Nlfsr(Lfsr):
         for i in XorToTest:
           ThisSequence ^= SingleSequences[i]
         if OperateOnHash:
-          print("HERE")
           H = Bitarray.getCircularInsensitiveHash(ThisSequence, HBlockSize)
           if H not in UniqueSequences:
             UniqueSequences.append(H)
