@@ -2016,6 +2016,19 @@ class Lfsr:
     self._baValue.setall(0)
     self._baValue[0] = 1
     return self._baValue
+  
+  def getValuesIterator(self, n = 0, step = 1, reset = True, AsStrings = False):
+    if n <= 0:
+      n = self.getPeriod()
+    if reset:
+      self.reset()
+    for i in range(n):
+      if AsStrings:
+        yield Bitarray.toString(self._baValue)
+      else:
+        yield self._baValue.copy()
+      self.next(step)
+  
   def getValues(self, n = 0, step = 1, reset = True, AsStrings = False) -> list:
     """Returns a list containing consecutive values of the LFSR.
 
