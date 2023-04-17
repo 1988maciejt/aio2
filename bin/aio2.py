@@ -1,4 +1,3 @@
-from aio import *
 from aio_config import *
 
 # auto install missing libs
@@ -49,6 +48,7 @@ def _installMissingModules(LibNamesList : list) -> list:
 
 _installMissingModules(_required_libs)
 
+from aio import *
 
 shell_config.printHeader()
 
