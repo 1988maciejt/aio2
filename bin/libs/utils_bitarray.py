@@ -102,9 +102,7 @@ class Bitarray:
             RZeros = 0
         else:
             RZeros = List.circularAlign(List.circularDiff(Zeros, WLen))
-        Zeros.clear()
         #print(RZeros)
         #HZ = hashlib.sha1(pickle.dumps(RZeros)).hexdigest()
         HZ = hash(pickle.dumps(RZeros))
-        RZeros.clear()
         return HZ

@@ -1145,7 +1145,7 @@ EXPANDER:
 
 def _make_expander(nlfsr) -> list:
   if nlfsr.getSize() <= 14:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1) ]
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=0) ]
   elif nlfsr.getSize() <= 24:
     return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1) ]
   else:
