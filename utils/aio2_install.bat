@@ -35,3 +35,4 @@ pip3 install --upgrade pandas
 pip3 install --upgrade netifaces
 pip3 install --upgrade pint
 pip3 install --upgrade textual
+pip3 install --upgrade hyperloglog

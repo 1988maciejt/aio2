@@ -868,7 +868,6 @@ class Nlfsr(Lfsr):
     Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
   def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = 0, StoreSeqStatesData = 0):
     MaxK = self._size
-    OperateOnHash = 0 if (StoreLinearComplexityData or StoreSeqStatesData) else 1
     if self._size >= XorInputsLimit > 0:
       MaxK = XorInputsLimit
     MinK = 1
@@ -880,6 +879,10 @@ class Nlfsr(Lfsr):
     XorsList = []
     SingleSequences = [bitarray(SequenceLength) for i in range(self._size)]
     UniqueSequences = []
+    if StoreLinearComplexityData:
+      LCData = []
+    if StoreSeqStatesData:
+      SSData = []
     self.reset()
     for word_index in range(SequenceLength):
       #Word = Values[word_index]
@@ -897,42 +900,25 @@ class Nlfsr(Lfsr):
         ThisSequence = bau.zeros(SequenceLength)
         for i in XorToTest:
           ThisSequence ^= SingleSequences[i]
-        if OperateOnHash:
-          H = Bitarray.getCircularInsensitiveHash(ThisSequence, HBlockSize)
-          if H not in UniqueSequences:
-            UniqueSequences.append(H)
-            XorsList.append(list(XorToTest))
-            #print(f"Added {XorToTest}")
-            if len(XorsList) == NumberOfUniqueSequences > 0:
-              break
-          ThisSequence.clear()
-        else:
-          IsUnique = 1
-          for Reference in UniqueSequences:
-            if Bitarray.getShiftBetweenSequences(ThisSequence, Reference) is not None:
-              IsUnique = 0
-              break
-          if IsUnique:
-            UniqueSequences.append(ThisSequence)
-            XorsList.append(list(XorToTest))
-            if len(XorsList) == NumberOfUniqueSequences > 0:
-              break
+        H = Bitarray.getCircularInsensitiveHash(ThisSequence, HBlockSize)
+        if H not in UniqueSequences:
+          UniqueSequences.append(H)
+          XorsList.append(list(XorToTest))
+          if StoreLinearComplexityData:
+            LCData.append(Polynomial.decodeUsingBerlekampMassey(ThisSequence).getDegree())
+          if StoreSeqStatesData:
+            SSData.append(Bitarray.getCardinality(ThisSequence, self._size))
+          #print(f"Added {XorToTest}")
+          if len(XorsList) == NumberOfUniqueSequences > 0:
+            break
+        ThisSequence.clear()
       k += 1
     if len(XorsList) < NumberOfUniqueSequences > 0:
       Aio.printError(f"Cannot found {NumberOfUniqueSequences} unique sequences. Only {len(XorsList)} was found.")
     PS = PhaseShifter(self, XorsList)
     if StoreLinearComplexityData:
-      LCData = []
-      for US in UniqueSequences:
-        LCData.append(Polynomial.decodeUsingBerlekampMassey(US).getDegree())
       PS.LinearComplexity = LCData
     if StoreSeqStatesData:
-      SSData = []
-      for US in UniqueSequences:
-        Nums = bau.zeros(1<<self._size)
-        for x in Bitarray.movingWindowIterator(US, self._size):
-          Nums[bau.ba2int(x)] = 1
-        SSData.append(Nums.count(1))
       PS.SeqStats = SSData
     return PS
   
@@ -1145,11 +1131,9 @@ EXPANDER:
 
 def _make_expander(nlfsr) -> list:
   if nlfsr.getSize() <= 14:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=0) ]
-  elif nlfsr.getSize() <= 24:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1) ]
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1) ]
   else:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=0) ]
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1) ]
       
       
     

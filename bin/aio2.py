@@ -23,7 +23,8 @@ _required_libs = [
   "pandas",
   "netifaces",
   "pint",
-  "textual"
+  "textual",
+  "hyperloglog"
 ]
 def _isModuleAvailable(LibName : str) -> bool:
   try:

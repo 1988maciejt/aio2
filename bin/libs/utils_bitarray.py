@@ -4,6 +4,7 @@ import bitarray.util as bau
 import hashlib
 import pickle
 from libs.utils_list import *
+import hyperloglog
 
 
 class Bitarray:
@@ -88,7 +89,6 @@ class Bitarray:
             Result += bau.int2ba(int(Group, 16), GroupSize)
         return Result
     
-
     def getCircularInsensitiveHash(Word : bitarray, BlockSize) -> int:
         WLen = len(Word)
         W = Word + Word[0:BlockSize-1]
@@ -106,3 +106,15 @@ class Bitarray:
         #HZ = hashlib.sha1(pickle.dumps(RZeros)).hexdigest()
         HZ = hash(pickle.dumps(RZeros))
         return HZ
+    
+    def getHyperLogLogCardinality(Word : bitarray, TupleSize : int, Error = 0.01) -> int:
+        hll = hyperloglog.HyperLogLog(Error)
+        for t in Bitarray.movingWindowIterator(Word, TupleSize):
+            hll.add(t)
+        return len(hll)
+    
+    def getCardinality(Word : bitarray, TupleSize : int) -> int:
+        Res = bau.zeros(1<<TupleSize)
+        for t in Bitarray.movingWindowIterator(Word, TupleSize):
+            Res[bau.ba2int(t)] = 1
+        return Res.count(1)
