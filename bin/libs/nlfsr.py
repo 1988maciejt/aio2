@@ -1077,7 +1077,7 @@ class NlfsrList:
     for combo in p_imap(_make_expander, NlfsrsList):
       nlfsr = combo[0]
       Expander = combo[1]
-      FileName = hashlib.sha256(f"data/{repr(nlfsr)}").hexdigest()+".html"
+      FileName = "data/" + hashlib.sha256(bytes(repr(nlfsr), "utf-8")).hexdigest() + ".html"
       Eq = nlfsr.toBooleanExpressionFromRing(0, 0)
       EqC = nlfsr.toBooleanExpressionFromRing(1, 0)
       EqR = nlfsr.toBooleanExpressionFromRing(0, 1)
