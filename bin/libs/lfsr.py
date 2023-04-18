@@ -1963,6 +1963,8 @@ class Lfsr:
               and it cannot determine the period.
     """
     MaxResult = Int.mersenne(self._size) + 1
+    if self.isMaximum():
+      return MaxResult
     self.reset()
     value0 = self._baValue.copy()
     valuebefore = self._baValue.copy()

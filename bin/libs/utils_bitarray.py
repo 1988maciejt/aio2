@@ -5,6 +5,7 @@ import hashlib
 import pickle
 from libs.utils_list import *
 import hyperloglog
+from libs.generators import *
 
 
 class Bitarray:
@@ -118,3 +119,11 @@ class Bitarray:
         for t in Bitarray.movingWindowIterator(Word, TupleSize):
             Res[bau.ba2int(t)] = 1
         return Res.count(1)
+    
+    def getTuplesHistogram(Word : bitarray, TupleSize : int) -> int:
+        Res = [0 for i in range(1<<TupleSize)]
+        for i in range(1<<TupleSize):
+            Res[i] = 0
+        for t in Bitarray.movingWindowIterator(Word, TupleSize):
+            Res[bau.ba2int(t)] += 1
+        return Res

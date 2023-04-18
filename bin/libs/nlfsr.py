@@ -866,7 +866,7 @@ class Nlfsr(Lfsr):
   def createPhaseShifter(self):
     """Use 'createExpander' instead. It will return a PhaseSHifter object too."""
     Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = 0, StoreSeqStatesData = 0):
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = 0, StoreSeqStatesData = 0, Store2bitTuplesHistograms = 0):
     MaxK = self._size
     if self._size >= XorInputsLimit > 0:
       MaxK = XorInputsLimit
@@ -883,9 +883,10 @@ class Nlfsr(Lfsr):
       LCData = []
     if StoreSeqStatesData:
       SSData = []
+    if Store2bitTuplesHistograms:
+      Histo2 = []
     self.reset()
     for word_index in range(SequenceLength):
-      #Word = Values[word_index]
       Word = self._baValue
       self.next()
       for flop_index in range(self._size):
@@ -908,6 +909,8 @@ class Nlfsr(Lfsr):
             LCData.append(Polynomial.decodeUsingBerlekampMassey(ThisSequence).getDegree())
           if StoreSeqStatesData:
             SSData.append(Bitarray.getCardinality(ThisSequence, self._size))
+          if Store2bitTuplesHistograms:
+            Histo2.append(Bitarray.getTuplesHistogram(ThisSequence, 2))
           #print(f"Added {XorToTest}")
           if len(XorsList) == NumberOfUniqueSequences > 0:
             break
@@ -920,6 +923,8 @@ class Nlfsr(Lfsr):
       PS.LinearComplexity = LCData
     if StoreSeqStatesData:
       PS.SeqStats = SSData
+    if Store2bitTuplesHistograms:
+      PS.Histo2 = Histo2
     return PS
   
   def rotateTap(self, TapIndex : int, FFs : int) -> bool:
