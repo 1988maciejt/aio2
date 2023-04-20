@@ -866,7 +866,7 @@ class Nlfsr(Lfsr):
   def createPhaseShifter(self):
     """Use 'createExpander' instead. It will return a PhaseSHifter object too."""
     Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = 0, StoreSeqStatesData = 0, Store2bitTuplesHistograms = 0):
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = 0, StoreSeqStatesData = 0, Store2bitTuplesHistograms = 0, PBar = 1):
     MaxK = self._size
     if self._size >= XorInputsLimit > 0:
       MaxK = XorInputsLimit
@@ -886,7 +886,11 @@ class Nlfsr(Lfsr):
     if Store2bitTuplesHistograms:
       Histo2 = []
     self.reset()
-    for word_index in range(SequenceLength):
+    if PBar:
+      Iterator = tqdm(range(SequenceLength), desc="Simulating NLFSR")
+    else:
+      Iterator = range(SequenceLength)
+    for word_index in Iterator:
       Word = self._baValue
       self.next()
       for flop_index in range(self._size):
@@ -897,11 +901,15 @@ class Nlfsr(Lfsr):
     #HBlockSize = (self._size>>1) + 2
     HBlockSize = (self._size - 4)
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
-      for XorToTest in List.getCombinations(MyFlopIndexes, k):
+      if PBar:
+        Iterator = tqdm(List.getCombinations(MyFlopIndexes, k), desc=f"Checking {k}-input XORs")
+      else:
+        Iterator = List.getCombinations(MyFlopIndexes, k)
+      for XorToTest in Iterator:
         ThisSequence = bau.zeros(SequenceLength)
         for i in XorToTest:
           ThisSequence ^= SingleSequences[i]
-        H = Bitarray.getCircularInsensitiveHash(ThisSequence, HBlockSize)
+        H = Bitarray.getRotationInsensitiveSignature(ThisSequence, HBlockSize)
         if H not in UniqueSequences:
           UniqueSequences.append(H)
           XorsList.append(list(XorToTest))
@@ -1136,9 +1144,11 @@ EXPANDER:
 
 def _make_expander(nlfsr) -> list:
   if nlfsr.getSize() <= 14:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1) ]
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1, PBar=0) ]
+  if nlfsr.getSize() <= 24:
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1, PBar=0) ]
   else:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1) ]
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=0, PBar=0) ]
       
       
     

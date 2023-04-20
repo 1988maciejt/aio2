@@ -90,7 +90,7 @@ class Bitarray:
             Result += bau.int2ba(int(Group, 16), GroupSize)
         return Result
     
-    def getCircularInsensitiveHash(Word : bitarray, BlockSize) -> int:
+    def getRotationInsensitiveSignature(Word : bitarray, BlockSize) -> int:
         WLen = len(Word)
         W = Word + Word[0:BlockSize-1]
         Z = bau.zeros(BlockSize)
