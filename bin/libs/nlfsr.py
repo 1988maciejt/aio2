@@ -615,19 +615,28 @@ class Nlfsr(Lfsr):
         Result.append(n1)
     return Result
   
-  def toBooleanExpressionFromRing(self, Complement = False, Reversed = False):
+  def toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Verbose = False):
     N = self.copy()
+    if Verbose:
+      Aio.print(f"// =============== NLFSR to ANF ========================")
+      Aio.print(f"// 1. Given architecture: ------------------------------")
+      Aio.print(f"{N.getArchitecture()}")
     if N.toFibonacci():
+      if Verbose:
+        Aio.print(f"// 2. Fibonacci architecture: --------------------------")
+        Aio.print(f"{N.getArchitecture()}")
       Size = N._size
       Taps = N._Config
       #print(Taps)
-      expr = "false"
+      expr = ""
+      Second = 0
       for Tap in Taps:
         D = Tap[0]
         S = Tap[1]
         if Aio.isType(S, 0):
           S = [S]
-        Monomial = "true"
+        Monomial = ""
+        MonomialSecond = 0
         for Si in S:
           if Complement:
             Si *= -1
@@ -635,15 +644,33 @@ class Nlfsr(Lfsr):
           Sabs = abs(Si) % Size
           if Reversed:
             Sabs = (Size - Sabs)
-          if SSign > 0:
-            Monomial += f" & x{Sabs}"
+          if MonomialSecond:
+            Monomial += " & "
           else:
-            Monomial += f" & (true ^ x{Sabs})"
-        expr += f" ^ ({Monomial})"
+            MonomialSecond = 1
+          if SSign > 0:
+            Monomial += f"x{Sabs}"
+          else:
+            Monomial += f"~x{Sabs}"
+        if Second:
+          expr += " ^ "
+        else:
+          Second = 1
+        expr += f"({Monomial})"
         if D < 0:
-          expr += " ^ true"
+          if Second:
+            expr += " ^ "
+          else:
+            Second = 1
+          expr += "true"
       expr += " ^ x0"
+      if Verbose:
+        Aio.print(f"// 3. Feedback function - directly written: ------------")
+        Aio.print(f"{expr}")
       sexpr = str(SymPy.anf(expr))
+      if Verbose:
+        Aio.print(f"// 4. Feedback function - ANF: -------------------------")
+        Aio.print(f"{sexpr}")
       inv = 0
       if ("True" in sexpr):
         inv = 1
@@ -654,8 +681,13 @@ class Nlfsr(Lfsr):
       sexpr = sexpr.replace("x", "")
       if inv:
         sexpr = f"~({sexpr})"
+      if Verbose:
+        Aio.print(f"// 5. Feedback function - simplified ANF: --------------")
+        Aio.print(f"{sexpr}")
       return sexpr
     else:
+      if Verbose:
+        Aio.print("// FAILED: conversion to Fibonacci form impossible.")
       Aio.printError("Converting to ANF expression impossible.")
   
   toAnf = toBooleanExpressionFromRing
@@ -987,7 +1019,7 @@ class Nlfsr(Lfsr):
     Size = self._size
     Success = True
     for i in range(len(self._Config)):
-      D = self._Config[i][0]
+      D = abs(self._Config[i][0]) % Size
       Success &= self.rotateTap(i, Size-1-D)
     return Success
   
@@ -999,6 +1031,68 @@ class Nlfsr(Lfsr):
         if len(S) > 1:
           return False
     return True
+  
+  
+  def toVerilog(self, ModuleName : str, InjectorIndexesList = []) -> str:
+    Module = \
+f'''module {ModuleName} (
+  input wire clk,
+  input wire enable,
+  input wire reset,
+'''
+    if len(InjectorIndexesList) > 0:
+      Module += f"  input wire [{len(InjectorIndexesList)-1}:0] injectors,\n"
+    Module += \
+f'''  output reg [{self.getSize()-1}:0] O
+);
+
+'''
+    Sources = []
+    Size = self._size
+    for i in range(Size):
+      Sources.append(f'O[{(i+1) % Size}]')
+    for Tap in self._Config:
+      D = Tap[0]
+      S = Tap[1]
+      if Aio.isType(S, 0):
+        S = [S]
+      MainInv = (D < 0)
+      D = abs(D) % Size
+      Expr = "("
+      Second = 0
+      for Si in S:
+        if Second:
+          Expr += " & "
+        else:
+          Second = 1
+        if (Si < 0):
+          Expr += "~"
+        Expr += f"O{abs(Si) % Size}"
+      Expr += ")"
+      if MainInv:
+        Expr = f"~{Expr}"
+      Sources[D] += f" ^ {Expr}"
+    for i in range(len(InjectorIndexesList)):
+      Sources[InjectorIndexesList[i]] += f" ^ injectors[{i}]"
+    ResetValue = 0
+    if len(InjectorIndexesList) <= 0:
+      ResetValue = 1
+    Module += \
+f'''always @ (posedge clk or posedge reset) begin
+  if (reset) begin
+    O <= {self.getSize()}'d{ResetValue};
+  end else begin
+    if (enable) begin
+'''
+    for i in range(len(Sources)):
+      Module += f'      O[{i}] <= {Sources[i]};\n'
+    Module += \
+f'''    end
+  end
+end
+    
+endmodule'''
+    return Module
         
     
         
@@ -1039,6 +1133,7 @@ class NlfsrList:
         N = Nlfsr(NSize, NConfig)
         Results.append(N)
     return Results
+  
   def reprToFile(NlfsrsList, FileName : str):
     Text = ""
     Second = 0
@@ -1072,7 +1167,7 @@ class NlfsrList:
     exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
     for N in NlfsrsList:
       N._exename = exename
-    PT = PandasTable(["Size", "# Taps", "Architecture", "Reed-Muller form", "# Single uniques", "# 2-in uniques","# 3-in uniques", "DETAILS"])
+    PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "ANF complement", "# Single uniques", "# 2-in uniques","# 3-in uniques", "DETAILS"])
     for combo in p_imap(_make_expander, NlfsrsList):
       nlfsr = combo[0]
       Expander = combo[1]
@@ -1093,6 +1188,7 @@ class NlfsrList:
       except:
         SeqStats = []
       LCTable = PandasTable(["XORed_FFs", "Linear_complexity", "#Unique_values"])
+      LCTableList = []
       for i in range(len(Xors)):
         XOR = Xors[i]
         try:
@@ -1103,20 +1199,23 @@ class NlfsrList:
           SS = SeqStats[i]
         except:
           SS = "-"
-        LCTable.add([XOR, LC, SS])
+        LCTableList.append([XOR, LC, SS])
         if len(XOR) == 1:
           Single += 1
         elif len(XOR) == 2:
           Double += 1
         else:
           Triple += 1
+      LCTableList.sort(key = lambda x: x[2], reverse=1)
+      for x in LCTableList:
+        LCTable.add(x)
       FileText = f"""{repr(nlfsr)}
 
 Size   : {nlfsr.getSize()}
 # Taps : {len(nlfsr.getTaps())}
 
 EQ               : {Eq}
-EQ Complement : {EqC} 
+EQ Complement    : {EqC} 
 EQ Reversed      : {EqR}
 EQ Comp-Rev      : {EqCR}
 
@@ -1135,20 +1234,17 @@ EXPANDER:
       html = re.sub(r'(\.ansi2html-content\s+)(\{)', '\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
       html = re.sub(r'(\*\s+)(\{)', '\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
       html = re.sub(r'.body_background { background-color: #AAAAAA; }', '.body_background { background-color: #FFFFFF; }', html)
-
       HtmlFile = open(FileName, "w")
       HtmlFile.write(html)
       HtmlFile.close()
-      PT.add([nlfsr.getSize(), len(nlfsr.getTaps()), Architecture.replace("\n",", "), Eq, Single, Double, Triple, f"""=HYPERLINK("{FileName}", "[CLICK_HERE]")"""])
+      PT.add([nlfsr.getSize(), len(nlfsr.getTaps()), Architecture.replace("\n",", "), Eq, EqC, Single, Double, Triple, f"""=HYPERLINK("{FileName}", "[CLICK_HERE]")"""])
     PT.toXls("DATABASE.xlsx")
 
 def _make_expander(nlfsr) -> list:
-  if nlfsr.getSize() <= 14:
+  if nlfsr.getSize() <= 15:
     return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1, PBar=0) ]
-  if nlfsr.getSize() <= 24:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1, PBar=0) ]
   else:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=0, PBar=0) ]
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1, PBar=0) ]
       
       
     

@@ -2190,6 +2190,7 @@ end
     
 endmodule'''
     return Module
+  
   def getDraw(self, MaxWidth = 0, Overlap = 3) -> str:
     if self._type == LfsrType.Fibonacci:
       Canvas = AsciiDrawingCanvas(self._size*5+3, 5)

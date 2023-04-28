@@ -2,6 +2,7 @@ from libs.pandas_table import *
 from libs.aio import *
 from libs.files import *
 from libs.lfsr import *
+from libs.nlfsr import *
 from libs.programmable_lfsr import *
 from libs.bent_function import *
 from libs.verilog import *
@@ -654,3 +655,112 @@ class HashFunction:
         writeFile(f"{FileName}__expressions.txt", ExprStr)
         writeObjectToFile(f"{FileName}__LfsrOutValues_raw.bin", LfsrOutValues)
         
+        
+        
+
+########################################################################################
+#                          KEYSTREAM GENERATOR
+########################################################################################
+
+class KeystreamGeneratorsMuxBlock:
+    
+    __slots__ = ("UpperMuxInputs", "UpperMuxSelect", "LowerMuxInputs", "LowerMuxSelect")
+    
+    def __init__(self, UpperMuxInputs : list, UpperMuxSelect : list, LowerMuxInputs : list, LowerMuxSelect : list):
+        self.UpperMuxInputs = UpperMuxInputs
+        self.UpperMuxSelect = UpperMuxSelect
+        self.LowerMuxInputs = LowerMuxInputs
+        self.LowerMuxSelect = LowerMuxSelect
+    
+    def toVerilogEquation(self, MuxBlockOutputName : str, UpperNlfsrOutputName : str, LowerNlfsrOutputName : str, LeftLfsrOutputName : str) -> str:
+        UpperMuxSelectName = f"{MuxBlockOutputName}_upper_mux_sel"
+        LowerMuxSelectName = f"{MuxBlockOutputName}_lower_mux_sel"
+        UpperMuxSignalName = f"{MuxBlockOutputName}_upper_mux"
+        LowerMuxSignalName = f"{MuxBlockOutputName}_lower_mux"
+        UpperMuxSelectVector = "{"
+        Second = 0
+        for S in self.UpperMuxSelect:
+            if Second:
+                UpperMuxSelectVector += ", "
+            else:
+                Second = 1
+            UpperMuxSelectVector += f"{LeftLfsrOutputName}[{S}]"
+        UpperMuxSelectVector += "}"
+        LowerMuxSelectVector = "{"
+        Second = 0
+        for S in self.LowerMuxSelect:
+            if Second:
+                LowerMuxSelectVector += ", "
+            else:
+                Second = 1
+            LowerMuxSelectVector += f"{LeftLfsrOutputName}[{S}]"
+        LowerMuxSelectVector += "}"
+        if len(self.UpperMuxSelect) > 1:
+            Result  =   f"wire [{len(self.UpperMuxSelect)-1}:0] {UpperMuxSelectName} = {UpperMuxSelectVector};"
+        else:
+            Result  =   f"wire {UpperMuxSelectName} = {UpperMuxSelectVector};"
+        if len(self.LowerMuxSelect) > 1:
+            Result += f"\nwire [{len(self.LowerMuxSelect)-1}:0] {LowerMuxSelectName} = {LowerMuxSelectVector};"
+        else:
+            Result += f"\nwire {LowerMuxSelectName} = {LowerMuxSelectVector};"
+        Result += f"\nreg {UpperMuxSignalName}, {LowerMuxSignalName};"
+        Result += f"\nalways @ (*) begin"
+        for i in range(len(self.UpperMuxInputs)):
+            Result += f"\n  if ({UpperMuxSelectName} == {len(self.UpperMuxInputs)}'d{i}) begin"
+            Result += f"\n    {UpperMuxSignalName} <= {UpperNlfsrOutputName}[{self.UpperMuxInputs[i]}]"
+            Result += f"\n  end"
+        Result += f"\nend"
+        Result += f"\nalways @ (*) begin"
+        for i in range(len(self.LowerMuxInputs)):
+            Result += f"\n  if ({LowerMuxSelectName} == {len(self.LowerMuxInputs)}'d{i}) begin"
+            Result += f"\n    {LowerMuxSignalName} <= {LowerNlfsrOutputName}[{self.LowerMuxInputs[i]}]"
+            Result += f"\n  end"
+        Result += f"\nend"
+        Result += f"\nwire {MuxBlockOutputName} = {UpperMuxSignalName} ^ {LowerMuxSignalName};"
+        return Result
+
+
+class KeystreamGenerator:
+    
+    __slots__ = ("UpperNlfsr", "LowerNlfsr", "LeftLfsr", "MuxBlocks", "LeftPhaseShifter", "UpperExpander", "LowerExpander")
+    
+    def __init__(self, FileName = None) -> None:
+        self.UpperNlfsr = Nlfsr(32, [])
+        self.LowerNlfsr = Nlfsr(32, [])
+        self.LeftLfsr = Lfsr(32, RING_WITH_SPECIFIED_TAPS, [])
+        self.UpperExpander = PhaseShifter(self.UpperNlfsr, [])
+        self.LowerExpander = PhaseShifter(self.LowerExpander, [])
+        self.LeftPhaseShifter = PhaseShifter(self.LeftLfsr, [])
+        self.MuxBlocks = []
+        if FileName is not None:
+            self.fromFile(FileName)
+            
+    def __len__(self) -> int:
+        return self.getSize()
+            
+    def getSize(self) -> int:
+        return len(self.MuxBlocks)
+            
+    def fromFile(FileName):
+        pass
+    
+    def setLeftLfsr(self, LfsrObject : Lfsr):
+        self.LeftLfsr = LfsrObject
+        
+    def setUpperNlfsr(self, NlfsrObject : Nlfsr):
+        self.UpperNlfsr = NlfsrObject
+        
+    def setLowerNlfsr(self, NlfsrObject : Nlfsr):
+        self.LowerNlfsr = NlfsrObject
+        
+    def addMuxBlock(self, MuxBlock : KeystreamGeneratorsMuxBlock):
+        self.MuxBlocks.append(MuxBlock)
+        
+    def setLeftPhaseShifter(self, PhaseShifterObject : PhaseShifter):
+        self.LeftPhaseShifter = PhaseShifterObject
+        
+    def setUpperExpander(self, PhaseShifterObject : PhaseShifter):
+        self.UpperExpander = PhaseShifterObject
+        
+    def setLowerExpander(self, PhaseShifterObject : PhaseShifter):
+        self.LowerExpander = PhaseShifterObject

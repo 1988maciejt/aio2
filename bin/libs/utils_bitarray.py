@@ -127,3 +127,23 @@ class Bitarray:
         for t in Bitarray.movingWindowIterator(Word, TupleSize):
             Res[bau.ba2int(t)] += 1
         return Res
+    
+    def getMissingTuples(Word : bitarray, TupleSize : int) -> list:
+        Missing = []
+        Res = bau.zeros(1<<TupleSize)
+        for t in Bitarray.movingWindowIterator(Word, TupleSize):
+            Res[bau.ba2int(t)] = 1
+        Indices = Res.search(0)
+        for i in Indices:
+            Missing.append(bau.int2ba(i, TupleSize))
+        return Missing
+    
+    def getTuples(Word : bitarray, TupleSize : int) -> list:
+        Tuples = []
+        Res = bau.zeros(1<<TupleSize)
+        for t in Bitarray.movingWindowIterator(Word, TupleSize):
+            Res[bau.ba2int(t)] = 1
+        Indices = Res.search(1)
+        for i in Indices:
+            Tuples.append(bau.int2ba(i, TupleSize))
+        return Tuples
