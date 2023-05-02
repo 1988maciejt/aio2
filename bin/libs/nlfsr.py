@@ -93,6 +93,7 @@ class Nlfsr(Lfsr):
       #def msortf(e):
       #  return abs(e[0])%Size
       #self._Config.sort(key=msortf)
+      self.sortTaps()
       self._baValue = bitarray(self._size)
       self._exename = ""
       self._period = None
@@ -1023,6 +1024,59 @@ class Nlfsr(Lfsr):
       Success &= self.rotateTap(i, Size-1-D)
     return Success
   
+  def getTapBounds(self, TapIndex : int) -> tuple:
+    Size = self._size
+    Tap = self._Config[TapIndex]
+    Sources = Tap[1].copy()
+    Sources.sort(key = lambda x: (abs(x) % self._size))
+    Min, Max =  (abs(Sources[0]) % Size), (abs(Sources[-1]) % Size)
+    if Min == 0:
+      return Max, Size
+    return Min, Max
+    
+  def sortTaps(self):
+    self._Config.sort(key = lambda x: (abs(x[0]) % self._size))
+  
+  def isPlanar(self):
+    self.sortTaps()
+    LastMin = self._size
+    for i in range(len(self._Config)):
+      Min, Max = self.getTapBounds(i)
+      if Max > LastMin:
+        return False
+      LastMin = Min
+    return True
+    
+  
+  def toPlanar(self, FanoutAllowed = False, Only2inXors = False) -> bool:
+    Size = self._size
+    Copy = self.copy()
+    FanOut = 1 if FanoutAllowed else 0
+    LastMin = Size + FanOut
+    LastD = -1
+    for i in range(len(Copy._Config)):
+      Min, Max = Copy.getTapBounds(i)
+      #print(Min, Max, "  ", LastMin)
+      Copy.rotateTap(i, LastMin - Max - FanOut)
+      #print(i, "---------------------")
+      #print(Copy.getArchitecture())
+      Min, Max = Copy.getTapBounds(i)
+      LastMin = Min
+      D = (abs(Copy._Config[i][0]) % Size)
+      if Only2inXors:
+        if D <= LastD:
+          return False
+      else:
+        if D < LastD:
+          return False
+      LastD = D
+    if Copy.isPlanar():
+      self._Config = Copy._Config
+      return True
+    return False
+        
+    
+  
   def isLfsr(self) -> bool:
     Taps = self._Config
     for Tap in Taps:
@@ -1101,6 +1155,17 @@ endmodule'''
 class NlfsrList:
   def analyseSequences(NlfsrsList) -> list:      
     return Nlfsr.analyseSequencesBatch(NlfsrsList)
+  def toPlanar(NlfsrList) -> list:
+    Result = NlfsrList.copy()
+    for R in Result:
+      R.toPlanar()
+    return Result
+  def getOnlyPlanar(NlfsrList) -> list:
+    Result = []
+    for R in NlfsrList:
+      if R.toPlanar():
+        Result.append(R)
+    return Result
   def toPandasTable(NlfsrsList, Polys=True) -> PandasTable:
     if Polys:
       PT = PandasTable(['RC', 'Polynomial', 'Architecture', 'Nlfsr'], 1, 1)
