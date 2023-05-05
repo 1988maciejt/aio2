@@ -10,6 +10,35 @@ from libs.generators import *
 from libs.remote_aio import *
 import hashlib
 
+def _to_taps_templates(expr : str) -> list:
+  exprf = expr.replace("+", "^")
+  exprf = exprf.replace("*", "&")
+  e = sympy.parsing.parse_expr(exprf)
+  Result = []
+  VarNames = 'abcdefghijklmnopqrstuvwxyz'
+  for monomial in e.args:
+    if monomial.func is Not:
+      GlobalInv = 1
+      args = monomial.args[0].args
+    else:
+      GlobalInv = 0
+      args = monomial.args
+    if len(args) == 0:
+      args = [monomial]
+    D = GlobalInv
+    Ss = []
+    for arg in args:
+      if arg.func is Not:
+        var = str(arg.args[0])
+        VInv = 1
+      else:
+        var = str(arg)
+        VInv = 0
+      Si = VarNames.index(var) + 1
+      Ss.append(-Si if VInv else Si)
+    Tap = [D, Ss]
+    Result.append(Tap)
+  return Result
   
 class Nlfsr(Lfsr):
   _baValue = None
@@ -74,6 +103,10 @@ class Nlfsr(Lfsr):
   def getTaps(self) -> int:
     return self._Config.copy()
   def __init__(self, Size : int, Config = []) -> None:
+    if Aio.isType(Size, []):
+      Size = Polynomial(Size)
+    if Aio.isType(Size, "Polynomial"):
+      Size = Lfsr(Size, LfsrType.HybridRing)
     if Aio.isType(Size, "Nlfsr"):
       self._size = Size._size      
       self._Config = Size._Config.copy()
@@ -81,6 +114,24 @@ class Nlfsr(Lfsr):
       self._points = Size._points
       self._exename = Size._exename
       self._period = Size._period
+    elif Aio.isType(Size, "Lfsr"):
+      self._size = Size._size
+      self._period = None
+      self._baValue = Size._baValue
+      self._exename = ""
+      self._Config = []
+      if Size._type == LfsrType.Fibonacci:
+        for i in range(1, len(Size._bamask)):
+          if Size._bamask[i]:
+            self._Config.append([Size._size-1, [i]])
+      elif Size._type == LfsrType.Galois:
+        for i in range(len(Size._bamask)-1):
+          if Size._bamask[i]:
+            self._Config.append([i, [0]])
+      else:
+        for tap in Size._taps:
+          self._Config.append([tap[1], [tap[0]]])
+      self.sortTaps()
     else:  
       self._size = Size
       self._Config = []
@@ -134,6 +185,41 @@ class Nlfsr(Lfsr):
       for _ in range(steps):
         self._next1()
     return self._baValue
+  
+  def getTapsDestinations(self, ExceptTapIndex = None):
+    Result = []
+    for i in range(len(self._Config)):
+      if ExceptTapIndex == i:
+        continue
+      D = abs(self._Config[i][0]) % self._size
+      if D not in Result:
+        Result.append(D)
+    return Result
+  
+  def getSingleTapSources(self, TapIndex : int):
+    Result = []
+    try:
+      Ss = self._Config[TapIndex][1]
+      for S in Ss:
+        S = abs(S) % self._size
+        if S not in Result:
+          Result.append(S)
+    except:
+      Aio.printError(f"TapIndex '{TapIndex}' out of range.")
+    return Result
+  
+  def getTapsSources(self, ExceptTapIndex = None):
+    Result = []
+    for i in range(len(self._Config)):
+      if ExceptTapIndex == i:
+        continue
+      Ss = self._Config[i][1]
+      for S in Ss:
+        S = abs(S) % self._size
+        if S not in Result:
+          Result.append(S)
+    return Result
+    
   def getPeriod(self):
     if self._period is not None:
       return self._period
@@ -933,6 +1019,8 @@ class Nlfsr(Lfsr):
     MyFlopIndexes = [i for i in range(self._size)]
     #HBlockSize = (self._size>>1) + 2
     HBlockSize = (self._size - 4)
+    if HBlockSize < 3:
+      HBlockSize = 3
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       if PBar:
         Iterator = tqdm(List.getCombinations(MyFlopIndexes, k), desc=f"Checking {k}-input XORs")
@@ -968,53 +1056,122 @@ class Nlfsr(Lfsr):
       PS.Histo2 = Histo2
     return PS
   
-  def rotateTap(self, TapIndex : int, FFs : int) -> bool:
-    if 0 <= TapIndex < len(self._Config):
-      Size = self._size
-      Tap = self._Config[TapIndex]
-      S = Tap[1]
-      D = Tap[0]
-      DSig = 1 if (D >= 0) else -1
-      D = abs(D)
-      D += FFs
-      while D >= Size:
-        D -= Size
-      while D < 0:
-        D += Size
-      if (DSig < 0) and (D == 0):
-        D += Size
-      D *= DSig
-      if Aio.isType(S, 0):
-        S += FFs
-        SSig = 1 if (S >= 0) else -1
-        S = abs(S)
-        while S >= Size:
-          S -= Size
-        while S < 0:
-          S += Size
-        if (SSig < 0) and (S == 0):
-          S += Size
-        S *= SSig
-      else:
-        NewS = []
-        for Si in S:
-          SSig = 1 if (Si >= 0) else -1
-          Si = abs(Si)
-          Si += FFs
-          while Si >= Size:
-            Si -= Size
-          while Si < 0:
-            Si += Size
-          if (SSig < 0) and (Si == 0):
-            Si += Size
-          Si *= SSig
-          NewS.append(Si)
-        S = NewS
-      Tap = [D, S]
-      self._Config[TapIndex] = Tap
-      self._period = None
-      return True
+  def getRelationBetweenSelectedTapAndOthers(self, TapIndex):
+    Destinations = self.getTapsDestinations(TapIndex)
+    Destinations.sort()
+    Sources = self.getTapsSources(TapIndex)
+    Sources.sort()
+    TapSources = self.getSingleTapSources(TapIndex)
+    TapDestination = self._Config[TapIndex][0]
+    Result = []
+    EqualTo = -1
+    for S in Sources:
+      if S == TapDestination:
+        EqualTo = S
+        break
+    Result.append(EqualTo)
+    for S in TapSources:
+      EqualTo = -1
+      for D in Destinations:
+        if S == D:
+          EqualTo = D
+          break
+      Result.append(EqualTo)
+    return tuple(Result)
+          
+  def rotateTap(self, TapIndex : int, FFs : int, FailIfRotationInvalid = False, SortTaps = True) -> bool:
+    if FailIfRotationInvalid:
+      n2 = self.copy()
+      LeaveMaximumShift = 0
+      if abs(FFs) >= n2._size:
+        LeaveMaximumShift = 1
+      Sign = -1 if FFs < 0 else 1
+      Cntr = 0
+      LastRelation = n2.getRelationBetweenSelectedTapAndOthers(TapIndex)
+      for i in range(abs(FFs)):
+        Cntr += 1
+        n2.rotateTap(TapIndex, Sign, FailIfRotationInvalid=0, SortTaps=0)
+        Relation = n2.getRelationBetweenSelectedTapAndOthers(TapIndex)
+        IncorrectMove = 0
+        if Sign > 0:
+          for i in range(1, len(Relation)):
+            if LastRelation[i] >= 0 and Relation[i] < 0:
+              IncorrectMove = 1
+              break
+          if LastRelation[0] < 0 and Relation[0] >= 0:
+            IncorrectMove = 1
+        else:
+          for i in range(1, len(Relation)):
+            if LastRelation[i] < 0 and Relation[i] >= 0:
+              IncorrectMove = 1
+              break
+          if LastRelation[0] >= 0 and Relation[0] < 0:
+            IncorrectMove = 1
+        if IncorrectMove:
+          if LeaveMaximumShift:
+            Cntr -= 1
+            if Cntr == 0:
+              return False
+            n2.rotateTap(TapIndex, -Sign, FailIfRotationInvalid=0, SortTaps=0)
+            self._Config = n2._Config.copy()
+            if SortTaps:
+              self.sortTaps
+            return True
+          return False
+        LastRelation = Relation
+      self._Config = n2._Config.copy()
+      return True  
+    else:
+      if 0 <= TapIndex < len(self._Config):
+        Size = self._size
+        Tap = self._Config[TapIndex]
+        S = Tap[1]
+        D = Tap[0]
+        DSig = 1 if (D >= 0) else -1
+        D = abs(D)
+        D += FFs
+        while D >= Size:
+          D -= Size
+        while D < 0:
+          D += Size
+        if (DSig < 0) and (D == 0):
+          D += Size
+        D *= DSig
+        if Aio.isType(S, 0):
+          S += FFs
+          SSig = 1 if (S >= 0) else -1
+          S = abs(S)
+          while S >= Size:
+            S -= Size
+          while S < 0:
+            S += Size
+          if (SSig < 0) and (S == 0):
+            S += Size
+          S *= SSig
+        else:
+          NewS = []
+          for Si in S:
+            SSig = 1 if (Si >= 0) else -1
+            Si = abs(Si)
+            Si += FFs
+            while Si >= Size:
+              Si -= Size
+            while Si < 0:
+              Si += Size
+            if (SSig < 0) and (Si == 0):
+              Si += Size
+            Si *= SSig
+            NewS.append(Si)
+          S = NewS
+        Tap = [D, S]
+        self._Config[TapIndex] = Tap
+        self._period = None
+        if SortTaps:
+          self.sortTaps()
+        return True
     return False
+  
+
   
   def toFibonacci(self) -> bool:
     Size = self._size
@@ -1075,8 +1232,62 @@ class Nlfsr(Lfsr):
       return True
     return False
         
+  def isTapLinear(self, TapIndex : int) -> bool:
+    try:
+      S = self._Config[TapIndex][1]
+      if Aio.isType(S, 0):
+        return True
+      elif len(S) == 1:
+        return True
+    except:
+      Aio.printError(f"TapIndex {TapIndex} out of range")
+    return False
     
-  
+  def getLinearTapIndexes(self):
+    Result = []
+    for i in range(len(self._Config)):
+      if self.isTapLinear(i):
+        Result.append(i)
+    return Result
+
+
+  def breakLinearTap(self, TapIndex : int, ExpressionTemplate : str, SecondaryInputsList = []) -> bool:
+    if not self.isTapLinear(TapIndex):
+      Aio.printError(f"Tap '{TapIndex}' is not linear.")
+      return False
+    try:
+      NewTapsTemplate = _to_taps_templates(ExpressionTemplate)
+      Size = self._size
+      D = self._Config[TapIndex][0]
+      while D == 0:
+        D = Size
+      S = self._Config[TapIndex][1]
+      if Aio.isType(S, []):
+        S = S[0]
+      Inputs = [None, S] + SecondaryInputsList
+      NewTaps = []
+      for TapTemplate in NewTapsTemplate:
+        DestSign = TapTemplate[0]
+        Ss = []
+        for TI in TapTemplate[1]:
+          i = abs(TI)
+          sign = -1 if TI < 0 else 1
+          Si = Inputs[i]
+          while Si <= 0:
+            Si += Size
+          while Si > Size:
+            Si -= Size
+          Si *= sign
+          Ss.append(Si)
+        NewTap = [DestSign * D, Ss]
+        NewTaps.append(NewTap)
+      self._Config.remove(self._Config[TapIndex])
+      self._Config += NewTaps
+      self.sortTaps()
+      return True
+    except:
+      return False
+    
   def isLfsr(self) -> bool:
     Taps = self._Config
     for Tap in Taps:

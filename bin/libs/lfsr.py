@@ -1809,27 +1809,67 @@ class Lfsr:
         FSA[r][c] = res
     self._ba_fast_sim_array = FSA
     self._baValue = oldVal
-  def rotateTap(self, TapIndex : int, FFs : int) -> bool:
-    if 0 <= TapIndex < len(self._taps):
-      Size = self._size
-      Tap = self._taps[TapIndex]
-      S = Tap[0]
-      D = Tap[1]
-      S += FFs
-      D += FFs
-      while S >= Size:
-        S -= Size
-      while D >= Size:
-        D -= Size
-      while S < 0:
-        S += Size
-      while D < 0:
-        D += Size
-      Tap = [S, D]
-      self._taps[TapIndex] = Tap
-      self._type = LfsrType.RingWithSpecifiedTaps
+  def rotateTap(self, TapIndex : int, FFs : int, FailIfRotationInvalid = False) -> bool:
+    if FailIfRotationInvalid:
+      l2 = self.copy()
+      LeaveMaximumShift = 0
+      if abs(FFs) >= l2._size:
+        LeaveMaximumShift = 1
+      Sign = -1 if FFs < 0 else 1
+      Cntr = 0
+      LastRelation = l2.getRelationBetweenSelectedTapAndOthers(TapIndex)
+      for i in range(abs(FFs)):
+        Cntr += 1
+        l2.rotateTap(TapIndex, Sign, FailIfRotationInvalid=0)
+        Relation = l2.getRelationBetweenSelectedTapAndOthers(TapIndex)
+        IncorrectMove = 0
+        if Sign > 0:
+          for i in range(1, len(Relation)):
+            if LastRelation[i] >= 0 and Relation[i] < 0:
+              IncorrectMove = 1
+              break
+          if LastRelation[0] < 0 and Relation[0] >= 0:
+            IncorrectMove = 1
+        else:
+          for i in range(1, len(Relation)):
+            if LastRelation[i] < 0 and Relation[i] >= 0:
+              IncorrectMove = 1
+              break
+          if LastRelation[0] >= 0 and Relation[0] < 0:
+            IncorrectMove = 1
+        if IncorrectMove:
+          if LeaveMaximumShift:
+            Cntr -= 1
+            if Cntr == 0:
+              return False
+            l2.rotateTap(TapIndex, -Sign, FailIfRotationInvalid=0)
+            self._taps = l2._taps.copy()
+            return True
+          return False
+        LastRelation = Relation
+      self._taps = l2._taps.copy()
       return True
-    return False
+    else:
+      if 0 <= TapIndex < len(self._taps):
+        Size = self._size
+        Tap = self._taps[TapIndex]
+        S = Tap[0]
+        D = Tap[1]
+        S += FFs
+        D += FFs
+        while S >= Size:
+          S -= Size
+        while D >= Size:
+          D -= Size
+        while S < 0:
+          S += Size
+        while D < 0:
+          D += Size
+        Tap = [S, D]
+        self._taps[TapIndex] = Tap
+        self._type = LfsrType.RingWithSpecifiedTaps
+        return True
+      return False
   def reverseTap(self, TapIndex : int) -> bool:
     if 0 <= TapIndex < len(self._taps):
       Size = self._size
@@ -1955,6 +1995,58 @@ class Lfsr:
         steps >>= 1
         RowIndex += 1
       return self._baValue    
+  
+  def getTapsDestinations(self, ExceptTapIndex = None):
+    Result = []
+    for i in range(len(self._taps)):
+      if ExceptTapIndex == i:
+        continue
+      D = abs(self._taps[i][1]) % self._size
+      if D not in Result:
+        Result.append(D)
+    return Result
+  
+  def getSingleTapSources(self, TapIndex : int):
+    Result = []
+    try:
+      Result.append(abs(self._taps[TapIndex][0]) % self._size)
+    except:
+      Aio.printError(f"TapIndex '{TapIndex}' out of range.")
+    return Result
+  
+  def getTapsSources(self, ExceptTapIndex = None):
+    Result = []
+    for i in range(len(self._taps)):
+      if ExceptTapIndex == i:
+        continue
+      S = abs(self._taps[i][0]) % self._size
+      if S not in Result:
+        Result.append(S)
+    return Result
+  
+  def getRelationBetweenSelectedTapAndOthers(self, TapIndex):
+    Destinations = self.getTapsDestinations(TapIndex)
+    Destinations.sort()
+    Sources = self.getTapsSources(TapIndex)
+    Sources.sort()
+    TapSources = self.getSingleTapSources(TapIndex)
+    TapDestination = self._taps[TapIndex][1]
+    Result = []
+    EqualTo = -1
+    for S in Sources:
+      if S == TapDestination:
+        EqualTo = S
+        break
+    Result.append(EqualTo)
+    for S in TapSources:
+      EqualTo = -1
+      for D in Destinations:
+        if S == D:
+          EqualTo = D
+          break
+      Result.append(EqualTo)
+    return tuple(Result)
+  
   def getPeriod(self) -> int:
     """Simulates the LFSR to obtain its period (count of states in trajectory).
 
@@ -2614,9 +2706,9 @@ class _LeftMenu(TextualWidgets.Static):
         if event.coordinate.column > 0:
             TapIndex = event.coordinate.row
             if event.coordinate.column == 1:
-                _LFSR.rotateTap(TapIndex, -1)
+                _LFSR.rotateTap(TapIndex, -1, FailIfRotationInvalid=1)
             elif event.coordinate.column == 3:
-                _LFSR.rotateTap(TapIndex, 1)
+                _LFSR.rotateTap(TapIndex, 1, FailIfRotationInvalid=1)
             elif event.coordinate.column == 2:
                 _LFSR.reverseTap(TapIndex)
             elif event.coordinate.column == 4:
