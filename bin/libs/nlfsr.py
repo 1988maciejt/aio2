@@ -1465,6 +1465,8 @@ class Nlfsr(Lfsr):
     except:
       return False
     
+    
+  
   def isLfsr(self) -> bool:
     Taps = self._Config
     for Tap in Taps:
@@ -1546,11 +1548,25 @@ endmodule'''
       return _NLFSR
     return None
         
+  def checkMaximum(NlfsrsList : list) -> list:
+    return NlfsrList.checkMaximum(NlfsrsList)
     
         
         
     
 class NlfsrList:
+  def checkMaximum(NlfsrsList) -> list:
+    exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+    for N in NlfsrsList:
+      N._exename = exename
+    RM = p_map(Nlfsr.isMaximum, NlfsrsList)
+    Results = []
+    for i in range(len(RM)):
+      if RM[i]:
+        Results.append(NlfsrsList[i])
+    return NlfsrList.filter(Results)
+  def filter(NlfsrsList) -> list:
+    return Nlfsr.filter(NlfsrsList)
   def analyseSequences(NlfsrsList) -> list:      
     return Nlfsr.analyseSequencesBatch(NlfsrsList)
   def toPlanar(NlfsrList) -> list:
@@ -1616,11 +1632,11 @@ class NlfsrList:
       N._exename = exename
     for R in p_imap(_NLFSR_list_database_helper, NlfsrsList):
       NLFSR = NlfsrsList[i]
-      Equations = NLFSR.toBooleanExpressionFromRing(0, 0, 1) + "\n"
+      Equations = NLFSR.toBooleanExpressionFromRing(0, 0) + "\n"
       Equations += NLFSR.getArchitecture().replace("\n", ", ") + "\n"
-      Equations += " R  " + NLFSR.toBooleanExpressionFromRing(0, 1, 1) + "\n"
-      Equations += "C  " + NLFSR.toBooleanExpressionFromRing(2, 0, 1) + "\n"
-      Equations += "CR  " + NLFSR.toBooleanExpressionFromRing(2, 1, 1)
+      Equations += " R  " + NLFSR.toBooleanExpressionFromRing(0, 1) + "\n"
+      Equations += "C  " + NLFSR.toBooleanExpressionFromRing(2, 0) + "\n"
+      Equations += "CR  " + NLFSR.toBooleanExpressionFromRing(2, 1)
       PT.add([NLFSR.getSize(), len(NLFSR.getTaps()), Equations, R[0], R[1], R[2]])
       writeFile(FileName, PT.toString('left'))
       i += 1
