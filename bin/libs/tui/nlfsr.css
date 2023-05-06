@@ -9,7 +9,7 @@ _NlfsrTui_LeftMenu {
   overflow: auto scroll; 
   height: 100%;
   margin: 0;
-  width: 30%;
+  width: 40%;
   padding: 0;
 }
 _NlfsrTui_HRight {
@@ -59,6 +59,7 @@ Label {
 }
 #dt {
   height: auto;
+  width: auto;
 }
 #simt {
   height: auto;
@@ -92,4 +93,8 @@ _NlfsrTui_AddTap {
 }
 #add_tap_to_lbl {
   width: 15%;
+}
+
+#btn_period {
+  width: 8;
 }

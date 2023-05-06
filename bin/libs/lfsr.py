@@ -2729,17 +2729,20 @@ class _LfsrTui_LeftMenu(TextualWidgets.Static):
             self.refreshTable()
             _LFSR_sim_refresh()
         elif event.button.id == "btn_add_tap":
-          ATap = self.query_one(_LfsrTui_AddTap)
-          From = int(ATap.query_one("#add_tap_from").value)
-          To = int(ATap.query_one("#add_tap_to").value)
-          Tap = [From, To]
-          Taps = _LFSR._taps
-          Size = _LFSR.getSize()
-          if (0 <= From < Size) and (0 <= To < Size):
-            if Tap not in Taps:
-              Taps.append(Tap)
-              self.refreshTable()
-              _LFSR_sim_refresh()
+          try:
+            ATap = self.query_one(_LfsrTui_AddTap)
+            From = int(ATap.query_one("#add_tap_from").value)
+            To = int(ATap.query_one("#add_tap_to").value)
+            Tap = [From, To]
+            Taps = _LFSR._taps
+            Size = _LFSR.getSize()
+            if (0 <= From < Size) and (0 <= To < Size):
+              if Tap not in Taps:
+                Taps.append(Tap)
+                self.refreshTable()
+                _LFSR_sim_refresh()
+          except:
+            pass
         elif event.button.id == "btn_set_size":
           SizeW = self.query_one(_LfsrTui_SetSize)
           Size = int(SizeW.query_one("#set_size").value)

@@ -15,6 +15,7 @@ import hashlib
 import textual.app as TextualApp
 import textual.widgets as TextualWidgets
 import textual.reactive as TextualReactive
+import textual.containers as TextualContainers
 
 _NLFSR = None
 _NLFSR_SIM = []
@@ -1126,12 +1127,14 @@ class Nlfsr(Lfsr):
             self._Config = n2._Config.copy()
             if SortTaps:
               self.sortTaps()
+            #self._period = None
             return True
           return False
         LastRelation = Relation
       self._Config = n2._Config.copy()
       if SortTaps:
         self.sortTaps()
+      #self._period = None
       return True  
     else:
       if 0 <= TapIndex < len(self._Config):
@@ -1180,6 +1183,7 @@ class Nlfsr(Lfsr):
         self._period = None
         if SortTaps:
           self.sortTaps()
+        self._period = None
         return True
     return False
   
@@ -1263,14 +1267,6 @@ class Nlfsr(Lfsr):
         PointsToFix.append([Sx, AndGateYPosition])
       for ptf in reversed(PointsToFix):
         Canvas.fixLinesAtPoint(ptf[0], ptf[1])
-      #  if Sx < AndGateXPosition:
-      #    Canvas.drawChar(AndGateXPosition-1, AndGateYPosition, AsciiDrawing_Characters.RIGHT_ARROW)
-      #  elif Sx > AndGateXPosition:
-      #    Canvas.drawChar(AndGateXPosition+1, AndGateYPosition, AsciiDrawing_Characters.LEFT_ARROW)
-      #  elif Sy < AndGateYPosition:
-      #    Canvas.drawChar(AndGateXPosition, AndGateYPosition-1, AsciiDrawing_Characters.DOWN_ARROW)
-      #  elif Sy > AndGateYPosition:
-      #    Canvas.drawChar(AndGateXPosition, AndGateYPosition+1, AsciiDrawing_Characters.UP_ARROW)
     i1, i0 = 0,0
     for TC in TapsCoordinates:
       XorDown = TC[0]
@@ -1910,23 +1906,30 @@ class _NlfsrTui_LeftMenu(TextualWidgets.Static):
                 _NLFSR.rotateTap(TapIndex, 1, FailIfRotationInvalid=1, SortTaps=0)
             elif event.coordinate.column == 4:
                 _NLFSR._Config.remove(_NLFSR._Config[TapIndex])
-            _NLFSR._type = LfsrType.RingWithSpecifiedTaps
+                _NLFSR._period = None
             self.refreshTable()
             _NLFSR_sim_refresh()
     def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
         global _NLFSR, _NLFSR_SIM
         if event.button.id == "btn_add_tap":
-          ATap = self.query_one(_NlfsrTui_AddTap)
-          From = int(ATap.query_one("#add_tap_from").value)
-          To = int(ATap.query_one("#add_tap_to").value)
-          Tap = [From, To]
-          Taps = _NLFSR._taps
-          Size = _NLFSR.getSize()
-          if (0 <= From < Size) and (0 <= To < Size):
-            if Tap not in Taps:
-              Taps.append(Tap)
-              self.refreshTable()
-              _NLFSR_sim_refresh()
+          try:
+            ATap = self.query_one(_NlfsrTui_AddTap)
+            From = ATap.query_one("#add_tap_from").value
+            To = int(ATap.query_one("#add_tap_to").value)
+            if From[0] != "[":
+              From = "[" + From
+            if From[-1] != "]":
+              From = From + "]"
+            From = list(ast.literal_eval(From))
+            Tap = [To, From]
+            Taps = _NLFSR._Config
+            Size = _NLFSR.getSize()
+            Taps.append(Tap)
+            _NLFSR._period = None
+            self.refreshTable()
+            _NLFSR_sim_refresh()
+          except:
+            pass
         elif event.button.id == "btn_set_size":
           SizeW = self.query_one(_NlfsrTui_SetSize)
           Size = int(SizeW.query_one("#set_size").value)
@@ -1941,7 +1944,7 @@ class _NlfsrTui_LeftMenu(TextualWidgets.Static):
           _NLFSR.clear()
           _NLFSR._baValue = bitarray(Size)
           _NLFSR.reset()
-          _NLFSR._type = LfsrType.RingWithSpecifiedTaps
+          _NLFSR._period = None
           _NLFSR_sim_refresh()
         elif event.button.id == "asim":
             _NLFSR_sim_append()
@@ -1967,19 +1970,36 @@ class _NlfsrTui_VTop(TextualWidgets.Static):
         self.Lbl.update(self.LfsrDraw)
         
 class _NlfsrTui_VMiddle(TextualWidgets.Static):
-    LfsrPoly = TextualReactive.reactive(Polynomial([1,0]))
+    Period = TextualReactive.reactive(None)
+    lbl = None
+    def compose(self):
+      self.lbl = TextualWidgets.Label()
+      yield TextualContainers.Horizontal(
+        TextualWidgets.Button("Period", id="btn_period"),
+        TextualWidgets.Label(" "),
+        self.lbl
+      )
     def on_mount(self):
-        self.set_interval(0.2, self.update_LFSRPoly)
-    def update_LFSRPoly(self):
+        self.set_interval(0.2, self.update_period)
+    def update_period(self):
         global _NLFSR
-        #self.LfsrPoly = Polynomial.decodeUsingBerlekampMassey(_LFSR)
-    def watch_LfsrPoly(self):
+        self.Period = _NLFSR._period
+    def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
         global _NLFSR
-        #l = _NLFSR.copy()
-        #Max = "IS MAXIMUM" if l.isMaximum() else "is NOT maximum"
-        #Prim = "IS PRIMITIVE" if self.LfsrPoly.isPrimitive() else "Is NOT primitive"
-        #self.update(f"This LFSR {Max}.\nCharacteristic polynomial {Prim}: {self.LfsrPoly}")
-        
+        if event.button.id == "btn_period":
+          _NLFSR.getPeriod()
+    def watch_Period(self):
+        global _NLFSR
+        PeriodStr = "unknown"
+        PrimString = "No"
+        if self.Period is not None:
+          PeriodStr = str(self.Period)
+          if self.Period == ((1 << _NLFSR._size) - 1):
+            PrimString = "Yes"
+        else:
+          PrimString = "unknown"
+        self.lbl.update(f"Period: {PeriodStr}\nPrimitive: {PrimString}")
+      
 class _NlfsrTui_VBottom(TextualWidgets.Static):
     SimROws = TextualReactive.reactive([])
     def compose(self):
