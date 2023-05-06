@@ -1125,11 +1125,13 @@ class Nlfsr(Lfsr):
             n2.rotateTap(TapIndex, -Sign, FailIfRotationInvalid=0, SortTaps=0)
             self._Config = n2._Config.copy()
             if SortTaps:
-              self.sortTaps
+              self.sortTaps()
             return True
           return False
         LastRelation = Relation
       self._Config = n2._Config.copy()
+      if SortTaps:
+        self.sortTaps()
       return True  
     else:
       if 0 <= TapIndex < len(self._Config):
@@ -1291,8 +1293,6 @@ class Nlfsr(Lfsr):
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_LOWER_LEFT)
         elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.UPPER_LEFT:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_UPPER_LEFT)
-        else:
-          break
       for X in range(AndGateXPosition+1, Canvas._width, 1):
         if Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
@@ -1308,8 +1308,6 @@ class Nlfsr(Lfsr):
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_LOWER_RIGHT)
         elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.UPPER_RIGHT:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_UPPER_RIGHT)
-        else:
-          break
     for TC in TapsCoordinates:
       XorDown = TC[0]
       XorX = TC[1]
@@ -1544,6 +1542,7 @@ endmodule'''
     tui = _NlfsrTui()
     tui.run()
     if tui.EXE == "ok":
+      _NLFSR.sortTaps()
       return _NLFSR
     return None
         
@@ -1871,23 +1870,30 @@ class _NlfsrTui_LeftMenu(TextualWidgets.Static):
         table = self.query_one(TextualWidgets.DataTable)
         table.clear()
         if len(Taps) > 0:
+          i1, i0 = 0, 0
           for Tap in Taps:
-              table.add_row(str(Tap), "[ROTL]", "[ROTR]", "[REMOVE]")
+              table.add_row(f"F{i1}{i0}", str(Tap), "[ROTL]", "[ROTR]", "[REMOVE]")
+              i0 += 1
+              if i0 == 10:
+                i1 += 1
+                i0 = 0
+              if i1 == 10:
+                i1 = 0
     def on_mount(self):
         global _NLFSR
         table = self.query_one(TextualWidgets.DataTable)
-        table.add_columns("TAP", ".", ".", ".")
+        table.add_columns("Func", "TAP", ".", ".", ".")
         self.refreshTable()
     def on_data_table_cell_selected(self, event: TextualWidgets.DataTable.CellSelected) -> None:
         global _NLFSR
         if event.coordinate.column > 0:
             TapIndex = event.coordinate.row
-            if event.coordinate.column == 1:
-                _NLFSR.rotateTap(TapIndex, -1, FailIfRotationInvalid=1)
-            elif event.coordinate.column == 2:
-                _NLFSR.rotateTap(TapIndex, 1, FailIfRotationInvalid=1)
+            if event.coordinate.column == 2:
+                _NLFSR.rotateTap(TapIndex, -1, FailIfRotationInvalid=1, SortTaps=0)
             elif event.coordinate.column == 3:
-                _NLFSR._taps.remove(_NLFSR._Config[TapIndex])
+                _NLFSR.rotateTap(TapIndex, 1, FailIfRotationInvalid=1, SortTaps=0)
+            elif event.coordinate.column == 4:
+                _NLFSR._Config.remove(_NLFSR._Config[TapIndex])
             _NLFSR._type = LfsrType.RingWithSpecifiedTaps
             self.refreshTable()
             _NLFSR_sim_refresh()
