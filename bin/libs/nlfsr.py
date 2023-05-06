@@ -1319,31 +1319,37 @@ class Nlfsr(Lfsr):
       TheSameD = TC[5]
       if TheSameD:
         if XorDown:
-          Canvas.drawConnectorVV(XorX, XorY, AndGateXPosition, AndGateYPosition+2)
-          Canvas.drawConnectorVV(AndGateXPosition, AndGateYPosition+2, AndGateXPosition, AndGateYPosition)
-          for Y in range(XorY-1, AndGateYPosition+2, -1):
-            Canvas.fixLinesAtPoint(XorX, Y)
+          Canvas.drawConnectorHH(XorX, XorY-2, AndGateXPosition, XorY-2)
+          Canvas.drawConnectorVV(AndGateXPosition, XorY-2, AndGateXPosition, AndGateYPosition)
+          for X in range(XorX+1,AndGateXPosition,1):
+            Canvas.fixLinesAtPoint(X, XorY-2)
         else:
-          Canvas.drawConnectorVV(XorX, XorY, AndGateXPosition, AndGateYPosition-2)
-          Canvas.drawConnectorVV(AndGateXPosition, AndGateYPosition-2, AndGateXPosition, AndGateYPosition)
-          for Y in range(XorY+1, AndGateYPosition-2, +1):
-            Canvas.fixLinesAtPoint(XorX, Y)
+          Canvas.drawConnectorHH(XorX, XorY+2, AndGateXPosition, XorY+2)
+          Canvas.drawConnectorVV(AndGateXPosition, XorY+2, AndGateXPosition, AndGateYPosition)
+          for X in range(XorX+1,AndGateXPosition,1):
+            Canvas.fixLinesAtPoint(X, XorY+2)
       else:
         Canvas.drawConnectorVV(XorX, XorY, AndGateXPosition, AndGateYPosition)
-      Canvas.drawXor(XorX, XorY)
       Canvas.drawChar(AndGateXPosition-1, AndGateYPosition, "F")
       Canvas.drawChar(AndGateXPosition, AndGateYPosition, str(i1))
       Canvas.drawChar(AndGateXPosition+1, AndGateYPosition, str(i0))
-      if XorDown:
-        Canvas.drawChar(XorX, XorY-1, AsciiDrawing_Characters.DOWN_ARROW)
-      else:
-        Canvas.drawChar(XorX, XorY+1, AsciiDrawing_Characters.UP_ARROW)
       i0 += 1
       if i0 == 10:
         i1 += 1
         i0 = 0
       if i1 == 10:
         i1 = 0
+    for TC in TapsCoordinates:
+      XorDown = TC[0]
+      XorX = TC[1]
+      XorY = TC[2]
+      AndGateXPosition = TC[3]
+      AndGateYPosition = TC[4]
+      Canvas.drawXor(XorX, XorY)
+      if XorDown:
+        Canvas.drawChar(XorX, XorY-1, AsciiDrawing_Characters.DOWN_ARROW)
+      else:
+        Canvas.drawChar(XorX, XorY+1, AsciiDrawing_Characters.UP_ARROW)
     return Canvas.toStr(MaxWidth, Overlap)
   
   def toFibonacci(self) -> bool:
