@@ -1,10 +1,10 @@
-_LfsrTui_HLayout {
+_NlfsrTui_HLayout {
   layout: horizontal;
   overflow: auto scroll; 
   width: 100%;
   height: 100%;
 }
-_LfsrTui_LeftMenu {
+_NlfsrTui_LeftMenu {
   layout: vertical;
   overflow: auto scroll; 
   height: 100%;
@@ -12,7 +12,7 @@ _LfsrTui_LeftMenu {
   width: 30%;
   padding: 0;
 }
-_LfsrTui_HRight {
+_NlfsrTui_HRight {
   layout: vertical;
   overflow: auto scroll; 
   height: 100%;
@@ -20,15 +20,15 @@ _LfsrTui_HRight {
   width: 70%;
   padding: 0;
 }
-_LfsrTui_VTop {
+_NlfsrTui_VTop {
   layout: vertical;
   overflow: auto scroll; 
-  height: 11;
+  height: auto;
   margin: 0;
   width: 100%;
   padding: 0;
 }
-_LfsrTui_VMiddle {
+_NlfsrTui_VMiddle {
   layout: vertical;
   overflow: auto scroll; 
   height: 3;
@@ -37,7 +37,7 @@ _LfsrTui_VMiddle {
   padding: 0;
   background: rgb(230,230,230);
 }
-_LfsrTui_VBottom {
+_NlfsrTui_VBottom {
   layout: vertical;
   overflow: auto scroll; 
   height: auto;
@@ -64,7 +64,7 @@ Label {
   height: auto;
 }
 
-_LfsrTui_SetSize {
+_NlfsrTui_SetSize {
   width: 100%;
   layout: horizontal;
   margin: 0;
@@ -76,7 +76,7 @@ _LfsrTui_SetSize {
   width: 45%;
 }
 
-_LfsrTui_AddTap {
+_NlfsrTui_AddTap {
   width: 100%;
   layout: horizontal;
   margin: 0;

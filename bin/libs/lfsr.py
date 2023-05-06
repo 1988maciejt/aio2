@@ -1489,7 +1489,7 @@ class Lfsr:
   def tui(self) -> Lfsr:
     global _LFSR
     _LFSR = self.copy()
-    tui = _LfsrTui()
+    tui = _LFSRTui()
     tui.run()
     if tui.EXE == "ok":
       return _LFSR
@@ -2360,8 +2360,8 @@ endmodule'''
           Canvas.drawXor(Ex, 1)
           Canvas.fixLinesAtPoint(Bx, 4)      
     return Canvas.toStr(MaxWidth, Overlap)
-  def print(self):
-    Aio.print(self.getDraw())
+  def print(self, MaxWidth = 0, Overlap = 3):
+    Aio.print(self.getDraw(MaxWidth, Overlap))
   def getJTIndex(self, index):
     if self._type == LfsrType.RingGenerator:
       One = self._size & 1
@@ -2626,7 +2626,7 @@ class _BerlekampMassey:
 
 # TUI =====================================================/
 
-def _lfsr_sim_refresh(n = 32):
+def _LFSR_sim_refresh(n = 32):
     global _LFSR, _LFSR_SIM
     Lst2 = []
     Lst1 = _LFSR.getValues(n)
@@ -2634,32 +2634,32 @@ def _lfsr_sim_refresh(n = 32):
       Lst2.append([Bitarray.toString(I), I.count(1)])
     _LFSR_SIM = Lst2
 
-def _lfsr_sim_append():
+def _LFSR_sim_append():
     global _LFSR_SIM
-    _lfsr_sim_refresh(len(_LFSR_SIM)<<1)
+    _LFSR_sim_refresh(len(_LFSR_SIM)<<1)
     
-class _SetSize(TextualWidgets.Static):
+class _LfsrTui_SetSize(TextualWidgets.Static):
   def compose(self):
     global _LFSR
     yield TextualWidgets.Label(" \nNew size:", id="set_size_lbl")
     yield TextualWidgets.Input(str(_LFSR.getSize()), id="set_size")
 
-class _AddTap(TextualWidgets.Static):
+class _LfsrTui_AddTap(TextualWidgets.Static):
   def compose(self):
     yield TextualWidgets.Label(" \nFrom", id="add_tap_from_lbl")
     yield TextualWidgets.Input(id="add_tap_from")
     yield TextualWidgets.Label(" \nTo", id="add_tap_to_lbl")
     yield TextualWidgets.Input(id="add_tap_to")
     
-class _LeftMenu(TextualWidgets.Static):
+class _LfsrTui_LeftMenu(TextualWidgets.Static):
     def compose(self) -> TextualApp.ComposeResult:
         global _LFSR
         self.IsRing = (_LFSR._type == LfsrType.RingGenerator) or (_LFSR._type == LfsrType.RingWithSpecifiedTaps)
         if self.IsRing:
-          yield _SetSize()
+          yield _LfsrTui_SetSize()
           yield TextualWidgets.Button("Set size", id="btn_set_size")
           yield TextualWidgets.Label(" ")
-          yield _AddTap()
+          yield _LfsrTui_AddTap()
           yield TextualWidgets.Button("Add tap", id="btn_add_tap")
           yield TextualWidgets.Label(" ")
         else:
@@ -2698,7 +2698,7 @@ class _LeftMenu(TextualWidgets.Static):
       try:
         p = Polynomial(list(ast.literal_eval(self.query_one("#left_menu_polynomial").value)))
         _LFSR.__init__(p, _LFSR._type)
-        _lfsr_sim_refresh()
+        _LFSR_sim_refresh()
       except:
         pass
     def on_data_table_cell_selected(self, event: TextualWidgets.DataTable.CellSelected) -> None:
@@ -2715,21 +2715,21 @@ class _LeftMenu(TextualWidgets.Static):
                 _LFSR._taps.remove(_LFSR._taps[TapIndex])
             _LFSR._type = LfsrType.RingWithSpecifiedTaps
             self.refreshTable()
-            _lfsr_sim_refresh()
+            _LFSR_sim_refresh()
     def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
         global _LFSR, _LFSR_SIM
         if event.button.id == "dual":
             _LFSR = _LFSR.getDual()
             self.refreshTable()
-            _lfsr_sim_refresh()
+            _LFSR_sim_refresh()
         elif event.button.id == "reci":
             _LFSR = _LFSR.getReciprocal()
             if not self.IsRing:
               self.refreshPolynomial(_LFSR._my_poly)
             self.refreshTable()
-            _lfsr_sim_refresh()
+            _LFSR_sim_refresh()
         elif event.button.id == "btn_add_tap":
-          ATap = self.query_one(_AddTap)
+          ATap = self.query_one(_LfsrTui_AddTap)
           From = int(ATap.query_one("#add_tap_from").value)
           To = int(ATap.query_one("#add_tap_to").value)
           Tap = [From, To]
@@ -2739,9 +2739,9 @@ class _LeftMenu(TextualWidgets.Static):
             if Tap not in Taps:
               Taps.append(Tap)
               self.refreshTable()
-              _lfsr_sim_refresh()
+              _LFSR_sim_refresh()
         elif event.button.id == "btn_set_size":
-          SizeW = self.query_one(_SetSize)
+          SizeW = self.query_one(_LfsrTui_SetSize)
           Size = int(SizeW.query_one("#set_size").value)
           if Size < 0:
             return
@@ -2755,9 +2755,9 @@ class _LeftMenu(TextualWidgets.Static):
           _LFSR._baValue = bitarray(Size)
           _LFSR.reset()
           _LFSR._type = LfsrType.RingWithSpecifiedTaps
-          _lfsr_sim_refresh()
+          _LFSR_sim_refresh()
         elif event.button.id == "asim":
-            _lfsr_sim_append()
+            _LFSR_sim_append()
         elif event.button.id == "btn_ok":
             self.app.EXE = "ok"
             self.app.exit()
@@ -2765,7 +2765,7 @@ class _LeftMenu(TextualWidgets.Static):
             self.app.EXE = "cancel"
             self.app.exit()
         
-class _VTop(TextualWidgets.Static):
+class _LfsrTui_VTop(TextualWidgets.Static):
     LfsrDraw = TextualReactive.reactive("")
     Lbl = None
     def compose(self):
@@ -2779,11 +2779,11 @@ class _VTop(TextualWidgets.Static):
     def watch_LfsrDraw(self):
         self.Lbl.update(self.LfsrDraw)
         
-class _VMiddle(TextualWidgets.Static):
+class _LfsrTui_VMiddle(TextualWidgets.Static):
     LfsrPoly = TextualReactive.reactive(Polynomial([1,0]))
     def on_mount(self):
-        self.set_interval(0.2, self.update_LfsrPoly)
-    def update_LfsrPoly(self):
+        self.set_interval(0.2, self.update_LFSRPoly)
+    def update_LFSRPoly(self):
         global _LFSR, _WATCH
         self.LfsrPoly = Polynomial.decodeUsingBerlekampMassey(_LFSR)
     def watch_LfsrPoly(self):
@@ -2793,14 +2793,13 @@ class _VMiddle(TextualWidgets.Static):
         Prim = "IS PRIMITIVE" if self.LfsrPoly.isPrimitive() else "Is NOT primitive"
         self.update(f"This LFSR {Max}.\nCharacteristic polynomial {Prim}: {self.LfsrPoly}")
         
-class _VBottom(TextualWidgets.Static):
+class _LfsrTui_VBottom(TextualWidgets.Static):
     SimROws = TextualReactive.reactive([])
     def compose(self):
-        self.Data = TextualWidgets.DataTable()
-        yield TextualWidgets.DataTable()
+        yield TextualWidgets.DataTable(id="simt")
         yield TextualWidgets.Label("")
     def on_mount(self):
-        _lfsr_sim_refresh()
+        _LFSR_sim_refresh()
         self.set_interval(0.5, self.update_simdata)
         table = self.query_one(TextualWidgets.DataTable)
         table.add_columns("#Cycle", "Value (n-1, ..., 0)", "#1s")
@@ -2811,31 +2810,38 @@ class _VBottom(TextualWidgets.Static):
         global _LFSR_SIM
         table = self.query_one(TextualWidgets.DataTable)
         table.clear()
+        Aio.print("CLEARED")
         for i in range(len(_LFSR_SIM)):
           v = _LFSR_SIM[i]
+          Aio.print(v)
           table.add_row(i, v[0], v[1])
         
-class _HRight(TextualWidgets.Static):
+class _LfsrTui_VLayout(TextualWidgets.Static):
     def compose(self) -> TextualApp.ComposeResult:
-        yield _VTop()
-        yield _VMiddle()
-        yield _VBottom()
+        yield _LfsrTui_VTop()
+        yield _LfsrTui_VMiddle()
+        yield _LfsrTui_VBottom()
                 
-class _HLayout(TextualWidgets.Static):
+class _LfsrTui_HLayout(TextualWidgets.Static):
     def compose(self) -> TextualApp.ComposeResult:
-        yield _LeftMenu()
-        yield _HRight()
+        yield _LfsrTui_LeftMenu()
+        yield _LfsrTui_VLayout()
     
-class _LfsrTui(TextualApp.App):
+class _LFSRTui(TextualApp.App):
     BINDINGS = [("q", "quit", "Quit"), ('a', 'asim', 'Append values')]
     CSS_PATH = "tui/lfsr.css"
     def compose(self) -> TextualApp.ComposeResult:
         self.dark=False
         yield TextualWidgets.Header()
-        yield _HLayout()
+        yield _LfsrTui_HLayout()
         yield TextualWidgets.Footer()
         self.EXE = ""
     def action_asim(self):
-        _lfsr_sim_append()
+        _LFSR_sim_append()
+      
+
+
+
+
       
 

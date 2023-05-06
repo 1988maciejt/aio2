@@ -8,12 +8,21 @@ class AsciiDrawing_Characters:
   VERTICAL_BOLD = '\U00002503'
   HORIZONTAL_UP = '\U00002534'
   HORIZONTAL_DOWN = '\U0000252C'
+  THICK_HORIZONTAL_THIN_UP = '\U00002537'
+  THICK_HORIZONTAL_THIN_DOWN = '\U0000252F'
+  THICK_HORIZONTAL_THIN_UP_DOWN = '\U0000253F'
   VERTICAL_LEFT = '\U00002524'
   VERTICAL_RIGTH = '\U0000251C'
+  THIN_VERTICAL_THICK_RIGTH = '\U0000251D'
+  THIN_VERTICAL_THICK_LEFT = '\U00002525'
   UPPER_LEFT = '\U0000250C'
   UPPER_RIGHT = '\U00002510'
   LOWER_LEFT = '\U00002514'
   LOWER_RIGHT = '\U00002518'
+  HORIZONTAL_THICK_UPPER_LEFT = '\U0000250D'
+  HORIZONTAL_THICK_UPPER_RIGHT = '\U00002511'
+  HORIZONTAL_THICK_LOWER_LEFT = '\U00002515'
+  HORIZONTAL_THICK_LOWER_RIGHT = '\U00002519'
   UPPER_LEFT_BOLD = '\U0000250F'
   UPPER_RIGHT_BOLD = '\U00002513'
   LOWER_LEFT_BOLD = '\U00002517'
@@ -166,6 +175,9 @@ class AsciiDrawingPoint:
   def __str__(self):
     return self._char
   
+  def getChar(self):
+    return self._char
+      
   def setChar(self, Char : str):
     if len(Char) > 0:
       self._char = Char
@@ -239,6 +251,11 @@ class AsciiDrawingCanvas:
   def setChar(self, X : int, Y : int, Char : str) -> None:
     if 0 <= X < self._width and 0 <= Y < self._height:
       self._array[X][Y].setChar(Char)
+      
+  def getChar(self, X : int, Y : int) -> str:
+    if 0 <= X < self._width and 0 <= Y < self._height:
+      return self._array[X][Y].getChar()
+    return None
         
   def drawXor(self, X : int, Y : int) -> None:
     self._array[X][Y].setChar(AsciiDrawing_Characters.CIRCLED_PLUS)

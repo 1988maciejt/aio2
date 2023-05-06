@@ -10,6 +10,16 @@ from libs.generators import *
 from libs.remote_aio import *
 import hashlib
 
+# TUI =====================================================
+
+import textual.app as TextualApp
+import textual.widgets as TextualWidgets
+import textual.reactive as TextualReactive
+
+_NLFSR = None
+_NLFSR_SIM = []
+
+
 def _to_taps_templates(expr : str) -> list:
   exprf = expr.replace("+", "^")
   exprf = exprf.replace("*", "&")
@@ -493,7 +503,7 @@ class Nlfsr(Lfsr):
         Generator = Generators()
         Chunk = 50
         Total = len(Results) // Chunk +  + (1 if len(Results) % Chunk > 0 else 0)
-        Iter = p_uimap(_nlfsr_find_spec_period_helper2, Generator.subLists(Results, Chunk), total=Total, desc=f'Filtering beautifull (x{Chunk})')
+        Iter = p_uimap(_NLFSR_find_spec_period_helper2, Generator.subLists(Results, Chunk), total=Total, desc=f'Filtering beautifull (x{Chunk})')
         for I in Iter:
           Results2 += I
         Results = Results2  
@@ -636,7 +646,7 @@ class Nlfsr(Lfsr):
       Generator = Generators()
       WasResult = 0
       Total = len(InputSet) // Chunk + (1 if len(InputSet) % Chunk > 0 else 0)
-      Iter = p_uimap(_nlfsr_find_spec_period_helper, Generator.subLists(InputSet, Chunk), total=Total, desc=f'Simulating NLFSRs (x{Chunk})')
+      Iter = p_uimap(_NLFSR_find_spec_period_helper, Generator.subLists(InputSet, Chunk), total=Total, desc=f'Simulating NLFSRs (x{Chunk})')
       for I in Iter:
         for nlrg in I:
           p = nlrg._period
@@ -1171,7 +1181,170 @@ class Nlfsr(Lfsr):
         return True
     return False
   
-
+  def getDraw(self, MaxWidth = 0, Overlap = 3) -> str:
+    Uffs = self._size >> 1
+    Lffs = self._size - Uffs
+    Uoffset = 2
+    xext = 2
+    if Lffs > Uffs:
+      Uoffset = 3
+      xext = 0
+    Taps = self._Config
+    Size = self._size
+    Space = len(Taps) * 2 - 1
+    Canvas = AsciiDrawingCanvas(Lffs*6+2 +xext, 10 + Space) # 9
+    Canvas.drawBox(0, 1, Canvas._width-1, 7+Space)
+    Canvas.drawChar(1, 8+Space, AsciiDrawing_Characters.RIGHT_ARROW)
+    Canvas.drawChar(Canvas._width-2, 1, AsciiDrawing_Characters.LEFT_ARROW)
+    for i in range(Lffs):
+      ffindex = Lffs - i - 1
+      Canvas.drawBox(i*6+2, 7+Space, 3, 2, str(ffindex))
+      Canvas.fixLinesAtPoint(i*6+2, 7)
+      Canvas.fixLinesAtPoint(i*6+5, 7)
+    for i in range(Uffs):
+      ffindex = Lffs + i
+      Canvas.drawBox(i*6+2+Uoffset, 0, 3, 2, str(ffindex))
+      Canvas.fixLinesAtPoint(i*6+2+Uoffset, 1)
+      Canvas.fixLinesAtPoint(i*6+5+Uoffset, 1)
+    AndGateYPosition = 4+Space
+    AndGateXPositionsUsed = []
+    TapsCoordinates = []
+    for Tap in Taps:
+      D = abs(Tap[0]) % Size
+      DInv = 1 if Tap[0] < 0 else 0
+      XorDown = 1        
+      if D >= Lffs:
+        XorDown = 0
+      if XorDown:
+        XorX = (Lffs-D-1)*6+1
+        XorY = 8+Space
+      else:
+        XorX = (D-Lffs+1)*6+Uoffset
+        XorY = 1
+      AndGateXPosition = XorX
+      TheSameD = 0
+      while AndGateXPosition in AndGateXPositionsUsed:
+        AndGateXPosition += 2
+        TheSameD = 1
+      AndGateXPositionsUsed.append(AndGateXPosition)
+      Ss = Tap[1]
+      SsXY = []
+      if Aio.isType(Ss, 0):
+        Ss = [Ss]
+      for S in Ss:
+        SInv = 1 if S < 0 else 0
+        S = abs(S) % Size
+        SDown = 1
+        if S >= Lffs:
+          SDown = 0
+        if SDown:
+          Sx = (Lffs-S-1)*6+1+5
+          Sy = 8+Space
+        else:
+          Sx = (S-Lffs+1)*6+Uoffset-5
+          Sy = 1
+        SsXY.append([Sx, Sy])
+      TapsCoordinates.append([XorDown, XorX, XorY, AndGateXPosition, AndGateYPosition, TheSameD, SsXY])
+      AndGateYPosition -= 2
+    for TC in TapsCoordinates:
+      XorDown = TC[0]
+      AndGateXPosition = TC[3]
+      AndGateYPosition = TC[4]
+      TheSameD = TC[5]
+      SsXY = TC[6]
+      PointsToFix = []
+      for Sxy in SsXY:
+        Sx = Sxy[0]
+        Sy = Sxy[1]
+        Canvas.drawConnectorVH(Sx, Sy, AndGateXPosition, AndGateYPosition)
+        Canvas.fixLinesAtPoint(Sx, AndGateYPosition)
+        PointsToFix.append([Sx, AndGateYPosition])
+      for ptf in reversed(PointsToFix):
+        Canvas.fixLinesAtPoint(ptf[0], ptf[1])
+      #  if Sx < AndGateXPosition:
+      #    Canvas.drawChar(AndGateXPosition-1, AndGateYPosition, AsciiDrawing_Characters.RIGHT_ARROW)
+      #  elif Sx > AndGateXPosition:
+      #    Canvas.drawChar(AndGateXPosition+1, AndGateYPosition, AsciiDrawing_Characters.LEFT_ARROW)
+      #  elif Sy < AndGateYPosition:
+      #    Canvas.drawChar(AndGateXPosition, AndGateYPosition-1, AsciiDrawing_Characters.DOWN_ARROW)
+      #  elif Sy > AndGateYPosition:
+      #    Canvas.drawChar(AndGateXPosition, AndGateYPosition+1, AsciiDrawing_Characters.UP_ARROW)
+    i1, i0 = 0,0
+    for TC in TapsCoordinates:
+      XorDown = TC[0]
+      XorX = TC[1]
+      XorY = TC[2]
+      AndGateXPosition = TC[3]
+      AndGateYPosition = TC[4]
+      for X in range(AndGateXPosition-1, 0, -1):
+        if Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_UP:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_UP)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_DOWN:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_DOWN)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.CROSS:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_UP_DOWN)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL_RIGTH:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THIN_VERTICAL_THICK_RIGTH)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.LOWER_LEFT:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_LOWER_LEFT)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.UPPER_LEFT:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_UPPER_LEFT)
+        else:
+          break
+      for X in range(AndGateXPosition+1, Canvas._width, 1):
+        if Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_UP:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_UP)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_DOWN:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_DOWN)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.CROSS:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_UP_DOWN)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL_LEFT:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THIN_VERTICAL_THICK_LEFT)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.LOWER_RIGHT:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_LOWER_RIGHT)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.UPPER_RIGHT:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_UPPER_RIGHT)
+        else:
+          break
+    for TC in TapsCoordinates:
+      XorDown = TC[0]
+      XorX = TC[1]
+      XorY = TC[2]
+      AndGateXPosition = TC[3]
+      AndGateYPosition = TC[4]
+      TheSameD = TC[5]
+      if TheSameD:
+        if XorDown:
+          Canvas.drawConnectorVV(XorX, XorY, AndGateXPosition, AndGateYPosition+2)
+          Canvas.drawConnectorVV(AndGateXPosition, AndGateYPosition+2, AndGateXPosition, AndGateYPosition)
+          for Y in range(XorY-1, AndGateYPosition+2, -1):
+            Canvas.fixLinesAtPoint(XorX, Y)
+        else:
+          Canvas.drawConnectorVV(XorX, XorY, AndGateXPosition, AndGateYPosition-2)
+          Canvas.drawConnectorVV(AndGateXPosition, AndGateYPosition-2, AndGateXPosition, AndGateYPosition)
+          for Y in range(XorY+1, AndGateYPosition-2, +1):
+            Canvas.fixLinesAtPoint(XorX, Y)
+      else:
+        Canvas.drawConnectorVV(XorX, XorY, AndGateXPosition, AndGateYPosition)
+      Canvas.drawXor(XorX, XorY)
+      Canvas.drawChar(AndGateXPosition-1, AndGateYPosition, "F")
+      Canvas.drawChar(AndGateXPosition, AndGateYPosition, str(i1))
+      Canvas.drawChar(AndGateXPosition+1, AndGateYPosition, str(i0))
+      if XorDown:
+        Canvas.drawChar(XorX, XorY-1, AsciiDrawing_Characters.DOWN_ARROW)
+      else:
+        Canvas.drawChar(XorX, XorY+1, AsciiDrawing_Characters.UP_ARROW)
+      i0 += 1
+      if i0 == 10:
+        i1 += 1
+        i0 = 0
+      if i1 == 10:
+        i1 = 0
+    return Canvas.toStr(MaxWidth, Overlap)
   
   def toFibonacci(self) -> bool:
     Size = self._size
@@ -1358,6 +1531,15 @@ end
     
 endmodule'''
     return Module
+  
+  def tui(self):
+    global _NLFSR
+    _NLFSR = self.copy()
+    tui = _NlfsrTui()
+    tui.run()
+    if tui.EXE == "ok":
+      return _NLFSR
+    return None
         
     
         
@@ -1427,7 +1609,7 @@ class NlfsrList:
     exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
     for N in NlfsrsList:
       N._exename = exename
-    for R in p_imap(_nlfsr_list_database_helper, NlfsrsList):
+    for R in p_imap(_NLFSR_list_database_helper, NlfsrsList):
       NLFSR = NlfsrsList[i]
       Equations = NLFSR.toBooleanExpressionFromRing(0, 0, 1) + "\n"
       Equations += NLFSR.getArchitecture().replace("\n", ", ") + "\n"
@@ -1524,19 +1706,19 @@ def _make_expander(nlfsr) -> list:
       
       
     
-def _nlfsr_list_database_helper(NLFSR : Nlfsr) -> list:
+def _NLFSR_list_database_helper(NLFSR : Nlfsr) -> list:
   Rep = NLFSR.analyseSequences(3)
   Single = Rep.getUniqueCount(1)
   Double = Rep.getUniqueCount(2) - Single
   Triple = Rep.getUniqueCount(3) - Single - Double
   return [Single, Double, Triple]
     
-def _nlfsr_find_spec_period_helper(nlrglist : Nlfsr) -> int:
+def _NLFSR_find_spec_period_helper(nlrglist : Nlfsr) -> int:
   for nlrg in nlrglist:
     p = nlrg.getPeriod()
     nlrg._period = p
   return nlrglist
-def _nlfsr_find_spec_period_helper2(nlrglist : Nlfsr) -> int:
+def _NLFSR_find_spec_period_helper2(nlrglist : Nlfsr) -> int:
   Results = []
   for nlrg in nlrglist:
     if nlrg.makeBeauty(CheckMaximum=0):
@@ -1586,7 +1768,7 @@ class NlfsrFpgaBooster:
       for R in Result:
         R._exename = exe
       Res2 = []
-      for Res in p_imap(_verify_nlfsr, Result, desc="Verification"):
+      for Res in p_imap(_verify_NLFSR, Result, desc="Verification"):
         Res2 += Res
       return Res2
     return Result
@@ -1623,10 +1805,195 @@ class NlfsrFpgaBooster:
     return None
 
 
-def _verify_nlfsr(nlfsr : Nlfsr) -> Nlfsr:
+def _verify_NLFSR(nlfsr : Nlfsr) -> Nlfsr:
   P = nlfsr._period
   nlfsr._period = None
   if (P != nlfsr.getPeriod()):
     Aio.print(f"Period invalid - {P} while should be {nlfsr._period}:\n  {repr(nlfsr)}")
     return []
   return [nlfsr]
+
+
+
+
+# TUI =====================================================/
+
+def _NLFSR_sim_refresh(n = 32):
+    global _NLFSR, _NLFSR_SIM
+    Lst2 = []
+    Lst1 = _NLFSR.getValues(n)
+    for I in Lst1:
+      Lst2.append([Bitarray.toString(I), I.count(1)])
+    _NLFSR_SIM = Lst2
+
+def _NLFSR_sim_append():
+    global _NLFSR_SIM
+    _NLFSR_sim_refresh(len(_NLFSR_SIM)<<1)
+    
+
+class _NlfsrTui_SetSize(TextualWidgets.Static):
+  def compose(self):
+    global _NLFSR
+    yield TextualWidgets.Label(" \nNew size:", id="set_size_lbl")
+    yield TextualWidgets.Input(str(_NLFSR.getSize()), id="set_size")
+
+class _NlfsrTui_AddTap(TextualWidgets.Static):
+  def compose(self):
+    yield TextualWidgets.Label(" \nFrom", id="add_tap_from_lbl")
+    yield TextualWidgets.Input(id="add_tap_from")
+    yield TextualWidgets.Label(" \nTo", id="add_tap_to_lbl")
+    yield TextualWidgets.Input(id="add_tap_to")
+    
+class _NlfsrTui_LeftMenu(TextualWidgets.Static):
+    def compose(self) -> TextualApp.ComposeResult:
+        global _NLFSR
+        yield _NlfsrTui_SetSize()
+        yield TextualWidgets.Button("Set size", id="btn_set_size")
+        yield TextualWidgets.Label(" ")
+        yield _NlfsrTui_AddTap()
+        yield TextualWidgets.Button("Add tap", id="btn_add_tap")
+        yield TextualWidgets.Label(" ")
+        yield TextualWidgets.DataTable(id="dt")
+        yield TextualWidgets.Label(" ")
+        yield TextualWidgets.Button("More simulation steps", id="asim")
+        yield TextualWidgets.Label(" ")
+        yield TextualWidgets.Button("OK", id="btn_ok", variant="success")
+        yield TextualWidgets.Button("Cancel", id="btn_cancel", variant="error")
+    def refreshTable(self):
+        global _NLFSR
+        Taps = _NLFSR.getTaps()
+        table = self.query_one(TextualWidgets.DataTable)
+        table.clear()
+        if len(Taps) > 0:
+          for Tap in Taps:
+              table.add_row(str(Tap), "[ROTL]", "[ROTR]", "[REMOVE]")
+    def on_mount(self):
+        global _NLFSR
+        table = self.query_one(TextualWidgets.DataTable)
+        table.add_columns("TAP", ".", ".", ".")
+        self.refreshTable()
+    def on_data_table_cell_selected(self, event: TextualWidgets.DataTable.CellSelected) -> None:
+        global _NLFSR
+        if event.coordinate.column > 0:
+            TapIndex = event.coordinate.row
+            if event.coordinate.column == 1:
+                _NLFSR.rotateTap(TapIndex, -1, FailIfRotationInvalid=1)
+            elif event.coordinate.column == 2:
+                _NLFSR.rotateTap(TapIndex, 1, FailIfRotationInvalid=1)
+            elif event.coordinate.column == 3:
+                _NLFSR._taps.remove(_NLFSR._Config[TapIndex])
+            _NLFSR._type = LfsrType.RingWithSpecifiedTaps
+            self.refreshTable()
+            _NLFSR_sim_refresh()
+    def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
+        global _NLFSR, _NLFSR_SIM
+        if event.button.id == "btn_add_tap":
+          ATap = self.query_one(_NlfsrTui_AddTap)
+          From = int(ATap.query_one("#add_tap_from").value)
+          To = int(ATap.query_one("#add_tap_to").value)
+          Tap = [From, To]
+          Taps = _NLFSR._taps
+          Size = _NLFSR.getSize()
+          if (0 <= From < Size) and (0 <= To < Size):
+            if Tap not in Taps:
+              Taps.append(Tap)
+              self.refreshTable()
+              _NLFSR_sim_refresh()
+        elif event.button.id == "btn_set_size":
+          SizeW = self.query_one(_NlfsrTui_SetSize)
+          Size = int(SizeW.query_one("#set_size").value)
+          if Size < 0:
+            return
+          Taps = _NLFSR._taps
+          for Tap in Taps:
+            for V in Tap:
+              if V >= Size:
+                return
+          _NLFSR._size = Size
+          _NLFSR.clear()
+          _NLFSR._baValue = bitarray(Size)
+          _NLFSR.reset()
+          _NLFSR._type = LfsrType.RingWithSpecifiedTaps
+          _NLFSR_sim_refresh()
+        elif event.button.id == "asim":
+            _NLFSR_sim_append()
+        elif event.button.id == "btn_ok":
+            self.app.EXE = "ok"
+            self.app.exit()
+        elif event.button.id == "btn_cancel":
+            self.app.EXE = "cancel"
+            self.app.exit()
+        
+class _NlfsrTui_VTop(TextualWidgets.Static):
+    LfsrDraw = TextualReactive.reactive("")
+    Lbl = None
+    def compose(self):
+        self.Lbl = TextualWidgets.Label()
+        yield self.Lbl 
+    def on_mount(self):
+        self.set_interval(0.2, self.update_LfsrDraw)
+    def update_LfsrDraw(self):
+        global _NLFSR
+        self.LfsrDraw = _NLFSR.copy().getDraw()
+    def watch_LfsrDraw(self):
+        self.Lbl.update(self.LfsrDraw)
+        
+class _NlfsrTui_VMiddle(TextualWidgets.Static):
+    LfsrPoly = TextualReactive.reactive(Polynomial([1,0]))
+    def on_mount(self):
+        self.set_interval(0.2, self.update_LFSRPoly)
+    def update_LFSRPoly(self):
+        global _NLFSR
+        #self.LfsrPoly = Polynomial.decodeUsingBerlekampMassey(_LFSR)
+    def watch_LfsrPoly(self):
+        global _NLFSR
+        #l = _NLFSR.copy()
+        #Max = "IS MAXIMUM" if l.isMaximum() else "is NOT maximum"
+        #Prim = "IS PRIMITIVE" if self.LfsrPoly.isPrimitive() else "Is NOT primitive"
+        #self.update(f"This LFSR {Max}.\nCharacteristic polynomial {Prim}: {self.LfsrPoly}")
+        
+class _NlfsrTui_VBottom(TextualWidgets.Static):
+    SimROws = TextualReactive.reactive([])
+    def compose(self):
+        yield TextualWidgets.DataTable(id="simt")
+        yield TextualWidgets.Label("")
+    def on_mount(self):
+        _NLFSR_sim_refresh()
+        self.set_interval(0.5, self.update_simdata)
+        table = self.query_one(TextualWidgets.DataTable)
+        table.add_columns("#Cycle", "Value (n-1, ..., 0)", "#1s")
+    def update_simdata(self):
+        global _NLFSR_SIM
+        self.SimROws = _NLFSR_SIM
+    def watch_SimROws(self):
+        global _NLFSR_SIM
+        table = self.query_one(TextualWidgets.DataTable)
+        table.clear()
+        Aio.print("CLEARED")
+        for i in range(len(_NLFSR_SIM)):
+          v = _NLFSR_SIM[i]
+          Aio.print(v)
+          table.add_row(i, v[0], v[1])
+        
+class _NlfsrTui_VLayout(TextualWidgets.Static):
+    def compose(self) -> TextualApp.ComposeResult:
+        yield _NlfsrTui_VTop()
+        yield _NlfsrTui_VMiddle()
+        yield _NlfsrTui_VBottom()
+                
+class _NlfsrTui_HLayout(TextualWidgets.Static):
+    def compose(self) -> TextualApp.ComposeResult:
+        yield _NlfsrTui_LeftMenu()
+        yield _NlfsrTui_VLayout()
+    
+class _NlfsrTui(TextualApp.App):
+    BINDINGS = [("q", "quit", "Quit"), ('a', 'asim', 'Append values')]
+    CSS_PATH = "tui/nlfsr.css"
+    def compose(self) -> TextualApp.ComposeResult:
+        self.dark=False
+        yield TextualWidgets.Header()
+        yield _NlfsrTui_HLayout()
+        yield TextualWidgets.Footer()
+        self.EXE = ""
+    def action_asim(self):
+        _NLFSR_sim_append()
