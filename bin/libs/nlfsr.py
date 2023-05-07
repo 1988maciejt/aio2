@@ -1284,7 +1284,6 @@ class Nlfsr(Lfsr):
         Sy = Sxy[1]
         Canvas.drawConnectorVH(Sx, Sy, AndGateXPosition, AndGateYPosition)
         Canvas.fixLinesAtPoint(Sx, AndGateYPosition)
-        print("FIX", Sx, AndGateYPosition)
         PointsToFix.append([Sx, AndGateYPosition])
     for ptf in reversed(PointsToFix):
       Canvas.fixLinesAtPoint(ptf[0], ptf[1])
@@ -1344,13 +1343,17 @@ class Nlfsr(Lfsr):
         if XorDown:
           Canvas.drawConnectorHH(XorX, XorY-2, AndGateXPosition, XorY-2)
           Canvas.drawConnectorVV(AndGateXPosition, XorY-2, AndGateXPosition, AndGateYPosition)
-          for X in range(XorX+1,AndGateXPosition,1):
-            Canvas.fixLinesAtPoint(X, XorY-2)
+          FixY = XorY-2
         else:
           Canvas.drawConnectorHH(XorX, XorY+2, AndGateXPosition, XorY+2)
           Canvas.drawConnectorVV(AndGateXPosition, XorY+2, AndGateXPosition, AndGateYPosition)
+          FixY = XorY+2
+        if XorX < AndGateXPosition:
+          for X in range(XorX+1,AndGateXPosition,1):
+            Canvas.fixLinesAtPoint(X, FixY)
+        else:
           for X in range(XorX-1,AndGateXPosition,-1):
-            Canvas.fixLinesAtPoint(X, XorY+2)
+            Canvas.fixLinesAtPoint(X, FixY)          
       else:
         Canvas.drawConnectorVV(XorX, XorY, AndGateXPosition, AndGateYPosition)
       Canvas.drawChar(AndGateXPosition-1, AndGateYPosition, "F")
