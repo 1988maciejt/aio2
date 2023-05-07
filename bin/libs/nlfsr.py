@@ -1205,8 +1205,8 @@ class Nlfsr(Lfsr):
     for i in range(Lffs):
       ffindex = Lffs - i - 1
       Canvas.drawBox(i*6+2, 7+Space, 3, 2, str(ffindex))
-      Canvas.fixLinesAtPoint(i*6+2, 7)
-      Canvas.fixLinesAtPoint(i*6+5, 7)
+      Canvas.fixLinesAtPoint(i*6+2, 8+Space)
+      Canvas.fixLinesAtPoint(i*6+5, 8+Space)
     for i in range(Uffs):
       ffindex = Lffs + i
       Canvas.drawBox(i*6+2+Uoffset, 0, 3, 2, str(ffindex))
@@ -1215,6 +1215,7 @@ class Nlfsr(Lfsr):
     AndGateYPosition = 4+Space
     AndGateXPositionsUsed = []
     TapsCoordinates = []
+    PointsToFix = []
     for Tap in Taps:
       D = abs(Tap[0]) % Size
       DInv = 1 if Tap[0] < 0 else 0
@@ -1229,8 +1230,28 @@ class Nlfsr(Lfsr):
         XorY = 1
       AndGateXPosition = XorX
       TheSameD = 0
+      XPosAdder = 4
+      XPosAdd = 1
+      AndGateXPositionSaved = AndGateXPosition
       while AndGateXPosition in AndGateXPositionsUsed:
-        AndGateXPosition += 2
+        WhatToAdd = 0
+        if XorDown:
+          if XPosAdd:
+            WhatToAdd = XPosAdder
+            XPosAdd = 0
+          else:
+            WhatToAdd = -XPosAdder
+            XPosAdd = 1
+            XPosAdder += 3
+        else:
+          if XPosAdd:
+            WhatToAdd = -XPosAdder
+            XPosAdd = 0
+          else:
+            WhatToAdd = XPosAdder
+            XPosAdd = 1
+            XPosAdder += 3
+        AndGateXPosition = AndGateXPositionSaved + WhatToAdd
         TheSameD = 1
       AndGateXPositionsUsed.append(AndGateXPosition)
       Ss = Tap[1]
@@ -1258,15 +1279,15 @@ class Nlfsr(Lfsr):
       AndGateYPosition = TC[4]
       TheSameD = TC[5]
       SsXY = TC[6]
-      PointsToFix = []
       for Sxy in SsXY:
         Sx = Sxy[0]
         Sy = Sxy[1]
         Canvas.drawConnectorVH(Sx, Sy, AndGateXPosition, AndGateYPosition)
         Canvas.fixLinesAtPoint(Sx, AndGateYPosition)
+        print("FIX", Sx, AndGateYPosition)
         PointsToFix.append([Sx, AndGateYPosition])
-      for ptf in reversed(PointsToFix):
-        Canvas.fixLinesAtPoint(ptf[0], ptf[1])
+    for ptf in reversed(PointsToFix):
+      Canvas.fixLinesAtPoint(ptf[0], ptf[1])
     i1, i0 = 0,0
     for TC in TapsCoordinates:
       XorDown = TC[0]
@@ -1289,6 +1310,10 @@ class Nlfsr(Lfsr):
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_LOWER_LEFT)
         elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.UPPER_LEFT:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_UPPER_LEFT)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
+        else:
+          break
       for X in range(AndGateXPosition+1, Canvas._width, 1):
         if Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
@@ -1304,6 +1329,10 @@ class Nlfsr(Lfsr):
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_LOWER_RIGHT)
         elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.UPPER_RIGHT:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_UPPER_RIGHT)
+        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL:
+          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
+        else:
+          break
     for TC in TapsCoordinates:
       XorDown = TC[0]
       XorX = TC[1]
@@ -1320,7 +1349,7 @@ class Nlfsr(Lfsr):
         else:
           Canvas.drawConnectorHH(XorX, XorY+2, AndGateXPosition, XorY+2)
           Canvas.drawConnectorVV(AndGateXPosition, XorY+2, AndGateXPosition, AndGateYPosition)
-          for X in range(XorX+1,AndGateXPosition,1):
+          for X in range(XorX-1,AndGateXPosition,-1):
             Canvas.fixLinesAtPoint(X, XorY+2)
       else:
         Canvas.drawConnectorVV(XorX, XorY, AndGateXPosition, AndGateYPosition)
