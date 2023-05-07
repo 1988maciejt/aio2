@@ -1127,14 +1127,14 @@ class Nlfsr(Lfsr):
             self._Config = n2._Config.copy()
             if SortTaps:
               self.sortTaps()
-            #self._period = None
+            self._period = None
             return True
           return False
         LastRelation = Relation
       self._Config = n2._Config.copy()
       if SortTaps:
         self.sortTaps()
-      #self._period = None
+      self._period = None
       return True  
     else:
       if 0 <= TapIndex < len(self._Config):
@@ -1242,7 +1242,7 @@ class Nlfsr(Lfsr):
           else:
             WhatToAdd = -XPosAdder
             XPosAdd = 1
-            XPosAdder += 3
+            XPosAdder += 4
         else:
           if XPosAdd:
             WhatToAdd = -XPosAdder
@@ -1250,7 +1250,7 @@ class Nlfsr(Lfsr):
           else:
             WhatToAdd = XPosAdder
             XPosAdd = 1
-            XPosAdder += 3
+            XPosAdder += 4
         AndGateXPosition = AndGateXPositionSaved + WhatToAdd
         TheSameD = 1
       AndGateXPositionsUsed.append(AndGateXPosition)
