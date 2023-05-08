@@ -1078,7 +1078,7 @@ class Nlfsr(Lfsr):
     Sources = self.getTapsSources(TapIndex)
     Sources.sort()
     TapSources = self.getSingleTapSources(TapIndex)
-    TapDestination = self._Config[TapIndex][0]
+    TapDestination = abs(self._Config[TapIndex][0]) % self._size
     Result = []
     EqualTo = -1
     for S in Sources:
@@ -1195,8 +1195,8 @@ class Nlfsr(Lfsr):
   def getDraw(self, MaxWidth = 0, Overlap = 3) -> str:
     Uffs = self._size >> 1
     Lffs = self._size - Uffs
-    Uoffset = 2
-    xext = 2
+    Uoffset = 4
+    xext = 4
     if Lffs > Uffs:
       Uoffset = 3
       xext = 0
@@ -1312,13 +1312,15 @@ class Nlfsr(Lfsr):
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THIN_VERTICAL_THICK_RIGTH)
         elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.LOWER_LEFT:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_LOWER_LEFT)
+          break
         elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.UPPER_LEFT:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_UPPER_LEFT)
+          break
         elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
         else:
           break
-      for X in range(AndGateXPosition+1, Canvas._width, 1):
+      for X in range(AndGateXPosition+1, Canvas._width-1, 1):
         if Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
         elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_UP:
@@ -1331,8 +1333,10 @@ class Nlfsr(Lfsr):
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THIN_VERTICAL_THICK_LEFT)
         elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.LOWER_RIGHT:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_LOWER_RIGHT)
+          break
         elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.UPPER_RIGHT:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_UPPER_RIGHT)
+          break
         elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL:
           Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
         else:
