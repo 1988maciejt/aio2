@@ -1,0 +1,29 @@
+Table {
+    width: 45%;
+    height: auto;
+}
+
+Input {
+    width: 10;
+}
+
+#left_block {
+    width: 50%;
+    overflow: scroll scroll; 
+}
+
+#right_block {
+    width: 50%;
+    overflow: scroll scroll; 
+}
+
+#info_lbl {
+    height: auto;
+    margin: 2;
+    background: rgb(220,220,180);
+}
+
+#var_b, #var_c {
+    height: 3;
+    margin: 1;
+}

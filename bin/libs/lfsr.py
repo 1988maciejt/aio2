@@ -29,6 +29,7 @@ from libs.pandas_table import *
 import textual.app as TextualApp
 import textual.widgets as TextualWidgets
 import textual.reactive as TextualReactive
+import textual.containers as TextualContainers
 
 _LFSR = None
 _LFSR_SIM = []
@@ -40,6 +41,7 @@ class MSequencesReport:
   """
   _rep = {}
   _uniques = {}
+  _lincomp = None
   _max = 0
   _title = ""
   SourceObject = None
@@ -68,6 +70,23 @@ class MSequencesReport:
   def printReport(self, PhaseShifterGatesInputs = 0) -> str:
     Aio.print(self.getReport(PhaseShifterGatesInputs))
     
+  def getTableHeaderList(self) -> list:
+    Header = ["XOR size", "XORed signals", "Sequence"]
+    if self._lincomp is not None:
+      Header.append("Linear complexity")
+    return Header
+  
+  def iterateThroughTableRows(self, PhaseShifterGatesInputs = 0):    
+    if PhaseShifterGatesInputs <= 0 or PhaseShifterGatesInputs > self._max:
+      PhaseShifterGatesInputs = self._max
+    for i in range(1, PhaseShifterGatesInputs+1):
+      SDict = self._rep[i]
+      for key in SDict.keys():
+        Row = [i, key, SDict[key]]
+        if self._lincomp is not None:
+          Row.append(self._lincomp[i][key])
+        yield Row
+    
   def getReport(self, PhaseShifterGatesInputs = 0) -> str:
     """returns a string containing the full report of MSequence analysis.
 
@@ -78,11 +97,9 @@ class MSequencesReport:
     if PhaseShifterGatesInputs <= 0 or PhaseShifterGatesInputs > self._max:
       PhaseShifterGatesInputs = self._max
     Lines += f'\nUNIQUE SEQUENCES: {self.getUniqueCount(PhaseShifterGatesInputs)}'
-    PT = PandasTable(["XOR size", "XORed signals", "Sequence"])
-    for i in range(1, PhaseShifterGatesInputs+1):
-      SDict = self._rep[i]
-      for key in SDict.keys():
-        PT.add([i, key, SDict[key]])
+    PT = PandasTable(self.getTableHeaderList())
+    for Row in self.iterateThroughTableRows(PhaseShifterGatesInputs):
+      PT.add(Row)
     Lines += "\n\n" + PT.toString()  
     return Lines
   
@@ -93,6 +110,12 @@ class MSequencesReport:
         PhaseShifterGatesInputs (int, optional): maximum count of inputs of phase shifter's XORs.. Defaults to 0 (no limit).
     """
     Aio.print(self.getReport(PhaseShifterGatesInputs))
+    
+  def tui(self, LfsrObject):
+    TUI = _SeqReport_tui()
+    TUI.OBJ = LfsrObject
+    TUI.REP = self
+    TUI.run()
 
 
 
@@ -1825,7 +1848,7 @@ class Lfsr:
         IncorrectMove = 0
         if Sign > 0:
           for i in range(1, len(Relation)):
-            if LastRelation[i] >= 0 and Relation[i] < 0:
+            if LastRelation[i] >= 0 and Relation[i] != LastRelation[i]:
               IncorrectMove = 1
               break
           if LastRelation[0] < 0 and Relation[0] >= 0:
@@ -1835,7 +1858,7 @@ class Lfsr:
             if LastRelation[i] < 0 and Relation[i] >= 0:
               IncorrectMove = 1
               break
-          if LastRelation[0] >= 0 and Relation[0] < 0:
+          if LastRelation[0] >= 0 and Relation[0] != LastRelation[0]:
             IncorrectMove = 1
         if IncorrectMove:
           if LeaveMaximumShift:
@@ -2385,15 +2408,19 @@ endmodule'''
         Second = 1
       Result += f"Q{S}"
     return Result
-  def analyseSequences(self, XorInputsLimit = 0) -> MSequencesReport:
+  def analyseSequences(self, XorInputsLimit = 0, LinearComplexity = False, Silent = False) -> MSequencesReport:
     MaxK = self._size
     if self._size >= XorInputsLimit > 0:
       MaxK = XorInputsLimit
+    if not Silent:
+      print("Simulating NLFSR...")
     Values = self.getValues(reset=1)
     SequenceLength = len(Values)
     SingleSequences = [bitarray() for i in range(self._size)]
     UniqueSequences = {}
     ResultDict = {}
+    if LinearComplexity:
+      LinCompDict = {}
     ResultUDict = {}
     for word_index in range(SequenceLength):
       Word = Values[word_index]
@@ -2404,7 +2431,13 @@ endmodule'''
     while (k <= MaxK):
       Uniques = 0
       ResultDict[k] = {}
-      for XorToTest in List.getCombinations(MyFlopIndexes, k):
+      if LinearComplexity:
+        LinCompDict[k] = {}
+      if Silent:
+        Iterator = List.getCombinations(MyFlopIndexes, k)
+      else:
+        Iterator = tqdm(List.getCombinations(MyFlopIndexes, k), desc=f"Checking {k}-input XORs")
+      for XorToTest in Iterator:
         XorToTestStr = self._sumstr(XorToTest)
         ThisSequence = bau.zeros(SequenceLength)
         for i in XorToTest:
@@ -2421,12 +2454,18 @@ endmodule'''
           UniqueSequences[XorToTestStr] = ThisSequence
           ResultDict[k][XorToTestStr] = f"Unique"
           Uniques += 1
+        if LinearComplexity:
+          LinCompDict[k][XorToTestStr] = Polynomial.decodeUsingBerlekampMassey(ThisSequence).getDegree()
         ResultUDict[k] = Uniques
       k += 1
     Report = MSequencesReport()
     Report._rep = ResultDict
     Report._max = MaxK
     Report._uniques = ResultUDict
+    if LinearComplexity:
+      Report._lincomp = LinCompDict
+    else:
+      Report._lincomp = None
     Report._title = repr(self)
     Report.SourceObject = self
     return Report
@@ -2547,7 +2586,7 @@ endmodule'''
     return Lfsr([int(Size), 0], LfsrType.Galois).tui()
         
 def _analyseSequences_helper(lfsr) -> MSequencesReport:
-  return lfsr.analyseSequences()
+  return lfsr.analyseSequences(Silent=True)
     
     
 class LfsrList:
@@ -2848,3 +2887,31 @@ class _LFSRTui(TextualApp.App):
 
       
 
+
+class _SeqReport_tui(TextualApp.App):
+  BINDINGS = [("q", "quit", "Quit")]
+  CSS_PATH = "tui/seqreport.css"
+  OBJ = Lfsr([3,0], RING_GENERATOR)
+  REP = MSequencesReport
+  def compose(self) -> TextualApp.ComposeResult:
+    self.dark=False
+    tbl = TextualWidgets.DataTable()
+    tbl.add_columns(*self.REP.getTableHeaderList())
+    for Row in self.REP.iterateThroughTableRows():
+      tbl.add_row(*Row)
+    yield TextualWidgets.Header()
+    yield TextualContainers.Horizontal(
+      TextualContainers.Vertical(
+        TextualWidgets.Static(self.OBJ.getDraw()),
+        TextualWidgets.Label(" \n\n"),
+        TextualWidgets.Button("OK", id="btn_ok", variant="success"),
+        id="left_block"
+      ),
+      TextualWidgets.Static("  ", id="sep1"),
+      tbl
+    )
+    yield TextualWidgets.Footer()
+  def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
+    if event.button.id == "btn_ok":
+      self.app.exit()
+  

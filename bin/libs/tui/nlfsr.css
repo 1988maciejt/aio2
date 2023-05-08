@@ -95,6 +95,12 @@ _NlfsrTui_AddTap {
   width: 15%;
 }
 
+#lbl_period {
+  width: 30;
+}
 #btn_period {
   width: 8;
+}
+#btn_seq {
+  width: 19;
 }

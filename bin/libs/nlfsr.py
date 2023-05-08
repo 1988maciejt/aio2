@@ -36,7 +36,7 @@ def _to_taps_templates(expr : str) -> list:
       args = monomial.args
     if len(args) == 0:
       args = [monomial]
-    D = GlobalInv
+    D = -1 if GlobalInv else 1
     Ss = []
     for arg in args:
       if arg.func is Not:
@@ -66,37 +66,42 @@ class Nlfsr(Lfsr):
     return Nlfsr(self)
   def __del__(self):
     pass
+  def getExprFromTap(self, Tap) -> str:
+    Result = ""
+    C = Tap
+    D = C[0]
+    Slist = C[1]
+    DInv = False
+    if D < 0:
+      DInv = True      
+    D = abs(D) % self._size
+    Result += f' {D} <= '
+    if DInv:
+      Result += "~("
+    if Aio.isType(Slist, 0):
+      Result += " "
+      if Slist < 0:
+        Result += "~"
+      Slist = abs(Slist) % self._size
+      Result += f'{Slist}'
+    else:
+      First = True
+      for S in Slist:
+        if not First:
+          Result += " " + AsciiDrawing_Characters.MULTIPLY
+        First = False
+        Result += " "
+        if S < 0:
+          Result += "~"
+        S = abs(S) % self._size
+        Result += f'{S}'
+    if DInv:
+      Result += " )"
+    return Result
   def getArchitecture(self) -> str:
     Result = ""
     for C in self._Config:
-      D = C[0]
-      Slist = C[1]
-      DInv = False
-      if D < 0:
-        DInv = True      
-      D = abs(D) % self._size
-      Result += f' {D} <= '
-      if DInv:
-        Result += "~("
-      if Aio.isType(Slist, 0):
-        Result += " "
-        if Slist < 0:
-          Result += "~"
-        Slist = abs(Slist) % self._size
-        Result += f'{Slist}'
-      else:
-        First = True
-        for S in Slist:
-          if not First:
-            Result += " " + AsciiDrawing_Characters.MULTIPLY
-          First = False
-          Result += " "
-          if S < 0:
-            Result += "~"
-          S = abs(S) % self._size
-          Result += f'{S}'
-      if DInv:
-        Result += " )"
+      Result += self.getExprFromTap(C)
       Result += "\n"
     return Result[:-1]
   def printFullInfo(self):
@@ -1106,7 +1111,7 @@ class Nlfsr(Lfsr):
         IncorrectMove = 0
         if Sign > 0:
           for i in range(1, len(Relation)):
-            if LastRelation[i] >= 0 and Relation[i] < 0:
+            if LastRelation[i] >= 0 and Relation[i] != LastRelation[i]:
               IncorrectMove = 1
               break
           if LastRelation[0] < 0 and Relation[0] >= 0:
@@ -1116,7 +1121,7 @@ class Nlfsr(Lfsr):
             if LastRelation[i] < 0 and Relation[i] >= 0:
               IncorrectMove = 1
               break
-          if LastRelation[0] >= 0 and Relation[0] < 0:
+          if LastRelation[0] >= 0 and Relation[0] != LastRelation[0]:
             IncorrectMove = 1
         if IncorrectMove:
           if LeaveMaximumShift:
@@ -1455,40 +1460,44 @@ class Nlfsr(Lfsr):
         Result.append(i)
     return Result
 
+  def getTapsForBreaking(self, TapIndex : int, ExpressionTemplate : str, SecondaryInputsList = []) -> list:
+    NewTapsTemplate = _to_taps_templates(ExpressionTemplate)
+    Size = self._size
+    D = self._Config[TapIndex][0]
+    while D == 0:
+      D = Size
+    S = self._Config[TapIndex][1]
+    if Aio.isType(S, []):
+      S = S[0]
+    Inputs = [None, S] + SecondaryInputsList
+    NewTaps = []
+    for TapTemplate in NewTapsTemplate:
+      DestSign = TapTemplate[0]
+      Ss = []
+      for TI in TapTemplate[1]:
+        i = abs(TI)
+        sign = -1 if TI < 0 else 1
+        Si = Inputs[i]
+        while Si <= 0:
+          Si += Size
+        while Si > Size:
+          Si -= Size
+        Si *= sign
+        Ss.append(Si)
+      NewTap = [DestSign * D, Ss]
+      NewTaps.append(NewTap)
+    return NewTaps
 
   def breakLinearTap(self, TapIndex : int, ExpressionTemplate : str, SecondaryInputsList = []) -> bool:
     if not self.isTapLinear(TapIndex):
       Aio.printError(f"Tap '{TapIndex}' is not linear.")
       return False
     try:
-      NewTapsTemplate = _to_taps_templates(ExpressionTemplate)
-      Size = self._size
-      D = self._Config[TapIndex][0]
-      while D == 0:
-        D = Size
-      S = self._Config[TapIndex][1]
-      if Aio.isType(S, []):
-        S = S[0]
-      Inputs = [None, S] + SecondaryInputsList
-      NewTaps = []
-      for TapTemplate in NewTapsTemplate:
-        DestSign = TapTemplate[0]
-        Ss = []
-        for TI in TapTemplate[1]:
-          i = abs(TI)
-          sign = -1 if TI < 0 else 1
-          Si = Inputs[i]
-          while Si <= 0:
-            Si += Size
-          while Si > Size:
-            Si -= Size
-          Si *= sign
-          Ss.append(Si)
-        NewTap = [DestSign * D, Ss]
-        NewTaps.append(NewTap)
+      NewTaps = self.getTapsForBreaking(TapIndex, ExpressionTemplate, SecondaryInputsList)
       self._Config.remove(self._Config[TapIndex])
       self._Config += NewTaps
       self.sortTaps()
+      self._period = None
       return True
     except:
       return False
@@ -1569,11 +1578,32 @@ endmodule'''
   def tui(self):
     global _NLFSR
     _NLFSR = self.copy()
-    tui = _NlfsrTui()
-    tui.run()
-    if tui.EXE == "ok":
-      _NLFSR.sortTaps()
-      return _NLFSR
+    while 1:
+      tui = _NlfsrTui()
+      tui.run()
+      sleep(0.2)
+      if tui.EXE == "ok":
+        _NLFSR.sortTaps()
+        return _NLFSR
+      elif tui.EXE == "seq":
+        _NLFSR.sortTaps()
+        sleep(0.2)
+        _NLFSR.analyseSequences(1, 1).tui(_NLFSR)
+        sleep(0.5)
+      elif tui.EXE == "break_tap":
+        BTapTui = _BreakNlfsrTapTui()
+        BTapTui.OBJ = _NLFSR.copy()
+        BTapTui.TAP_INDEX = tui.TAP_INDEX
+        BTapTui.run()  
+        sleep(0.2)
+        if BTapTui.EXE == "ok":
+          TapIndex = BTapTui.TAP_INDEX
+          Expression = BTapTui.EXPR
+          Vars = [BTapTui.VARB, BTapTui.VARC]
+          if len(Expression) > 0 and len(Vars) > 0:
+            _NLFSR.breakLinearTap(TapIndex, Expression, Vars)
+      else:
+        break
     return None
         
   def checkMaximum(NlfsrsList : list) -> list:
@@ -1915,8 +1945,14 @@ class _NlfsrTui_LeftMenu(TextualWidgets.Static):
         table.clear()
         if len(Taps) > 0:
           i1, i0 = 0, 0
-          for Tap in Taps:
-              table.add_row(f"F{i1}{i0}", str(Tap), "[ROTL]", "[ROTR]", "[REMOVE]")
+          for i in range(len(Taps)):
+              Tap = Taps[i]
+              Row = [f"F{i1}{i0}", str(Tap), "[ROTL]", "[ROTR]", "[REMOVE]"]
+              if _NLFSR.isTapLinear(i):
+                Row.append("[BREAK]")
+              else:
+                Row.append("")
+              table.add_row(*Row)
               i0 += 1
               if i0 == 10:
                 i1 += 1
@@ -1926,7 +1962,7 @@ class _NlfsrTui_LeftMenu(TextualWidgets.Static):
     def on_mount(self):
         global _NLFSR
         table = self.query_one(TextualWidgets.DataTable)
-        table.add_columns("Func", "TAP", ".", ".", ".")
+        table.add_columns("Func", "TAP", ".", ".", ".", ".")
         self.refreshTable()
     def on_data_table_cell_selected(self, event: TextualWidgets.DataTable.CellSelected) -> None:
         global _NLFSR
@@ -1939,6 +1975,11 @@ class _NlfsrTui_LeftMenu(TextualWidgets.Static):
             elif event.coordinate.column == 4:
                 _NLFSR._Config.remove(_NLFSR._Config[TapIndex])
                 _NLFSR._period = None
+            elif event.coordinate.column == 5:
+                if _NLFSR.isTapLinear(TapIndex):
+                  self.app.TAP_INDEX = TapIndex
+                  self.app.EXE = "break_tap"
+                  self.app.exit()
             self.refreshTable()
             _NLFSR_sim_refresh()
     def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
@@ -2005,11 +2046,12 @@ class _NlfsrTui_VMiddle(TextualWidgets.Static):
     Period = TextualReactive.reactive(None)
     lbl = None
     def compose(self):
-      self.lbl = TextualWidgets.Label()
+      self.lbl = TextualWidgets.Label(id="lbl_period")
       yield TextualContainers.Horizontal(
         TextualWidgets.Button("Period", id="btn_period"),
         TextualWidgets.Label(" "),
-        self.lbl
+        self.lbl,
+        TextualWidgets.Button("Analyse Sequences", id="btn_seq"),
       )
     def on_mount(self):
         self.set_interval(0.2, self.update_period)
@@ -2020,6 +2062,9 @@ class _NlfsrTui_VMiddle(TextualWidgets.Static):
         global _NLFSR
         if event.button.id == "btn_period":
           _NLFSR.getPeriod()
+        if event.button.id == "btn_seq":
+          self.app.EXE = "seq"
+          self.app.exit()
     def watch_Period(self):
         global _NLFSR
         PeriodStr = "unknown"
@@ -2069,6 +2114,7 @@ class _NlfsrTui_HLayout(TextualWidgets.Static):
 class _NlfsrTui(TextualApp.App):
     BINDINGS = [("q", "quit", "Quit"), ('a', 'asim', 'Append values')]
     CSS_PATH = "tui/nlfsr.css"
+    TAP_INDEX = 0
     def compose(self) -> TextualApp.ComposeResult:
         self.dark=False
         yield TextualWidgets.Header()
@@ -2077,3 +2123,121 @@ class _NlfsrTui(TextualApp.App):
         self.EXE = ""
     def action_asim(self):
         _NLFSR_sim_append()
+
+
+
+
+class _BreakNlfsrTapTui(TextualApp.App):
+  BINDINGS = [("q", "quit", "Quit")]
+  CSS_PATH = "tui/breaknlfsrtap.css"
+  EXE = ""
+  OBJ = Nlfsr(8, [[0,[3]]])
+  TAP_INDEX = 0
+  EXPR = TextualReactive.reactive("")
+  ELIST = []
+  VARB = TextualReactive.reactive(0)
+  VARC = TextualReactive.reactive(0)
+  NEW_TAPS = TextualReactive.reactive([])
+  infolbl = None
+  def compose(self) -> TextualApp.ComposeResult:
+    self.dark=False
+    self.EXE = ""
+    self.ELIST = []
+    self.NEW_TAPS = []
+    self.VARB, self.VARC = 0, 0
+    tbl = TextualWidgets.DataTable()
+    tbl.add_columns("# Variables", "# Monomials", "Expression")
+    for Pair in [(2,2), (2,3), (2,4), (3,3), (3,4)]:
+      for E in DB.getReducibleToAExpressionsList(Pair[0], Pair[1]):
+        tbl.add_row(Pair[0], Pair[1], E)
+        self.ELIST.append(E)
+    self.infolbl = TextualWidgets.Label("", id="info_lbl")
+    yield TextualWidgets.Header()
+    yield TextualContainers.Horizontal(
+      TextualContainers.Vertical(
+        TextualWidgets.Static(self.OBJ.getDraw(), id="draw_lbl"),
+        TextualWidgets.Label(" "),
+        TextualContainers.Horizontal(
+          TextualWidgets.Label("\nFF index for variable 'b':"),
+          TextualWidgets.Input(id="input_b"),
+          id="var_b"
+        ),
+        TextualContainers.Horizontal(
+          TextualWidgets.Label("\nFF index for variable 'c':"),
+          TextualWidgets.Input(id="input_c"),
+          id="var_c"
+        ),
+        self.infolbl,
+        TextualWidgets.Button("OK", id="btn_ok", variant="success"),
+        TextualWidgets.Label(" "),
+        TextualWidgets.Button("Cancel", id="btn_cancel", variant="error"),
+        id="left_block"
+      ),
+      TextualContainers.Vertical(
+        tbl,
+        id="right_block"
+      ),
+      id="main_window"
+    )
+    yield TextualWidgets.Footer()
+  def update_draw(self):
+    DrawLbl = self.query_one("#draw_lbl")
+    if len(self.NEW_TAPS) > 0:
+      n2 = self.OBJ.copy()
+      n2._Config.remove(n2._Config[self.TAP_INDEX])
+      n2._Config += self.NEW_TAPS
+      DrawLbl.update(n2.getDraw())
+    else:
+      DrawLbl.update(self.OBJ.getDraw())
+  def on_mount(self):
+    self.set_interval(0.2, self.update_vars)
+    self.set_interval(0.5, self.update_draw)
+  def update_vars(self):
+    InputB = self.query_one("#input_b")
+    InputC = self.query_one("#input_c")
+    try:
+      self.VARB = abs(int(InputB.value)) % self.OBJ._size
+    except:
+      self.VARB = 0
+    try:
+      self.VARC = abs(int(InputC.value)) % self.OBJ._size
+    except:
+      self.VARC = 0
+  def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
+    if event.button.id == "btn_cancel":
+      self.EXE = ""
+      self.exit()
+    elif event.button.id == "btn_ok":
+      self.EXE = "ok"
+      self.exit()
+  def on_data_table_cell_selected(self, event: TextualWidgets.DataTable.CellSelected) -> None:
+    EIndex = event.coordinate.row
+    self.EXPR = self.ELIST[EIndex]
+  def update_info(self):
+    try:
+      BTaps = self.OBJ.getTapsForBreaking(self.TAP_INDEX, self.EXPR, [self.VARB, self.VARC])
+    except:
+      BTaps = []
+    self.NEW_TAPS = BTaps
+    txt = f"""=========== INFO ===============
+Tap def:       {self.OBJ._Config[self.TAP_INDEX]}
+Tap expr:      {self.OBJ.getExprFromTap(self.OBJ._Config[self.TAP_INDEX])}
+Breaking expr: {self.EXPR}
+New taps:
+"""
+    for BTap in BTaps:
+      txt += f"  {BTap}\n"
+    txt += "New tap expressions:\n"
+    for BTap in BTaps:
+      txt += f"  {self.OBJ.getExprFromTap(BTap)}\n"
+    try:
+      self.infolbl.update(txt)
+    except:
+      pass
+  def watch_EXPR(self):
+    self.update_info()
+  def watch_VARB(self):
+    self.update_info()
+  def watch_VARC(self):
+    self.update_info()
+    

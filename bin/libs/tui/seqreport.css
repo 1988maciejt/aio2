@@ -1,0 +1,18 @@
+Table {
+    height: auto;
+    width: auto;
+}
+Static {
+    height: auto;
+    width: auto;
+}
+
+#left_block {
+    width: 50%;
+}
+
+#sep1 {
+    width: 2;
+    height: 100%;
+    background: rgb(230,230,230);
+}
