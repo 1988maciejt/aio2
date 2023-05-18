@@ -4,6 +4,14 @@ from sympy import *
 from sympy.logic import *
 from libs.fast_anf_algebra import *
 
+# TUI =====================================================
+
+import textual.app as TextualApp
+import textual.widgets as TextualWidgets
+import textual.reactive as TextualReactive
+import textual.containers as TextualContainers
+
+
 class PhaseShifter:
     _xors = [] # reversed
     _my_source = None
@@ -160,3 +168,52 @@ class PhaseShifter:
         Result += "\n\nendmodule"
         return Result
 
+    def tui(self):
+        TUI = _PhaseShufter_tui()
+        TUI.OBJ = self
+        TUI.run()
+
+
+
+
+
+
+class _PhaseShufter_tui(TextualApp.App):
+  BINDINGS = [("q", "quit", "Quit")]
+  CSS_PATH = "tui/seqreport.css"
+  OBJ = None
+  def compose(self) -> TextualApp.ComposeResult:
+    self.dark=False
+    tbl = TextualWidgets.DataTable()
+    tbl.add_columns("XOR inputs", "# 1s", "Linear complexity", "# n-bit tuples")
+    for i in range(len(self.OBJ._xors)):
+        Row = [self.OBJ._xors[i]]
+        try:
+            Row.append(self.OBJ.OnesCount[i])
+        except:
+            Row.append("-")
+        try:
+            Row.append(self.OBJ.LinearComplexity[i])
+        except:
+            Row.append("-")
+        try:
+            Row.append(self.OBJ.SeqStats[i])
+        except:
+            Row.append("-")
+        tbl.add_row(*Row)
+    Primitive = "Yes" if self.OBJ._my_source.isMaximum() else "No"
+    yield TextualWidgets.Header()
+    yield TextualContainers.Horizontal(
+      TextualContainers.Vertical(
+        TextualWidgets.Static(self.OBJ._my_source.getDraw()),
+        TextualWidgets.Label(f" \n   Is maximum: {Primitive}\n\n"),
+        TextualWidgets.Button("OK", id="btn_ok", variant="success"),
+        id="left_block"
+      ),
+      TextualWidgets.Static("  ", id="sep1"),
+      tbl
+    )
+    yield TextualWidgets.Footer()
+  def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
+    if event.button.id == "btn_ok":
+      self.app.exit()

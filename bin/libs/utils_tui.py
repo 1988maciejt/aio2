@@ -5,6 +5,7 @@ import textual.reactive as TextualReactive
 import textual.containers as TextualContainers
 from libs.utils_int import *
 from libs.lfsr import *
+from libs.nlfsr import *
 from libs.aio import *
 from libs.pandas_table import *
 
@@ -112,9 +113,9 @@ class _TuiHybridLfsrSearching(TextualApp.App):
         yield TextualWidgets.Footer()
     def on_mount(self):
         DT = self.query_one(TextualWidgets.DataTable)
-        DT.add_columns("Architecture defining polynomial", "Decoded characteristic polynomial", ".")
+        DT.add_columns("Architecture defining polynomial", "Decoded characteristic polynomial", ".", ".")
         for i in range(len(self.Polys)):
-            DT.add_row(str(self.Polys[i]), str(self.CPolys[i]), "[EXPLORE]")
+            DT.add_row(str(self.Polys[i]), str(self.CPolys[i]), "[EXPLORE]", "[EXPLORE_AS_NLFSR]")
         if len(self.Lfsrs) > 0:
             Viewer = self.query_one(_TuiWidgetLfsrViewer)
             Viewer.updateLfsr(self.Lfsrs[0])
@@ -123,6 +124,9 @@ class _TuiHybridLfsrSearching(TextualApp.App):
         Command = event.coordinate.column
         if Command == 2:
             self.EXE = f"e{Index}"    
+            self.exit()
+        if Command == 3:
+            self.EXE = f"n{Index}"    
             self.exit()
         else:
             Viewer = self.query_one(_TuiWidgetLfsrViewer)
@@ -191,6 +195,8 @@ class Tui:
                 cmd, index = Int.splitLettersAndInt(Exe, "", -1)
                 if cmd == "e" and index >= 0:
                     Lfsrs[index].tui()
+                if cmd == "n" and index >= 0:
+                    Nlfsr(Lfsrs[index]).tui()
             CPolys = [Polynomial.decodeUsingBerlekampMassey(L) for L in Lfsrs]
         if ReturnResults:
             return Result

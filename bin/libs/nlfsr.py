@@ -18,6 +18,7 @@ import textual.reactive as TextualReactive
 import textual.containers as TextualContainers
 
 _NLFSR = None
+_NLFSR_UNDO = None
 _NLFSR_SIM = []
 
 
@@ -1001,7 +1002,7 @@ class Nlfsr(Lfsr):
   def createPhaseShifter(self):
     """Use 'createExpander' instead. It will return a PhaseSHifter object too."""
     Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = 0, StoreSeqStatesData = 0, Store2bitTuplesHistograms = 0, PBar = 1):
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreSeqStatesData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1):
     MaxK = self._size
     if self._size >= XorInputsLimit > 0:
       MaxK = XorInputsLimit
@@ -1020,6 +1021,8 @@ class Nlfsr(Lfsr):
       SSData = []
     if Store2bitTuplesHistograms:
       Histo2 = []
+    if StoreOnesCount:
+      OnesCount = []
     self.reset()
     if PBar:
       Iterator = tqdm(range(SequenceLength), desc="Simulating NLFSR")
@@ -1056,6 +1059,8 @@ class Nlfsr(Lfsr):
             SSData.append(Bitarray.getCardinality(ThisSequence, self._size))
           if Store2bitTuplesHistograms:
             Histo2.append(Bitarray.getTuplesHistogram(ThisSequence, 2))
+          if StoreOnesCount:
+            OnesCount.append(ThisSequence.count(1))
           #print(f"Added {XorToTest}")
           if len(XorsList) == NumberOfUniqueSequences > 0:
             break
@@ -1070,6 +1075,8 @@ class Nlfsr(Lfsr):
       PS.SeqStats = SSData
     if Store2bitTuplesHistograms:
       PS.Histo2 = Histo2
+    if StoreOnesCount:
+      PS.OnesCount = OnesCount
     return PS
   
   def getRelationBetweenSelectedTapAndOthers(self, TapIndex):
@@ -1195,8 +1202,8 @@ class Nlfsr(Lfsr):
   def getDraw(self, MaxWidth = 0, Overlap = 3) -> str:
     Uffs = self._size >> 1
     Lffs = self._size - Uffs
-    Uoffset = 4
-    xext = 4
+    Uoffset = 3
+    xext = 3
     if Lffs > Uffs:
       Uoffset = 3
       xext = 0
@@ -1245,17 +1252,25 @@ class Nlfsr(Lfsr):
             WhatToAdd = XPosAdder
             XPosAdd = 0
           else:
-            WhatToAdd = -XPosAdder
+            if WhatToAdd - XPosAdder <= 0:
+              XPosAdder += 4
+              WhatToAdd = XPosAdder
+            else:
+              WhatToAdd = -XPosAdder
+              XPosAdder += 4
             XPosAdd = 1
-            XPosAdder += 4
         else:
           if XPosAdd:
             WhatToAdd = -XPosAdder
             XPosAdd = 0
           else:
-            WhatToAdd = XPosAdder
+            if WhatToAdd + XPosAdder >= Canvas._width -1:
+              XPosAdder += 4
+              WhatToAdd = -XPosAdder
+            else:
+              WhatToAdd = XPosAdder
+              XPosAdder += 4
             XPosAdd = 1
-            XPosAdder += 4
         AndGateXPosition = AndGateXPositionSaved + WhatToAdd
         TheSameD = 1
       AndGateXPositionsUsed.append(AndGateXPosition)
@@ -1468,11 +1483,18 @@ class Nlfsr(Lfsr):
     NewTapsTemplate = _to_taps_templates(ExpressionTemplate)
     Size = self._size
     D = self._Config[TapIndex][0]
-    while D == 0:
-      D = Size
     S = self._Config[TapIndex][1]
     if Aio.isType(S, []):
       S = S[0]
+    Dinv = 1
+    if D < 0 and S < 0:
+      Dinv = 1
+    elif D < 0 or S < 0:
+      Dinv = -1
+    D = abs(D) % Size
+    S = abs(S) % Size
+    while D == 0:
+      D = Size
     Inputs = [None, S] + SecondaryInputsList
     NewTaps = []
     for TapTemplate in NewTapsTemplate:
@@ -1488,7 +1510,7 @@ class Nlfsr(Lfsr):
           Si -= Size
         Si *= sign
         Ss.append(Si)
-      NewTap = [DestSign * D, Ss]
+      NewTap = [Dinv * DestSign * D, Ss]
       NewTaps.append(NewTap)
     return NewTaps
 
@@ -1580,8 +1602,9 @@ endmodule'''
     return Module
   
   def tui(self):
-    global _NLFSR
+    global _NLFSR, _NLFSR_UNDO
     _NLFSR = self.copy()
+    _NLFSR_UNDO = None
     while 1:
       tui = _NlfsrTui()
       tui.run()
@@ -1590,9 +1613,15 @@ endmodule'''
         _NLFSR.sortTaps()
         return _NLFSR
       elif tui.EXE == "seq":
-        _NLFSR.sortTaps()
+        #_NLFSR.sortTaps()
         sleep(0.2)
         _NLFSR.analyseSequences(1, 1).tui(_NLFSR)
+        sleep(0.5)
+      elif tui.EXE == "exp":
+        #_NLFSR.sortTaps()
+        sleep(0.2)
+        PS = _NLFSR.createExpander(XorInputsLimit=3, StoreSeqStatesData=1, StoreLinearComplexityData=1, StoreOnesCount=1)
+        PS.tui()
         sleep(0.5)
       elif tui.EXE == "break_tap":
         BTapTui = _BreakNlfsrTapTui()
@@ -1605,6 +1634,7 @@ endmodule'''
           Expression = BTapTui.EXPR
           Vars = [BTapTui.VARB, BTapTui.VARC]
           if len(Expression) > 0 and len(Vars) > 0:
+            _NLFSR_UNDO = _NLFSR.copy()
             _NLFSR.breakLinearTap(TapIndex, Expression, Vars)
       else:
         break
@@ -1929,7 +1959,7 @@ class _NlfsrTui_AddTap(TextualWidgets.Static):
     
 class _NlfsrTui_LeftMenu(TextualWidgets.Static):
     def compose(self) -> TextualApp.ComposeResult:
-        global _NLFSR
+        global _NLFSR, _NLFSR_UNDO
         yield _NlfsrTui_SetSize()
         yield TextualWidgets.Button("Set size", id="btn_set_size")
         yield TextualWidgets.Label(" ")
@@ -1938,6 +1968,9 @@ class _NlfsrTui_LeftMenu(TextualWidgets.Static):
         yield TextualWidgets.Label(" ")
         yield TextualWidgets.DataTable(id="dt")
         yield TextualWidgets.Label(" ")
+        if _NLFSR_UNDO is not None:
+          yield TextualWidgets.Button("Undo last 'breaking tap' operation", id="undo")
+          yield TextualWidgets.Label(" ")
         yield TextualWidgets.Button("More simulation steps", id="asim")
         yield TextualWidgets.Label(" ")
         yield TextualWidgets.Button("OK", id="btn_ok", variant="success")
@@ -1987,7 +2020,7 @@ class _NlfsrTui_LeftMenu(TextualWidgets.Static):
             self.refreshTable()
             _NLFSR_sim_refresh()
     def on_button_pressed(self, event: TextualWidgets.Button.Pressed) -> None:
-        global _NLFSR, _NLFSR_SIM
+        global _NLFSR, _NLFSR_SIM, _NLFSR_UNDO
         if event.button.id == "btn_add_tap":
           try:
             ATap = self.query_one(_NlfsrTui_AddTap)
@@ -2025,6 +2058,10 @@ class _NlfsrTui_LeftMenu(TextualWidgets.Static):
           _NLFSR_sim_refresh()
         elif event.button.id == "asim":
             _NLFSR_sim_append()
+        elif event.button.id == "undo":
+            _NLFSR = _NLFSR_UNDO.copy()
+            self.refreshTable()
+            _NLFSR_sim_refresh()
         elif event.button.id == "btn_ok":
             self.app.EXE = "ok"
             self.app.exit()
@@ -2056,6 +2093,8 @@ class _NlfsrTui_VMiddle(TextualWidgets.Static):
         TextualWidgets.Label(" "),
         self.lbl,
         TextualWidgets.Button("Analyse Sequences", id="btn_seq"),
+        TextualWidgets.Label(" "),
+        TextualWidgets.Button("Create Expander", id="btn_exp"),
       )
     def on_mount(self):
         self.set_interval(0.2, self.update_period)
@@ -2068,6 +2107,9 @@ class _NlfsrTui_VMiddle(TextualWidgets.Static):
           _NLFSR.getPeriod()
         if event.button.id == "btn_seq":
           self.app.EXE = "seq"
+          self.app.exit()
+        if event.button.id == "btn_exp":
+          self.app.EXE = "exp"
           self.app.exit()
     def watch_Period(self):
         global _NLFSR
@@ -2131,6 +2173,7 @@ class _NlfsrTui(TextualApp.App):
 
 
 
+
 class _BreakNlfsrTapTui(TextualApp.App):
   BINDINGS = [("q", "quit", "Quit")]
   CSS_PATH = "tui/breaknlfsrtap.css"
@@ -2151,7 +2194,7 @@ class _BreakNlfsrTapTui(TextualApp.App):
     self.VARB, self.VARC = 0, 0
     tbl = TextualWidgets.DataTable()
     tbl.add_columns("# Variables", "# Monomials", "Expression")
-    for Pair in [(2,2), (2,3), (2,4), (3,3), (3,4)]:
+    for Pair in [(2,2), (2,3), (2,4), (3,3), (3,4), (3,5)]:
       for E in DB.getReducibleToAExpressionsList(Pair[0], Pair[1]):
         tbl.add_row(Pair[0], Pair[1], E)
         self.ELIST.append(E)

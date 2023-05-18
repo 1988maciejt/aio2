@@ -133,6 +133,13 @@ class BentFunction:
       self._minterms = self._lut.search(1)
     return self._minterms.copy()
   
+  def getAnf(self):
+    Vars = "abcdefghijklmnopqrstuvwxyz"
+    AnfVars = [symbols(Vars[i]) for i in range(self.getInputCount())]
+    anf = SOPform(AnfVars, self.getMinterms()).to_anf()    
+    return anf
+  toAnf = getAnf
+  
   def getFastANFValue(self, ANFSpace : FastANFSpace, InputList : List, Parallel = False, TaskScheduler : RemoteAioScheduler = None):
     if self._anf is None:
       self._iList = [symbols(f'_bf_x_{i}') for i in range(self.getInputCount())]

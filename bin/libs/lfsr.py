@@ -2899,11 +2899,12 @@ class _SeqReport_tui(TextualApp.App):
     tbl.add_columns(*self.REP.getTableHeaderList())
     for Row in self.REP.iterateThroughTableRows():
       tbl.add_row(*Row)
+    Primitive = "Yes" if self.OBJ.isMaximum() else "No"
     yield TextualWidgets.Header()
     yield TextualContainers.Horizontal(
       TextualContainers.Vertical(
         TextualWidgets.Static(self.OBJ.getDraw()),
-        TextualWidgets.Label(" \n\n"),
+        TextualWidgets.Label(f" \n   Is maximum: {Primitive}\n\n"),
         TextualWidgets.Button("OK", id="btn_ok", variant="success"),
         id="left_block"
       ),
