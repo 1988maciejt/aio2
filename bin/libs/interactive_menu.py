@@ -327,14 +327,9 @@ _GlobalNlfsr = Nlfsr(8, [])
   
 def _categoryNlfsrs_createNlfsr():
   global _GlobalNlfsr
-  Size = MainMenu_static.getRegisterSize()
-  if Size is None:
-    return
-  Config = MainMenu_static.getNlfsrTaps()
-  if Config is None:
-    return
-  _GlobalNlfsr = Nlfsr(Size, Config)
-  _categoryNlfsrs_info()
+  Res = _GlobalNlfsr.tui()
+  if Res is not None:
+    _GlobalNlfsr = Res
   
 def _categoryNlfsrs_check_period():
   global _GlobalNlfsr
@@ -349,11 +344,7 @@ def _categoryNlfsrs_check_period():
   
 def _categoryNlfsrs_info():
   global _GlobalNlfsr
-  Text =  f'Polynomial:          {_GlobalNlfsr.toBooleanExpressionFromRing(Shorten=1)}\n'
-  Text += f'Polynomial REV:      {_GlobalNlfsr.toBooleanExpressionFromRing(Reversed=1, Shorten=1)}\n'
-  Text += f'Polynomial COMP:     {_GlobalNlfsr.toBooleanExpressionFromRing(Complement=1, Shorten=1)}\n'
-  Text += f'Polynomial REV,COMP: {_GlobalNlfsr.toBooleanExpressionFromRing(Complement=1, Reversed=1, Shorten=1)}\n'
-  Text += f'CROSSING-FREE: {_GlobalNlfsr.isCrossingFree()}\n'
+  Text = f"Size: {_GlobalNlfsr.getSize()}\n"
   Text += _GlobalNlfsr.getFullInfo()
   message_dialog(title="Nlfsr - info", text=Text).run()
   
@@ -560,7 +551,7 @@ class MainMenu_static:
     title="Programmable ring generators",
     text="What do you want to do:",
     values=[
-      (_categoryNlfsrs_createNlfsr,          "Create NLFSR"),
+      (_categoryNlfsrs_createNlfsr,          "Edit NLFSR"),
       (_categoryNlfsrs_info,                 "Show info"),
       (_categoryNlfsrs_check_period,         "Check period of the NLFSR"),
       (_categoryNlfsrs_searchForMaximum,     "Search for specified NLFSRs"),

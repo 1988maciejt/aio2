@@ -3,11 +3,13 @@ SCRIPT=$(readlink -f $0)
 SCRIPTPATH=`dirname $SCRIPT`
 sudo apt update
 sudo apt upgrade -y
-sudo apt install --upgrade  -y -f dos2unix 
+sudo apt install --upgrade  -y -f dos2unix
+sudo apt install -y -f curl wget gdebi-core build-essential libreadline-dev libncursesw5-dev libssl-dev libsqlite3-dev tk-dev libgdbm-dev libc6-dev libbz2-dev libffi-dev zlib1g-dev libncurses5-dev libnss3-dev 
 sudo apt install --upgrade  -y -f texlive-xetex texlive-fonts-recommended texlive-plain-generic
 sudo apt install --upgrade  -y -f zlib1g pandoc
 # sudo apt install -y -f pyqt5-dev-tools
 sudo apt install --upgrade  -y -f bat
+sudo apt install --upgrade  -y -f python3-pip
 python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade setuptools
 # pip3 install --upgrade  pyqt5

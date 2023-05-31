@@ -29,7 +29,7 @@ Button {
 #lfsr_search_table {
   overflow: auto scroll;
   height: 70%;
-  width: 70%;
+  width: 100%;
   margin: 0;
 }
 #lfsr_search_vcontainer {
@@ -40,7 +40,7 @@ Button {
   height: auto;
 }
 #lfsr_search_viewer {
-  width: 70%;
+  width: 100%;
   height: 30%;
   min-height: 11;
 }
