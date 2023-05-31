@@ -2077,7 +2077,7 @@ class Lfsr:
         int: result. If the result is == (1<<size) it means a subtrajectory was reached
               and it cannot determine the period.
     """
-    MaxResult = Int.mersenne(self._size) + 1
+    MaxResult = Int.mersenne(self._size)
     if self.isMaximum():
       return MaxResult
     self.reset()
@@ -2138,7 +2138,9 @@ class Lfsr:
     if n <= 0:
       n = self.getPeriod()
     if reset:
+      Val = self._baValue.copy()
       self.reset()
+      self._baValue = Val
     for i in range(n):
       if AsStrings:
         yield Bitarray.toString(self._baValue)
@@ -2203,7 +2205,9 @@ class Lfsr:
       self.reset()
     n = Length
     if n <= 0:
+      Val = self._baValue.copy()
       n = self.getPeriod()
+      self._baValue = Val
     for i in range(n):
       result.append(self._baValue[BitIndex])
       self.next()
