@@ -23,7 +23,7 @@ _required_libs = [
   "netifaces",
   "pint",
   "textual",
-  "hyperloglog"
+  "hyperloglog",
 ]
 def _isModuleAvailable(LibName : str) -> bool:
   try:

@@ -6,7 +6,6 @@ import pickle
 from libs.utils_list import *
 import hyperloglog
 from libs.generators import *
-import scipy
 
 
 class Bitarray:
@@ -148,26 +147,6 @@ class Bitarray:
         for i in Indices:
             Tuples.append(bau.int2ba(i, TupleSize))
         return Tuples
-    
-    def getJackardDistance(A : bitarray, B : bitarray) -> float:
-        return scipy.spatial.distance.jaccard(list(A), list(B))
-    
-    def getJackardSimilarity(A : bitarray, B : bitarray) -> float:
-        return 1.0 - Bitarray.getJackardDistance(A, B)
-    
-    def getBestJackardSimilarity(A : bitarray, B : bitarray, ReturnAlsoShift = False) -> float:
-        BestSHift = 0
-        BestValue = 0.0
-        Brot = B.copy()
-        for i in range(len(A)):
-            S = Bitarray.getJackardSimilarity(A, Brot)
-            if S > BestValue:
-                BestValue = S
-                BestSHift = i
-            Brot = Bitarray.rotl(Brot)
-        if ReturnAlsoShift:
-            return BestValue, BestSHift
-        return BestValue
     
     def getHammingDistance(A : bitarray, B : bitarray) -> int:
         return bau.count_xor(A, B)

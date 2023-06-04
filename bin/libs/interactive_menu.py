@@ -400,15 +400,15 @@ def _categoryNlfsrs_searchForMaximum():
   FullPT = PandasTable([RC, Canonical, Equations, NlfsrObject], AutoId=1, AddVerticalSpaces=1)
   for R in Results:
     SmallPT.add([
-      R.toBooleanExpressionFromRing(Shorten=1),
+      R.toBooleanExpressionFromRing(),
       repr(R)
     ])    
     FullPT.add([
       f'  \nComplement\nReversed\nRev.,Compl.',
-      f'{R.toBooleanExpressionFromRing(Shorten=1)}\n\
-{R.toBooleanExpressionFromRing(Complement=1, Shorten=1)}\n\
-{R.toBooleanExpressionFromRing(Reversed=1, Shorten=1)}\n\
-{R.toBooleanExpressionFromRing(Reversed=1, Complement=1, Shorten=1)}',
+      f'{R.toBooleanExpressionFromRing()}\n\
+{R.toBooleanExpressionFromRing(Complement=1)}\n\
+{R.toBooleanExpressionFromRing(Reversed=1)}\n\
+{R.toBooleanExpressionFromRing(Reversed=1, Complement=1)}',
       R.getFullInfo(Header=0),
       repr(R)
     ])
