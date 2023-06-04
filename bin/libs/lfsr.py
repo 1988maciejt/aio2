@@ -1968,6 +1968,7 @@ class Lfsr:
     """Returns size of the LFSR
     """
     return (self._size)
+  
   def next(self, steps=1) -> bitarray:
     """Performs a shift of the LFSR. If more than 1 step is specified, 
     the fast-simulation method is used.
@@ -1980,7 +1981,7 @@ class Lfsr:
     """
     if steps < 0:
       Aio.printError("'steps' must be a positve number")
-      return 0
+      return None
     elif steps == 0:
       return self._baValue
     elif steps == 1:
@@ -2017,7 +2018,39 @@ class Lfsr:
           self._baValue = baresult.copy()
         steps >>= 1
         RowIndex += 1
-      return self._baValue    
+      return self._baValue   
+    
+  def toRingWithManuallySpecifiedTaps(self):
+    if self._type == LfsrType.Fibonacci:
+      self._taps = []
+      for i in range(1, len(self._bamask)):
+        if self._bamask[i]:
+          self._taps.append([i, self._size-1])
+    elif self._type == LfsrType.Galois:
+      self._taps = []
+      for i in range(len(self._bamask)-1):
+        if self._bamask[i]:
+          self._taps.append([i, [0]])
+    self._type = LfsrType.RingWithSpecifiedTaps
+    
+  def prev(self, steps=1):
+    if steps < 0:
+      Aio.printError("'steps' must be a positve number")
+      return None
+    elif steps > 0:
+      l2 = self.copy()
+      l2.toRingWithManuallySpecifiedTaps()
+      l2._baValue = self._baValue.copy()
+      Size = l2._size
+      for i in range(steps):  
+        nval = Bitarray.rotr(l2._baValue)
+        for tap in l2._taps:
+          To = (tap[1] + 1) % Size
+          From = ((tap[0] - 1) + Size) % Size
+          nval[To] ^= l2._baValue[From]
+        l2._baValue = nval
+      self._baValue = l2._baValue
+    return self._baValue 
   
   def getTapsDestinations(self, ExceptTapIndex = None):
     Result = []

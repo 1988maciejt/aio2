@@ -194,14 +194,19 @@ class Nlfsr(Lfsr):
       NewVal[DIndex] ^= AndResult
     self._baValue = NewVal
     return self._baValue
+  
   def next(self, steps=1):
     if steps < 0:
       Aio.printError("'steps' must be a positve number")
-      return 0
+      return None
     else:
       for _ in range(steps):
         self._next1()
     return self._baValue
+  
+  def prev(self, steps=1):
+    Aio.printError("Method 'prev()' for Nlfsr class is not implemented yet.")
+    return None
   
   def getTapsDestinations(self, ExceptTapIndex = None):
     Result = []
