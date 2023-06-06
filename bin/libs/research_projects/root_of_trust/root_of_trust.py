@@ -727,10 +727,10 @@ class KeystreamGenerator:
     def __init__(self, FileName = None) -> None:
         self.UpperNlfsr = Nlfsr(32, [])
         self.LowerNlfsr = Nlfsr(32, [])
-        self.LeftLfsr = Lfsr(32, RING_WITH_SPECIFIED_TAPS, [])
+        self.LeftLfsr = ProgrammableLfsr(32, [])
         self.UpperExpander = PhaseShifter(self.UpperNlfsr, [])
-        self.LowerExpander = PhaseShifter(self.LowerExpander, [])
-        self.LeftPhaseShifter = PhaseShifter(self.LeftLfsr, [])
+        self.LowerExpander = PhaseShifter(self.LowerNlfsr, [])
+        self.LeftPhaseShifter = PhaseShifter(Lfsr(32, RING_WITH_SPECIFIED_TAPS, []), [])
         self.MuxBlocks = []
         if FileName is not None:
             self.fromFile(FileName)
@@ -744,8 +744,8 @@ class KeystreamGenerator:
     def fromFile(FileName):
         pass
     
-    def setLeftLfsr(self, LfsrObject : Lfsr):
-        self.LeftLfsr = LfsrObject
+    def setLeftLfsr(self, ProgrammableLfsrObject : ProgrammableLfsr):
+        self.LeftLfsr = ProgrammableLfsrObject
         
     def setUpperNlfsr(self, NlfsrObject : Nlfsr):
         self.UpperNlfsr = NlfsrObject
@@ -764,3 +764,119 @@ class KeystreamGenerator:
         
     def setLowerExpander(self, PhaseShifterObject : PhaseShifter):
         self.LowerExpander = PhaseShifterObject
+        
+    def getSizeOfPolynomialSelector(self) -> int:
+        return self.LeftLfsr.getConfigVectorLength()
+    
+    def simulatePolynomialSelectorSettingUp(self, InputSequence : bitarray, LfsrInjectorBitIndex : int, LfsrSelectorOutputBitIndex : int, Verbose = False) -> tuple:
+        InputSequence = bitarray(InputSequence)
+        SelectorBits = bitarray(self.LeftLfsr.getConfigVectorLength())
+        SelectorBits.setall(0)
+        lfsr = self.LeftLfsr.getLfsr(SelectorBits)
+        lfsr._baValue.setall(0)
+        if Verbose:
+            PT = PandasTable(["Cycle", "SelectorValue", "LfsrValue", "LfsrObject"])
+            PT.add([0, Bitarray.toString(SelectorBits), Bitarray.toString(lfsr._baValue), repr(lfsr)])
+        for i in range(len(InputSequence)):
+            SelectorInput = lfsr._baValue[LfsrSelectorOutputBitIndex]
+            InputValue = InputSequence[i]
+            Value = lfsr.next()
+            SelectorBits = Bitarray.rotr(SelectorBits)
+            SelectorBits[0] ^= SelectorInput
+            Value[LfsrInjectorBitIndex] ^= InputValue
+            lfsr = self.LeftLfsr.getLfsr(SelectorBits)
+            lfsr.setValue(Value)
+            if Verbose:
+                PT.add([i+1, Bitarray.toString(SelectorBits), Bitarray.toString(lfsr._baValue), repr(lfsr)])
+        if Verbose:
+            Aio.print("")
+            Aio.print("--- simulatePolynomialSelectorSettingUp ----")
+            Aio.print("")
+            PT.print()
+        return (SelectorBits, Value)
+    
+    def simulateLfsrSeedObtaining(self, InputSequenceLength : int, SelectorBits : bitarray, LfsrValue : bitarray, LfsrInjectorBitIndex : int, LfsrSelectorOutputBitIndex : int, Verbose = False) -> bitarray:
+        SelectorBits = bitarray(SelectorBits).copy()
+        LfsrValue = bitarray(LfsrValue).copy()
+        if len(SelectorBits) != self.LeftLfsr.getConfigVectorLength():
+            Aio.printError(f"SelectorBits must contain {self.LeftLfsr.getConfigVectorLength()} bits.")
+            return None
+        if len(LfsrValue) != self.LeftLfsr.getSize():
+            Aio.printError(f"LfsrValue must contain {self.LeftLfsr.getSize()} bits.")
+            return None
+        InputSequence = bitarray()
+        if Verbose:
+            PT = PandasTable(["Cycle", "TryForSel", "TryForInj", "SelectorValue", "LfsrValue", "Winner?", "LfsrObject"])
+            PT.add([InputSequenceLength, "-", "-", Bitarray.toString(SelectorBits), Bitarray.toString(LfsrValue), "-", repr(self.LeftLfsr.getLfsr(SelectorBits))])
+        if InputSequenceLength > 0:
+            Zero = bau.zeros(len(LfsrValue))
+            SelZero = bau.zeros(len(SelectorBits))
+            PrevSelector0 = Bitarray.rotl(SelectorBits)
+            PrevLfsr0 = self.LeftLfsr.getLfsr(PrevSelector0)
+            PrevLfsr0.setValue(LfsrValue.copy())
+            LfsrValue0_0 = PrevLfsr0.prev().copy()
+            PrevLfsr0.setValue(LfsrValue.copy())
+            PrevLfsr0._baValue[LfsrInjectorBitIndex] ^= 1
+            LfsrValue0_1 = PrevLfsr0.prev().copy()
+            SelectorBits1 = SelectorBits.copy()
+            SelectorBits1[0] ^= 1
+            PrevSelector1 = Bitarray.rotl(SelectorBits1)
+            PrevLfsr1 = self.LeftLfsr.getLfsr(PrevSelector1)
+            PrevLfsr1.setValue(LfsrValue.copy())
+            LfsrValue1_0 = PrevLfsr1.prev().copy()
+            PrevLfsr1.setValue(LfsrValue.copy())
+            PrevLfsr1._baValue[LfsrInjectorBitIndex] ^= 1
+            LfsrValue1_1 = PrevLfsr1.prev().copy()
+            if InputSequenceLength == 1:
+                W0 = (LfsrValue0_0 == Zero) and (PrevSelector0 == SelZero)
+                W1 = (LfsrValue0_1 == Zero) and (PrevSelector0 == SelZero)
+                if Verbose:
+                    PT.add([InputSequenceLength-1, 0, 0, Bitarray.toString(PrevSelector0), Bitarray.toString(LfsrValue0_0), W0, repr(PrevLfsr0)]) 
+                    PT.add([InputSequenceLength-1, 0, 1, Bitarray.toString(PrevSelector0), Bitarray.toString(LfsrValue0_1), W1, repr(PrevLfsr0)])
+                if W0:
+                    InputSequence = bitarray('0')
+                elif W1:
+                    InputSequence = bitarray('1')
+                else:
+                    InputSequence = None
+            else:
+                W0_0 = (LfsrValue0_0[LfsrSelectorOutputBitIndex] == 0)
+                W0_1 = (LfsrValue0_1[LfsrSelectorOutputBitIndex] == 0)
+                W1_0 = (LfsrValue1_0[LfsrSelectorOutputBitIndex] == 1)
+                W1_1 = (LfsrValue1_1[LfsrSelectorOutputBitIndex] == 1)
+                if Verbose:
+                    PT.add([InputSequenceLength-1, 0, 0, Bitarray.toString(PrevSelector0), Bitarray.toString(LfsrValue0_0), W0_0, repr(PrevLfsr0)]) 
+                    PT.add([InputSequenceLength-1, 0, 1, Bitarray.toString(PrevSelector0), Bitarray.toString(LfsrValue0_1), W0_1, repr(PrevLfsr0)])
+                    PT.add([InputSequenceLength-1, 1, 0, Bitarray.toString(PrevSelector0), Bitarray.toString(LfsrValue1_0), W1_0, repr(PrevLfsr0)]) 
+                    PT.add([InputSequenceLength-1, 1, 1, Bitarray.toString(PrevSelector0), Bitarray.toString(LfsrValue1_1), W1_1, repr(PrevLfsr0)])
+                Success = False
+                if W0_0:
+                    Result = self.simulateLfsrSeedObtaining(InputSequenceLength-1, PrevSelector0, LfsrValue0_0, LfsrInjectorBitIndex, LfsrSelectorOutputBitIndex, Verbose)
+                    if Result is not None:
+                        InputSequence = Result + bitarray('0')
+                        Success = True
+                if not Success and W0_1:
+                    Result = self.simulateLfsrSeedObtaining(InputSequenceLength-1, PrevSelector0, LfsrValue0_1, LfsrInjectorBitIndex, LfsrSelectorOutputBitIndex, Verbose)
+                    if Result is not None:
+                        InputSequence = Result + bitarray('1')
+                        Success = True
+                if not Success and W1_0:
+                    Result = self.simulateLfsrSeedObtaining(InputSequenceLength-1, PrevSelector1, LfsrValue1_0, LfsrInjectorBitIndex, LfsrSelectorOutputBitIndex, Verbose)
+                    if Result is not None:
+                        InputSequence = Result + bitarray('0')
+                        Success = True
+                if not Success and W1_1:
+                    Result = self.simulateLfsrSeedObtaining(InputSequenceLength-1, PrevSelector1, LfsrValue1_1, LfsrInjectorBitIndex, LfsrSelectorOutputBitIndex, Verbose)
+                    if Result is not None:
+                        InputSequence = Result + bitarray('1')
+                        Success = True
+                if not Success:
+                    InputSequence = None
+        else:
+            return bitarray('')  
+        if Verbose:
+            Aio.print("")
+            Aio.print(f"--- simulateLfsrSeedObtaining {InputSequenceLength} ----")
+            PT.print()
+            Aio.print(f"--- Returned InputSequence: {InputSequence} ----")
+        return InputSequence
