@@ -923,13 +923,13 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
   @staticmethod
   def listTigerPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0) -> list:
     Poly0 = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance)
-    Signs = Poly0._sign_list
-    for i in range(len(Signs)-2, 0, -2):
-      Signs[i] = -1
     if Poly0 is None:
       return []
     if not Poly0.setStartingPointForIterator(StartingPolynomial):
       return []
+    Signs = Poly0._sign_list
+    for i in range(len(Signs)-2, 0, -2):
+      Signs[i] = -1
     SerialChunkSize = 20
     if PolynomialDegree >= 512:
       SerialChunkSize = 1
