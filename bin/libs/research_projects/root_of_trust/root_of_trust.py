@@ -798,7 +798,7 @@ class ProgrammableNeptunLfsr:
         if len(Result) > 0:
             yield Result
     
-    def getMaximumLfsrsAndPolynomialsCound(self) -> tuple:
+    def getMaximumLfsrsAndPolynomialsCount(self) -> tuple:
         FoundLfsrs = 0
         Polys = []
         ChunkSize = 100000
