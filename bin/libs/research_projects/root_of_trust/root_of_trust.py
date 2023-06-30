@@ -662,6 +662,212 @@ class HashFunction:
 #                          KEYSTREAM GENERATOR
 ########################################################################################
 
+class ProgrammableNeptunLfsr:
+    
+    __slots__ = ("_Value", "_Selector", "_Size", "_SelectorDict", "_NextConditionDict", "_FfDict")
+    
+    def __init__(self, Size : int) -> None:
+        self._Size = Size
+        self._Value = bau.zeros(Size)
+        UpperTaps = []
+        LowerTaps = []
+        UpperMin = Size >> 1
+        LowerMax = UpperMin - 1
+        D = Size-3
+        for S in range(2, LowerMax+1, 3):
+            for _ in range(3):
+                if D < LowerMax:
+                    break
+                UpperTaps.append([S, D])
+                D -= 1 
+        D = Size-1
+        for S in range(Size-2, UpperMin-1, -3):
+            for _ in range(3):
+                if D >= LowerMax and D < (Size-1):
+                    break
+                LowerTaps.append([S, D])
+                D = (D + 1) % Size 
+        SelectorDict = {}
+        NextConditionDict = {}
+        Index = 0
+        for Tap in LowerTaps:
+            SelectorDict[Index] = Tap
+            if (Index % 3) == 2:
+                NextConditionDict[Index] = len(LowerTaps) + len(UpperTaps) + 1 - Index
+            else:
+                NextConditionDict[Index] = None
+            Index += 1
+        for Tap in reversed(UpperTaps):
+            SelectorDict[Index] = Tap
+            NextConditionDict[Index] = None
+            Index += 1
+        self._SelectorDict = SelectorDict
+        self._NextConditionDict = NextConditionDict
+        self._Selector = bau.zeros(len(SelectorDict))
+        self._FfDict = self._getFFOnDependencyDict()
+            
+    def getSize(self) -> int:
+        return self._Size
+    
+    def getValue(self) -> bitarray:
+        return self._Value.copy()
+    
+    def getSelector(self) -> bitarray:
+        return self._Selector.copy()
+    
+    def getSelectorSize(self) -> int:
+        return len(self._Selector)
+    
+    def setValue(self, Value : bitarray):
+        Value = bitarray(Value)
+        if len(Value) != len(self._Value):
+            Aio.printError(f"The new value is {len(Value)} bit length while should be {len(self._Value)}.")
+            self._Value = Value
+    
+    def setSelector(self, Value : bitarray):
+        Value = bitarray(Value)
+        if len(Value) != len(self._Selector):
+            Aio.printError(f"The new value is {len(Value)} bit length while should be {len(self._Selector)}.")
+            self._Selector = Value
+        
+    def _getFFOnDependencyDict(self) -> dict:
+        Result = {}
+        for i in range(self._Size):
+            Ff = {}
+            for k in self._SelectorDict.keys():
+                Tap = self._SelectorDict[k]
+                if Tap[1] == i:
+                    NextCondition = self._NextConditionDict[k]
+                    if NextCondition is not None:
+                        Ff[Tap[0]] = [k, NextCondition]
+                    else:
+                        Ff[Tap[0]] = k
+            Result[i] = Ff
+        return Result
+        
+    def next(self, LfsrEnable = True, SelectorEnable = False, InjectorValue = 0) -> bitarray:
+        NewValue = self._Value.copy()
+        NewSelector = self._Selector.copy()
+        if LfsrEnable:
+            NewValue = Bitarray.rotl(NewValue)
+            for i in range(self._Size):
+                Ff = self._FfDict[i]
+                for k in Ff.keys():
+                    Condition = Ff[k]
+                    if Aio.isType(Condition, 0):
+                        if self._Selector[Condition]:
+                            NewValue[i] ^= self._Value[k]
+                    else:
+                        if self._Selector[Condition[0]] and (not self._Selector[Condition[1]]):
+                            NewValue[i] ^= self._Value[k]
+        if SelectorEnable:
+            NewSelector = Bitarray.rotl(NewSelector)
+            NewSelector[len(NewSelector)-1] ^= self._Value[self._Size-1]
+        self._Selector = NewSelector
+        self._Value = NewValue
+
+    def prev(self, LfsrEnable = True, SelectorEnable = True) -> bitarray:
+        pass
+    
+    def getLfsr(self, SelectorValue : bitarray) -> Lfsr:
+        if Aio.isType(SelectorValue, 0):
+            SelectorValue = bau.int2ba(SelectorValue, self.getSelectorSize())
+        elif Aio.isType(SelectorValue, ""):
+            SelectorValue = bitarray(SelectorValue)
+        if len(SelectorValue) != len(self._Selector):
+            Aio.printError(f"SelectorValue is {len(SelectorValue)} bit length while it should be {len(self._Selector)} bit wide.")
+            return None
+        Taps = []
+        for i in range(len(self._Selector)):
+            if SelectorValue[i]:
+                Tap = self._SelectorDict[i]
+                NextCondition = self._NextConditionDict[i]
+                if NextCondition is not None:
+                    if SelectorValue[NextCondition]:
+                        continue
+                Taps.append(Tap)
+        return Lfsr(self._Size, LfsrType.RingWithSpecifiedTaps, Taps)
+    
+    def generateAllLfsrs(self, ChunkSize = 10000):
+        Result = []
+        for i in range(1, (1 << self.getSelectorSize())):
+            Result.append(self.getLfsr(i))
+            if len(Result) >= ChunkSize:
+                yield Result
+                Result = []
+        if len(Result) > 0:
+            yield Result
+    
+    def getMaximumLfsrsAndPolynomialsCound(self) -> tuple:
+        FoundLfsrs = 0
+        Polys = []
+        ChunkSize = 100000
+        Iterations = (1 << self.getSelectorSize()) / ChunkSize
+        Counter = 0
+        for l in self.generateAllLfsrs(ChunkSize):
+            PartResult = Lfsr.checkMaximum(l)   
+            FoundLfsrs += len(PartResult)
+            for lfsr in tqdm(PartResult, desc="Filtering polynomials"):
+                poly = Polynomial.decodeUsingBerlekampMassey(lfsr)
+                if poly not in Polys:
+                    Polys.append(poly)
+            Counter += 1
+            Percent = round(Counter * 100 / Iterations, 2)
+            Percent = 100.0 if Percent > 100.0 else Percent
+            print(f"// {Percent}% finished / found {FoundLfsrs} maximum Lfsrs / {len(Polys)} primitive polynomials")
+        return FoundLfsrs, len(Polys)
+    
+    def toVerilog(self, ModuleName : str) -> str:
+        Result = f"""module {ModuleName} (
+  input wire clk,
+  input wire reset,
+  input wire lfsr_enable,
+  input wire selector_enable,
+  input wire injector,
+  output reg [{self._Size-1}:0] O
+  output reg [{self.getSelectorSize()-1}:0] selector;
+);
+
+
+always @ (posedge clk) begin
+  if (reset) begin
+    selector    <= {self.getSelectorSize()}`d0;
+    O           <= {self._Size}`d0;
+  end else begin
+    if (lfsr_enable) begin
+"""
+        for i in range(self._Size):
+            Line = f"      O[{i}] <= O[{(i+1) % self._Size}]"
+            Ff = self._FfDict[i]
+            for k in Ff.keys():
+                Condition = Ff[k]
+                if Aio.isType(Condition, 0):
+                    Line += f" ^ (O[{k}] & selector[{Condition}])"    
+                else:
+                    Line += f" ^ (O[{k}] & selector[{Condition[0]}] & ~selector[{Condition[1]}])"
+            if i == (self._Size-1):
+                Line += " ^ injector"
+            Line += ";\n"
+            Result += Line
+        Result += f"""    end
+    if (selector_enable) begin
+"""
+        SelSize = self.getSelectorSize()
+        for i in range(SelSize):
+            Line = f"      selector[{i}] <= selector[{(i+1) % SelSize}]"
+            if i == (SelSize-1):
+                Line += f" ^ O[{self._Size-1}]"
+            Line += ";\n"
+            Result += Line
+        Result += f"""    end
+  end
+end
+
+endmodule"""
+        return Result
+    
+    
+
 class KeystreamGeneratorsMuxBlock:
     
     __slots__ = ("UpperMuxInputs", "UpperMuxSelect", "LowerMuxInputs", "LowerMuxSelect")

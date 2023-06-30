@@ -2627,6 +2627,9 @@ def _analyseSequences_helper(lfsr) -> MSequencesReport:
     
     
 class LfsrList:
+  
+  checkMaximum = Lfsr.checkMaximum
+  
   def analyseSequences(LfsrsList) -> list:      
     return Lfsr.analyseSequencesBatch(LfsrsList)
   
@@ -2868,9 +2871,13 @@ class _LfsrTui_VMiddle(TextualWidgets.Static):
     def watch_LfsrPoly(self):
         global _LFSR
         l = _LFSR.copy()
-        Max = "IS MAXIMUM" if l.isMaximum() else "is NOT maximum"
+        IsMax = True if l.isMaximum() else False
+        Max = "IS MAXIMUM" if IsMax else "is NOT maximum"
         Prim = "IS PRIMITIVE" if self.LfsrPoly.isPrimitive() else "Is NOT primitive"
-        self.update(f"This LFSR {Max}.\nCharacteristic polynomial {Prim}: {self.LfsrPoly}")
+        if IsMax:
+          self.update(f"This LFSR {Max}.\nCharacteristic polynomial {Prim}: {self.LfsrPoly}")
+        else:
+          self.update(f"This LFSR {Max}.\n ")
         
 class _LfsrTui_VBottom(TextualWidgets.Static):
     SimROws = TextualReactive.reactive([])
