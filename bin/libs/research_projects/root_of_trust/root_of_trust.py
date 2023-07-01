@@ -801,16 +801,13 @@ class ProgrammableNeptunLfsr:
     def getMaximumLfsrsAndPolynomialsCount(self) -> tuple:
         FoundLfsrs = 0
         Polys = []
-        ChunkSize = 100000
+        ChunkSize = 200000
         Iterations = (1 << self.getSelectorSize()) / ChunkSize
         Counter = 0
         for l in self.generateAllLfsrs(ChunkSize):
             PartResult = Lfsr.checkMaximum(l)   
             FoundLfsrs += len(PartResult)
-            for lfsr in tqdm(PartResult, desc="Filtering polynomials"):
-                poly = Polynomial.decodeUsingBerlekampMassey(lfsr)
-                if poly not in Polys:
-                    Polys.append(poly)
+            Polys = LfsrList.getPolynomials(PartResult, Polys)
             Counter += 1
             Percent = round(Counter * 100 / Iterations, 2)
             Percent = 100.0 if Percent > 100.0 else Percent
