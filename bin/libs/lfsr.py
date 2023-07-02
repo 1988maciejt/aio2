@@ -2630,6 +2630,13 @@ class LfsrList:
   
   checkMaximum = Lfsr.checkMaximum
   
+  def _getPolynomialsInt(LfsrsList, Result=[]) -> list:
+    for l in LfsrsList:
+      p = Polynomial.decodeUsingBerlekampMassey(l).toInt()
+      if p not in Result:
+        Result.append(p)
+    return Result
+  
   def _getPolynomials(LfsrsList, Result=[]) -> list:
     for l in LfsrsList:
       p = Polynomial.decodeUsingBerlekampMassey(l)
@@ -2647,6 +2654,18 @@ class LfsrList:
         if p not in Result:
           Result.append(p)
     return Result
+    
+  def getPolynomialsCount(LfsrsList) -> list:
+    if len(LfsrsList) < 1000:
+      return len(LfsrList._getPolynomialsInt(LfsrsList))
+    SubLists = List.splitIntoSublists(LfsrsList, 1000)
+    Lists = p_map(LfsrList._getPolynomialsInt, SubLists, desc="Decoding polynomials")
+    Result = []
+    for l in tqdm(Lists, desc="Merging polynomials"):
+      for p in l:
+        if p not in Result:
+          Result.append(p)
+    return len(Result)
   
   def analyseSequences(LfsrsList) -> list:      
     return Lfsr.analyseSequencesBatch(LfsrsList)
