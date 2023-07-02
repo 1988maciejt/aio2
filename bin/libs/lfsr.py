@@ -2630,43 +2630,40 @@ class LfsrList:
   
   checkMaximum = Lfsr.checkMaximum
   
-  def _getPolynomialsHash(LfsrsList, Result=[]) -> list:
+  def _getPolynomialsHash(LfsrsList) -> list:
+    Result={}
     for l in LfsrsList:
-      p = Polynomial.decodeUsingBerlekampMassey(l).toInt()
-      if p not in Result:
-        Result.append(p)
+      p = hash(Polynomial.decodeUsingBerlekampMassey(l))
+      Result[p] = 1
     return Result
   
-  def _getPolynomials(LfsrsList, Result=[]) -> list:
+  def _getPolynomials(LfsrsList) -> list:
+    Result={}
     for l in LfsrsList:
       p = Polynomial.decodeUsingBerlekampMassey(l)
-      if p not in Result:
-        Result.append(p)
+      Result[p] = 1
     return Result
     
   def getPolynomials(LfsrsList) -> list:
     if len(LfsrsList) < 1000:
       return LfsrList._getPolynomials(LfsrsList)
-    Result=[]
+    Result={}
     SubLists = List.splitIntoSublists(LfsrsList, 1000)
     Lists = p_map(LfsrList._getPolynomials, SubLists, desc="Decoding polynomials")
     for l in tqdm(Lists, desc="Merging polynomials"):
-      for p in l:
-        if p not in Result:
-          Result.append(p)
-    return Result
+      Result.update(l)
+    return list(Result.keys())
     
   def getPolynomialsCount(LfsrsList) -> list:
     if len(LfsrsList) < 1000:
       return len(LfsrList._getPolynomialsHash(LfsrsList))
-    Result = []
+    Result = {}
     SubLists = List.splitIntoSublists(LfsrsList, 1000)
     Lists = p_map(LfsrList._getPolynomialsHash, SubLists, desc="Decoding polynomials")
     for l in tqdm(Lists, desc="Merging polynomials"):
-      for p in l:
-        if p not in Result:
-          Result.append(p)
+      Result.update(l)
     return len(Result)
+      
   
   def analyseSequences(LfsrsList) -> list:      
     return Lfsr.analyseSequencesBatch(LfsrsList)
