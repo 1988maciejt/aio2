@@ -801,11 +801,7 @@ class ProgrammableNeptunLfsr:
     def getMaximumLfsrsAndPolynomialsCount(self) -> tuple:
         Lfsrs = []
         ChunkSize = 1000000
-        SerialChunkSize = int(ChunkSize / 10000)
-        if SerialChunkSize < 20:
-            SerialChunkSize = 20
-        if SerialChunkSize > 200:
-            SerialChunkSize = 200
+        SerialChunkSize = 100
         Iterations = (1 << self.getSelectorSize()) / ChunkSize
         Counter = 0
         for l in self.generateAllLfsrs(ChunkSize): 
