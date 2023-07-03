@@ -799,18 +799,12 @@ class ProgrammableNeptunLfsr:
             yield Result
     
     def getMaximumLfsrsAndPolynomialsCount(self) -> tuple:
-        Lfsrs = []
-        ChunkSize = 1000000
-        SerialChunkSize = 100
-        Iterations = (1 << self.getSelectorSize()) / ChunkSize
-        Counter = 0
-        for l in self.generateAllLfsrs(ChunkSize): 
-            Lfsrs += Lfsr.checkMaximum(l, SerialChunkSize=SerialChunkSize) 
-            Counter += 1
-            Percent = round(Counter * 100 / Iterations, 2)
-            Percent = 100.0 if Percent > 100.0 else Percent
-            print(f"// {Percent}% finished / found {len(Lfsrs)} maximum Lfsrs")
-        return len(Lfsrs), LfsrList.getPolynomialsCount(Lfsrs)
+        ChunkSize = 1000
+        Total = int((1 << self.getSelectorSize()) / ChunkSize)
+        if Total < 1:
+            Total = 1
+        Aux = Lfsr.checkMaximum(self.generateAllLfsrs(ChunkSize), SerialChunkSize=ChunkSize, ReturnLfsrsCountAndPolynomials=1, ReturnPolynomialsCountOnly=1, Total=Total) 
+        return Aux[0], Aux[1]
     
     def toVerilog(self, ModuleName : str) -> str:
         Result = f"""module {ModuleName} (

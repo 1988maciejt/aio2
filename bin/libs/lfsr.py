@@ -22,6 +22,7 @@ from sympy import *
 from sympy.logic import *
 from libs.fast_anf_algebra import *
 from libs.pandas_table import *
+import functools
 #from tqdm.contrib.concurrent import process_map
 
 # TUI =====================================================
@@ -2581,33 +2582,75 @@ endmodule'''
         Result[flop_index].append(Word[flop_index])
     return Result
       
-  def _checkMaximumSerial(LfsrsList : list) -> list:
-    Results = []
+  def _checkMaximumSerial(LfsrsList : list, ReturnLfsrsCountAndPolynomials = False, ReturnPolynomialsHashes = True) -> list:
+    if ReturnLfsrsCountAndPolynomials:
+      LfsrsCount = 0
+      Results = {}
+    else:
+      Results = []
     for lfsr in LfsrsList:
       if lfsr._isMaximumAndClean():
-        Results.append(lfsr)
-    return Results
+        if ReturnLfsrsCountAndPolynomials:
+          LfsrsCount += 1
+          if ReturnPolynomialsHashes:
+            Results[hash(Polynomial.decodeUsingBerlekampMassey(lfsr))] = 1
+          else:
+            Results[Polynomial.decodeUsingBerlekampMassey(lfsr)] = 1
+        else:
+          Results.append(lfsr)
+    if ReturnLfsrsCountAndPolynomials:
+      return [LfsrsCount, Results]
+    else:
+      return Results
   
-  def checkMaximum(LfsrsList : list, n = 0, SerialChunkSize = 20, ReturnAlsoNotTested = 0) -> list:
-    Candidates = List.splitIntoSublists(LfsrsList, SerialChunkSize)
-    Results = []
+  def checkMaximum(LfsrsList : list, n = 0, SerialChunkSize = 20, ReturnAlsoNotTested = 0, ReturnLfsrsCountAndPolynomials = False, ReturnPolynomialsCountOnly = True, Total = None) -> list:
+    if Aio.isType(LfsrsList, []):
+      Candidates = List.splitIntoSublists(LfsrsList, SerialChunkSize)
+    else:
+      Candidates = LfsrsList
+    if ReturnLfsrsCountAndPolynomials:
+      Results = {}
+      LfsrsCount = 0
+    else:
+      Results = []
     Generator = Generators()
-    Iter = p_uimap(Lfsr._checkMaximumSerial, Generator.wrapper(Candidates), total=len(Candidates), desc = f'x{SerialChunkSize}')
+    try:
+      Iter = p_uimap(functools.partial(Lfsr._checkMaximumSerial, ReturnLfsrsCountAndPolynomials=ReturnLfsrsCountAndPolynomials, ReturnPolynomialsHashes=ReturnPolynomialsCountOnly), Generator.wrapper(Candidates), total=len(Candidates), desc = f'x{SerialChunkSize}')
+    except:
+      if Total is not None:
+        Iter = p_uimap(functools.partial(Lfsr._checkMaximumSerial, ReturnLfsrsCountAndPolynomials=ReturnLfsrsCountAndPolynomials, ReturnPolynomialsHashes=ReturnPolynomialsCountOnly), Generator.wrapper(Candidates), desc = f'x{SerialChunkSize}', total=Total)
+      else:
+        Iter = p_uimap(functools.partial(Lfsr._checkMaximumSerial, ReturnLfsrsCountAndPolynomials=ReturnLfsrsCountAndPolynomials, ReturnPolynomialsHashes=ReturnPolynomialsCountOnly), Generator.wrapper(Candidates), desc = f'x{SerialChunkSize}')
     ItCounter = 0
     for RL in Iter:
-      Results += RL
+      if ReturnLfsrsCountAndPolynomials:
+        Results.update(RL[1])
+        LfsrsCount += RL[0]
+      else:
+        Results += RL
       ItCounter += 1
       if len(Results) >= n > 0:
         Generator.disable()
     del Generator
     if len(Results) > n > 0:
-      Results = Results[:n]
+      if not ReturnLfsrsCountAndPolynomials:
+        Results = Results[:n]
     if ReturnAlsoNotTested:
       NotTested = []
       for i in range(ItCounter, len(Candidates)):
         NotTested += Candidates[i]
+      if ReturnLfsrsCountAndPolynomials:
+        if ReturnPolynomialsCountOnly:
+          return [LfsrsCount, len(Results), NotTested]
+        else:
+          return [LfsrsCount, list(Results.keys()), NotTested]
       return [ Results, NotTested ]
     else:
+      if ReturnLfsrsCountAndPolynomials:
+        if ReturnPolynomialsCountOnly:
+          return [LfsrsCount, len(Results)]
+        else:
+          return [LfsrsCount, list(Results.keys())]
       return Results
   
   @staticmethod
