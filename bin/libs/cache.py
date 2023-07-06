@@ -16,4 +16,3 @@ class Cache:
     if key in GLOBALCACHE.keys():
       return GLOBALCACHE[key]
     return default
-

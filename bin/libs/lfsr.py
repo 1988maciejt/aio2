@@ -130,6 +130,7 @@ class Polynomial:
   __slots__ = ("_coefficients_list",
                "_sign_list",
                "_balancing",
+               "_exact_balancing",
                "_bmin",
                "_bmax",
                "_positions",
@@ -237,6 +238,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     """
     self._coefficients_list = []         # Polynomial sorted oefficients list
     self._balancing = 0    
+    self._exact_balancing = 0
     self._bmin = 1 
     self._bmax = 2
     self._positions = False
@@ -253,6 +255,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       self._coefficients_list = PolynomialCoefficientList._coefficients_list.copy()
       self._sign_list = PolynomialCoefficientList._sign_list.copy()
       self._balancing = PolynomialCoefficientList._balancing + 0
+      self._exact_balancing = PolynomialCoefficientList._exact_balancing
       self._bmin = PolynomialCoefficientList._bmin
       self._bmax = PolynomialCoefficientList._bmax
       if Aio.isType(PolynomialCoefficientList._positions, []):
@@ -317,7 +320,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       
   def __iter__(self):
     if self._IterationStartingPoint is None:
-      self._coefficients_list = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self._balancing, self._lf, self._mindist)._coefficients_list
+      self._coefficients_list = Polynomial.createPolynomial(self.getDegree(), self.getCoefficientsCount(), self._balancing, self._lf, self._mindist, self._exact_balancing)._coefficients_list
     else:
       self._coefficients_list = self._IterationStartingPoint
     self._mnext = True
@@ -358,8 +361,8 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return Result
   
   @staticmethod
-  def iterate(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, ExcludeReciprocals = False):
-    poly0 = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance)
+  def iterate(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, ExcludeReciprocals = False, ExactBalancing = False):
+    poly0 = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, ExactBalancing)
     if poly0 is None:
       return
     Used = []
@@ -653,7 +656,10 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     """
     while self._makeNext():
       s = True
-      if self._balancing > 0:
+      if self._exact_balancing:
+          if self.getBalancing() != self._balancing:
+            s = False
+      elif self._balancing > 0:
         if self.getBalancing() > self._balancing:
           s = False
       if s:
@@ -784,7 +790,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return True
 
   @staticmethod
-  def createPolynomial(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0) -> Polynomial:
+  def createPolynomial(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, ExactBalancing = False) -> Polynomial:
     """Returns a polynomial, usefull for LFSRs.
 
     Args:
@@ -803,7 +809,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     result = [PolynomialDegree]
     bmin = 1
     bmax = PolynomialDegree-1
-    if 0 < PolynomialBalancing < PolynomialDegree:
+    if ((0 < PolynomialBalancing) or ExactBalancing) and (PolynomialBalancing < PolynomialDegree):
       avg = float(PolynomialDegree) / float(PolynomialCoefficientsCount - 1)
       halfbal = float(PolynomialBalancing) / 2.0
       bmin = int(avg - halfbal)
@@ -857,10 +863,15 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     p._bmax = bmax
     p._lf = LayoutFriendly
     p._mindist = MinDistance
+    p._exact_balancing = ExactBalancing
 #    print(Aio.format(pos))
     if p.getMinDistance() < p._mindist > 0:
       return None
-    if p.getBalancing() > p._balancing > 0:
+    if ExactBalancing:
+      while p.getBalancing() != p._balancing:
+        if not p._makeNext():
+          return None
+    elif p.getBalancing() > p._balancing > 0:
       while p.getBalancing() > p._balancing:
         if not p._makeNext():
           return None
@@ -909,8 +920,8 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return Line
   
   @staticmethod
-  def firstTigerPrimitive(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0):
-    Polys = Polynomial.listTigerPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, 1, NoResultsSkippingIteration, StartingPolynomial, MinNotMatchingTapsCount)
+  def firstTigerPrimitive(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0, ExactBalancing = False):
+    Polys = Polynomial.listTigerPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, 1, NoResultsSkippingIteration, StartingPolynomial, MinNotMatchingTapsCount, ExactBalancing = ExactBalancing)
     if len(Polys) >= 1:
       return Polys[0]
     return None
@@ -922,8 +933,8 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       Aio.print(p.toTigerStr())
       
   @staticmethod
-  def listTigerPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0) -> list:
-    Poly0 = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance)
+  def listTigerPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0, ExactBalancing = False) -> list:
+    Poly0 = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, ExactBalancing)
     if Poly0 is None:
       return []
     if not Poly0.setStartingPointForIterator(StartingPolynomial):
@@ -1174,7 +1185,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       Aio.print(p.getCoefficients())
       
   @staticmethod
-  def listPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None, NoResultsSkippingIteration = 0, StartingPolynomial = None) -> list:
+  def listPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None, NoResultsSkippingIteration = 0, StartingPolynomial = None, ExactBalancing = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -1192,7 +1203,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     Returns:
         list: list of polynomial objects
     """
-    polys = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance)
+    polys = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, ExactBalancing)
     if type(polys) == type(None):
       Aio.printError("No candidate polynomials found. Consider relaxing the requirements.")
       if ReturnAlsoAllCandidaes:
@@ -1245,7 +1256,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return result
   
   @staticmethod
-  def firstPrimitive(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, Silent=True, StartingPolynomial = None) -> Polynomial:
+  def firstPrimitive(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, Silent=True, StartingPolynomial = None, ExactBalancing = False) -> Polynomial:
     """Returns a first found primitive (over GF(2)) polynomial.
 
     Args:
@@ -1256,7 +1267,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     Returns:
         list: _description_
     """
-    lp = Polynomial.listPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, 0, 1, Silent, StartingPolynomial = StartingPolynomial)
+    lp = Polynomial.listPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, 0, 1, Silent, StartingPolynomial = StartingPolynomial, ExactBalancing=ExactBalancing)
     if len(lp) > 0:
       return lp[0]
     return None
@@ -1266,10 +1277,29 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     bal = EndBalancing
     if bal > (PolynomialDegree-PolynomialCoefficientsCount):
       bal = (PolynomialDegree-PolynomialCoefficientsCount)
+    if StartBalancing < 1:
+      StartBalancing = 1
+    ExactBalancing = False
     for b in range(StartBalancing, bal):
-      fp = Polynomial.firstPrimitive(PolynomialDegree, PolynomialCoefficientsCount, b, LayoutFriendly, Silent)
+      fp = Polynomial.firstPrimitive(PolynomialDegree, PolynomialCoefficientsCount, b, LayoutFriendly, Silent, ExactBalancing=ExactBalancing)
       if type(fp) != type(None):
         return fp
+      ExactBalancing = True
+    return None
+  
+  @staticmethod
+  def firstMostBalancedTigerPrimitive(PolynomialDegree : int, PolynomialCoefficientsCount : int, StartBalancing=1, EndBalancing=10, LayoutFriendly = False) -> Polynomial:
+    bal = EndBalancing
+    if bal > (PolynomialDegree-PolynomialCoefficientsCount):
+      bal = (PolynomialDegree-PolynomialCoefficientsCount)
+    if StartBalancing < 1:
+      StartBalancing = 1
+    ExactBalancing = False
+    for b in range(StartBalancing, bal):
+      fp = Polynomial.firstTigerPrimitive(PolynomialDegree, PolynomialCoefficientsCount, b, LayoutFriendly, ExactBalancing=ExactBalancing)
+      if type(fp) != type(None):
+        return fp
+      ExactBalancing = True
     return None
   
   @staticmethod

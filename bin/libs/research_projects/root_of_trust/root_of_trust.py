@@ -664,9 +664,10 @@ class HashFunction:
 
 class ProgrammableNeptunLfsr:
     
-    __slots__ = ("_Value", "_Selector", "_Size", "_SelectorDict", "_NextConditionDict", "_FfDict")
+    __slots__ = ("_Value", "_Selector", "_Size", "_SelectorDict", "_NextConditionDict", "_FfDict", "_Last_max_lfsr_taps")
     
     def __init__(self, Size : int) -> None:
+        self._Last_max_lfsr_taps = []
         self._Size = Size
         self._Value = bau.zeros(Size)
         UpperTaps = []
@@ -787,6 +788,24 @@ class ProgrammableNeptunLfsr:
                         continue
                 Taps.append(Tap)
         return Lfsr(self._Size, LfsrType.RingWithSpecifiedTaps, Taps)
+    
+    def getRandMaximumLfsr(self, TapsCount=0) -> Lfsr:
+        SelLen = self.getSelectorSize()
+        for i in range(1000000):
+            SelectorSuccess = 0
+            while not SelectorSuccess:
+                Selector = Bitarray.rand(SelLen)
+                SelectorSuccess = 1
+                if TapsCount > 0:
+                    if Selector.count(1) != TapsCount:
+                        SelectorSuccess = 0
+            lfsr = self.getLfsr(Selector)
+            if lfsr._taps != self._Last_max_lfsr_taps:
+                if lfsr.isMaximum():
+                    self._Last_max_lfsr_taps = lfsr._taps.copy()
+                    return lfsr
+        Aio.printError("Cannot find any maximum Lfsr.")
+        return None
     
     def generateAllLfsrs(self, ChunkSize = 10000):
         Result = []
