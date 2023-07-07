@@ -664,7 +664,7 @@ class HashFunction:
 
 class ProgrammableNeptunLfsr:
     
-    __slots__ = ("_Value", "_Selector", "_Size", "_SelectorDict", "_NextConditionDict", "_FfDict", "_Last_max_lfsr_taps")
+    __slots__ = ("_Value", "_Selector", "_Size", "_SelectorDict", "_NextConditionDict", "_FfDict", "_Last_max_lfsr_taps", "_PolynomialCoeffsDict")
     
     def __init__(self, Size : int) -> None:
         self._Last_max_lfsr_taps = []
@@ -672,40 +672,60 @@ class ProgrammableNeptunLfsr:
         self._Value = bau.zeros(Size)
         UpperTaps = []
         LowerTaps = []
+        UpperTapsCoeffs = []
+        LowerTapsCoeffs = []
         UpperMin = Size >> 1
         LowerMax = UpperMin - 1
         D = Size-3
+        Coeff = 4
         for S in range(2, LowerMax+1, 3):
             for _ in range(3):
                 if D < LowerMax:
                     break
                 UpperTaps.append([S, D])
+                UpperTapsCoeffs.append(-Coeff)
                 D -= 1 
+                Coeff += 1
+            Coeff += 3
         D = Size-1
+        Coeff = 2
         for S in range(Size-2, UpperMin-1, -3):
             for _ in range(3):
                 if D >= LowerMax and D < (Size-1):
                     break
                 LowerTaps.append([S, D])
+                LowerTapsCoeffs.append(Coeff)
                 D = (D + 1) % Size 
+                Coeff += 1
+            Coeff += 3
         SelectorDict = {}
         NextConditionDict = {}
+        PolynomialCoeffsDict = {}
         Index = 0
-        for Tap in LowerTaps:
-            SelectorDict[Index] = Tap
+        for i in range(len(LowerTaps)):
+            SelectorDict[Index] = LowerTaps[i]
+            PolynomialCoeffsDict[Index] = LowerTapsCoeffs[i]
             if (Index % 3) == 2:
                 NextConditionDict[Index] = len(LowerTaps) + len(UpperTaps) + 1 - Index
             else:
                 NextConditionDict[Index] = None
             Index += 1
-        for Tap in reversed(UpperTaps):
-            SelectorDict[Index] = Tap
+        for i in range(len(UpperTaps)):
+            SelectorDict[Index] = UpperTaps[len(UpperTaps)-1-i]
+            PolynomialCoeffsDict[Index] = UpperTapsCoeffs[len(UpperTaps)-1-i]
             NextConditionDict[Index] = None
             Index += 1
         self._SelectorDict = SelectorDict
         self._NextConditionDict = NextConditionDict
+        self._PolynomialCoeffsDict = PolynomialCoeffsDict
         self._Selector = bau.zeros(len(SelectorDict))
         self._FfDict = self._getFFOnDependencyDict()
+            
+    def getSelectorDictionary(self):
+        return self._SelectorDict.copy()
+            
+    def getAllTaps(self) -> list:
+        return list(self._SelectorDict.values())
             
     def getSize(self) -> int:
         return self._Size
@@ -789,7 +809,26 @@ class ProgrammableNeptunLfsr:
                 Taps.append(Tap)
         return Lfsr(self._Size, LfsrType.RingWithSpecifiedTaps, Taps)
     
-    def getRandMaximumLfsr(self, TapsCount=0) -> Lfsr:
+    def getPolynomial(self, SelectorValue : bitarray) -> Polynomial:
+        if Aio.isType(SelectorValue, 0):
+            SelectorValue = bau.int2ba(SelectorValue, self.getSelectorSize())
+        elif Aio.isType(SelectorValue, ""):
+            SelectorValue = bitarray(SelectorValue)
+        if len(SelectorValue) != len(self._Selector):
+            Aio.printError(f"SelectorValue is {len(SelectorValue)} bit length while it should be {len(self._Selector)} bit wide.")
+            return None
+        Coeffs = [self._Size, 0]
+        for i in range(len(self._Selector)):
+            if SelectorValue[i]:
+                Coeff = self._PolynomialCoeffsDict[i]
+                NextCondition = self._NextConditionDict[i]
+                if NextCondition is not None:
+                    if SelectorValue[NextCondition]:
+                        continue
+                Coeffs.append(Coeff)
+        return Polynomial(Coeffs)
+    
+    def getRandMaximumLfsr(self, TapsCount=0, Balancing=0, ReturnAlsoSelector=False, ReturnAlsoPolynomial=False) -> Lfsr:
         SelLen = self.getSelectorSize()
         for i in range(1000000):
             SelectorSuccess = 0
@@ -799,11 +838,21 @@ class ProgrammableNeptunLfsr:
                 if TapsCount > 0:
                     if Selector.count(1) != TapsCount:
                         SelectorSuccess = 0
+            poly = self.getPolynomial(Selector)
+            if poly.getBalancing() > Balancing > 0:
+                continue
             lfsr = self.getLfsr(Selector)
             if lfsr._taps != self._Last_max_lfsr_taps:
                 if lfsr.isMaximum():
                     self._Last_max_lfsr_taps = lfsr._taps.copy()
-                    return lfsr
+                    Result = [lfsr]
+                    if ReturnAlsoSelector:
+                        Result.append(Selector)
+                    if ReturnAlsoPolynomial:
+                        Result.append(poly)
+                    if len(Result) == 0:
+                        return Result[0]
+                    return Result
         Aio.printError("Cannot find any maximum Lfsr.")
         return None
     
