@@ -1858,7 +1858,7 @@ class NlfsrFpgaBooster:
   def getSize(self) -> int:
     return self._size
   
-  def getNlfsrListFromFile(self, FileName : str, Verify = 1, DIscardLfsrs = 1, OnlyMaximum = 0) -> list:
+  def getNlfsrListFromFile(self, FileName : str, Verify = 1, DIscardLfsrs = 1, OnlyMaximum = 0, Debug = 0) -> list:
     Result = []
     Max = (1 << self._size) - 1
     Data = readFile(FileName)
@@ -1868,9 +1868,10 @@ class NlfsrFpgaBooster:
         self._size = int(R.group(1))
         Aio.print(f"// Found size: {self._size}")    
         Max = (1 << self._size) - 1
-      R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Pointer\s*[:=]\s*([0-9a-fA-Fx]+)', Line)
+      #R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Pointer\s*[:=]\s*([0-9a-fA-Fx]+)', Line)
+      R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*', Line)
       if R:
-        n = self.getNlfsrFromHexString(R.group(2))
+        n = self.getNlfsrFromHexString(R.group(2), 0)
         if DIscardLfsrs:
           if n.isLfsr():
             continue
@@ -1879,6 +1880,9 @@ class NlfsrFpgaBooster:
           if n._period < Max:
             continue
         Result.append(n)
+        if Debug:
+          print(f"{R.group(2)} - {repr(n)}")
+          self.getNlfsrFromHexString(R.group(2), 1)
     Result = Nlfsr.filter(Result)
     if Verify:
       CppPrograms.NLSFRPeriodCounterInvertersAllowed.compile()
@@ -1891,7 +1895,7 @@ class NlfsrFpgaBooster:
       return Res2
     return Result
   
-  def getNlfsrFromHexString(self, Text : str) -> Nlfsr:
+  def getNlfsrFromHexString(self, Text : str, Debug = 0) -> Nlfsr:
     Config = Bitarray.fromStringOfHex(Text, 32)
     Config.reverse()
     Taps = []
@@ -1911,6 +1915,8 @@ class NlfsrFpgaBooster:
         if TapConfig[10]:
           Destination *= -1
         Taps.append([Destination, Sources])
+      if Debug:
+        print(f"  {TapConfig}, S={Sources}, D={Destination}")
       #print(FirstInputIndex, TapConfig, [Destination, Sources])
     #print(TapCount, Config, Taps)
     Success = 0

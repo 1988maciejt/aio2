@@ -770,20 +770,13 @@ class ProgrammableNeptunLfsr:
         NewValue = self._Value.copy()
         NewSelector = self._Selector.copy()
         if LfsrEnable:
-            NewValue = Bitarray.rotl(NewValue)
-            for i in range(self._Size):
-                Ff = self._FfDict[i]
-                for k in Ff.keys():
-                    Condition = Ff[k]
-                    if Aio.isType(Condition, 0):
-                        if self._Selector[Condition]:
-                            NewValue[i] ^= self._Value[k]
-                    else:
-                        if self._Selector[Condition[0]] and (not self._Selector[Condition[1]]):
-                            NewValue[i] ^= self._Value[k]
+            lfsr = self.getLfsr(self._Selector)
+            lfsr.setValue(NewValue)
+            NewValue = lfsr.next()
+            NewValue[self._Size-2] ^= InjectorValue
         if SelectorEnable:
             NewSelector = Bitarray.rotl(NewSelector)
-            NewSelector[len(NewSelector)-1] ^= self._Value[self._Size-1]
+            NewSelector[len(NewSelector)-1] ^= (self._Value[self._Size-1] ^ InjectorValue)
         self._Selector = NewSelector
         self._Value = NewValue
 
@@ -830,17 +823,21 @@ class ProgrammableNeptunLfsr:
     
     def getRandMaximumLfsr(self, TapsCount=0, Balancing=0, ReturnAlsoSelector=False, ReturnAlsoPolynomial=False) -> Lfsr:
         SelLen = self.getSelectorSize()
-        for i in range(1000000):
+        P1 = TapsCount / SelLen
+        for i in tqdm(range(1000000)):
             SelectorSuccess = 0
             while not SelectorSuccess:
-                Selector = Bitarray.rand(SelLen)
+                Selector = Bitarray.rand(SelLen, P1)
                 SelectorSuccess = 1
+                poly = self.getPolynomial(Selector)
                 if TapsCount > 0:
-                    if Selector.count(1) != TapsCount:
+                    if poly.getCoefficientsCount()-2 != TapsCount > 0:
                         SelectorSuccess = 0
-            poly = self.getPolynomial(Selector)
-            if poly.getBalancing() > Balancing > 0:
-                continue
+                        continue
+                if Balancing > 0:
+                    if poly.getBalancing() > Balancing:
+                        SelectorSuccess = 0
+                        continue
             lfsr = self.getLfsr(Selector)
             if lfsr._taps != self._Last_max_lfsr_taps:
                 if lfsr.isMaximum():
@@ -881,10 +878,11 @@ class ProgrammableNeptunLfsr:
   input wire lfsr_enable,
   input wire selector_enable,
   input wire injector,
-  output reg [{self._Size-1}:0] O
-  output reg [{self.getSelectorSize()-1}:0] selector;
+  output reg [{self._Size-1}:0] O,
+  output reg [{self.getSelectorSize()-1}:0] selector
 );
 
+wire injector_int = injector ^ O[{self._Size-1}];
 
 always @ (posedge clk) begin
   if (reset) begin
@@ -902,8 +900,8 @@ always @ (posedge clk) begin
                     Line += f" ^ (O[{k}] & selector[{Condition}])"    
                 else:
                     Line += f" ^ (O[{k}] & selector[{Condition[0]}] & ~selector[{Condition[1]}])"
-            if i == (self._Size-1):
-                Line += " ^ injector"
+            if i == (self._Size-2):
+                Line += " ^ injector_int"
             Line += ";\n"
             Result += Line
         Result += f"""    end
@@ -913,7 +911,7 @@ always @ (posedge clk) begin
         for i in range(SelSize):
             Line = f"      selector[{i}] <= selector[{(i+1) % SelSize}]"
             if i == (SelSize-1):
-                Line += f" ^ O[{self._Size-1}]"
+                Line += f" ^ injector_int"
             Line += ";\n"
             Result += Line
         Result += f"""    end

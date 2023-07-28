@@ -60,8 +60,15 @@ class Bitarray:
                 except:
                     pass
                 
-    def rand(Size : int) -> bitarray:
-        return bau.int2ba(randint(0, (1<<Size)-1), Size)
+    def rand(Size : int, P1 = 0) -> bitarray:
+        if (1 > P1 > 0):
+            Result = bau.zeros(Size)
+            for i in range(Size):
+                if random.uniform(0, 1) <= P1:
+                   Result[i] = 1
+        else:
+            Result = bau.int2ba(randint(0, (1<<Size)-1), Size)
+        return Result
     
     def countNotMatchingBits(A : bitarray, B : bitarray):
         return bau.count_xor(A, B)

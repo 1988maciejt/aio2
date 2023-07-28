@@ -800,8 +800,8 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         MinDistance (int, optional): minimum distance between successive coefficients. Defaults to 0 (no matters)
         LayoutFriendly (bool, optional): only layout-friendly poly.
     """
-    if PolynomialCoefficientsCount < 1:
-      Aio.printError ("'oefficients_count' must be >= 1")
+    if PolynomialCoefficientsCount <= 1:
+      Aio.printError ("'oefficients_count' must be > 1")
       return Polynomial([])
     if PolynomialDegree < (PolynomialCoefficientsCount-1):
       Aio.printError ("'coefficients_count - 1' must be <= 'degree'")
