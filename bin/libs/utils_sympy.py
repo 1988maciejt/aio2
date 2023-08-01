@@ -7,6 +7,20 @@ import sympy.parsing
 class SymPy:
     
     @staticmethod
+    def isThereAFunctionInExpression(expr, func) -> bool:
+        if expr.func == func:
+            return True
+        for arg in expr.args:
+            if SymPy.isThereAFunctionInExpression(arg, func):
+                return True
+        return False
+        
+    @staticmethod
+    def isANFLinear(expr) -> bool:
+        anf = expr.to_anf()
+        return not SymPy.isThereAFunctionInExpression(anf, And)
+    
+    @staticmethod
     def anf(expr : str):
         try:
             expr = expr.replace("+", "^")

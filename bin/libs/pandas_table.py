@@ -2,13 +2,14 @@ import pandas
 from libs.aio import *
 
 class PandasTable:
-  __slots__ = ("_vspaces", "_main_dict", "_auto_id", "_id_num", "_len")
-  def __init__(self, HeaderList : list, AddVerticalSpaces=0, AutoId=0) -> None:
+  __slots__ = ("_vspaces", "_main_dict", "_auto_id", "_id_num", "_len","_multiline")
+  def __init__(self, HeaderList : list, AddVerticalSpaces=0, AutoId=0, MultiLine=True) -> None:
     self._auto_id = 1 if AutoId else 0
     self._vspaces = 1 if AddVerticalSpaces else 0
     self._id_num = 1
     self._len = 0
     self._main_dict = {}
+    self._multiline = MultiLine
     if self._auto_id:
       self._main_dict["Id"] = []
     for S in HeaderList:
@@ -36,7 +37,11 @@ class PandasTable:
         First = 0
         continue
       VLines = str(RowList[Index])
-      for Line in VLines.split("\n"):
+      if self._multiline:
+        Iterator = VLines.split("\n")
+      else:
+        Iterator = [VLines]
+      for Line in Iterator:
         self._main_dict[k].append(Line)
       Index += 1
     self._autoFill()

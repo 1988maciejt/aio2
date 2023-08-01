@@ -98,7 +98,7 @@ class Nlfsr(Lfsr):
         Result += f'{S}'
     if DInv:
       Result += " )"
-    return Result
+    return Result.strip()
   def getArchitecture(self) -> str:
     Result = ""
     for C in self._Config:
@@ -724,7 +724,7 @@ class Nlfsr(Lfsr):
         Result.append(n1)
     return Result
   
-  def toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Verbose = False):
+  def toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Verbose = False, ReturnSympyExpr = False):
     N = self.copy()
     if Verbose:
       Aio.print(f"// =============== NLFSR to ANF ========================")
@@ -765,18 +765,18 @@ class Nlfsr(Lfsr):
           expr += " ^ "
         else:
           Second = 1
-        expr += f"({Monomial})"
         if D < 0:
-          if Second:
-            expr += " ^ "
-          else:
-            Second = 1
-          expr += "true"
+          expr += f"~({Monomial})"
+        else:
+          expr += f"({Monomial})"
       expr += " ^ x0"
       if Verbose:
         Aio.print(f"// 3. Feedback function - directly written: ------------")
         Aio.print(f"{expr}")
-      sexpr = str(SymPy.anf(expr))
+      sympyexpr = SymPy.anf(expr)
+      if Verbose:
+        Aio.print(f"{sympyexpr}")
+      sexpr = str(sympyexpr)
       if Verbose:
         Aio.print(f"// 4. Feedback function - ANF: -------------------------")
         Aio.print(f"{sexpr}")
@@ -793,6 +793,8 @@ class Nlfsr(Lfsr):
       if Verbose:
         Aio.print(f"// 5. Feedback function - simplified ANF: --------------")
         Aio.print(f"{sexpr}")
+      if ReturnSympyExpr:
+        return sympyexpr
       return sexpr
     else:
       if Verbose:
@@ -1412,7 +1414,8 @@ class Nlfsr(Lfsr):
     Success = True
     for i in range(len(self._Config)):
       D = abs(self._Config[i][0]) % Size
-      Success &= self.rotateTap(i, Size-1-D)
+      Success &= self.rotateTap(i, Size-1-D, SortTaps=0)
+    self.sortTaps()
     return Success
   
   def getTapBounds(self, TapIndex : int) -> tuple:
@@ -1544,6 +1547,8 @@ class Nlfsr(Lfsr):
           return False
     return True
   
+  def isSemiLfsr(self) -> bool:
+    return SymPy.isANFLinear(self.toBooleanExpressionFromRing(ReturnSympyExpr=1))
   
   def toVerilog(self, ModuleName : str, InjectorIndexesList = []) -> str:
     Module = \
@@ -1858,11 +1863,15 @@ class NlfsrFpgaBooster:
   def getSize(self) -> int:
     return self._size
   
-  def getNlfsrListFromFile(self, FileName : str, Verify = 1, DIscardLfsrs = 1, OnlyMaximum = 0, Debug = 0) -> list:
+  def getNlfsrListFromFile(self, FileName : str, Verify = True, DiscardLfsrs = True, DiscardSemiLfsrs = True, OnlyMaximum = True, Debug = 0) -> list:
     Result = []
     Max = (1 << self._size) - 1
     Data = readFile(FileName)
-    for Line in Data.split("\n"):
+    Lfsrs = 0
+    SemiLfsrs = 0
+    Nlfsrs = 0
+    FullNlfsrs = 0
+    for Line in tqdm(Data.split("\n"), desc="Parsing file"):
       R = re.search(r'size\s*[:=]\s*([0-9]+)', Line)
       if R:
         self._size = int(R.group(1))
@@ -1872,18 +1881,29 @@ class NlfsrFpgaBooster:
       R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*', Line)
       if R:
         n = self.getNlfsrFromHexString(R.group(2), 0)
-        if DIscardLfsrs:
+        if DiscardLfsrs:
           if n.isLfsr():
+            Lfsrs += 1
+            continue
+        if DiscardSemiLfsrs:
+          if n.isSemiLfsr():
+            SemiLfsrs += 1
             continue
         n._period = bau.ba2int(Bitarray.fromStringOfHex(R.group(1)))
         if OnlyMaximum:
           if n._period < Max:
+            Nlfsrs += 1
             continue
+        FullNlfsrs += 1
         Result.append(n)
         if Debug:
           print(f"{R.group(2)} - {repr(n)}")
           self.getNlfsrFromHexString(R.group(2), 1)
     Result = Nlfsr.filter(Result)
+    print(f"// # Discarded LFSRs:      {Lfsrs}")
+    print(f"// # Discarded Semi-LFSRs: {SemiLfsrs}")
+    print(f"// # Non-maximun NLFSRs:   {Nlfsrs}")
+    print(f"// # Maximum NLFSRs:       {FullNlfsrs}")
     if Verify:
       CppPrograms.NLSFRPeriodCounterInvertersAllowed.compile()
       exe = CppPrograms.NLSFRPeriodCounterInvertersAllowed.ExeFileName
