@@ -3,6 +3,7 @@ from libs.aio import *
 from sympy import *
 from sympy.logic import *
 from libs.fast_anf_algebra import *
+from random import Random
 
 # TUI =====================================================
 
@@ -11,12 +12,33 @@ import textual.widgets as TextualWidgets
 import textual.reactive as TextualReactive
 import textual.containers as TextualContainers
 
+class PhaseShifter:
+    pass
 
 class PhaseShifter:
     _xors = [] # reversed
     _my_source = None
     _size = 0
     _bavalue = None
+    
+    def createRandom(SourceObject, OutputsCount : int, MinXorInputs : int, MaxXorInputs : int) -> PhaseShifter:
+        InputSize = SourceObject.getSize()    
+        R = Random()
+        Xors = []
+        while OutputsCount > 0:
+            XorInputs = R.randint(MinXorInputs, MaxXorInputs)
+            Xor = []
+            while XorInputs > 0:
+                x = R.randint(0, InputSize-1)
+                if x not in Xor:
+                    Xor.append(x)
+                    XorInputs -= 1
+            Xor.sort()
+            if Xor not in Xors:
+                Xors.append(Xor)
+                OutputsCount -= 1
+        return PhaseShifter(SourceObject, Xors)
+    
     def __init__(self, SourceObject, XorList : list) -> None:
         self.setSourceObject(SourceObject)
         self._size = len(XorList)

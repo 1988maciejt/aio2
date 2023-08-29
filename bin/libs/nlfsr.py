@@ -105,17 +105,23 @@ class Nlfsr(Lfsr):
       Result += self.getExprFromTap(C)
       Result += "\n"
     return Result[:-1]
-  def printFullInfo(self):
+  def printFullInfo(self, Repr = True):
     Aio.print(self.getFullInfo())
-  def getFullInfo(self, Header = False):
+  def getFullInfo(self, Repr = True):
     Result = ""
-    if Header:
-      Result = f'{self._size}-bit NLFSRs  and taps list and equations:\n'
+    if Repr:
+      Result = f'{repr(self)}:\n'
     Result += self.getArchitecture() + "\n"
-    Result += "   " + self.toBooleanExpressionFromRing(0, 0) + "\n"
-    Result += "C  " + self.toBooleanExpressionFromRing(1, 0) + "\n"
-    Result += " R " + self.toBooleanExpressionFromRing(0, 1) + "\n"
-    Result += "CR " + self.toBooleanExpressionFromRing(1, 1) + "\n"
+    #PT = PandasTable(["Rev", "Comp", "Equation"])
+    #PT.add(["", "", self.toBooleanExpressionFromRing(0, 0)])
+    #PT.add(["", "C", self.toBooleanExpressionFromRing(1, 0)])
+    #PT.add(["R", "", self.toBooleanExpressionFromRing(0, 1)])
+    #PT.add(["R", "C", self.toBooleanExpressionFromRing(1, 1)])
+    #Result += str(PT)
+    Result += "          " + self.toBooleanExpressionFromRing(0, 0) + "\n"
+    Result += "Comp:     " + self.toBooleanExpressionFromRing(1, 0) + "\n"
+    Result += "Rev:      " + self.toBooleanExpressionFromRing(0, 1) + "\n"
+    Result += "RevComp:  " + self.toBooleanExpressionFromRing(1, 1) + "\n"
     return Result
   def getTaps(self) -> int:
     return self._Config.copy()
@@ -1584,7 +1590,7 @@ f'''  output reg [{self.getSize()-1}:0] O
           Second = 1
         if (Si < 0):
           Expr += "~"
-        Expr += f"O{abs(Si) % Size}"
+        Expr += f"O[{abs(Si) % Size}]"
       Expr += ")"
       if MainInv:
         Expr = f"~{Expr}"
@@ -1822,7 +1828,7 @@ EXPANDER:
     PT.toXls("DATABASE.xlsx")
 
 def _make_expander(nlfsr) -> list:
-  if nlfsr.getSize() <= 15:
+  if nlfsr.getSize() <= 20:
     return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1, PBar=0) ]
   else:
     return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1, PBar=0) ]
@@ -1855,10 +1861,12 @@ def _NLFSR_find_spec_period_helper2(nlrglist : Nlfsr) -> int:
 
 class NlfsrFpgaBooster:
 
-  __slots__ = ("_size")
+  __slots__ = ("_size","_tap_v","_ext_inp_am")
 
-  def __init__(self, Size = 32) -> None:
+  def __init__(self, Size = 32, TapVersion = 1, ExtendedInputAmount = 0) -> None:
     self._size = Size
+    self._tap_v = TapVersion
+    self._ext_inp_am = ExtendedInputAmount
     
   def getSize(self) -> int:
     return self._size
@@ -1877,6 +1885,14 @@ class NlfsrFpgaBooster:
         self._size = int(R.group(1))
         Aio.print(f"// Found size: {self._size}")    
         Max = (1 << self._size) - 1
+        continue
+      R = re.search(r'ap\s*version\s*[:=]\s*([0-9]+)', Line)
+      if R:
+        self._tap_v = int(R.group(1)) % 128
+        self._ext_inp_am = int(R.group(1)) // 128
+        Aio.print(f"// Found tap version: {self._tap_v}") 
+        Aio.print(f"// Found extended input amount: {self._ext_inp_am}") 
+        continue  
       #R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Pointer\s*[:=]\s*([0-9a-fA-Fx]+)', Line)
       R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*', Line)
       if R:
@@ -1897,13 +1913,15 @@ class NlfsrFpgaBooster:
         FullNlfsrs += 1
         Result.append(n)
         if Debug:
+          print()
+          print(f"{R.group(1)} - {n._period}")
           print(f"{R.group(2)} - {repr(n)}")
           self.getNlfsrFromHexString(R.group(2), 1)
     Result = Nlfsr.filter(Result)
     print(f"// # Discarded LFSRs:      {Lfsrs}")
     print(f"// # Discarded Semi-LFSRs: {SemiLfsrs}")
-    print(f"// # Non-maximun NLFSRs:   {Nlfsrs}")
-    print(f"// # Maximum NLFSRs:       {FullNlfsrs}")
+    print(f"// # Discarded NLFSRs:     {Nlfsrs}")
+    print(f"// # Accepted NLFSRs:      {FullNlfsrs}")
     if Verify:
       CppPrograms.NLSFRPeriodCounterInvertersAllowed.compile()
       exe = CppPrograms.NLSFRPeriodCounterInvertersAllowed.ExeFileName
@@ -1920,17 +1938,56 @@ class NlfsrFpgaBooster:
     Config.reverse()
     Taps = []
     TapCount = (self._size - int(self._size/2))-3
+    if self._ext_inp_am == 1:
+      RightExtWord = Config[TapCount*11:TapCount*11+32]
+      LeftExtWord = Config[TapCount*11+32:TapCount*11+64]
+      UpperBranchSize = (self._size >> 1)
+      SelectW = ceil(log2(UpperBranchSize))
     for i in range(TapCount):
       FirstInputIndex = self._size - i
+      if self._ext_inp_am == 1:
+        if i == 0:
+          Inputs = []
+          PrimeInputs = [inp for inp in range(self._size-UpperBranchSize, self._size, 1)]
+          for GateInput in range(5):
+            BitDefinition = RightExtWord[GateInput*SelectW : GateInput*SelectW + SelectW]
+            BitDefinition.reverse()
+            BitIndex = bau.ba2int(BitDefinition)
+            Inputs.append(BitIndex)
+        elif i == (TapCount-1):
+          Inputs = []
+          PrimeInputs = [inp for inp in range(self._size-UpperBranchSize, self._size, 1)]
+          for GateInput in range(5):
+            BitDefinition = LeftExtWord[GateInput*SelectW : GateInput*SelectW + SelectW]
+            BitDefinition.reverse()
+            BitIndex = bau.ba2int(BitDefinition)
+            Inputs.append(BitIndex)
+        else:
+          Inputs = [inp for inp in range(self._size-i, self._size-i-5, -1)]
+      else:
+        Inputs = [inp for inp in range(self._size-i, self._size-i-5, -1)]
       Destination = 1 + i
       TapConfig = Config[(i*11):(i*11+11)]
+      # tutaj kod tdo ExtendedInputAmount...
       Sources = []
-      for j in range(5):
-        if TapConfig[2*j]:
-          if TapConfig[2*j+1]:
-            Sources.append(-1 * (FirstInputIndex - j))
-          else:
-            Sources.append(FirstInputIndex - j)
+      if self._tap_v == 2:
+        for j in range(5):
+          if TapConfig[2*j] or TapConfig[2*j+1]:
+            if TapConfig[2*j] and TapConfig[2*j+1]:
+              #Sources.append(-1 * (FirstInputIndex - j))
+              Sources.append(-1 * Inputs[j])
+            else:
+              #Sources.append(FirstInputIndex - j)
+              Sources.append(Inputs[j])
+      else:
+        for j in range(5):
+          if TapConfig[2*j]:
+            if TapConfig[2*j+1]:
+              #Sources.append(-1 * (FirstInputIndex - j))
+              Sources.append(-1 * Inputs[j])
+            else:
+              #Sources.append(FirstInputIndex - j)
+              Sources.append(Inputs[j])
       if len(Sources) > 0:
         if TapConfig[10]:
           Destination *= -1

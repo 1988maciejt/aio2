@@ -989,7 +989,7 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
               Delay = float(R.group(1))
             except:
               Delay = "ERR"
-          ResDict["Critical Path Delay [ns]"] = Delay
+            ResDict["Critical Path Delay [ns]"] = Delay
         return ResDict
       return result
     else:

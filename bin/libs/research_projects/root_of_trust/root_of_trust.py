@@ -886,8 +886,8 @@ wire injector_int = injector ^ O[{self._Size-1}];
 
 always @ (posedge clk) begin
   if (reset) begin
-    selector    <= {self.getSelectorSize()}`d0;
-    O           <= {self._Size}`d0;
+    selector    <= {self.getSelectorSize()}'d0;
+    O           <= {self._Size}'d0;
   end else begin
     if (lfsr_enable) begin
 """
@@ -968,13 +968,13 @@ class KeystreamGeneratorsMuxBlock:
         Result += f"\nalways @ (*) begin"
         for i in range(len(self.UpperMuxInputs)):
             Result += f"\n  if ({UpperMuxSelectName} == {len(self.UpperMuxInputs)}'d{i}) begin"
-            Result += f"\n    {UpperMuxSignalName} <= {UpperNlfsrOutputName}[{self.UpperMuxInputs[i]}]"
+            Result += f"\n    {UpperMuxSignalName} <= {UpperNlfsrOutputName}[{self.UpperMuxInputs[i]}];"
             Result += f"\n  end"
         Result += f"\nend"
         Result += f"\nalways @ (*) begin"
         for i in range(len(self.LowerMuxInputs)):
             Result += f"\n  if ({LowerMuxSelectName} == {len(self.LowerMuxInputs)}'d{i}) begin"
-            Result += f"\n    {LowerMuxSignalName} <= {LowerNlfsrOutputName}[{self.LowerMuxInputs[i]}]"
+            Result += f"\n    {LowerMuxSignalName} <= {LowerNlfsrOutputName}[{self.LowerMuxInputs[i]}];"
             Result += f"\n  end"
         Result += f"\nend"
         Result += f"\nwire {MuxBlockOutputName} = {UpperMuxSignalName} ^ {LowerMuxSignalName};"
@@ -988,7 +988,7 @@ class KeystreamGenerator:
     def __init__(self, FileName = None) -> None:
         self.UpperNlfsr = Nlfsr(32, [])
         self.LowerNlfsr = Nlfsr(32, [])
-        self.LeftLfsr = ProgrammableLfsr(32, [])
+        self.LeftLfsr = ProgrammableNeptunLfsr(32)
         self.UpperExpander = PhaseShifter(self.UpperNlfsr, [])
         self.LowerExpander = PhaseShifter(self.LowerNlfsr, [])
         self.LeftPhaseShifter = PhaseShifter(Lfsr(32, RING_WITH_SPECIFIED_TAPS, []), [])
@@ -1005,8 +1005,8 @@ class KeystreamGenerator:
     def fromFile(FileName):
         pass
     
-    def setLeftLfsr(self, ProgrammableLfsrObject : ProgrammableLfsr):
-        self.LeftLfsr = ProgrammableLfsrObject
+    def setLeftLfsr(self, ProgrammableNeptunLfsrObject : ProgrammableNeptunLfsr):
+        self.LeftLfsr = ProgrammableNeptunLfsrObject
         
     def setUpperNlfsr(self, NlfsrObject : Nlfsr):
         self.UpperNlfsr = NlfsrObject
@@ -1056,88 +1056,112 @@ class KeystreamGenerator:
             PT.print()
         return (SelectorBits, Value)
     
-    def simulateLfsrSeedObtaining(self, InputSequenceLength : int, SelectorBits : bitarray, LfsrValue : bitarray, LfsrInjectorBitIndex : int, LfsrSelectorOutputBitIndex : int, Verbose = False) -> bitarray:
-        SelectorBits = bitarray(SelectorBits).copy()
-        LfsrValue = bitarray(LfsrValue).copy()
-        if len(SelectorBits) != self.LeftLfsr.getConfigVectorLength():
-            Aio.printError(f"SelectorBits must contain {self.LeftLfsr.getConfigVectorLength()} bits.")
-            return None
-        if len(LfsrValue) != self.LeftLfsr.getSize():
-            Aio.printError(f"LfsrValue must contain {self.LeftLfsr.getSize()} bits.")
-            return None
-        InputSequence = bitarray()
-        if Verbose:
-            PT = PandasTable(["Cycle", "TryForSel", "TryForInj", "SelectorValue", "LfsrValue", "Winner?", "LfsrObject"])
-            PT.add([InputSequenceLength, "-", "-", Bitarray.toString(SelectorBits), Bitarray.toString(LfsrValue), "-", repr(self.LeftLfsr.getLfsr(SelectorBits))])
-        if InputSequenceLength > 0:
-            Zero = bau.zeros(len(LfsrValue))
-            SelZero = bau.zeros(len(SelectorBits))
-            PrevSelector0 = Bitarray.rotl(SelectorBits)
-            PrevLfsr0 = self.LeftLfsr.getLfsr(PrevSelector0)
-            PrevLfsr0.setValue(LfsrValue.copy())
-            LfsrValue0_0 = PrevLfsr0.prev().copy()
-            PrevLfsr0.setValue(LfsrValue.copy())
-            PrevLfsr0._baValue[LfsrInjectorBitIndex] ^= 1
-            LfsrValue0_1 = PrevLfsr0.prev().copy()
-            SelectorBits1 = SelectorBits.copy()
-            SelectorBits1[0] ^= 1
-            PrevSelector1 = Bitarray.rotl(SelectorBits1)
-            PrevLfsr1 = self.LeftLfsr.getLfsr(PrevSelector1)
-            PrevLfsr1.setValue(LfsrValue.copy())
-            LfsrValue1_0 = PrevLfsr1.prev().copy()
-            PrevLfsr1.setValue(LfsrValue.copy())
-            PrevLfsr1._baValue[LfsrInjectorBitIndex] ^= 1
-            LfsrValue1_1 = PrevLfsr1.prev().copy()
-            if InputSequenceLength == 1:
-                W0 = (LfsrValue0_0 == Zero) and (PrevSelector0 == SelZero)
-                W1 = (LfsrValue0_1 == Zero) and (PrevSelector0 == SelZero)
-                if Verbose:
-                    PT.add([InputSequenceLength-1, 0, 0, Bitarray.toString(PrevSelector0), Bitarray.toString(LfsrValue0_0), W0, repr(PrevLfsr0)]) 
-                    PT.add([InputSequenceLength-1, 0, 1, Bitarray.toString(PrevSelector0), Bitarray.toString(LfsrValue0_1), W1, repr(PrevLfsr0)])
-                if W0:
-                    InputSequence = bitarray('0')
-                elif W1:
-                    InputSequence = bitarray('1')
-                else:
-                    InputSequence = None
+    def toVerilog(self, TopModuleName : str) -> str:
+        LfsrFeedingCycles = self.LeftLfsr.getSize()
+        SelectorFeedingCycles = self.LeftLfsr.getSelectorSize()
+        UpperNlfsrFeedingCycles = self.UpperNlfsr.getSize()
+        LowerNlfsrFeedingCycles = self.LowerNlfsr.getSize()
+        AllCycles = LfsrFeedingCycles + SelectorFeedingCycles + UpperNlfsrFeedingCycles + LowerNlfsrFeedingCycles
+        CntrBits = int(log2(AllCycles+1)+1)
+        Result = f"""
+{self.LeftLfsr.toVerilog("hybrid_ring")}
+{self.UpperNlfsr.toVerilog("upper_nlfsr", [0])}
+{self.LowerNlfsr.toVerilog("lower_nlfsr", [0])}
+{self.LeftPhaseShifter.toVerilog("hybrid_ring_ps")}
+{self.UpperExpander.toVerilog("upper_ps")}
+{self.LowerExpander.toVerilog("lower_ps")}
+        
+module {TopModuleName} (
+  input wire clk,
+  input wire reset,
+  input wire key,
+  output wire mission_mode,
+  output wire [{len(self.MuxBlocks)-1}:0] O
+);
+
+wire [{self.LeftLfsr.getSize()-1}:0] hybrid_ring_O;
+wire [{self.UpperNlfsr.getSize()-1}:0] upper_nlfsr_O;
+wire [{self.LowerNlfsr.getSize()-1}:0] lower_nlfsr_O;
+wire [{self.LeftPhaseShifter.getSize()-1}:0] hybrid_ring_ps_O;
+wire [{self.UpperExpander.getSize()-1}:0] upper_nlfsr_exp_O;
+wire [{self.LowerExpander.getSize()-1}:0] lower_nlfsr_exp_O;
+wire hybrid_ring_lfsr_enable;
+wire hybrid_ring_selector_enable;
+wire hybrid_ring_injector;
+
+reg [{CntrBits-1}:0] fsm_cntr;
+wire lfsr_en = (fsm_cntr < {CntrBits}'d{LfsrFeedingCycles}) | (fsm_cntr >= {CntrBits}'d{LfsrFeedingCycles+SelectorFeedingCycles});
+wire selector_en = (fsm_cntr < {CntrBits}'d{SelectorFeedingCycles});
+wire upper_nlfsr_en = (fsm_cntr >= {CntrBits}'d{LfsrFeedingCycles+SelectorFeedingCycles});
+wire lower_nlfsr_en = upper_nlfsr_en;
+assign mission_mode = (fsm_cntr >= {CntrBits}'d{AllCycles});
+wire key_int = mission_mode ? 1'b0 : key;
+
+always @ (posedge clk) begin
+  if (reset) begin
+    fsm_cntr <= {CntrBits}'d0;
+  end else begin
+    if (~mission_mode) begin
+      fsm_cntr <= fsm_cntr +  {CntrBits}'d1;
+    end
+  end
+end
+
+hybrid_ring hybrid_ring_inst (
+  .clk (clk),
+  .reset (reset),
+  .lfsr_enable (lfsr_en),
+  .selector_enable (selector_en),
+  .injector (key_int),
+  .O (hybrid_ring_O),
+  .selector ()
+);
+
+upper_nlfsr upper_nlfsr_inst (
+  .clk (clk),
+  .enable (upper_nlfsr_en),
+  .reset (reset),
+  .injector (key_int),
+  .O (upper_nlfsr_O)  
+);
+
+lower_nlfsr lower_nlfsr_inst (
+  .clk (clk),
+  .enable (lower_nlfsr_en),
+  .reset (reset),
+  .injector (key_int),
+  .O (lower_nlfsr_O)  
+);
+
+hybrid_ring_ps hybrid_ring_ps_inst (
+  .I (hybrid_ring_O),
+  .O (hybrid_ring_ps_O)  
+);
+
+upper_ps upper_ps_inst (
+  .I (upper_nlfsr_O),
+  .O (upper_nlfsr_exp_O)  
+);
+
+lower_ps lower_ps_inst (
+  .I (lower_nlfsr_O),
+  .O (lower_nlfsr_exp_O)  
+);
+
+"""
+        OAssign = ""
+        second = 0
+        for i in range(len(self.MuxBlocks)):
+            Result += f"\n// output {i}:\n" + self.MuxBlocks[i].toVerilogEquation(f"O{i}", "upper_nlfsr_exp_O", "lower_nlfsr_exp_O", "hybrid_ring_ps_O") + "\n"
+            if second:
+                OAssign =  ", " + OAssign
             else:
-                W0_0 = (LfsrValue0_0[LfsrSelectorOutputBitIndex] == 0)
-                W0_1 = (LfsrValue0_1[LfsrSelectorOutputBitIndex] == 0)
-                W1_0 = (LfsrValue1_0[LfsrSelectorOutputBitIndex] == 1)
-                W1_1 = (LfsrValue1_1[LfsrSelectorOutputBitIndex] == 1)
-                if Verbose:
-                    PT.add([InputSequenceLength-1, 0, 0, Bitarray.toString(PrevSelector0), Bitarray.toString(LfsrValue0_0), W0_0, repr(PrevLfsr0)]) 
-                    PT.add([InputSequenceLength-1, 0, 1, Bitarray.toString(PrevSelector0), Bitarray.toString(LfsrValue0_1), W0_1, repr(PrevLfsr0)])
-                    PT.add([InputSequenceLength-1, 1, 0, Bitarray.toString(PrevSelector0), Bitarray.toString(LfsrValue1_0), W1_0, repr(PrevLfsr0)]) 
-                    PT.add([InputSequenceLength-1, 1, 1, Bitarray.toString(PrevSelector0), Bitarray.toString(LfsrValue1_1), W1_1, repr(PrevLfsr0)])
-                Success = False
-                if W0_0:
-                    Result = self.simulateLfsrSeedObtaining(InputSequenceLength-1, PrevSelector0, LfsrValue0_0, LfsrInjectorBitIndex, LfsrSelectorOutputBitIndex, Verbose)
-                    if Result is not None:
-                        InputSequence = Result + bitarray('0')
-                        Success = True
-                if not Success and W0_1:
-                    Result = self.simulateLfsrSeedObtaining(InputSequenceLength-1, PrevSelector0, LfsrValue0_1, LfsrInjectorBitIndex, LfsrSelectorOutputBitIndex, Verbose)
-                    if Result is not None:
-                        InputSequence = Result + bitarray('1')
-                        Success = True
-                if not Success and W1_0:
-                    Result = self.simulateLfsrSeedObtaining(InputSequenceLength-1, PrevSelector1, LfsrValue1_0, LfsrInjectorBitIndex, LfsrSelectorOutputBitIndex, Verbose)
-                    if Result is not None:
-                        InputSequence = Result + bitarray('0')
-                        Success = True
-                if not Success and W1_1:
-                    Result = self.simulateLfsrSeedObtaining(InputSequenceLength-1, PrevSelector1, LfsrValue1_1, LfsrInjectorBitIndex, LfsrSelectorOutputBitIndex, Verbose)
-                    if Result is not None:
-                        InputSequence = Result + bitarray('1')
-                        Success = True
-                if not Success:
-                    InputSequence = None
-        else:
-            return bitarray('')  
-        if Verbose:
-            Aio.print("")
-            Aio.print(f"--- simulateLfsrSeedObtaining {InputSequenceLength} ----")
-            PT.print()
-            Aio.print(f"--- Returned InputSequence: {InputSequence} ----")
-        return InputSequence
+                second = 1
+            OAssign = f"O{i}" + OAssign
+        OAssign = "assign O = mission_mode ? {" + OAssign + "} : " + str(len(self.MuxBlocks)) + "'d0;"
+        Result += f"""
+{OAssign}
+
+endmodule
+"""
+        return Result
