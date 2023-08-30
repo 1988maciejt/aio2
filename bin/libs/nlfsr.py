@@ -1223,197 +1223,204 @@ class Nlfsr(Lfsr):
     Taps = self._Config
     Size = self._size
     Space = len(Taps) * 2 - 1
-    Canvas = AsciiDrawingCanvas(Lffs*6+2 +xext, 10 + Space) # 9
-    Canvas.drawBox(0, 1, Canvas._width-1, 7+Space)
-    Canvas.drawChar(1, 8+Space, AsciiDrawing_Characters.RIGHT_ARROW)
-    Canvas.drawChar(Canvas._width-2, 1, AsciiDrawing_Characters.LEFT_ARROW)
-    for i in range(Lffs):
-      ffindex = Lffs - i - 1
-      Canvas.drawBox(i*6+2, 7+Space, 3, 2, str(ffindex))
-      Canvas.fixLinesAtPoint(i*6+2, 8+Space)
-      Canvas.fixLinesAtPoint(i*6+5, 8+Space)
-    for i in range(Uffs):
-      ffindex = Lffs + i
-      Canvas.drawBox(i*6+2+Uoffset, 0, 3, 2, str(ffindex))
-      Canvas.fixLinesAtPoint(i*6+2+Uoffset, 1)
-      Canvas.fixLinesAtPoint(i*6+5+Uoffset, 1)
-    AndGateYPosition = 4+Space
-    AndGateXPositionsUsed = []
-    TapsCoordinates = []
-    PointsToFix = []
-    for Tap in Taps:
-      D = abs(Tap[0]) % Size
-      DInv = 1 if Tap[0] < 0 else 0
-      XorDown = 1        
-      if D >= Lffs:
-        XorDown = 0
-      if XorDown:
-        XorX = (Lffs-D-1)*6+1
-        XorY = 8+Space
-      else:
-        XorX = (D-Lffs+1)*6+Uoffset
-        XorY = 1
-      AndGateXPosition = XorX
-      TheSameD = 0
-      XPosAdder = 4
-      XPosAdd = 1
-      AndGateXPositionSaved = AndGateXPosition
-      while AndGateXPosition in AndGateXPositionsUsed:
-        WhatToAdd = 0
-        if XorDown:
-          if XPosAdd:
-            WhatToAdd = XPosAdder
-            XPosAdd = 0
+    HExt = 3
+    while 1:
+      try:
+        Canvas = AsciiDrawingCanvas(Lffs*6+2 +xext +HExt, 10 + Space) # 9
+        Canvas.drawBox(0, 1, Canvas._width-1-HExt, 7+Space)
+        Canvas.drawChar(1, 8+Space, AsciiDrawing_Characters.RIGHT_ARROW)
+        Canvas.drawChar(Canvas._width-2-HExt, 1, AsciiDrawing_Characters.LEFT_ARROW)
+        for i in range(Lffs):
+          ffindex = Lffs - i - 1
+          Canvas.drawBox(i*6+2, 7+Space, 3, 2, str(ffindex))
+          Canvas.fixLinesAtPoint(i*6+2, 8+Space)
+          Canvas.fixLinesAtPoint(i*6+5, 8+Space)
+        for i in range(Uffs):
+          ffindex = Lffs + i
+          Canvas.drawBox(i*6+2+Uoffset, 0, 3, 2, str(ffindex))
+          Canvas.fixLinesAtPoint(i*6+2+Uoffset, 1)
+          Canvas.fixLinesAtPoint(i*6+5+Uoffset, 1)
+        AndGateYPosition = 4+Space
+        AndGateXPositionsUsed = []
+        TapsCoordinates = []
+        PointsToFix = []
+        for Tap in Taps:
+          D = abs(Tap[0]) % Size
+          DInv = 1 if Tap[0] < 0 else 0
+          XorDown = 1        
+          if D >= Lffs:
+            XorDown = 0
+          if XorDown:
+            XorX = (Lffs-D-1)*6+1
+            XorY = 8+Space
           else:
-            if WhatToAdd - XPosAdder <= 0:
-              XPosAdder += 4
-              WhatToAdd = XPosAdder
+            XorX = (D-Lffs+1)*6+Uoffset
+            XorY = 1
+          AndGateXPosition = XorX
+          TheSameD = 0
+          XPosAdder = 4
+          XPosAdd = 1
+          AndGateXPositionSaved = AndGateXPosition
+          while AndGateXPosition in AndGateXPositionsUsed:
+            WhatToAdd = 0
+            if XorDown:
+              if XPosAdd:
+                WhatToAdd = XPosAdder
+                XPosAdd = 0
+              else:
+                if WhatToAdd - XPosAdder <= 0:
+                  XPosAdder += 4
+                  WhatToAdd = XPosAdder
+                else:
+                  WhatToAdd = -XPosAdder
+                  XPosAdder += 4
+                XPosAdd = 1
             else:
-              WhatToAdd = -XPosAdder
-              XPosAdder += 4
-            XPosAdd = 1
-        else:
-          if XPosAdd:
-            WhatToAdd = -XPosAdder
-            XPosAdd = 0
+              if XPosAdd:
+                WhatToAdd = -XPosAdder
+                XPosAdd = 0
+              else:
+                if WhatToAdd + XPosAdder >= Canvas._width -1:
+                  XPosAdder += 4
+                  WhatToAdd = -XPosAdder
+                else:
+                  WhatToAdd = XPosAdder
+                  XPosAdder += 4
+                XPosAdd = 1
+            AndGateXPosition = AndGateXPositionSaved + WhatToAdd
+            TheSameD = 1
+          AndGateXPositionsUsed.append(AndGateXPosition)
+          Ss = Tap[1]
+          SsXY = []
+          if Aio.isType(Ss, 0):
+            Ss = [Ss]
+          for S in Ss:
+            SInv = 1 if S < 0 else 0
+            S = abs(S) % Size
+            SDown = 1
+            if S >= Lffs:
+              SDown = 0
+            if SDown:
+              Sx = (Lffs-S-1)*6+1+5
+              Sy = 8+Space
+            else:
+              Sx = (S-Lffs+1)*6+Uoffset-5
+              Sy = 1
+            SsXY.append([Sx, Sy])
+          TapsCoordinates.append([XorDown, XorX, XorY, AndGateXPosition, AndGateYPosition, TheSameD, SsXY])
+          AndGateYPosition -= 2
+        for TC in TapsCoordinates:
+          XorDown = TC[0]
+          AndGateXPosition = TC[3]
+          AndGateYPosition = TC[4]
+          TheSameD = TC[5]
+          SsXY = TC[6]
+          for Sxy in SsXY:
+            Sx = Sxy[0]
+            Sy = Sxy[1]
+            Canvas.drawConnectorVH(Sx, Sy, AndGateXPosition, AndGateYPosition)
+            Canvas.fixLinesAtPoint(Sx, AndGateYPosition)
+            PointsToFix.append([Sx, AndGateYPosition])
+        for ptf in reversed(PointsToFix):
+          Canvas.fixLinesAtPoint(ptf[0], ptf[1])
+        i1, i0 = 0,0
+        for TC in TapsCoordinates:
+          XorDown = TC[0]
+          XorX = TC[1]
+          XorY = TC[2]
+          AndGateXPosition = TC[3]
+          AndGateYPosition = TC[4]
+          for X in range(AndGateXPosition-1, 0, -1):
+            if Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_UP:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_UP)
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_DOWN:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_DOWN)
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.CROSS:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_UP_DOWN)
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL_RIGTH:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THIN_VERTICAL_THICK_RIGTH)
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.LOWER_LEFT:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_LOWER_LEFT)
+              break
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.UPPER_LEFT:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_UPPER_LEFT)
+              break
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
+            else:
+              break
+          for X in range(AndGateXPosition+1, Canvas._width-1, 1):
+            if Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_UP:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_UP)
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_DOWN:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_DOWN)
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.CROSS:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_UP_DOWN)
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL_LEFT:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THIN_VERTICAL_THICK_LEFT)
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.LOWER_RIGHT:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_LOWER_RIGHT)
+              break
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.UPPER_RIGHT:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_UPPER_RIGHT)
+              break
+            elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL:
+              Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
+            else:
+              break
+        for TC in TapsCoordinates:
+          XorDown = TC[0]
+          XorX = TC[1]
+          XorY = TC[2]
+          AndGateXPosition = TC[3]
+          AndGateYPosition = TC[4]
+          TheSameD = TC[5]
+          if TheSameD:
+            if XorDown:
+              Canvas.drawConnectorHH(XorX, XorY-2, AndGateXPosition, XorY-2)
+              Canvas.drawConnectorVV(AndGateXPosition, XorY-2, AndGateXPosition, AndGateYPosition)
+              FixY = XorY-2
+            else:
+              Canvas.drawConnectorHH(XorX, XorY+2, AndGateXPosition, XorY+2)
+              Canvas.drawConnectorVV(AndGateXPosition, XorY+2, AndGateXPosition, AndGateYPosition)
+              FixY = XorY+2
+            if XorX < AndGateXPosition:
+              for X in range(XorX+1,AndGateXPosition,1):
+                Canvas.fixLinesAtPoint(X, FixY)
+            else:
+              for X in range(XorX-1,AndGateXPosition,-1):
+                Canvas.fixLinesAtPoint(X, FixY)          
           else:
-            if WhatToAdd + XPosAdder >= Canvas._width -1:
-              XPosAdder += 4
-              WhatToAdd = -XPosAdder
-            else:
-              WhatToAdd = XPosAdder
-              XPosAdder += 4
-            XPosAdd = 1
-        AndGateXPosition = AndGateXPositionSaved + WhatToAdd
-        TheSameD = 1
-      AndGateXPositionsUsed.append(AndGateXPosition)
-      Ss = Tap[1]
-      SsXY = []
-      if Aio.isType(Ss, 0):
-        Ss = [Ss]
-      for S in Ss:
-        SInv = 1 if S < 0 else 0
-        S = abs(S) % Size
-        SDown = 1
-        if S >= Lffs:
-          SDown = 0
-        if SDown:
-          Sx = (Lffs-S-1)*6+1+5
-          Sy = 8+Space
-        else:
-          Sx = (S-Lffs+1)*6+Uoffset-5
-          Sy = 1
-        SsXY.append([Sx, Sy])
-      TapsCoordinates.append([XorDown, XorX, XorY, AndGateXPosition, AndGateYPosition, TheSameD, SsXY])
-      AndGateYPosition -= 2
-    for TC in TapsCoordinates:
-      XorDown = TC[0]
-      AndGateXPosition = TC[3]
-      AndGateYPosition = TC[4]
-      TheSameD = TC[5]
-      SsXY = TC[6]
-      for Sxy in SsXY:
-        Sx = Sxy[0]
-        Sy = Sxy[1]
-        Canvas.drawConnectorVH(Sx, Sy, AndGateXPosition, AndGateYPosition)
-        Canvas.fixLinesAtPoint(Sx, AndGateYPosition)
-        PointsToFix.append([Sx, AndGateYPosition])
-    for ptf in reversed(PointsToFix):
-      Canvas.fixLinesAtPoint(ptf[0], ptf[1])
-    i1, i0 = 0,0
-    for TC in TapsCoordinates:
-      XorDown = TC[0]
-      XorX = TC[1]
-      XorY = TC[2]
-      AndGateXPosition = TC[3]
-      AndGateYPosition = TC[4]
-      for X in range(AndGateXPosition-1, 0, -1):
-        if Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_UP:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_UP)
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_DOWN:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_DOWN)
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.CROSS:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_UP_DOWN)
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL_RIGTH:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THIN_VERTICAL_THICK_RIGTH)
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.LOWER_LEFT:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_LOWER_LEFT)
-          break
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.UPPER_LEFT:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_UPPER_LEFT)
-          break
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
-        else:
-          break
-      for X in range(AndGateXPosition+1, Canvas._width-1, 1):
-        if Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_UP:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_UP)
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.HORIZONTAL_DOWN:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_DOWN)
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.CROSS:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THICK_HORIZONTAL_THIN_UP_DOWN)
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL_LEFT:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.THIN_VERTICAL_THICK_LEFT)
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.LOWER_RIGHT:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_LOWER_RIGHT)
-          break
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.UPPER_RIGHT:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_THICK_UPPER_RIGHT)
-          break
-        elif Canvas.getChar(X, AndGateYPosition) == AsciiDrawing_Characters.VERTICAL:
-          Canvas.setChar(X, AndGateYPosition, AsciiDrawing_Characters.HORIZONTAL_BOLD)
-        else:
-          break
-    for TC in TapsCoordinates:
-      XorDown = TC[0]
-      XorX = TC[1]
-      XorY = TC[2]
-      AndGateXPosition = TC[3]
-      AndGateYPosition = TC[4]
-      TheSameD = TC[5]
-      if TheSameD:
-        if XorDown:
-          Canvas.drawConnectorHH(XorX, XorY-2, AndGateXPosition, XorY-2)
-          Canvas.drawConnectorVV(AndGateXPosition, XorY-2, AndGateXPosition, AndGateYPosition)
-          FixY = XorY-2
-        else:
-          Canvas.drawConnectorHH(XorX, XorY+2, AndGateXPosition, XorY+2)
-          Canvas.drawConnectorVV(AndGateXPosition, XorY+2, AndGateXPosition, AndGateYPosition)
-          FixY = XorY+2
-        if XorX < AndGateXPosition:
-          for X in range(XorX+1,AndGateXPosition,1):
-            Canvas.fixLinesAtPoint(X, FixY)
-        else:
-          for X in range(XorX-1,AndGateXPosition,-1):
-            Canvas.fixLinesAtPoint(X, FixY)          
-      else:
-        Canvas.drawConnectorVV(XorX, XorY, AndGateXPosition, AndGateYPosition)
-      Canvas.drawChar(AndGateXPosition-1, AndGateYPosition, "F")
-      Canvas.drawChar(AndGateXPosition, AndGateYPosition, str(i1))
-      Canvas.drawChar(AndGateXPosition+1, AndGateYPosition, str(i0))
-      i0 += 1
-      if i0 == 10:
-        i1 += 1
-        i0 = 0
-      if i1 == 10:
-        i1 = 0
-    for TC in TapsCoordinates:
-      XorDown = TC[0]
-      XorX = TC[1]
-      XorY = TC[2]
-      AndGateXPosition = TC[3]
-      AndGateYPosition = TC[4]
-      Canvas.drawXor(XorX, XorY)
-      if XorDown:
-        Canvas.drawChar(XorX, XorY-1, AsciiDrawing_Characters.DOWN_ARROW)
-      else:
-        Canvas.drawChar(XorX, XorY+1, AsciiDrawing_Characters.UP_ARROW)
-    return Canvas.toStr(MaxWidth, Overlap)
+            Canvas.drawConnectorVV(XorX, XorY, AndGateXPosition, AndGateYPosition)
+          Canvas.drawChar(AndGateXPosition-1, AndGateYPosition, "F")
+          Canvas.drawChar(AndGateXPosition, AndGateYPosition, str(i1))
+          Canvas.drawChar(AndGateXPosition+1, AndGateYPosition, str(i0))
+          i0 += 1
+          if i0 == 10:
+            i1 += 1
+            i0 = 0
+          if i1 == 10:
+            i1 = 0
+        for TC in TapsCoordinates:
+          XorDown = TC[0]
+          XorX = TC[1]
+          XorY = TC[2]
+          AndGateXPosition = TC[3]
+          AndGateYPosition = TC[4]
+          Canvas.drawXor(XorX, XorY)
+          if XorDown:
+            Canvas.drawChar(XorX, XorY-1, AsciiDrawing_Characters.DOWN_ARROW)
+          else:
+            Canvas.drawChar(XorX, XorY+1, AsciiDrawing_Characters.UP_ARROW)
+        return Canvas.toStr(MaxWidth, Overlap)
+      except:
+        if HExt > 128:
+          return ""
+        HExt += 3
   
   def toFibonacci(self) -> bool:
     Size = self._size
