@@ -1865,6 +1865,14 @@ EXPANDER:
       HtmlFile.write(html)
       HtmlFile.close()
       PT.add([nlfsr.getSize(), len(nlfsr.getTaps()), Architecture.replace("\n",", "), Eq, EqC, Single, Double, Triple, f"""=HYPERLINK("{FileName}", "[CLICK_HERE]")"""])
+      try:
+        PT.toXls("DATABASE_temp.xlsx")
+      except:
+        pass
+    try:
+      os.remove("DATABASE_temp.xlsx")
+    except:
+      pass
     PT.toXls("DATABASE.xlsx")
 
 def _make_expander(nlfsr) -> list:
