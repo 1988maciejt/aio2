@@ -2763,8 +2763,8 @@ class _BerlekampMassey:
         for k in range(n):
             if s[k] == 1:
                 break
-        self._f = {k + 1, 0}
-        self._l = k + 1
+        _f = {k + 1, 0}
+        _l = k + 1
 
         g = {0}
         a = k
@@ -2776,22 +2776,25 @@ class _BerlekampMassey:
           iter = range(k + 1, n)
         for n in iter:
             d = 0
-            for item in self._f:
-                d ^= s[item + n - self._l]
+            for item in _f:
+                d ^= s[item + n - _l]
 
             if d == 0:
                 b += 1
             else:
-                if 2 * self._l > n:
-                    self._f ^= set([a - b + item for item in g])
+                if 2 * _l > n:
+                    _f ^= set([a - b + item for item in g])
                     b += 1
                 else:
-                    temp = self._f.copy()
-                    self._f = set([b - a + item for item in self._f]) ^ g
-                    self._l = n + 1 - self._l
+                    temp = _f.copy()
+                    _f = set([b - a + item for item in _f]) ^ g
+                    _l = n + 1 - _l
                     g = temp
                     a = b
-                    b = n - self._l + 1
+                    b = n - _l + 1
+      
+      self._l = _l
+      self._f = _f
 
     def _get_polynomial_string(self):
         result = ''
