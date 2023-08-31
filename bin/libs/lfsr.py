@@ -2254,7 +2254,7 @@ class Lfsr:
       self.next(step)
   def getMSequence(self, BitIndex = 0, Reset = True):
     return self.getSequence(BitIndex, Reset, 0)
-  def getSequence(self, BitIndex = 0, Reset = True, Length = 0) -> bitarray:
+  def getSequence(self, BitIndex = 0, Reset = True, Length = 0, ProgressBar = 0) -> bitarray:
     """Returns a bitarray containing the Sequence of the LFSR.
 
     Args:
@@ -2272,7 +2272,11 @@ class Lfsr:
       Val = self._baValue.copy()
       n = self.getPeriod()
       self._baValue = Val
-    for i in range(n):
+    if ProgressBar:
+      iter = tqdm(range(n), desc="Reg simulating")
+    else:
+      iter = range(n)
+    for i in iter:
       result.append(self._baValue[BitIndex])
       self.next()
     return result
