@@ -1876,7 +1876,10 @@ EXPANDER:
     PT.toXls("DATABASE.xlsx")
 
 def _make_expander(nlfsr) -> list:
-  return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1, PBar=0) ]
+  if nlfsr.getSize() <= 14:
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1, PBar=0) ]
+  else:
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1, PBar=0) ]
       
       
     
