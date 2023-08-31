@@ -2752,6 +2752,9 @@ class LfsrList:
 
   
 class _BerlekampMassey:
+  
+    slots = ("_f", "_l")
+  
     def __init__(self, sequence, ProgressBar = 0):
         n = len(sequence)
         s = sequence.copy()
