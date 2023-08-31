@@ -2792,9 +2792,8 @@ class _BerlekampMassey:
                     g = temp
                     a = b
                     b = n - _l + 1
-      
-      self._l = _l
-      self._f = _f
+        self._l = _l
+        self._f = _f
 
     def _get_polynomial_string(self):
         result = ''
