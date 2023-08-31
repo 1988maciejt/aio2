@@ -52,6 +52,9 @@ def _to_taps_templates(expr : str) -> list:
     Result.append(Tap)
   return Result
   
+
+class Nlfsr(Lfsr):
+  pass
 class Nlfsr(Lfsr):
   _baValue = None
   _size = 0
@@ -1549,8 +1552,6 @@ class Nlfsr(Lfsr):
     except:
       return False
     
-    
-  
   def isLfsr(self) -> bool:
     Taps = self._Config
     for Tap in Taps:
@@ -1665,11 +1666,43 @@ endmodule'''
         
   def checkMaximum(NlfsrsList : list) -> list:
     return NlfsrList.checkMaximum(NlfsrsList)
+  
+  def parseFromArticleString(Size : int, txt : str) -> Nlfsr:
+    txt.strip()
+    txt = txt.replace(" ","")
+    Taps = []
+    for tap in txt.split("),"):
+      tap.strip()
+      tap = tap.replace("(","")
+      tap = tap.replace(")","")
+      tapl = tap.split(":")
+      Dint = int(tapl[0])
+      S = ast.literal_eval(f"[{tapl[1]}]")
+      Sint = []
+      for Si in S:
+        Sint.append(int(Si))
+      tapint = [Dint, Sint]
+      Taps.append(tapint)
+    return Nlfsr(int(Size), Taps)
     
         
         
     
 class NlfsrList:
+  
+  def parseFromArticleFile(FileName : str) -> list:
+    Data = readFile(FileName)
+    Result = []
+    for Line in Data.split("\n"):
+      try:
+        Line.strip()
+        Line = Line.replace("*","")
+        Linel = Line.split("\t")
+        Result.append(Nlfsr.parseFromArticleString(Linel[0], Linel[1]))
+      except:
+        pass
+    return Result
+    
   def checkMaximum(NlfsrsList) -> list:
     exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
     for N in NlfsrsList:
@@ -1835,10 +1868,7 @@ EXPANDER:
     PT.toXls("DATABASE.xlsx")
 
 def _make_expander(nlfsr) -> list:
-  if nlfsr.getSize() <= 20:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1, PBar=0) ]
-  else:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1, PBar=0) ]
+  return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1, PBar=0) ]
       
       
     
