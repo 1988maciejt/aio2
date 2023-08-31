@@ -1463,7 +1463,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return None
   
   @staticmethod
-  def decodeUsingBerlekampMassey(Sequence) -> Polynomial:
+  def decodeUsingBerlekampMassey(Sequence, ProgressBar=0) -> Polynomial:
     if Aio.isType(Sequence, "Lfsr"):
       Seq2 = Sequence.getSequence(Length=Sequence._size<<1+2)
     else:
@@ -1474,7 +1474,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         seq.append(1)
       else:
         seq.append(0)
-    return _BerlekampMassey(seq).getPolynomial().getReversed()
+    return _BerlekampMassey(seq, ProgressBar=ProgressBar).getPolynomial().getReversed()
   
   def derivativeGF2(self) -> Polynomial:
     result = self.copy();
@@ -2252,8 +2252,8 @@ class Lfsr:
     for i in range(n):
       Aio.print(self)
       self.next(step)
-  def getMSequence(self, BitIndex = 0, Reset = True):
-    return self.getSequence(BitIndex, Reset, 0)
+  def getMSequence(self, BitIndex = 0, Reset = True, ProgressBar = 0):
+    return self.getSequence(BitIndex, Reset, (1<<self.getSize())-1, ProgressBar)
   def getSequence(self, BitIndex = 0, Reset = True, Length = 0, ProgressBar = 0) -> bitarray:
     """Returns a bitarray containing the Sequence of the LFSR.
 
@@ -2752,7 +2752,7 @@ class LfsrList:
 
   
 class _BerlekampMassey:
-    def __init__(self, sequence):
+    def __init__(self, sequence, ProgressBar = 0):
         n = len(sequence)
         s = sequence.copy()
 
@@ -2767,7 +2767,11 @@ class _BerlekampMassey:
         a = k
         b = 0
 
-        for n in range(k + 1, n):
+        if ProgressBar:
+          iter = tqdm(range(k + 1, n), desc="Berlekamp-Massey")
+        else:
+          iter = range(k + 1, n)
+        for n in iter:
             d = 0
             for item in self._f:
                 d ^= s[item + n - self._l]
