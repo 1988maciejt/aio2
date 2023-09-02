@@ -164,8 +164,13 @@ class Nlfsr(Lfsr):
       for C in Config:
         D = C[0]
         S = C[1]
-      #  if Aio.isType(S, []):
-      #    S.sort()
+        if Aio.isType(S, []):
+          S = list(set(S))
+          for Si in S:
+            if (-1 * Si) in S:
+              S = [Si, -1 * Si]
+              break
+          #S.sort()
         self._Config.append([D, S])
       #def msortf(e):
       #  return abs(e[0])%Size
@@ -1997,19 +2002,29 @@ class NlfsrFpgaBooster:
         if i == 0:
           Inputs = []
           PrimeInputs = [inp for inp in range(self._size-UpperBranchSize, self._size, 1)]
+          if Debug:
+            print(f"  Right TapMUX {PrimeInputs}")
           for GateInput in range(5):
             BitDefinition = RightExtWord[GateInput*SelectW : GateInput*SelectW + SelectW]
             BitDefinition.reverse()
             BitIndex = bau.ba2int(BitDefinition)
-            Inputs.append(BitIndex)
+            Input = PrimeInputs[BitIndex % UpperBranchSize]
+            Inputs.append(Input)
+            if Debug:
+              print(f"    Index={BitIndex},\tInput={Input}")
         elif i == (TapCount-1):
           Inputs = []
           PrimeInputs = [inp for inp in range(self._size-UpperBranchSize, self._size, 1)]
+          if Debug:
+            print(f"  Left TapMUX {PrimeInputs}")
           for GateInput in range(5):
             BitDefinition = LeftExtWord[GateInput*SelectW : GateInput*SelectW + SelectW]
             BitDefinition.reverse()
             BitIndex = bau.ba2int(BitDefinition)
-            Inputs.append(BitIndex)
+            Input = PrimeInputs[BitIndex % UpperBranchSize]
+            Inputs.append(Input)
+            if Debug:
+              print(f"    Index={BitIndex},\tInput={Input}")
         else:
           Inputs = [inp for inp in range(self._size-i, self._size-i-5, -1)]
       else:
@@ -2050,7 +2065,10 @@ class NlfsrFpgaBooster:
         Success = 1
         break
     if Success | 1:
-      return Nlfsr(self._size, Taps)
+      Result = Nlfsr(self._size, Taps)
+      if Debug:
+        print(f"Result: {repr(Result)}")
+      return Result
     return None
 
 
