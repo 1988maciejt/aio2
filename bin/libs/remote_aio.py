@@ -28,7 +28,6 @@ import openpyxl
 import openpyxl.styles
 import pickle
 import xlsxwriter
-import numpy
 import zlib
 import gzip
 import statistics

@@ -13,7 +13,6 @@ python3 -m pip install --upgrade openpyxl
 python3 -m pip install --upgrade xlsxwriter
 python3 -m pip install --upgrade ansi2html
 python3 -m pip install --upgrade pathos
-python3 -m pip install --upgrade numpy
 python3 -m pip install --upgrade numba
 python3 -m pip install --upgrade multiprocess
 python3 -m pip install --upgrade sympy

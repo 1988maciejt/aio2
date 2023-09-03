@@ -1,6 +1,4 @@
 import re
-import numpy
-#import numba
 import random
 import multiprocessing
 import itertools

@@ -14,7 +14,6 @@ pip3 install --upgrade  openpyxl
 pip3 install --upgrade  xlsxwriter
 pip3 install --upgrade  ansi2html
 pip3 install --upgrade  pathos
-pip3 install --upgrade  numpy
 pip3 install --upgrade  numba
 pip3 install --upgrade  multiprocess
 pip3 install --upgrade  scipy

@@ -12,7 +12,6 @@ _required_libs = [
   "xlsxwriter",
   "ansi2html",
   "pathos",
-  "numpy",
   "multiprocess",
   "sympy",
   "matplotlib",
