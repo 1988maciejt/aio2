@@ -1463,18 +1463,38 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return None
   
   @staticmethod
-  def decodeUsingBerlekampMassey(Sequence, ProgressBar=0) -> Polynomial:
+  def LinearComplexityUsingBerlekampMassey(Sequence, ProgressBar=0, PrintLinearComplexity=0, CourseCalculations=0) -> Polynomial:
     if Aio.isType(Sequence, "Lfsr"):
       Seq2 = Sequence.getSequence(Length=Sequence._size<<1+2)
     else:
       Seq2 = Sequence
-    seq = []
-    for S in Seq2:
-      if int(S):
-        seq.append(1)
-      else:
-        seq.append(0)
-    return _BerlekampMassey(seq, ProgressBar=ProgressBar).getPolynomial().getReversed()
+    if Aio.isType(Seq2, bitarray('')):
+      seq = Seq2
+    else:
+      seq = []
+      for S in Seq2:
+        if int(S):
+          seq.append(1)
+        else:
+          seq.append(0)
+    return _BerlekampMassey(seq, ProgressBar=ProgressBar, PrintLinearComplexity=PrintLinearComplexity, OnlyCourseLinearComplexityNeeded=CourseCalculations).getDegree()
+  
+  @staticmethod
+  def decodeUsingBerlekampMassey(Sequence, ProgressBar=0, PrintLinearComplexity=0, OnlyCourseLinearComplexityNeeded=0) -> Polynomial:
+    if Aio.isType(Sequence, "Lfsr"):
+      Seq2 = Sequence.getSequence(Length=Sequence._size<<1+2)
+    else:
+      Seq2 = Sequence
+    if Aio.isType(Seq2, bitarray('')):
+      seq = Seq2
+    else:
+      seq = []
+      for S in Seq2:
+        if int(S):
+          seq.append(1)
+        else:
+          seq.append(0)
+    return _BerlekampMassey(seq, ProgressBar=ProgressBar, PrintLinearComplexity=PrintLinearComplexity, OnlyCourseLinearComplexityNeeded=OnlyCourseLinearComplexityNeeded).getPolynomial().getReversed()
   
   def derivativeGF2(self) -> Polynomial:
     result = self.copy();
@@ -2755,7 +2775,7 @@ class _BerlekampMassey:
   
     slots = ("_f", "_l")
   
-    def __init__(self, sequence, ProgressBar = 0):
+    def __init__(self, sequence, ProgressBar = 0, PrintLinearComplexity = 0, OnlyCourseLinearComplexityNeeded = 0):
         n = len(sequence)
         s = sequence.copy()
 
@@ -2776,12 +2796,14 @@ class _BerlekampMassey:
           iter = range(k + 1, n)
         for n in iter:
             d = 0
+            if OnlyCourseLinearComplexityNeeded:
+#              if len(_f) > 100:
+#                _f = set(sorted(_f, reverse=1)[0:99]) ^ {0}
+                _f = {max(_f), 0}
             for item in _f:
-                d ^= s[item + n - _l]
-
-            if d == 0:
-                b += 1
-            else:
+                if s[item + n - _l]:
+                    d ^= 1
+            if d:
                 if 2 * _l > n:
                     _f ^= set([a - b + item for item in g])
                     b += 1
@@ -2789,9 +2811,13 @@ class _BerlekampMassey:
                     temp = _f.copy()
                     _f = set([b - a + item for item in _f]) ^ g
                     _l = n + 1 - _l
+                    if PrintLinearComplexity:
+                      print(f"Linear complexity: {_l}")
                     g = temp
                     a = b
                     b = n - _l + 1
+            else:
+                b += 1
         self._l = _l
         self._f = _f
 

@@ -2,6 +2,8 @@ apk add python3
 apk add g++
 apk add gcc
 apk add bash
+apk add python3-dev
+apk add linux-headers
 python3 -m ensurepip --upgrade
 pip3 install --upgrade  ipython
 pip3 install --upgrade  ptpython
@@ -20,15 +22,11 @@ pip3 install --upgrade  scipy
 pip3 install --upgrade  sympy
 pip3 install --upgrade  matplotlib
 pip3 install --upgrade  latex
-pip3 install --upgrade  jupyter
-pip3 install --upgrade  notebook
 pip3 install --upgrade  esptool
 pip3 install --upgrade  rshell
 pip3 install --upgrade  pydbus
 pip3 install --upgrade  bitarray
-pip3 install --upgrade  pyeda
 pip3 install --upgrade  p_tqdm
-pip3 install --upgrade  ray
 pip3 install --upgrade  pandas
 pip3 install --upgrade  netifaces
 pip3 install --upgrade  pint
