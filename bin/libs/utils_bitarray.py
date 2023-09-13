@@ -175,6 +175,9 @@ class Bitarray:
             return BestValue, BestSHift
         return BestValue
     
-    def getLinearComplexity(Word : bitarray) -> int:
+    def getLinearComplexity(Word : bitarray, Course = False) -> int:
         from libs.lfsr import Polynomial
-        return Polynomial.decodeUsingBerlekampMassey(Word).getDegree()
+        if Course:
+            return Polynomial.decodeUsingBerlekampMassey(Word).getDegree()
+        else:
+            return Polynomial.decodeUsingBerlekampMassey(Word).getDegree()

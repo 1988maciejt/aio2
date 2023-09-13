@@ -1,12 +1,13 @@
 #! /bin/bash
+INTERPRETER_NAME=python3
 SCRIPTPATH=$( cd "$(dirname $0)" ; pwd )
 THIS=`pwd`
 if [ -z "$1" ]
 then
   cd $SCRIPTPATH
-  python3 -m ptpython -i --config-file ${SCRIPTPATH}/ptpython_config.py ${SCRIPTPATH}/aio2.py $THIS
+  $INTERPRETER_NAME -m ptpython -i --config-file ${SCRIPTPATH}/ptpython_config.py ${SCRIPTPATH}/aio2.py $THIS
 else
   PSCR=`realpath $1`
   cd $SCRIPTPATH
-  python3 -m ptpython --config-file ${SCRIPTPATH}/ptpython_config.py ${SCRIPTPATH}/aio2.py $THIS $PSCR
+  $INTERPRETER_NAME -m ptpython --config-file ${SCRIPTPATH}/ptpython_config.py ${SCRIPTPATH}/aio2.py $THIS $PSCR
 fi

@@ -23,6 +23,7 @@ _required_libs = [
   "pint",
   "textual",
   "hyperloglog",
+  "cython"
 ]
 def _isModuleAvailable(LibName : str) -> bool:
   try:

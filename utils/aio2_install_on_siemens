@@ -27,3 +27,4 @@ python3 -m pip install --upgrade netifaces
 python3 -m pip install --upgrade pint
 python3 -m pip install --upgrade textual
 python3 -m pip install --upgrade hyperloglog
+python3 -m pip install --upgrade cython

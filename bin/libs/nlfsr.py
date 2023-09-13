@@ -1032,10 +1032,11 @@ class Nlfsr(Lfsr):
       MinK = MinXorInputs
     #Values = self.getValues(reset=1)
     #SequenceLength = len(Values)
-    SequenceLength = self.getPeriod()
+    SequenceLength = (1 << self._size) - 1 # self.getPeriod()
     XorsList = []
     SingleSequences = [bitarray(SequenceLength) for i in range(self._size)]
-    UniqueSequences = []
+#    UniqueSequences = []
+    UniqueSequences = set()
     if StoreLinearComplexityData:
       LCData = []
     if StoreSeqStatesData:
@@ -1072,7 +1073,7 @@ class Nlfsr(Lfsr):
           ThisSequence ^= SingleSequences[i]
         H = Bitarray.getRotationInsensitiveSignature(ThisSequence, HBlockSize)
         if H not in UniqueSequences:
-          UniqueSequences.append(H)
+          UniqueSequences.add(H)
           XorsList.append(list(XorToTest))
           if StoreLinearComplexityData:
             LCData.append(Polynomial.decodeUsingBerlekampMassey(ThisSequence).getDegree())

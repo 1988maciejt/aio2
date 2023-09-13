@@ -1,6 +1,7 @@
 import ast
 import shutil
 import copy
+import cython
 import gc
 import os
 import inspect
