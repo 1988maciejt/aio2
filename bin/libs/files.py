@@ -170,3 +170,10 @@ def pickDirectory(Path = "", Title = "Choose a directory:", Preview = False) -> 
       return Result
     else:
       Result += "/" + Selected
+      
+def removeFile(FileName: str) -> bool:
+  try:
+    os.remove(FileName)
+    return True
+  except:
+    return False

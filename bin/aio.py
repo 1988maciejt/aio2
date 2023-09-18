@@ -37,6 +37,7 @@ from libs.ca import *
 from libs.cache import *
 from libs.cas import *
 from libs.cpp_program import *
+from libs.cython import *
 from libs.database import *
 from libs.eseries import *
 from libs.esp32 import *

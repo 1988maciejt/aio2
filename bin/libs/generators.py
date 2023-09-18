@@ -1,4 +1,5 @@
 from libs.utils_int import *
+from libs.utils_bitarray import *
 from bitarray import *
 import bitarray.util as bau
 from libs.utils_bitarray import *
@@ -63,11 +64,11 @@ class Generators:
     if len(Result) > 0:
       yield Result
       
-  def allBitarraySequences(self, Length):
+  def allBitarraySequences(self, Length, Endiannes='big'):
     for i in range (1 << Length):
       if not self._enabled:
         return
-      yield bau.int2ba(i, length=Length, endian='little')
+      yield bau.int2ba(i, length=Length, endian=Endiannes)
       
   def randBitarray(self, Size : int, Count : int):
     for i in range(Count):

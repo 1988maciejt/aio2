@@ -632,9 +632,12 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     """
     clen = len(self._coefficients_list)
     deg = self._coefficients_list[0]
-    result = [deg, self._coefficients_list[clen-1]]
-    for i in range(1, clen-1):
+    result = [deg]
+    if 0 in self._coefficients_list:
+      result.append(0)
+    for i in range(1, clen-1 if 0 in self._coefficients_list else clen):
       result.append((deg - self._coefficients_list[i]) * self._sign_list[i])
+      #print(" > ", deg, "-", self._coefficients_list[i], "=", (deg - self._coefficients_list[i]), "  *", self._sign_list[i])
     return Polynomial(result)
   
   def getReversed(self) -> Polynomial:
@@ -1463,7 +1466,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return None
   
   @staticmethod
-  def LinearComplexityUsingBerlekampMassey(Sequence, ProgressBar=0, PrintLinearComplexity=0, CourseCalculations=0) -> Polynomial:
+  def getLinearComplexityUsingBerlekampMassey(Sequence, ProgressBar=0, PrintLinearComplexity=0, LinearComplexityUpTo=0) -> Polynomial:
     if Aio.isType(Sequence, "Lfsr"):
       Seq2 = Sequence.getSequence(Length=Sequence._size<<1+2)
     else:
@@ -1477,10 +1480,11 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
           seq.append(1)
         else:
           seq.append(0)
-    return _BerlekampMassey(seq, ProgressBar=ProgressBar, PrintLinearComplexity=PrintLinearComplexity, OnlyCourseLinearComplexityNeeded=CourseCalculations).getDegree()
+    seq = seq + seq
+    return _BerlekampMassey(seq, ProgressBar=ProgressBar, PrintLinearComplexity=PrintLinearComplexity, LinearComplexityUpTo=LinearComplexityUpTo).getDegree()
   
   @staticmethod
-  def decodeUsingBerlekampMassey(Sequence, ProgressBar=0, PrintLinearComplexity=0, OnlyCourseLinearComplexityNeeded=0) -> Polynomial:
+  def decodeUsingBerlekampMassey(Sequence, ProgressBar=0, PrintLinearComplexity=0, PrintPolynomial=0) -> Polynomial:
     if Aio.isType(Sequence, "Lfsr"):
       Seq2 = Sequence.getSequence(Length=Sequence._size<<1+2)
     else:
@@ -1494,7 +1498,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
           seq.append(1)
         else:
           seq.append(0)
-    return _BerlekampMassey(seq, ProgressBar=ProgressBar, PrintLinearComplexity=PrintLinearComplexity, OnlyCourseLinearComplexityNeeded=OnlyCourseLinearComplexityNeeded).getPolynomial().getReversed()
+    return _BerlekampMassey(seq, ProgressBar=ProgressBar, PrintLinearComplexity=PrintLinearComplexity, PrintPolynomial=PrintPolynomial).getPolynomial().getReversed()
   
   def derivativeGF2(self) -> Polynomial:
     result = self.copy();
@@ -2036,25 +2040,7 @@ class Lfsr:
     elif steps == 0:
       return self._baValue
     elif steps == 1:
-      if self._type == LfsrType.Fibonacci:
-        ParityBit = bau.count_and(self._baValue, self._bamask) & 1
-        self._baValue <<= 1
-        if ParityBit:
-          self._baValue[-1] = 1
-        return self._baValue
-      elif self._type == LfsrType.Galois:
-        lbit = self._baValue[0]
-        self._baValue <<= 1
-        if lbit:
-          self._baValue ^= self._bamask
-        return self._baValue
-      elif self._type == LfsrType.RingGenerator or self._type == LfsrType.RingWithSpecifiedTaps:
-        nval = Bitarray.rotl(self._baValue)
-        for tap in self._taps:
-          nval[tap[1]] ^= self._baValue[tap[0]]
-        self._baValue = nval
-        return self._baValue
-      return bitarray(self._size).setall(0)
+      return self._next1()
     else:
       if self._ba_fast_sim_array is None:
         self._buildFastSimArray()
@@ -2070,6 +2056,28 @@ class Lfsr:
         steps >>= 1
         RowIndex += 1
       return self._baValue   
+    
+  def _next1(self):
+    if self._type == LfsrType.Fibonacci:
+      ParityBit = bau.count_and(self._baValue, self._bamask) & 1
+      self._baValue <<= 1
+      if ParityBit:
+        self._baValue[-1] = 1
+      return self._baValue
+    elif self._type == LfsrType.Galois:
+      lbit = self._baValue[0]
+      self._baValue <<= 1
+      if lbit:
+        self._baValue ^= self._bamask
+      return self._baValue
+    elif self._type == LfsrType.RingGenerator or self._type == LfsrType.RingWithSpecifiedTaps:
+      nval = Bitarray.rotl(self._baValue)
+      for tap in self._taps:
+        nval[tap[1]] ^= self._baValue[tap[0]]
+      self._baValue = nval
+      return self._baValue
+    return bitarray(self._size).setall(0)
+    
     
   def toRingWithManuallySpecifiedTaps(self):
     if self._type == LfsrType.Fibonacci:
@@ -2505,19 +2513,14 @@ endmodule'''
     if self._size >= XorInputsLimit > 0:
       MaxK = XorInputsLimit
     if not Silent:
-      print("Simulating NLFSR...")
-    Values = self.getValues(reset=1)
-    SequenceLength = len(Values)
-    SingleSequences = [bitarray() for i in range(self._size)]
+      print("Simulating register...")
+    SingleSequences = self.getSequences(ProgressBar=(not Silent))
+    SequenceLength = len(SingleSequences[0])
     UniqueSequences = {}
     ResultDict = {}
     if LinearComplexity:
       LinCompDict = {}
     ResultUDict = {}
-    for word_index in range(SequenceLength):
-      Word = Values[word_index]
-      for flop_index in range(self._size):
-        SingleSequences[flop_index].append(Word[flop_index])
     k = 1
     MyFlopIndexes = [i for i in range(self._size)]
     while (k <= MaxK):
@@ -2529,9 +2532,10 @@ endmodule'''
         Iterator = List.getCombinations(MyFlopIndexes, k)
       else:
         Iterator = tqdm(List.getCombinations(MyFlopIndexes, k), desc=f"Checking {k}-input XORs")
+      ThisSequence = bitarray(SequenceLength)
       for XorToTest in Iterator:
+        ThisSequence.setall(0)
         XorToTestStr = self._sumstr(XorToTest)
-        ThisSequence = bau.zeros(SequenceLength)
         for i in XorToTest:
           ThisSequence ^= SingleSequences[i]
         IsUnique = 1
@@ -2543,11 +2547,11 @@ endmodule'''
             ResultDict[k][self._sumstr(XorToTest)] = f"{ReferenceKey} delayed by {Shift}"
             break
         if IsUnique:
-          UniqueSequences[XorToTestStr] = ThisSequence
+          UniqueSequences[XorToTestStr] = ThisSequence.copy()
           ResultDict[k][XorToTestStr] = f"Unique"
           Uniques += 1
         if LinearComplexity:
-          LinCompDict[k][XorToTestStr] = Polynomial.decodeUsingBerlekampMassey(ThisSequence).getDegree()
+          LinCompDict[k][XorToTestStr] = Polynomial.getLinearComplexityUsingBerlekampMassey(ThisSequence)
         ResultUDict[k] = Uniques
       k += 1
     Report = MSequencesReport()
@@ -2624,16 +2628,27 @@ endmodule'''
       return Count
     return ToReturn
   
-  def getSequences(self, Length=0):
-    Values = self.getValues(n = Length)
-    if len(Values) < 1:
-      return []
-    SequenceLength = len(Values)
-    Result = [bitarray() for i in range(self._size)]
-    for word_index in range(SequenceLength):
-      Word = Values[word_index]
-      for flop_index in range(self._size):
-        Result[flop_index].append(Word[flop_index])
+  _next1_cached = _next1
+  
+  def _make_next1_cache(self):
+    pass
+  
+  def getSequences(self, Length=0, Reset=True, ProgressBar=False):
+    if Length <= 0:
+      Length = (1 << self._size) - 1
+    if Reset:
+      self.reset()
+    if ProgressBar:
+      Iterator = tqdm(range(Length), desc="Obtaining sequences")
+    else:
+      Iterator = range(Length)
+    Result = [bitarray(Length) for _ in range(self._size)]
+#    self._make_next1_cache()
+    for i in Iterator:
+      Word = self._next1()
+#      Word = self._next1_cached()
+      for j in range(self._size):
+        Result[j][i] = Word[j]
     return Result
       
   def _checkMaximumSerial(LfsrsList : list, ReturnLfsrsCountAndPolynomials = False, ReturnPolynomialsHashes = True) -> list:
@@ -2775,20 +2790,22 @@ class _BerlekampMassey:
   
     slots = ("_f", "_l")
   
-    def __init__(self, sequence, ProgressBar = 0, PrintLinearComplexity = 0, OnlyCourseLinearComplexityNeeded = 0):
+    def __init__(self, sequence, ProgressBar = 0, PrintLinearComplexity = 0, PrintPolynomial=0, LinearComplexityUpTo=0):
         n = len(sequence)
         s = sequence.copy()
 
         k = 0
-        for k in range(n):
-            if s[k] == 1:
-                break
-        _f = {k + 1, 0}
-        _l = k + 1
+        #for k in range(n):
+        #    if s[k] == 1:
+        #        break
+        self._f = {k + 1, 0}
+        self._l = k + 1
 
         g = {0}
         a = k
         b = 0
+        if PrintPolynomial:  
+          print(self._f)
 
         if ProgressBar:
           iter = tqdm(range(k + 1, n), desc="Berlekamp-Massey")
@@ -2796,30 +2813,31 @@ class _BerlekampMassey:
           iter = range(k + 1, n)
         for n in iter:
             d = 0
-            if OnlyCourseLinearComplexityNeeded:
-#              if len(_f) > 100:
-#                _f = set(sorted(_f, reverse=1)[0:99]) ^ {0}
-                _f = {max(_f), 0}
-            for item in _f:
-                if s[item + n - _l]:
+            for item in self._f:
+                if s[item + n - self._l]:
                     d ^= 1
             if d:
-                if 2 * _l > n:
-                    _f ^= set([a - b + item for item in g])
+                if 2 * self._l > n:
+                    self._f ^= set([a - b + item for item in g])
                     b += 1
                 else:
-                    temp = _f.copy()
-                    _f = set([b - a + item for item in _f]) ^ g
-                    _l = n + 1 - _l
+                    temp = self._f.copy()
+                    self._f = set([b - a + item for item in self._f]) ^ g
+                    if PrintPolynomial:  
+                      print(self._f)
+                    self._l = n + 1 - self._l
+                    if LinearComplexityUpTo:
+                      if self._l >= LinearComplexityUpTo:
+                        return
                     if PrintLinearComplexity:
-                      print(f"Linear complexity: {_l}")
+                      print(f"Linear complexity: {self._l}")
                     g = temp
                     a = b
-                    b = n - _l + 1
+                    b = n - self._l + 1
             else:
                 b += 1
-        self._l = _l
-        self._f = _f
+        if PrintPolynomial:  
+          print(self._f)
 
     def _get_polynomial_string(self):
         result = ''
@@ -2835,7 +2853,8 @@ class _BerlekampMassey:
         return result
 
     def getPolynomial(self):
-        return Polynomial(list(self._f))
+        lst = list(self._f)
+        return Polynomial(lst)
 
     def getDegree(self):
         return self._l

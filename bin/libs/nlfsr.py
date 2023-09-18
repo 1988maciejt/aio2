@@ -9,6 +9,7 @@ from bitarray import *
 from libs.generators import *
 from libs.remote_aio import *
 import hashlib
+from libs.cython import *
 
 # TUI =====================================================
 
@@ -190,24 +191,95 @@ class Nlfsr(Lfsr):
       S = Tap[1]
       DIndex = (abs(D) % self._size)
       AndResult = 1
-      if Aio.isType(S, 0):
-        SIndex = (abs(S) % self._size)
+      for Si in S:
+        SIndex = (abs(Si) % self._size)
         Bit = self._baValue[SIndex]
-        if S < 0:
-          Bit = 1 - Bit
-        AndResult = Bit
-      else:
-        for Si in S:
-          SIndex = (abs(Si) % self._size)
-          Bit = self._baValue[SIndex]
-          if Si < 0:
-            Bit = 1 - Bit
-          AndResult &= Bit
+        if Si < 0:
+          Bit = 1-Bit
+        AndResult &= Bit
       if D < 0:
         AndResult = 1 - AndResult
       NewVal[DIndex] ^= AndResult
     self._baValue = NewVal
     return self._baValue
+  
+  def _make_next1_cache(self):
+    self._Dests = []
+    self._Dinvs = []
+    self._Sources = []
+    self._Sinvs = []
+    for Tap in self._Config:
+      D = Tap[0]
+      S = Tap[1]
+      self._Dests.append(abs(D) % self._size)
+      self._Dinvs.append(1 if (D<0) else 0)
+      SList = []
+      SInvList = []
+      for Si in S:
+        SList.append(abs(Si) % self._size)
+        SInvList.append(1 if (Si<0) else 0)
+      self._Sources.append(SList)
+      self._Sinvs.append(SInvList)
+    
+  def _next1_cached(self):
+    NewVal = Bitarray.rotl(self._baValue)
+    for TIndex in range(len(self._Config)):
+      AndResult = 1
+      Sources = self._Sources[TIndex]
+      Sinvx = self._Sinvs[TIndex]
+      for Sindex in range(len(Sources)):
+        Bit = self._baValue[Sources[Sindex]]
+        if Sinvx[Sindex]:
+          Bit = 1-Bit
+        AndResult &= Bit
+      if self._Dinvs[TIndex]:
+        AndResult = 1 - AndResult
+      NewVal[self._Dests[TIndex]] ^= AndResult
+    self._baValue = NewVal
+    return self._baValue
+  
+  def __DEV__getSequenceUsingCythonModule(self, BitIndex = 0):
+    if Aio.isType(BitIndex, 0):
+      BitIndex = [BitIndex]
+    Length = ((1<<self._size)-1)
+    Size = self._size
+    Taps = self._Config
+    CCode = f"""
+from bitarray import *
+import bitarray.util as bau
+def f():
+  Result = [bau.zeros({Length}) for _ in range({len(BitIndex)})]
+  cdef int[{Size}] State
+  cdef int[{Size}] AuxState
+  cdef int Offset = 0
+  for i in range({Size}):
+    State[i] = 0
+    AuxState[i] = 0
+  State[0] = 1
+  for i in range({Length}):"""
+    ModifiedBits = []
+    for Tap in Taps:
+      D = abs(Tap[0])
+      if D in ModifiedBits:
+        continue
+      CCode += f"""
+    AuxState[{D}] = State[({D}+Offset)%{Size}]"""
+      ModifiedBits.append(D)
+    for Tap in Taps:
+      pass
+    for ModifiedBit in ModifiedBits:
+      CCode += f"""
+    State[({ModifiedBit}+Offset)%{Size}] == AuxState[{ModifiedBit}]"""
+    RIndex = 0
+    for Bit in BitIndex:
+      CCode += f"""
+    if State[({Bit}+Offset)%{Size}] == 1:
+      Result[{RIndex}][i] = 1"""
+      RIndex += 1
+    CCode += f"""
+    Offset = (Offset + 1) % Size
+  return Result"""
+    print(CCode)
   
   def next(self, steps=1):
     if steps < 0:
@@ -1023,7 +1095,7 @@ class Nlfsr(Lfsr):
   def createPhaseShifter(self):
     """Use 'createExpander' instead. It will return a PhaseSHifter object too."""
     Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreSeqStatesData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1):
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreSeqStatesData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0):
     MaxK = self._size
     if self._size >= XorInputsLimit > 0:
       MaxK = XorInputsLimit
@@ -1034,7 +1106,7 @@ class Nlfsr(Lfsr):
     #SequenceLength = len(Values)
     SequenceLength = (1 << self._size) - 1 # self.getPeriod()
     XorsList = []
-    SingleSequences = [bitarray(SequenceLength) for i in range(self._size)]
+    SingleSequences = [bitarray(SequenceLength) for _ in range(self._size)]
 #    UniqueSequences = []
     UniqueSequences = set()
     if StoreLinearComplexityData:
@@ -1062,13 +1134,13 @@ class Nlfsr(Lfsr):
     HBlockSize = (self._size - 4)
     if HBlockSize < 3:
       HBlockSize = 3
+    ThisSequence = bau.zeros(SequenceLength)
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       if PBar:
         Iterator = tqdm(List.getCombinations(MyFlopIndexes, k), desc=f"Checking {k}-input XORs")
       else:
         Iterator = List.getCombinations(MyFlopIndexes, k)
       for XorToTest in Iterator:
-        ThisSequence = bau.zeros(SequenceLength)
         for i in XorToTest:
           ThisSequence ^= SingleSequences[i]
         H = Bitarray.getRotationInsensitiveSignature(ThisSequence, HBlockSize)
@@ -1076,9 +1148,12 @@ class Nlfsr(Lfsr):
           UniqueSequences.add(H)
           XorsList.append(list(XorToTest))
           if StoreLinearComplexityData:
-            LCData.append(Polynomial.decodeUsingBerlekampMassey(ThisSequence).getDegree())
+            LCData.append(Polynomial.getLinearComplexityUsingBerlekampMassey(ThisSequence))
           if StoreSeqStatesData:
-            SSData.append(Bitarray.getCardinality(ThisSequence, self._size))
+            if not (LimitedNTuples and (k > 2)):
+              SSData.append(Bitarray.getCardinality(ThisSequence, self._size))
+            else:
+              SSData.append(-1)
           if Store2bitTuplesHistograms:
             Histo2.append(Bitarray.getTuplesHistogram(ThisSequence, 2))
           if StoreOnesCount:
@@ -1086,7 +1161,7 @@ class Nlfsr(Lfsr):
           #print(f"Added {XorToTest}")
           if len(XorsList) == NumberOfUniqueSequences > 0:
             break
-        ThisSequence.clear()
+        ThisSequence.setall(0)
       k += 1
     if len(XorsList) < NumberOfUniqueSequences > 0:
       Aio.printError(f"Cannot found {NumberOfUniqueSequences} unique sequences. Only {len(XorsList)} was found.")
@@ -1451,6 +1526,25 @@ class Nlfsr(Lfsr):
     return Min, Max
     
   def sortTaps(self):
+    NC = []
+    for Tap in self._Config:
+      D = Tap[0]
+      S = Tap[1]
+      if Aio.isType(S, 0):
+        S = [S]
+      if len(S) == 1:
+        if S[0]<0 and D<0:
+          S[0] = abs(S[0])
+          D = abs(D)
+      NS = []
+      for Si in S:
+        if Si < 0:
+          NS.append(Si)
+        else:
+          NS.append(Si % self._size)
+      NS.sort(key = lambda x: (abs(x) % self._size))
+      NC.append([D, NS])
+      self._Config = NC
     self._Config.sort(key = lambda x: (abs(x[0]) % self._size))
   
   def isPlanar(self):
@@ -1673,6 +1767,7 @@ endmodule'''
   def checkMaximum(NlfsrsList : list) -> list:
     return NlfsrList.checkMaximum(NlfsrsList)
   
+  
   def parseFromArticleString(Size : int, txt : str) -> Nlfsr:
     txt.strip()
     txt = txt.replace(" ","")
@@ -1690,7 +1785,45 @@ endmodule'''
       tapint = [Dint, Sint]
       Taps.append(tapint)
     return Nlfsr(int(Size), Taps)
+  fromArticleString = parseFromArticleString
     
+  def _getTapFromMonomial(Size : int, Monomial : str) -> list:
+    S = []
+    Monomial.replace('.', ',')
+    Monomial.replace(';', ',')
+    for Sstr in Monomial.split(","):
+      Si = int(Sstr)
+      if Size > Si > 0:
+        S.append(Si)
+    if len(S) < 1:
+      return None
+    return [Size-1, S]
+  def parseFromANF(Size : int, anf : str) -> Nlfsr:
+    anf.strip()
+    anf.replace(' ','')
+    anf.replace('\t','')
+    Par = 0
+    Monomial = ""
+    Taps = []
+    for Char in anf:
+      if Char in '{[(':
+        Par += 1
+      elif Char in ')]}':
+        Par -= 1
+      elif Par == 0 and Char in ',.;':
+        Tap = Nlfsr._getTapFromMonomial(Size, Monomial)
+        if Tap is not None:
+          #print(Monomial, Tap)
+          Taps.append(Tap)
+        Monomial = ""
+      else:
+        Monomial += (Char)
+    Tap = Nlfsr._getTapFromMonomial(Size, Monomial)
+    if Tap is not None:
+      #print(Monomial, Tap)
+      Taps.append(Tap)
+    return Nlfsr(Size, Taps)  
+  fromANF = parseFromANF
         
         
     
@@ -1798,10 +1931,13 @@ class NlfsrList:
   def toXlsDatabase(NlfsrsList):
     os.mkdir("data")
     exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+    if not Aio.isType(NlfsrsList, []):
+      NlfsrsList = [NlfsrsList]
     for N in NlfsrsList:
       N._exename = exename
     PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "ANF complement", "# Single uniques", "# 2-in uniques","# 3-in uniques", "DETAILS"])
-    for combo in p_imap(_make_expander, NlfsrsList):
+    PBar = 1 if len(NlfsrsList)==1 else 0
+    for combo in p_imap(functools.partial(_make_expander, PBar=PBar), NlfsrsList):
       nlfsr = combo[0]
       Expander = combo[1]
       FileName = "data/" + hashlib.sha256(bytes(repr(nlfsr), "utf-8")).hexdigest() + ".html"
@@ -1881,11 +2017,11 @@ EXPANDER:
       pass
     PT.toXls("DATABASE.xlsx")
 
-def _make_expander(nlfsr) -> list:
+def _make_expander(nlfsr, PBar=0) -> list:
   if nlfsr.getSize() <= 14:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1, PBar=0) ]
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1, PBar=PBar, LimitedNTuples=0) ]
   else:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1, PBar=0) ]
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1, PBar=PBar, LimitedNTuples=1) ]
       
       
     
