@@ -110,7 +110,7 @@ def configure(repl):
     # https://pygments.org/demo/
     repl.use_code_colorscheme("default")
     # A colorscheme that looks good on dark backgrounds is 'native':
-    # repl.use_code_colorscheme("native")
+    #repl.use_code_colorscheme("gruvbox-light")
 
     # Set color depth (keep in mind that not all terminals support true color).
 
@@ -137,6 +137,23 @@ def configure(repl):
     repl.install_ui_colorscheme("my-colorscheme", Style.from_dict(_custom_ui_colorscheme))
     repl.use_ui_colorscheme("my-colorscheme")
     """
+
+    
+    import libs.key_bindings as keybinds
+    @repl.add_key_binding("c-t")
+    def _(event):
+        keybinds.setEvent(event)
+        keybinds.KEY_BINDING_FLAGS.set(1)
+    @repl.add_key_binding("f1")
+    def _(event):
+        keybinds.setEvent(event)
+        keybinds.KEY_BINDING_FLAGS.set(2)
+    #@repl.add_key_binding("c-p")
+    #def _(event):
+    #    keybinds.setEvent(event)
+    #    keybinds.KEY_BINDING_FLAGS.set(3)
+    
+
 
     # Add custom key binding for PDB.
     """
@@ -186,6 +203,7 @@ def configure(repl):
     """
     repl.title = "My custom prompt."
     """
+    repl.title = "[F1]: MENU,  [Ctr+T]: Temp Transcripts  "#"",  [Ctrl+P]: Pause Generators  "
 
 
 # Custom colorscheme for the UI. See `ptpython/layout.py` and

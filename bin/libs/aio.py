@@ -101,6 +101,8 @@ class Aio:
     Aio._sections = False
     Aio._section_opened = False
     Aio._subsection_opened = False
+  def isTranscriptMode() -> bool:
+    return "transcript_file" in globals()
   def print(*args):
     s = ""
     for arg in args:

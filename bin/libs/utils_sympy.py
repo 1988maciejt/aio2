@@ -17,8 +17,11 @@ class SymPy:
         
     @staticmethod
     def isANFLinear(expr) -> bool:
-        anf = expr.to_anf()
-        return not SymPy.isThereAFunctionInExpression(anf, And)
+        try:
+            anf = expr.to_anf()
+            return not SymPy.isThereAFunctionInExpression(anf, And)
+        except:
+            return True
     
     @staticmethod
     def anf(expr : str):

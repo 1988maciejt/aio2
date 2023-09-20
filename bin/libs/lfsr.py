@@ -36,6 +36,112 @@ _LFSR = None
 _LFSR_SIM = []
 
 
+class TrajectoriesReport:
+  
+  __slots__ = ("_TrajectoriesList")
+  
+  def __str__(self) -> str:
+    return self.getReport(1)
+  
+  def __len__(self) -> int:
+    return len(self._TrajectoriesList)
+  
+  def __repr__(self) -> str:
+    return f"TrajectoriesReport(#Trajectories: {len(self._TrajectoriesList)})"
+  
+  def __init__(self, Lfsr, SequencesAtBitIndex = 0) -> None:
+    Size = Lfsr._size
+    GlobalTable = bau.zeros(1 << Size)
+    LocalTable = bitarray(1 << Size)
+    SequencesAtBitIndex = abs(SequencesAtBitIndex) % Size 
+    InitialIndex = 0
+    Sequence = bitarray()
+    Result = []
+    while InitialIndex >= 0:
+      LocalTable.setall(0)
+      InitialState = bau.int2ba(InitialIndex, Size)
+      Lfsr.setValue(InitialState)
+      LocalTable[InitialIndex] = 1
+      Continue = 1
+      TrajectoryLength = 0
+      Sequence.clear()
+      Sequence.append(InitialState[SequencesAtBitIndex])
+      #print("// initial:", InitialState, Sequence)
+      while Continue:
+        TrajectoryLength += 1
+        NextState = Lfsr.next()
+        #print("// next:", NextState, Sequence)
+        NextStateIndex = bau.ba2int(NextState)
+        if GlobalTable[NextStateIndex]:
+          Continue = 0
+        elif LocalTable[NextStateIndex]:
+          Continue = 0
+          if NextStateIndex == InitialIndex:
+            #print("StartingPoint:",InitialState,TrajectoryLength,Sequence)
+            Result.append([InitialState.copy(), TrajectoryLength, Sequence.copy()])
+        else:
+          Sequence.append(NextState[SequencesAtBitIndex])
+        LocalTable[NextStateIndex] = 1
+      GlobalTable |= LocalTable
+      InitialIndex = GlobalTable.find(0)
+    Result.sort(key = lambda x: x[1], reverse = 1)
+    self._TrajectoriesList = Result
+    
+  def getReport(self, TrimSequences = 0) -> str:
+    return self.getReportPandasTable(TrimSequences).toString(justify='left')
+  
+  def getSequences(self, MinLength = 2) -> list:
+    Result = []
+    for Row in self._TrajectoriesList:
+      if Row[1] >= MinLength:
+        Result.append(Row[2])
+    return Result
+  
+  def isTheGivenSequenceIncludedInAnyTrajectory(self, Sequence : bitarray, ReturnInitialValue = False) -> bool:
+    if Aio.isType(Sequence, ""):
+      Sequence = bitarray(Sequence)
+    for Row in self._TrajectoriesList:
+      if (Row[2] * 2).find(Sequence) >= 0:
+        if ReturnInitialValue:
+          return Row[0]
+        return True
+    if ReturnInitialValue:
+      return None
+    return False
+  
+  def isTheGivenSequenceEqualToAnyTrajectory(self, Sequence : bitarray, ReturnInitialValue = False) -> bool:
+    if Aio.isType(Sequence, ""):
+      Sequence = bitarray(Sequence)
+    for Row in self._TrajectoriesList:
+      if len(Row[2]) == len(Sequence):
+        if Bitarray.getShiftBetweenSequences(Row[2], Sequence) is not None:
+          if ReturnInitialValue:
+            return Row[0]
+          return True
+    if ReturnInitialValue:
+      return None
+    return False    
+  
+  def printReport(self, TrimSequences = 1):
+    Aio.print(self.getReport(TrimSequences))
+    
+  def getReportPandasTable(self, TrimSequences = 0) -> PandasTable:
+    Trajectories = self._TrajectoriesList
+    PT = PandasTable(["Loop_Length", "Initial_State", "Sequence"], AutoId=1)
+    TrimLen = Aio.getTerminalColumns()-35
+    for Row in Trajectories:
+      Initial = Bitarray.toString(Row[0])
+      Length = Row[1]
+      Sequence = str(Row[2])[10:-2]
+      if TrimSequences:
+        if len(Sequence) > TrimLen:
+          Sequence = Sequence[:(TrimLen-3)] + "..."
+        elif len(Sequence) < TrimLen:
+          Sequence += " " * (TrimLen-len(Sequence))
+      PT.add([Length, Initial, Sequence])
+    return PT
+    
+    
 
 class MSequencesReport:
   """This class is used to hold the result of MSequence analysis.
@@ -2565,6 +2671,10 @@ endmodule'''
     Report._title = repr(self)
     Report.SourceObject = self
     return Report
+  
+  def analyseTrajectories(self, SequenceAtBitIndex = 0) -> TrajectoriesReport:
+    return TrajectoriesReport(self, SequenceAtBitIndex)
+  
   def listMaximumLfsrsHavingSpecifiedTaps(SizeOrProgrammableLfsrConfiguration : int, TapsList = [], CountOnly = False, GetTapsOnly = False) -> list:
     """list Lfsrs of type RING_WITH_SPECIFIED_TAPS satisfying the given criteria.
 
@@ -2645,12 +2755,12 @@ endmodule'''
     Result = [bitarray(Length) for _ in range(self._size)]
 #    self._make_next1_cache()
     for i in Iterator:
-      Word = self._next1()
 #      Word = self._next1_cached()
       for j in range(self._size):
-        Result[j][i] = Word[j]
+        Result[j][i] = self._baValue[j]
+      self._next1()
     return Result
-      
+  
   def _checkMaximumSerial(LfsrsList : list, ReturnLfsrsCountAndPolynomials = False, ReturnPolynomialsHashes = True) -> list:
     if ReturnLfsrsCountAndPolynomials:
       LfsrsCount = 0
@@ -2776,9 +2886,9 @@ class LfsrList:
       Result.update(l)
     return len(Result)
       
-  
   def analyseSequences(LfsrsList) -> list:      
     return Lfsr.analyseSequencesBatch(LfsrsList)
+      
   
 
 

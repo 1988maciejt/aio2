@@ -4,6 +4,7 @@ from libs.utils_list import *
 from libs.utils_bitarray import *
 from libs.asci_drawing import *
 from libs.pandas_table import *
+from libs.temp_transcript import *
 from p_tqdm import *
 from bitarray import *
 from libs.generators import *
@@ -64,13 +65,23 @@ class Nlfsr(Lfsr):
   _start = bitarray()
   _offset = 0
   _exename = ""
-  _period = 0
+  _period = None
+  _anf_temp = None
   def clear(self):
     pass
   def copy(self):
     return Nlfsr(self)
   def __del__(self):
     pass
+  def _refreshFastANF(self):
+    self._anf_temp = self.toBooleanExpressionFromRing(ReturnSympyExpr=1)
+    if self._anf_temp is None:
+      self._anf_temp = None
+  def _getFastANF(self):
+    if self._anf_temp is None:
+      self._refreshFastANF()
+    return self._anf_temp
+    
   def getExprFromTap(self, Tap) -> str:
     Result = ""
     C = Tap
@@ -130,6 +141,7 @@ class Nlfsr(Lfsr):
   def getTaps(self) -> int:
     return self._Config.copy()
   def __init__(self, Size : int, Config = []) -> None:
+    self._anf_temp = None
     if Aio.isType(Size, []):
       Size = Polynomial(Size)
     if Aio.isType(Size, "Polynomial"):
@@ -141,6 +153,7 @@ class Nlfsr(Lfsr):
       self._points = Size._points
       self._exename = Size._exename
       self._period = Size._period
+      self._anf_temp = Size._anf_temp
     elif Aio.isType(Size, "Lfsr"):
       self._size = Size._size
       self._period = None
@@ -161,22 +174,28 @@ class Nlfsr(Lfsr):
       self.sortTaps()
     else:  
       self._size = Size
-      self._Config = []
-      for C in Config:
-        D = C[0]
-        S = C[1]
-        if Aio.isType(S, []):
-          S = list(set(S))
-          for Si in S:
-            if (-1 * Si) in S:
-              S = [Si, -1 * Si]
-              break
-          #S.sort()
-        self._Config.append([D, S])
-      #def msortf(e):
-      #  return abs(e[0])%Size
-      #self._Config.sort(key=msortf)
-      self.sortTaps()
+      if Aio.isType(Config, "str"):
+        if ":" in Config:
+          self._Config = Nlfsr.parseFromArticleString(Size, Config)._Config
+        else:
+          self._Config = Nlfsr.parseFromANF(Size, Config)._Config
+      else:
+        self._Config = []
+        for C in Config:
+          D = C[0]
+          S = C[1]
+          if Aio.isType(S, []):
+            S = list(set(S))
+            for Si in S:
+              if Si != 0 and (-1 * Si) in S:
+                S = [Si, -1 * Si]
+                break
+            #S.sort()
+          self._Config.append([D, S])
+        #def msortf(e):
+        #  return abs(e[0])%Size
+        #self._Config.sort(key=msortf)
+        self.sortTaps()
       self._baValue = bitarray(self._size)
       self._exename = ""
       self._period = None
@@ -498,18 +517,21 @@ def f():
       return False
     if self._Config == Another._Config:
       return True
-    a = self._Config.copy()
-    b = Another._Config.copy()
-    if len(a) != len(b):
-      return False
-    for ai in a:
-      bc = b.copy()
-      for bi in bc:
-#        print(ai, bi)
-        if self._areTapsEquivalent(ai, bi):
-#          print("ARE!")
-          b.remove(bi)
-    return len(b) == 0
+    if self._getFastANF() == Another._getFastANF():
+      return True
+    return False
+#    a = self._Config.copy()
+#    b = Another._Config.copy()
+#    if len(a) != len(b):
+#      return False
+#    for ai in a:
+#      bc = b.copy()
+#      for bi in bc:
+##        print(ai, bi)
+#        if self._areTapsEquivalent(ai, bi):
+##          print("ARE!")
+#          b.remove(bi)
+#    return len(b) == 0
   def getMaxFanout(self) -> int:
     return self.getFanout('max')
   def getFanout(self, FF = -1) -> int:
@@ -596,11 +618,12 @@ def f():
           continue
         newR = Nlfsr(Size, P)
         Results.append(newR)
+      Results = NlfsrList.filterNonLinear(Results)
       if BeautifullOnly:
         Results2 = []
         Generator = Generators()
         Chunk = 50
-        Total = len(Results) // Chunk +  + (1 if len(Results) % Chunk > 0 else 0)
+        Total = ceil(len(Results) / Chunk)
         Iter = p_uimap(_NLFSR_find_spec_period_helper2, Generator.subLists(Results, Chunk), total=Total, desc=f'Filtering beautifull (x{Chunk})')
         for I in Iter:
           Results2 += I
@@ -766,6 +789,7 @@ def f():
     Result = []
     iList = []
     for nlfsr in NlfsrList:
+      nlfsr._refreshFastANF()
       iList.append(nlfsr.copy())
     for n1 in tqdm(iList, desc="Filtering equivalent"):
       Add = 1
@@ -889,6 +913,8 @@ def f():
   
   toAnf = toBooleanExpressionFromRing
   toANF = toBooleanExpressionFromRing
+  getAnf = toBooleanExpressionFromRing
+  getANF = toBooleanExpressionFromRing
   
   
   def _old_toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Shorten = False) -> str:
@@ -1798,6 +1824,7 @@ endmodule'''
     if len(S) < 1:
       return None
     return [Size-1, S]
+  
   def parseFromANF(Size : int, anf : str) -> Nlfsr:
     anf.strip()
     anf.replace(' ','')
@@ -1824,7 +1851,116 @@ endmodule'''
       Taps.append(Tap)
     return Nlfsr(Size, Taps)  
   fromANF = parseFromANF
-        
+  
+  @staticmethod
+  def listSystematicNlrgs(Size, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaxSearchingTimeMin = 0) -> list:
+    if Size < 2:
+      Aio.printError("Nlfsr.listSystematicNlrgs() can only search for Size >= 2.")
+      return []
+    MaxCoeffs = (Size // 2) + 2
+    DecreaseBalancing = 0
+    MaxPeriod = (1 << Size) - 1
+    Result = []
+    T0 = time.time()
+    TT = TempTranscript(f"Nlfsr.listNlfsrs({Size})")
+    for Coeffs in range(3, MaxCoeffs +1):
+      if Coeffs == MaxCoeffs:
+        P0 = Polynomial.createPolynomial(Size, Coeffs, 1)
+      else:
+        P0 = Polynomial.createPolynomial(Size, Coeffs, 2)
+      if P0 is None:
+        continue
+      for P in P0:
+        PartResult = Nlfsr.findNLRGsWithSpecifiedPeriod(P, 2, MinimumPeriodRatio, False, True, 6, True, True, False, 0, 0, False, None)
+        PartResultFiltered = []
+        for Res in PartResult:
+          if Res._period == MaxPeriod:
+            if OnlyMaximumPeriod or AllowMaximumPeriods:
+              PartResultFiltered.append(Res)
+          elif Res._period / MaxPeriod >= MinimumPeriodRatio:
+            if OnlyPrimeNonMaximumPeriods:
+              if Int.isPrime(Res._period):
+                PartResultFiltered.append(Res)
+            else:
+              PartResultFiltered.append(Res)
+        for Res in PartResultFiltered:
+          TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
+        Result += PartResultFiltered
+        if len(Result) > len(PartResultFiltered) > 0:
+          Result = NlfsrList.filter(Result)
+        STime = round((time.time() - T0) / 60, 2)
+        print(f"// Found so far: {len(Result)}, searching time: {STime} min")
+        if len(Result) >= n > 0:
+          break
+        if STime >= MaxSearchingTimeMin > 0:
+          break
+    if len(Result) > n > 0:
+      Result = Result[:n]  
+    TT.close()      
+    return Result        
+  
+  @staticmethod
+  def listRandomNlrgs(Size : int, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0) -> list:
+    if Size < 8:
+      Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 8.\nFor small Nlrgs use Nlfsr.listSystematicNlrgs).")
+      return []
+    TapsCount = (Size//2)-3
+    ConfigLen = TapsCount * 11
+    Chunk = []
+    Result = []
+    ChunkSize = 128
+    TT = TempTranscript(f"Nlfsr.listNlfsrs({Size})")
+    if MaximumTries <= 0:
+      MaximumTries = (1 << ConfigLen)
+    T0 = time.time()
+    for _ in range(MaximumTries):
+      Config = bau.urandom(ConfigLen)
+      Taps = []
+      for TapIndex in range(TapsCount):
+        S = []
+        IOffset = TapIndex * 11
+        for SIndex in range(5):
+          EIndex = (SIndex * 2) + IOffset
+          if Config[EIndex]:
+            Sign = -1 if Config[SIndex + 1] else 1
+            Si = (Size - SIndex - TapIndex) * Sign
+            S.append(Si)
+        if len(S) > 0:
+          D = 1 + TapIndex
+          if Config[IOffset+10]:
+            D *= -1
+          Taps.append([D, S])
+      if len(Taps) > 0:
+        Candidate = Nlfsr(Size, Taps)
+        if Candidate.isLfsr() or Candidate.isSemiLfsr():
+          continue
+        Chunk.append(Candidate)
+      if len(Chunk) >= ChunkSize:
+        Chunk = Nlfsr.filter(Chunk)
+        PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
+        for Res in PartResult:
+          TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
+        Result += PartResult
+        if len(Result) > len(PartResult) > 0:
+          Result = Nlfsr.filter(Result)
+        STime = round((time.time() - T0) / 60, 2)
+        print(f"// Found so far: {len(Result)}, searching time: {STime} min")
+        Chunk = []
+        if len(Result) >= n > 0:
+          break
+        if STime >= MaxSearchingTimeMin > 0:
+          break
+    if len(Chunk) > 0:
+      Result += NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
+      Result = NlfsrList.filter(Result)
+    if len(Result) > n > 0:
+      Result = Result[:n]  
+    TT.close()      
+    return Result
+    
+          
+
+    
         
     
 class NlfsrList:
@@ -1846,14 +1982,60 @@ class NlfsrList:
     exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
     for N in NlfsrsList:
       N._exename = exename
-    RM = p_map(Nlfsr.isMaximum, NlfsrsList)
+    G = Generators()
+    RM = p_map(Nlfsr.isMaximum, G.wrapper(NlfsrsList), desc="Nlfsrs simulating")
     Results = []
     for i in range(len(RM)):
       if RM[i]:
         Results.append(NlfsrsList[i])
     return NlfsrList.filter(Results)
+  
+  def checkPeriod(NlfsrsList) -> list:
+    exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+    for N in NlfsrsList:
+      N._exename = exename
+    G = Generators()
+    RM = p_map(Nlfsr.getPeriod, G.wrapper(NlfsrsList), desc="Nlfsrs simulating")
+    Results = []
+    for i in range(len(RM)):
+      NlfsrsList[i]._period = RM[i]
+      Results.append(NlfsrsList[i])
+    return NlfsrList.filter(Results)
+  
+  def filterPeriod(NlfsrList, OnlyMaximumPeriod = True, AllowMaximumPeriods = True, OnlyPrimeNonMaximumPeriods = True, MinimumPeriodRatio = 0.95) -> list:
+    Result = []
+    for n in NlfsrList:
+      if n._period is None:
+        continue
+      Maximum = (1 << n._size) -1
+      if n._period == Maximum:
+        if AllowMaximumPeriods:
+          Result.append(n)
+        elif OnlyMaximumPeriod:
+          Result.append(n)
+          continue
+      elif not OnlyMaximumPeriod:
+        if (n._period / Maximum) >= MinimumPeriodRatio:
+          if OnlyPrimeNonMaximumPeriods:
+            if Int.isPrime(n._period):
+              Result.append(n)
+          else:
+            Result.append(n)
+    return Result
+  
   def filter(NlfsrsList) -> list:
     return Nlfsr.filter(NlfsrsList)
+  
+  def filterNonLinear(NlfsrList) -> list:
+    G = Generators()
+    Chunk = 50
+    Total = ceil(len(NlfsrList) / Chunk)
+    Iter = p_uimap(_NLFSR_nonlinear_filtering_helper, G.subLists(NlfsrList, Chunk), total=Total, desc="Filtering nonlinears")
+    Result = []
+    for I in Iter:
+      Result += I
+    return Result
+  
   def analyseSequences(NlfsrsList) -> list:      
     return Nlfsr.analyseSequencesBatch(NlfsrsList)
   def toPlanar(NlfsrList) -> list:
@@ -2042,6 +2224,15 @@ def _NLFSR_find_spec_period_helper2(nlrglist : Nlfsr) -> int:
   for nlrg in nlrglist:
     if nlrg.makeBeauty(CheckMaximum=0):
       Results.append(nlrg)
+  return Results
+def _NLFSR_nonlinear_filtering_helper(nlrglist) -> list:
+  Results = []
+  for nlrg in nlrglist:
+    if nlrg.isLfsr():
+      continue
+    if nlrg.isSemiLfsr():
+      continue
+    Results.append(nlrg)
   return Results
 
 

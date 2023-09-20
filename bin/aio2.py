@@ -57,7 +57,7 @@ if len(sys.argv) > 1:
   os.chdir(sys.argv[1])
 
 
-def tc(filename="driver.py"):
+def _tc(filename="driver.py"):
   SFile = filename
   if "driver.py" in SFile:
     shutil.rmtree("results", ignore_errors=True)
@@ -82,10 +82,18 @@ def tc(filename="driver.py"):
   os.chdir("../")
   print("==== TC FINISHED ====")
 
-
-if len(sys.argv) > 2:
-  tc(str(sys.argv[2]))
+def _run_binding_thread():
+  import libs.key_bindings as _key_binds
+  _key_binds.startKeyBindingThread()
+  
+def _run_tc():
+  if len(sys.argv) > 2:
+    _tc(str(sys.argv[2]))
     
+    
+_run_tc()
+_run_binding_thread()
+      
 class Shell:
   def getUserObjects():
     result = List.xor(globals(), Cache.recall("globals", []))
