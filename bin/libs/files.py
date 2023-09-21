@@ -50,6 +50,8 @@ def writeFile(FileName : str, Data, GZip = False):
   else:
     f = open(FileName, "w")
   f.write(str(Data))
+  f.flush()
+  os.fsync(f.fileno())
   f.close()
   
 
@@ -59,6 +61,8 @@ def writeObjectToFile(FileName : str, Obj, GZip = False):
   else:
     f = open(FileName, "wb")
   pickle.dump(Obj, f)
+  f.flush()
+  os.fsync(f.fileno())
   f.close()
   
 def readObjectFromFile(FileName : str, GZip = False):
@@ -80,6 +84,8 @@ def writeDictionary(FileName : str, dictionary : dict, GZip = False):
   for key, value in dictionary.items():
     f.write(" " + str(key) + ":\t" + str(value) + ",\n")
   f.write("}")
+  f.flush()
+  os.fsync(f.fileno())
   f.close()
   
 def readDictionary(FileName : str, GZip = False) -> dict:
@@ -93,15 +99,19 @@ def readDictionary(FileName : str, GZip = False) -> dict:
 
   
 def writeLinesFromList(FileName : str, List : list):
-    f = open(FileName, "w")
-    for i in List:
-      f.write(str(i) + "\n")
-    f.close()
+  f = open(FileName, "w")
+  for i in List:
+    f.write(str(i) + "\n")
+  f.flush()
+  os.fsync(f.fileno())
+  f.close()
     
     
 def writeBinary(FileName : str, Data : bytes):
   f = open(FileName, "wb")
   f.write(bytes(Data))
+  f.flush()
+  os.fsync(f.fileno())
   f.close()
   
 def readBinary(FileName : str) -> bytes:
@@ -112,25 +122,6 @@ def readBinary(FileName : str) -> bytes:
   
 def cat(FileName : str):
   print(readFile(FileName))
-
-
-class TempDir:
-  _name = ""
-  _path = ""
-  def __del__(self) -> None:
-    shutil.rmtree(self._path, ignore_errors=True)
-  def __init__(self) -> None:
-    oncemore = True
-    while oncemore:
-      self._name = "aio" + str(int(random.uniform(1000000000, 9999999999)))
-      self._path = os.path.expanduser("~/temp/" + self._name)
-      oncemore = os.path.isdir(self._path)
-    os.makedirs(self._path)
-  def name(self) -> str:
-    return self._name
-  def path(self) -> str:
-    return self._path
-    
     
 def pickFile(Path = "", Title = "Choose a file:", Preview = False) -> str:
   Result = os.path.abspath(Path)
@@ -177,3 +168,28 @@ def removeFile(FileName: str) -> bool:
     return True
   except:
     return False
+
+class TempDir:
+  __slots__ = ("_name", "_path", "_pwd")
+  def __repr__(self) -> str:
+    return f"TempDir('{self._path}')"
+  def __str__(self) -> str:
+    return self._path
+  def __del__(self) -> None:
+    shutil.rmtree(self._path, ignore_errors=True)
+  def __init__(self) -> None:
+    oncemore = True
+    self._pwd = pwd()
+    while oncemore:
+      self._name = "aio" + str(int(random.uniform(1000000000, 9999999999)))
+      self._path = "/tmp/" + self._name
+      oncemore = os.path.isdir(self._path)
+    os.makedirs(self._path)
+  def getName(self) -> str:
+    return self._name
+  def getPath(self) -> str:
+    return self._path
+  def go(self):
+    cd(self._path)
+  def goBack(self):
+    cd(self._pwd)

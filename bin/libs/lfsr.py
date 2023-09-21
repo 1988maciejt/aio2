@@ -2753,9 +2753,7 @@ endmodule'''
     else:
       Iterator = range(Length)
     Result = [bitarray(Length) for _ in range(self._size)]
-#    self._make_next1_cache()
     for i in Iterator:
-#      Word = self._next1_cached()
       for j in range(self._size):
         Result[j][i] = self._baValue[j]
       self._next1()

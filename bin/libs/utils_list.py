@@ -3,6 +3,7 @@ import random
 import multiprocessing
 import itertools
 from libs.aio import *
+from libs.files import *
 
 
 
@@ -238,4 +239,130 @@ class List:
         MaxValue = v
         MaxIndex = k
     return List.circularShift(ListOfNumbers, MaxIndex)
+  
+
+class BufferedList:
+  
+  __slots__ = ("_list", "_td", "_gz", "_iter_i", "_file_i", "_user_dir")
+  
+  def __init__(self, OtherObject = None, UserDefinedDirPath : str = None, GZipped : bool = False):
+    if type(UserDefinedDirPath) is str:
+      try:
+        UserDefinedDirPath = os.path.abspath(UserDefinedDirPath)
+        if not os.path.exists(UserDefinedDirPath):
+          os.makedirs(UserDefinedDirPath)
+        self._user_dir = UserDefinedDirPath
+        FTest = self._getFileName(0)
+        writeFile(FTest, "")
+        removeFile(FTest)
+        self._td = None
+        try:
+          fl = readObjectFromFile('index')
+          self._list = fl[0]
+          self._gz = fl[1]
+          self._file_i = fl[2]
+        except:
+          self._list = []
+          self._gz = GZipped
+          self._file_i = 1
+      except:
+        Aio.printError(f"Cannot use '{UserDefinedDirPath}' as a writable directory.")
+        self._td = TempDir()
+        self._user_dir = None
+        self._list = []
+        self._gz = GZipped
+        self._file_i = 1
+    else:
+      self._td = TempDir()
+      self._user_dir = None
+      self._list = []
+      self._gz = GZipped
+      self._file_i = 1
+    self._iter_i = 0
+    if type(OtherObject) in [list, set]:
+      for Item in OtherObject:
+        self.append(Item)
+    elif type(OtherObject) is BufferedList:
+      self._gz = OtherObject._gz
+      self._file_i = OtherObject._file_i
+      OtherDir = OtherObject.getDirPath()
+      SelfDir = self.getDirPath()
+      for OtherFileName in OtherObject._list:
+        SelfFilename = OtherFileName.replace(OtherDir, SelfDir)
+        self._list.append(SelfFilename)
+        shutil.copy(OtherFileName, SelfFilename)
+        
+  def copy(self):
+    return BufferedList(self)
+        
+  def __del__(self) -> None:
+    if self._td is not None:
+      del self._td
+    
+  def __len__(self) -> int:
+    return len(self._list)
+  
+  def __repr__(self) -> str:
+    return f"BufferedList('{self.getDirPath()}')"
+  
+  def __str__(self) -> str:
+    return repr(self)
+  
+  def __iter__(self):
+    self._iter_i = 0
+    return self
+  
+  def __next__(self):
+    if self._iter_i >= len(self._list):
+      raise StopIteration  
+    else:
+      index = self._iter_i
+      self._iter_i += 1
+      return self[index]
+  
+  def _getFileName(self, Index : int) -> str:
+    if self._user_dir is None:
+      return f"{self._td.getPath()}/{Index}"
+    return f"{self._user_dir}/{Index}"
+  
+  def append(self, Item):
+    FileName = self._getFileName(self._file_i)
+    self._file_i += 1
+    self._list.append(FileName)
+    writeObjectToFile(FileName, Item, self._gz)
+    if self._user_dir is not None:
+      writeObjectToFile('index', [self._list, self._gz, self._file_i])
+    
+  def __getitem__(self, i):
+    if type(i) is slice:
+      Result = []
+      for it in self._list.__getitem__(i):
+        Result.append(readObjectFromFile(it, self._gz))
+      return Result
+    else:
+      return readObjectFromFile(self._list.__getitem__(i), self._gz)
+    
+  def __setitem__(self, i, item):
+    if type(i) is slice:
+      for Index, Obj in zip(range(*i.indices(len(self._list))), item):
+        FileName = self._list[Index]
+        writeObjectToFile(FileName, Obj, self._gz)
+    else:
+      FileName = self._list[i]
+      writeObjectToFile(FileName, item, self._gz)
+      
+  def getUnbuffered(self):
+    return self[0:]
+      
+  def getDirPath(self):
+    if self._user_dir is not None:
+      return self._user_dir
+    return self._td.getPath()
+  
+  def clear(self):
+    for FileName in self._list:
+      removeFile(FileName)
+    self._list.clear()
+    self._file_i = 1
+  
   

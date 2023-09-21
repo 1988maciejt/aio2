@@ -92,7 +92,7 @@ def _run_tc():
     
     
 _run_tc()
-_run_binding_thread()
+#_run_binding_thread()
       
 class Shell:
   def getUserObjects():

@@ -121,3 +121,5 @@ class TempTranscript:
     removeFile(self._filename)
     self._file = None
     
+def temp():
+  TempTranscript.menu()

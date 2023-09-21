@@ -139,19 +139,19 @@ def configure(repl):
     """
 
     
-    import libs.key_bindings as keybinds
-    @repl.add_key_binding("c-t")
-    def _(event):
-        keybinds.setEvent(event)
-        keybinds.KEY_BINDING_FLAGS.set(1)
-    @repl.add_key_binding("f1")
-    def _(event):
-        keybinds.setEvent(event)
-        keybinds.KEY_BINDING_FLAGS.set(2)
-    #@repl.add_key_binding("c-p")
+    #import libs.key_bindings as keybinds
+    #@repl.add_key_binding("c-t")
     #def _(event):
     #    keybinds.setEvent(event)
-    #    keybinds.KEY_BINDING_FLAGS.set(3)
+    #    keybinds.KEY_BINDING_FLAGS.set(1)
+    #@repl.add_key_binding("f1")
+    #def _(event):
+    #    keybinds.setEvent(event)
+    #    keybinds.KEY_BINDING_FLAGS.set(2)
+    ##@repl.add_key_binding("c-p")
+    ##def _(event):
+    ##    keybinds.setEvent(event)
+    ##    keybinds.KEY_BINDING_FLAGS.set(3)
     
 
 
@@ -203,7 +203,7 @@ def configure(repl):
     """
     repl.title = "My custom prompt."
     """
-    repl.title = "[F1]: MENU,  [Ctr+T]: Temp Transcripts  "#"",  [Ctrl+P]: Pause Generators  "
+    #repl.title = "[F1]: MENU,  [Ctr+T]: Temp Transcripts  "#"",  [Ctrl+P]: Pause Generators  "
 
 
 # Custom colorscheme for the UI. See `ptpython/layout.py` and
