@@ -2252,14 +2252,17 @@ class NlfsrFpgaBooster:
   def getSize(self) -> int:
     return self._size
   
-  def getNlfsrListFromFile(self, FileName : str, Verify = True, DiscardLfsrs = True, DiscardSemiLfsrs = True, OnlyMaximum = True, Debug = 0) -> list:
+  def getNlfsrListFromFile(self, FileName : str, Verify = True, OnlyMaximumPeriods = False, AllowMaximumPeriods = True, OnlyPrimeNonMaximumPeriods = True,  AllowLfsrs = False, AllowSemiLfsrs = False, Debug = 0) -> list:
     Result = []
     Max = (1 << self._size) - 1
     Data = readFile(FileName)
     Lfsrs = 0
     SemiLfsrs = 0
     Nlfsrs = 0
-    FullNlfsrs = 0
+    MaxPeriods = 0
+    PrimePeriods = 0
+    OtherPeriods = 0
+    Accepted = 0
     for Line in tqdm(Data.split("\n"), desc="Parsing file"):
       R = re.search(r'size\s*[:=]\s*([0-9]+)', Line)
       if R:
@@ -2278,20 +2281,35 @@ class NlfsrFpgaBooster:
       R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*', Line)
       if R:
         n = self.getNlfsrFromHexString(R.group(2), 0)
-        if DiscardLfsrs:
-          if n.isLfsr():
-            Lfsrs += 1
-            continue
-        if DiscardSemiLfsrs:
-          if n.isSemiLfsr():
-            SemiLfsrs += 1
-            continue
         n._period = bau.ba2int(Bitarray.fromStringOfHex(R.group(1)))
-        if OnlyMaximum:
-          if n._period < Max:
-            Nlfsrs += 1
-            continue
-        FullNlfsrs += 1
+        IsLfsr = n.isLfsr()
+        IsSemiLfsr = n.isSemiLfsr()
+        IsMax = (n._period == Max) 
+        IsPrime = Int.isPrime(n._period)
+        IsOtherPeriod = not (IsMax or IsPrime)
+        if IsLfsr:
+          Lfsrs += 1
+        elif IsSemiLfsr:
+          SemiLfsrs += 1
+        else:
+          Nlfsrs += 1
+        if IsMax:
+          MaxPeriods += 1
+        elif IsPrime:
+          PrimePeriods += 1
+        else:
+          OtherPeriods += 1
+        if IsMax and not (OnlyMaximumPeriods or AllowMaximumPeriods):
+          continue
+        if not IsMax and OnlyMaximumPeriods:
+          continue
+        if not IsMax and not IsPrime and OnlyPrimeNonMaximumPeriods:
+          continue
+        if IsLfsr and not AllowLfsrs:
+          continue
+        if IsSemiLfsr and not AllowSemiLfsrs:
+          continue
+        Accepted += 1
         Result.append(n)
         if Debug:
           print()
@@ -2299,10 +2317,16 @@ class NlfsrFpgaBooster:
           print(f"{R.group(2)} - {repr(n)}")
           self.getNlfsrFromHexString(R.group(2), 1)
     Result = Nlfsr.filter(Result)
-    print(f"// # Discarded LFSRs:      {Lfsrs}")
-    print(f"// # Discarded Semi-LFSRs: {SemiLfsrs}")
-    print(f"// # Discarded NLFSRs:     {Nlfsrs}")
-    print(f"// # Accepted NLFSRs:      {FullNlfsrs}")
+    print(f"// Structure: ---------------------------")
+    print(f"// # LFSRs:            {Lfsrs}")
+    print(f"// # Semi-LFSRs:       {SemiLfsrs}")
+    print(f"// # NLFSRs:           {Nlfsrs}")
+    print(f"// Period: ------------------------------")
+    print(f"// # Max:              {MaxPeriods}")
+    print(f"// # Prime:            {PrimePeriods}")
+    print(f"// # Other:            {OtherPeriods}")
+    print(f"// --------------------------------------")
+    print(f"// # Accepted:         {Accepted}")
     if Verify:
       CppPrograms.NLSFRPeriodCounterInvertersAllowed.compile()
       exe = CppPrograms.NLSFRPeriodCounterInvertersAllowed.ExeFileName

@@ -2931,8 +2931,11 @@ class _BerlekampMassey:
                     self._f ^= set([a - b + item for item in g])
                     b += 1
                 else:
-                    temp = self._f.copy()
-                    self._f = set([b - a + item for item in self._f]) ^ g
+                    ##temp = self._f.copy()
+                    ##self._f = set([b - a + item for item in self._f]) ^ g
+                    aux = set([b - a + item for item in self._f]) ^ g
+                    g = self._f
+                    self._f = aux
                     if PrintPolynomial:  
                       print(self._f)
                     self._l = n + 1 - self._l
@@ -2941,7 +2944,7 @@ class _BerlekampMassey:
                         return
                     if PrintLinearComplexity:
                       print(f"Linear complexity: {self._l}")
-                    g = temp
+                    ##g = temp
                     a = b
                     b = n - self._l + 1
             else:

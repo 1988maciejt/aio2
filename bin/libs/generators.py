@@ -4,6 +4,7 @@ from bitarray import *
 import bitarray.util as bau
 from libs.utils_bitarray import *
 from time import sleep
+import random
 
 _PAUSE = 0
 
@@ -109,7 +110,8 @@ class Generators:
     for i in range(Count):
       if not self._enabled:
         return
-      yield Bitarray.rand(Size)
+      #yield Bitarray.rand(Size)
+      yield bau.urandom(Size)
       while _PAUSE:
         sleep(0.35)
       
@@ -124,4 +126,22 @@ class Generators:
       yield Result
       while _PAUSE:
         sleep(0.35)
+        
+  def randomlyOrdered(self, lst):
+    global _PAUSE
+    if Aio.isType(lst, []):
+      L = lst.copy()
+    else:
+      L = [i for i in lst]
+    RandUp = len(L)-1
+    for i in range(len(L)):
+      if not self._enabled:
+        return
+      R = random.randint(i, RandUp)
+      yield L[R]
+      if R != i:
+        L[R] = L[i]
+      while _PAUSE:
+        sleep(0.35)
+    
     
