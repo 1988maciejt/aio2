@@ -6,6 +6,8 @@ import pickle
 from libs.utils_list import *
 import hyperloglog
 from libs.generators import *
+from p_tqdm import *
+from functools import partial
 
 
 class Bitarray:
@@ -82,14 +84,22 @@ class Bitarray:
             Results.append(Result)
         return Results
     
-    def movingWindowIterator(Word : bitarray, WindowSize : int):
-        W = Word.copy()
-        Steps = len(Word)
-        while len(W) < WindowSize:
-            W += W
-        W += W[:WindowSize]
-        for i in range(Steps):
-            yield W[i:i+WindowSize]
+    def movingWindowIterator(Word : bitarray, WindowSize : int, Cyclic = True):
+        if Cyclic:
+            W = Word.copy()
+            while len(W) < WindowSize:
+                W += W
+            W += W[:WindowSize-1]
+            Steps = len(Word)
+            for i in range(Steps):
+                yield W[i:i+WindowSize]
+            W.clear()
+        else:
+            if WindowSize <= len(Word):
+                Steps = len(Word) - WindowSize + 1
+            for i in range(Steps):
+                yield Word[i:i+WindowSize]
+                
             
     def fromStringOfHex(Text : str, GroupSize=32) -> bitarray:
         Result = bitarray()
@@ -121,11 +131,20 @@ class Bitarray:
             hll.add(t)
         return len(hll)
     
-    def getCardinality(Word : bitarray, TupleSize : int) -> int:
-        Res = bau.zeros(1<<TupleSize)
-        for t in Bitarray.movingWindowIterator(Word, TupleSize):
-            Res[bau.ba2int(t)] = 1
-        return Res.count(1)
+    def getCardinality(Word : bitarray, TupleSize : int, ParallelTuplesPerChunk = 0, ThisIsSubStepForParallelImplementation = False) -> int:
+        if ParallelTuplesPerChunk > 0:
+            Res = bau.zeros(1<<TupleSize)
+            Iter = p_uimap(partial(Bitarray.getCardinality, TupleSize=TupleSize, ThisIsSubStepForParallelImplementation=True), Bitarray.divideIntoSubArraysToIterateThroughAllTuples(Word,TupleSize,ParallelTuplesPerChunk), desc="Cardinality computing")
+            for I in Iter:
+                Res |= I
+            return Res.count(1)
+        else:
+            Res = bau.zeros(1<<TupleSize)
+            for t in Bitarray.movingWindowIterator(Word, TupleSize, Cyclic=(not ThisIsSubStepForParallelImplementation)):
+                Res[bau.ba2int(t)] = 1
+            if ThisIsSubStepForParallelImplementation:
+                return Res
+            return Res.count(1)
     
     def getTuplesHistogram(Word : bitarray, TupleSize : int) -> int:
         Res = [0 for i in range(1<<TupleSize)]
@@ -181,3 +200,22 @@ class Bitarray:
             return Polynomial.decodeUsingBerlekampMassey(Word).getDegree()
         else:
             return Polynomial.decodeUsingBerlekampMassey(Word).getDegree()
+        
+    def divideIntoSubArraysToIterateThroughAllTuples(Word : bitarray, TupleSize : int, MaxTuplesCountPerSubArray : int = 1000000) -> list:
+        Result = []
+        W = Word.copy()
+        W += W[:(TupleSize-1)]
+        BlockSize = MaxTuplesCountPerSubArray + TupleSize - 1
+        Start = 0
+        Stop = BlockSize
+        All = 0
+        while Stop <= len(W):
+            Result.append(W[Start:Stop])
+            if (Stop == len(W)):
+                All = 1
+            Start += MaxTuplesCountPerSubArray
+            Stop += MaxTuplesCountPerSubArray
+        if not All:
+            Result.append(W[Start:])
+        W.clear()
+        return Result
