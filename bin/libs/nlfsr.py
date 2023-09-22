@@ -1942,6 +1942,10 @@ endmodule'''
           break
         if STime >= MaxSearchingTimeMin > 0:
           break
+      if len(Result) >= n > 0:
+        break
+      if STime >= MaxSearchingTimeMin > 0:
+        break
     if len(Result) > n > 0:
       Result = Result[:n]  
     TT.close()      
@@ -2159,17 +2163,23 @@ class NlfsrList:
       i += 1
       
   def toXlsDatabase(NlfsrsList):
-    os.mkdir("data")
+    try:
+      os.mkdir("data")
+    except:
+      if not os.path.isdir("data"):
+        Aio.printError("Remove the 'data' file. This functions needs a 'data' directory.")
+        return
+    tt = TempTranscript("NlfsrList.toXlsDatabase()")
     exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
     if not Aio.isType(NlfsrsList, []):
       NlfsrsList = [NlfsrsList]
     for N in NlfsrsList:
       N._exename = exename
+    tt.print("Starting...")
     PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "ANF complement", "# Single uniques", "# 2-in uniques","# 3-in uniques", "DETAILS"])
-    PBar = 1 if len(NlfsrsList)==1 else 0
-    for combo in p_imap(functools.partial(_make_expander, PBar=PBar), NlfsrsList):
-      nlfsr = combo[0]
-      Expander = combo[1]
+    for nlfsr in NlfsrsList:
+      print(f"// {repr(nlfsr)}")
+      Expander = _make_expander(nlfsr, PBar=1)
       FileName = "data/" + hashlib.sha256(bytes(repr(nlfsr), "utf-8")).hexdigest() + ".html"
       Eq = nlfsr.toBooleanExpressionFromRing(0, 0)
       EqC = nlfsr.toBooleanExpressionFromRing(1, 0)
@@ -2241,17 +2251,21 @@ EXPANDER:
         PT.toXls("DATABASE_temp.xlsx")
       except:
         pass
+      tt.print(f"Iteration finished ---------------\n{repr(nlfsr)}\n./data/{FileName}")
     try:
       os.remove("DATABASE_temp.xlsx")
     except:
       pass
+    tt.close()
     PT.toXls("DATABASE.xlsx")
 
 def _make_expander(nlfsr, PBar=0) -> list:
   if nlfsr.getSize() <= 14:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0) ]
+    return nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0)
+  elif nlfsr.getSize() <= 18:
+    return nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0)
   else:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1) ]
+    return nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1)
       
       
     
