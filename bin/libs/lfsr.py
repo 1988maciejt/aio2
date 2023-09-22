@@ -1,4 +1,5 @@
 from lib2to3.pgen2.tokenize import TokenError
+import hashlib
 from libs.utils_bitarray import *
 from libs.binstr import *
 from libs.aio import *
@@ -1665,6 +1666,10 @@ class Lfsr:
   _baValue = bitarray(0)
   _bamask = bitarray(0)
   _notes = ""
+  
+  def toHashString(self) -> str:
+    return hashlib.sha256(bytes(repr(self), "utf-8")).hexdigest()
+  
   def __del__(self):
     self.clear()
     self._taps.clear()

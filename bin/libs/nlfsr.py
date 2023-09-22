@@ -1121,85 +1121,133 @@ def f():
   def createPhaseShifter(self):
     """Use 'createExpander' instead. It will return a PhaseSHifter object too."""
     Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreSeqStatesData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0):
+  
+  def _getSequence(SingleSequences, XorToTest) -> bitarray:
+      ThisSequence = SingleSequences[XorToTest[0]]
+      for i in range(1, len(XorToTest)):
+        ThisSequence ^= SingleSequences[XorToTest[i]]
+      return ThisSequence
+  
+  def _countHashes(SingleSequences, XorsList, HBlockSize, Parallel=True, INum="?"):
+    def _getHash(XorToTest):
+      return [XorToTest, Bitarray.getRotationInsensitiveSignature(Nlfsr._getSequence(SingleSequences, XorToTest), HBlockSize)]
+    if Parallel:
+      Result = p_umap(_getHash, XorsList, desc=f"{INum}-in: Signatures computation")
+    else:
+      Result = []
+      for XorToTest in XorsList:
+        Result.append(_getHash(XorToTest))
+    return Result
+        
+  
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False):
+    tt = TempTranscript(f"Nlfsr({self._size}).createExpander")
+    tt.print(repr(self))
+    tt.print("Simulating NLFSR...")
     MaxK = self._size
     if self._size >= XorInputsLimit > 0:
       MaxK = XorInputsLimit
     MinK = 1
     if MaxK >= MinXorInputs > 0:
       MinK = MinXorInputs
-    #Values = self.getValues(reset=1)
-    #SequenceLength = len(Values)
     SequenceLength = (1 << self._size) - 1 # self.getPeriod()
     XorsList = []
-    SingleSequences = [bitarray(SequenceLength) for _ in range(self._size)]
-#    UniqueSequences = []
     UniqueSequences = set()
     if StoreLinearComplexityData:
       LCData = []
-    if StoreSeqStatesData:
+    if StoreCardinalityData:
       SSData = []
     if Store2bitTuplesHistograms:
       Histo2 = []
     if StoreOnesCount:
       OnesCount = []
     self.reset()
-    if PBar:
-      Iterator = tqdm(range(SequenceLength), desc="Simulating NLFSR")
-    else:
-      Iterator = range(SequenceLength)
-    for word_index in Iterator:
-      Word = self._baValue
-      self.next()
-      for flop_index in range(self._size):
-        SingleSequences[flop_index][word_index] = Word[flop_index]
+    if self._size > 20:
+      DirName = os.path.abspath(f"./single_sequences_{self.toHashString()}")
+      tt.print(f"WARNING: Single sequences stored in {DirName}.")
+      SingleSequences = BufferedList(UserDefinedDirPath=DirName)
+      SingleSequences.SaveData = True
+      if len(SingleSequences) != self._size:
+        SingleSequences.clear()
+        ssaux = self.getSequences(Length=SequenceLength, ProgressBar=PBar)
+        for ss in ssaux:
+          SingleSequences.append(ss)
+      else:
+        print(f'WARNING: Single sequences got from {DirName}.')
+    else:    
+      SingleSequences = self.getSequences(Length=SequenceLength, ProgressBar=PBar)
     #Values.clear()
     k = MinK
     MyFlopIndexes = [i for i in range(self._size)]
-    #HBlockSize = (self._size>>1) + 2
     HBlockSize = (self._size - 4)
     if HBlockSize < 3:
       HBlockSize = 3
-    ThisSequence = bau.zeros(SequenceLength)
+    ParallelTuplesPerChunk = 0
+    if PBar and self._size > 19:
+      ParallelTuplesPerChunk = (1<<20)
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
-      if PBar:
-        Iterator = tqdm(List.getCombinations(MyFlopIndexes, k), desc=f"Checking {k}-input XORs")
-      else:
-        Iterator = List.getCombinations(MyFlopIndexes, k)
-      for XorToTest in Iterator:
-        for i in XorToTest:
-          ThisSequence ^= SingleSequences[i]
-        H = Bitarray.getRotationInsensitiveSignature(ThisSequence, HBlockSize)
+      tt.print(f"{k}-in gates anaysis...")
+      HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
+      for Row in HashTable:
+        XorToTest = Row[0]
+        H = Row[1]
         if H not in UniqueSequences:
           UniqueSequences.add(H)
+          ttrow = f"  {len(UniqueSequences)} \t {XorToTest}"
+          ThisSequence = None
           XorsList.append(list(XorToTest))
           if StoreLinearComplexityData:
-            LCData.append(Polynomial.getLinearComplexityUsingBerlekampMassey(ThisSequence))
-          if StoreSeqStatesData:
+            if ThisSequence is None:
+              ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
+            Aux = Polynomial.getLinearComplexityUsingBerlekampMassey(ThisSequence)
+            ttrow += f" \t LC = {Aux}"
+            LCData.append(Aux)
+          if StoreCardinalityData:
+            if ThisSequence is None:
+              ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
             if not (LimitedNTuples and (k > 2)):
-              SSData.append(Bitarray.getCardinality(ThisSequence, self._size))
+              Aux = Bitarray.getCardinality(ThisSequence, self._size, ParallelTuplesPerChunk)
+              ttrow += f" \t #Tuples = {Aux}"
+              SSData.append(Aux)
             else:
               SSData.append(-1)
-          if Store2bitTuplesHistograms:
-            Histo2.append(Bitarray.getTuplesHistogram(ThisSequence, 2))
           if StoreOnesCount:
-            OnesCount.append(ThisSequence.count(1))
+            if ThisSequence is None:
+              ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
+            Aux = ThisSequence.count(1)
+            ttrow += f" \t #1s = {Aux}"
+            OnesCount.append(Aux)
+          if Store2bitTuplesHistograms:
+            if ThisSequence is None:
+              ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
+            Aux = Bitarray.getTuplesHistogram(ThisSequence, 2)
+            ttrow += f" \t #2bHist : {Aux}"
+            Histo2.append(Aux)
           #print(f"Added {XorToTest}")
+          tt.print(ttrow)
           if len(XorsList) == NumberOfUniqueSequences > 0:
             break
-        ThisSequence.setall(0)
       k += 1
     if len(XorsList) < NumberOfUniqueSequences > 0:
       Aio.printError(f"Cannot found {NumberOfUniqueSequences} unique sequences. Only {len(XorsList)} was found.")
+    elif len(XorsList) > NumberOfUniqueSequences > 0:
+      XorsList = XorsList[:NumberOfUniqueSequences]
     PS = PhaseShifter(self, XorsList)
     if StoreLinearComplexityData:
       PS.LinearComplexity = LCData
-    if StoreSeqStatesData:
+    if StoreCardinalityData:
       PS.SeqStats = SSData
     if Store2bitTuplesHistograms:
       PS.Histo2 = Histo2
     if StoreOnesCount:
       PS.OnesCount = OnesCount
+    if type(SingleSequences) is BufferedList:
+      if AlwaysCleanFiles:
+        SingleSequences.SaveData = False
+        SingleSequences.clear()
+        shutil.rmtree(SingleSequences.getDirPath())
+        del SingleSequences
+    tt.close()
     return PS
   
   def getRelationBetweenSelectedTapAndOthers(self, TapIndex):
@@ -1770,7 +1818,7 @@ endmodule'''
       elif tui.EXE == "exp":
         #_NLFSR.sortTaps()
         sleep(0.2)
-        PS = _NLFSR.createExpander(XorInputsLimit=3, StoreSeqStatesData=1, StoreLinearComplexityData=1, StoreOnesCount=1)
+        PS = _NLFSR.createExpander(XorInputsLimit=3, StoreCardinalityData=1, StoreLinearComplexityData=1, StoreOnesCount=1)
         PS.tui()
         sleep(0.5)
       elif tui.EXE == "break_tap":
@@ -2201,9 +2249,9 @@ EXPANDER:
 
 def _make_expander(nlfsr, PBar=0) -> list:
   if nlfsr.getSize() <= 14:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreSeqStatesData=1, PBar=PBar, LimitedNTuples=0) ]
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0) ]
   else:
-    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreSeqStatesData=1, PBar=PBar, LimitedNTuples=1) ]
+    return [nlfsr, nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1) ]
       
       
     

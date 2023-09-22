@@ -243,7 +243,7 @@ class List:
 
 class BufferedList:
   
-  __slots__ = ("_list", "_td", "_gz", "_iter_i", "_file_i", "_user_dir")
+  __slots__ = ("_list", "_td", "_gz", "_iter_i", "_file_i", "_user_dir", "SaveData")
   
   def __init__(self, OtherObject = None, UserDefinedDirPath : str = None, GZipped : bool = False):
     if type(UserDefinedDirPath) is str:
@@ -257,7 +257,7 @@ class BufferedList:
         removeFile(FTest)
         self._td = None
         try:
-          fl = readObjectFromFile('index')
+          fl = readObjectFromFile(f'{self._user_dir}/index')
           self._list = fl[0]
           self._gz = fl[1]
           self._file_i = fl[2]
@@ -279,6 +279,7 @@ class BufferedList:
       self._gz = GZipped
       self._file_i = 1
     self._iter_i = 0
+    self.SaveData = False
     if type(OtherObject) in [list, set]:
       for Item in OtherObject:
         self.append(Item)
@@ -296,8 +297,11 @@ class BufferedList:
     return BufferedList(self)
         
   def __del__(self) -> None:
-    if self._td is not None:
-      del self._td
+    if (self._td is not None):
+      if self.SaveData:
+        self._td.DontDelete = True
+      else:
+        del self._td
     
   def __len__(self) -> int:
     return len(self._list)
@@ -331,7 +335,7 @@ class BufferedList:
     self._list.append(FileName)
     writeObjectToFile(FileName, Item, self._gz)
     if self._user_dir is not None:
-      writeObjectToFile('index', [self._list, self._gz, self._file_i])
+      writeObjectToFile(f'{self._user_dir}/index', [self._list, self._gz, self._file_i])
     
   def __getitem__(self, i):
     if type(i) is slice:

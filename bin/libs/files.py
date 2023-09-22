@@ -170,19 +170,22 @@ def removeFile(FileName: str) -> bool:
     return False
 
 class TempDir:
-  __slots__ = ("_name", "_path", "_pwd")
+  __slots__ = ("_name", "_path", "_pwd", "DontDelete")
   def __repr__(self) -> str:
     return f"TempDir('{self._path}')"
   def __str__(self) -> str:
     return self._path
   def __del__(self) -> None:
-    shutil.rmtree(self._path, ignore_errors=True)
+    if not self.DontDelete:
+      shutil.rmtree(self._path, ignore_errors=True)
   def __init__(self) -> None:
+    self.DontDelete = False
     oncemore = True
     self._pwd = pwd()
     while oncemore:
-      self._name = "aio" + str(int(random.uniform(1000000000, 9999999999)))
-      self._path = "/tmp/" + self._name
+      self._name = "aio_tmp" + str(int(random.uniform(1000000000, 9999999999)))
+      #self._path = "/tmp/" + self._name
+      self._path = os.path.abspath(f"./{self._name}")
       oncemore = os.path.isdir(self._path)
     os.makedirs(self._path)
   def getName(self) -> str:
