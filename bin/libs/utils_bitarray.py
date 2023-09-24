@@ -97,8 +97,39 @@ class Bitarray:
         else:
             if WindowSize <= len(Word):
                 Steps = len(Word) - WindowSize + 1
-            for i in range(Steps):
-                yield Word[i:i+WindowSize]
+                for i in range(Steps):
+                    yield Word[i:i+WindowSize]
+    
+    def movingWindowIteratorInt(Word : bitarray, WindowSize : int, Cyclic = True):
+        if Cyclic:
+            W = Word.copy()
+            while len(W) < WindowSize:
+                W += W
+            W += W[:WindowSize-1]
+            Initial = WindowSize-1
+            Res = 0
+            Mask = (1 << WindowSize) -1
+            for b in W:
+                Res <<= 1
+                Res += b
+                if Initial:
+                    Initial -= 1
+                else:
+                    Res &= Mask
+                    yield Res
+            W.clear()
+        else:
+            Initial = WindowSize-1
+            Res = 0
+            Mask = (1 << WindowSize) -1
+            for b in Word:
+                Res <<= 1
+                Res += b
+                if Initial:
+                    Initial -= 1
+                else:
+                    Res &= Mask
+                    yield Res
                 
             
     def fromStringOfHex(Text : str, GroupSize=32) -> bitarray:
@@ -144,8 +175,8 @@ class Bitarray:
             return Res.count(1)
         else:
             Res = bau.zeros(1<<TupleSize)
-            for t in Bitarray.movingWindowIterator(Word, TupleSize, Cyclic=(not ThisIsSubStepForParallelImplementation)):
-                Res[bau.ba2int(t)] = 1
+            for t in Bitarray.movingWindowIteratorInt(Word, TupleSize, Cyclic=(not ThisIsSubStepForParallelImplementation)):
+                Res[t] = 1
             if ThisIsSubStepForParallelImplementation:
                 return Res
             return Res.count(1)
