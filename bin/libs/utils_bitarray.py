@@ -132,11 +132,15 @@ class Bitarray:
         return len(hll)
     
     def getCardinality(Word : bitarray, TupleSize : int, ParallelTuplesPerChunk = 0, ThisIsSubStepForParallelImplementation = False) -> int:
-        if ParallelTuplesPerChunk > 0:
+        if ParallelTuplesPerChunk > 1:
             Res = bau.zeros(1<<TupleSize)
-            Iter = p_uimap(partial(Bitarray.getCardinality, TupleSize=TupleSize, ThisIsSubStepForParallelImplementation=True), Bitarray.divideIntoSubArraysToIterateThroughAllTuples(Word,TupleSize,ParallelTuplesPerChunk), desc="Cardinality computing")
+            BList = Bitarray.divideIntoSubArraysToIterateThroughAllTuples(Word,TupleSize,ParallelTuplesPerChunk,True)
+            BList.SaveData = True
+            Iter = p_uimap(partial(Bitarray.getCardinality, TupleSize=TupleSize, ThisIsSubStepForParallelImplementation=True), BList, desc="Cardinality computing")
             for I in Iter:
                 Res |= I
+            BList.SaveData = False
+            del BList
             return Res.count(1)
         else:
             Res = bau.zeros(1<<TupleSize)
@@ -201,8 +205,11 @@ class Bitarray:
         else:
             return Polynomial.decodeUsingBerlekampMassey(Word).getDegree()
         
-    def divideIntoSubArraysToIterateThroughAllTuples(Word : bitarray, TupleSize : int, MaxTuplesCountPerSubArray : int = 1000000) -> list:
-        Result = []
+    def divideIntoSubArraysToIterateThroughAllTuples(Word : bitarray, TupleSize : int, MaxTuplesCountPerSubArray : int = 1000000, UseBufferedList = False) -> list:
+        if UseBufferedList:
+            Result = BufferedList()
+        else:
+            Result = []
         W = Word.copy()
         W += W[:(TupleSize-1)]
         BlockSize = MaxTuplesCountPerSubArray + TupleSize - 1

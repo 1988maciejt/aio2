@@ -143,5 +143,31 @@ class Generators:
         L[R] = L[i]
       while _PAUSE:
         sleep(0.35)
+        
+        
+    
+    def divideIntoSubArraysToIterateThroughAllTuples(Word : bitarray, TupleSize : int, MaxTuplesCountPerSubArray : int = 1000000) -> list:
+      global _PAUSE
+      W = Word.copy()
+      W += W[:(TupleSize-1)]
+      BlockSize = MaxTuplesCountPerSubArray + TupleSize - 1
+      Start = 0
+      Stop = BlockSize
+      All = 0
+      while Stop <= len(W):
+        if not self._enabled:
+          return
+        yield W[Start:Stop]
+        if (Stop == len(W)):
+            All = 1
+        Start += MaxTuplesCountPerSubArray
+        Stop += MaxTuplesCountPerSubArray
+        while _PAUSE:
+          sleep(0.35)
+      if not All:
+        if not self._enabled:
+          return
+        yield W[Start:]
+      W.clear()
     
     

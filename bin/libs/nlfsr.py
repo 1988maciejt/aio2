@@ -1123,10 +1123,13 @@ def f():
     Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
   
   def _getSequence(SingleSequences, XorToTest) -> bitarray:
+    if type(SingleSequences) is BufferedList:
       ThisSequence = SingleSequences[XorToTest[0]]
-      for i in range(1, len(XorToTest)):
-        ThisSequence ^= SingleSequences[XorToTest[i]]
-      return ThisSequence
+    else:
+      ThisSequence = SingleSequences[XorToTest[0]].copy()
+    for i in range(1, len(XorToTest)):
+      ThisSequence ^= SingleSequences[XorToTest[i]]
+    return ThisSequence
   
   def _countHashes(SingleSequences, XorsList, HBlockSize, Parallel=True, INum="?"):
     def _getHash(XorToTest):
@@ -1183,11 +1186,25 @@ def f():
     if HBlockSize < 3:
       HBlockSize = 3
     ParallelTuplesPerChunk = 0
-    if PBar and self._size > 19:
-      ParallelTuplesPerChunk = (1<<20)
+    if PBar and self._size > 20:
+      ParallelTuplesPerChunk = (1<<(self._size - 2))
+      if StoreCardinalityData:
+        print(f"// ParallelTuplesChunk = {ParallelTuplesPerChunk}")
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       tt.print(f"{k}-in gates anaysis...")
-      HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
+      if self._size > 20:
+        DirName = os.path.abspath(f"./{k}_in_xors_{self.toHashString()}")
+        HashTable = BufferedList(UserDefinedDirPath=DirName)
+        if len(HashTable) < self._size:
+          HashTable.clear()
+          HashTableAux = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
+          for Hash in HashTableAux:
+            HashTable.append(Hash)
+        else:
+          print(f'WARNING: {k}-in xors got from {DirName}.')
+        tt.print(f"WARNING: {k}-in hashes stored in {DirName}.")
+      else:
+        HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
       for Row in HashTable:
         XorToTest = Row[0]
         H = Row[1]

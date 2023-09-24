@@ -7,12 +7,17 @@ from ansi2html import *
 import time
 from libs.utils_str import *
 from prompt_toolkit.shortcuts import *
+import psutil
 
 class Aio:
   _transcript = "" 
   _sections = False
   _section_opened = False
   _subsection_opened = False
+  def getRamSizeGB() -> int:
+    return (psutil.virtual_memory()[0] >> 30)
+  def getRamSize() -> int:
+    return psutil.virtual_memory()[0]
   def isType(Object, ItsType) -> bool:
     if "<class 'str'>" not in str(type(ItsType)):
       ItsType = str(type(ItsType))
