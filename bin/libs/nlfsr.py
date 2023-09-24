@@ -1186,8 +1186,13 @@ def f():
     if HBlockSize < 3:
       HBlockSize = 3
     ParallelTuplesPerChunk = 0
-    if PBar and self._size > 20:
-      ParallelTuplesPerChunk = (1<<(self._size - 2))
+    if PBar:
+      if 23 >= self._size >= 22:
+        ParallelTuplesPerChunk = (1 << (self._size-3))
+      elif 26 >= self._size >= 24:
+        ParallelTuplesPerChunk = (1 << (self._size-5))
+      elif self._size == 27:
+        ParallelTuplesPerChunk = (1 << (self._size-2))
       if StoreCardinalityData:
         print(f"// ParallelTuplesChunk = {ParallelTuplesPerChunk}")
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
