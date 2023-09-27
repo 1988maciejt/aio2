@@ -1,5 +1,3 @@
-from aio_config import *
-
 # auto install missing libs
 _required_libs = [
   "psutil",
@@ -49,6 +47,7 @@ def _installMissingModules(LibNamesList : list) -> list:
 
 _installMissingModules(_required_libs)
 
+from aio_config import *
 from aio import *
 
 shell_config.printHeader()
