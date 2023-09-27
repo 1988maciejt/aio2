@@ -2926,9 +2926,15 @@ class _BerlekampMassey:
           iter = range(k + 1, n)
         for n in iter:
             d = 0
+            
+            subs = s[n-self._l : n+1]            
             for item in self._f:
-                if s[item + n - self._l]:
-                    d ^= 1
+                if subs[item]:
+                    d = 1-d
+            
+            #for item in self._f:
+            #    if s[item + n - self._l]:
+            #        d = 1-d
             if d:
                 if 2 * self._l > n:
                     self._f ^= set([a - b + item for item in g])

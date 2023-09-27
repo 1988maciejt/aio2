@@ -81,6 +81,16 @@ class Nlfsr(Lfsr):
     if self._anf_temp is None:
       self._refreshFastANF()
     return self._anf_temp
+  
+  def __eq__(self, other) -> bool:
+    if self._size != other._size:
+      return False
+    if self._Config != other._Config:
+      return False
+    return True
+  
+  def __neq__(self, other) -> bool:
+    return not self.__eq__(self, other)
     
   def getExprFromTap(self, Tap) -> str:
     Result = ""
@@ -1144,7 +1154,7 @@ def f():
         
   
   def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False):
-    tt = TempTranscript(f"Nlfsr({self._size}).createExpander")
+    tt = TempTranscript(f"Nlfsr({self._size}).createExpander()")
     tt.print(repr(self))
     tt.print("Simulating NLFSR...")
     MaxK = self._size
@@ -1210,7 +1220,11 @@ def f():
         tt.print(f"WARNING: {k}-in hashes stored in {DirName}.")
       else:
         HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
-      for Row in HashTable:
+      if PBar and (ParallelTuplesPerChunk == 0):
+        Iterator = tqdm(HashTable, desc=f"Processing {k}-in xor outputs")
+      else:
+        Iterator = HashTable
+      for Row in Iterator:
         XorToTest = Row[0]
         H = Row[1]
         if H not in UniqueSequences:
@@ -1225,9 +1239,9 @@ def f():
             ttrow += f" \t LC = {Aux}"
             LCData.append(Aux)
           if StoreCardinalityData:
-            if ThisSequence is None:
-              ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
             if not (LimitedNTuples and (k > 2)):
+              if ThisSequence is None:
+                ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
               Aux = Bitarray.getCardinality(ThisSequence, self._size, ParallelTuplesPerChunk)
               ttrow += f" \t #Tuples = {Aux}"
               SSData.append(Aux)
@@ -1271,6 +1285,26 @@ def f():
         del SingleSequences
     tt.close()
     return PS
+  
+  def toArticleString(self) -> str:
+    Result = ""
+    TSecond = 0
+    for Tap in self._Config:
+      TapS = f"({'-' if Tap[0]<0 else ''}{abs(Tap[0] % self._size)}: "
+      Second = 0
+      for Si in Tap[1]:
+        if Second:
+          TapS += ", "
+        else:
+          Second = 1
+        TapS += f"{'-' if Si<0 else ''}{abs(Si % self._size)}"
+      TapS += ")"
+      if TSecond:
+        Result += ", "
+      else:
+        TSecond = 1
+      Result += TapS
+    return Result
   
   def getRelationBetweenSelectedTapAndOthers(self, TapIndex):
     Destinations = self.getTapsDestinations(TapIndex)
@@ -2347,6 +2381,10 @@ class NlfsrFpgaBooster:
     PrimePeriods = 0
     OtherPeriods = 0
     Accepted = 0
+    RowLfsrs = [0, 0, 0, "|", 0]
+    RowSemiLfsrs = [0, 0, 0, "|", 0]
+    RowNlfsrs = [0, 0, 0, "|", 0]
+    RowTotal = [0, 0, 0, "|", 0]
     for Line in tqdm(Data.split("\n"), desc="Parsing file"):
       R = re.search(r'size\s*[:=]\s*([0-9]+)', Line)
       if R:
@@ -2371,18 +2409,40 @@ class NlfsrFpgaBooster:
         IsMax = (n._period == Max) 
         IsPrime = Int.isPrime(n._period)
         IsOtherPeriod = not (IsMax or IsPrime)
+        RowTotal[4] += 1
         if IsLfsr:
-          Lfsrs += 1
+          RowLfsrs[4] += 1
         elif IsSemiLfsr:
-          SemiLfsrs += 1
+          RowSemiLfsrs[4] += 1
         else:
-          Nlfsrs += 1
+          RowNlfsrs[4] += 1
         if IsMax:
-          MaxPeriods += 1
+          RowTotal[0] += 1
         elif IsPrime:
-          PrimePeriods += 1
+          RowTotal[1] += 1
         else:
-          OtherPeriods += 1
+          RowTotal[2] += 1
+        if IsLfsr:
+          if IsMax:
+            RowLfsrs[0] += 1
+          elif IsPrime:
+            RowLfsrs[1] += 1
+          else:
+            RowLfsrs[2] += 1
+        elif IsSemiLfsr:
+          if IsMax:
+            RowSemiLfsrs[0] += 1
+          elif IsPrime:
+            RowSemiLfsrs[1] += 1
+          else:
+            RowSemiLfsrs[2] += 1
+        else:
+          if IsMax:
+            RowNlfsrs[0] += 1
+          elif IsPrime:
+            RowNlfsrs[1] += 1
+          else:
+            RowNlfsrs[2] += 1
         if IsMax and not (OnlyMaximumPeriods or AllowMaximumPeriods):
           continue
         if not IsMax and OnlyMaximumPeriods:
@@ -2401,16 +2461,17 @@ class NlfsrFpgaBooster:
           print(f"{R.group(2)} - {repr(n)}")
           self.getNlfsrFromHexString(R.group(2), 1)
     Result = Nlfsr.filter(Result)
-    print(f"// Structure: ---------------------------")
-    print(f"// # LFSRs:            {Lfsrs}")
-    print(f"// # Semi-LFSRs:       {SemiLfsrs}")
-    print(f"// # NLFSRs:           {Nlfsrs}")
-    print(f"// Period: ------------------------------")
-    print(f"// # Max:              {MaxPeriods}")
-    print(f"// # Prime:            {PrimePeriods}")
-    print(f"// # Other:            {OtherPeriods}")
-    print(f"// --------------------------------------")
-    print(f"// # Accepted:         {Accepted}")
+    PT = PandasTable(["", "Maximum", "Prime", "Other", "|", "TOTAL"])
+    PT.add(["------------", "------", "------", "------", "+", "------"])
+    PT.add(["LFSRs"] + RowLfsrs)
+    PT.add(["Semi-LFSRs"] + RowSemiLfsrs)
+    PT.add(["NLFSRs"] + RowNlfsrs)
+    PT.add(["------------", "------", "------", "------", "+", "------"])
+    PT.add(["TOTAL"] + RowTotal)
+    Aio.print("------------------------------------------------")
+    PT.print()
+    Aio.print("------------------------------------------------")
+    Aio.print(f"# Accepted: {Accepted}")
     if Verify:
       CppPrograms.NLSFRPeriodCounterInvertersAllowed.compile()
       exe = CppPrograms.NLSFRPeriodCounterInvertersAllowed.ExeFileName
