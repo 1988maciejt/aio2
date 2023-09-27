@@ -1,5 +1,6 @@
 #! /bin/bash
 SCRIPTPATH=$( cd "$(dirname $0)" ; pwd )
+python3 -m pip install --upgrade  psutil
 python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade setuptools
 python3 -m pip install --upgrade ipython

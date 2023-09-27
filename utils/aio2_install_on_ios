@@ -5,6 +5,7 @@ apk add bash
 apk add python3-dev
 apk add linux-headers
 python3 -m ensurepip --upgrade
+pip3 install --upgrade  psutil
 pip3 install --upgrade  ipython
 pip3 install --upgrade  ptpython
 pip3 install --upgrade  pyserial

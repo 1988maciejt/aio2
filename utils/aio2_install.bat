@@ -1,3 +1,4 @@
+pip3 install --upgrade  psutil
 pip3 install --upgrade pip
 pip3 install --upgrade wheel
 pip3 install --upgrade setuptools
