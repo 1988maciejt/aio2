@@ -2759,8 +2759,8 @@ endmodule'''
       Iterator = range(Length)
     Result = [bitarray(Length) for _ in range(self._size)]
     for i in Iterator:
-      for j in range(self._size):
-        Result[j][i] = self._baValue[j]
+      for j, Bit in zip(range(self._size), self._baValue):
+        Result[j][i] = Bit
       self._next1()
     return Result
   

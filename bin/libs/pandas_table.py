@@ -73,4 +73,71 @@ class PandasTable:
       
     
     
+class AioTable(PandasTable):
+
+  def __repr__(self) -> str:
+    return f'AioTable({list(self._main_dict.keys())})'
+  
+  def _getWidths(self) -> list:
+    Result = []
+    for Col in self._main_dict.keys():
+      ColWid = 0
+      for Row in self._main_dict[Col]:
+        CW = Str.getWidth(Row)
+        if CW > ColWid:
+          ColWid = CW
+      Result.append(ColWid)
+    Keys = list(self._main_dict.keys())
+    for i in range(len(Keys)):
+      KL = len(Keys[i])
+      if KL > Result[i]:
+        Result[i] = KL
+    return Result
+  
+  def _getHLine(self, Widths : list, Indent = 0):
+    Result = " " * Indent + "+"
+    for W in Widths:
+      Result += "-" * (W+2)
+      Result += "+"
+    return Result
+  
+  def _getHeader(self, Widths : list, JustificationList=[], Indent = 0):
+    Result = " " * Indent + "|"
+    for W, K, i in zip(Widths, self._main_dict.keys(), range(len(Widths))):
+      try:
+        Justify = JustificationList[i]
+      except:
+        Justify = "l"
+      Result += " " + Str.getAligned(K, W, Justify) + " "
+      Result += "|"
+    return Result
+  
+  def _getRow(self, Row : list, Widths : list, JustificationList=[], Indent = 0):
+    Result = " " * Indent + "|"
+    for W, K, i in zip(Widths, Row, range(len(Widths))):
+      try:
+        Justify = JustificationList[i]
+      except:
+        Justify = "l"
+      Result += " " + Str.getAligned(K, W, Justify) + " "
+      Result += "|"
+    return Result
+  
+  def toString(self, JustificationList=[], Indent = 0):
+    Widths = self._getWidths()
+    Result = self._getHLine(Widths, Indent) + "\n"
+    Result += self._getHeader(Widths, JustificationList, Indent) + "\n"
+    Result += self._getHLine(Widths, Indent) + "\n"
+    Keys = list(self._main_dict.keys())
+    RowsCount = len(self._main_dict[Keys[0]])
+    for RI in range(RowsCount):
+      Row = []
+      for Key in Keys:
+        Row.append(self._main_dict[Key][RI])
+      Result += self._getRow(Row, Widths, JustificationList, Indent) + "\n"
+    Result += self._getHLine(Widths, Indent)
+    return Result
+  
+  def print(self, JustificationList=[], Indent = 0):
+    Aio.print(self.toString(JustificationList, Indent))
     

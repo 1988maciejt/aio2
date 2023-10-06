@@ -98,3 +98,83 @@ class Str:
     message_bytes = base64.b64decode(base64_bytes)
     obj = pickle.loads(message_bytes)
     return obj
+  
+  @staticmethod
+  def toLeft(Text : str, Width : int) -> str:
+    Result = ""
+    Second = 0
+    for Line in Text.split("\n"):
+      Line.replace("\r", "")
+      Line.replace("\t", " ")
+      Line = Line[:Width]
+      if len(Line) < Width:
+        Line += " " * (Width - len(Line))
+      if Second:
+        Result += "\n"
+      else:
+        Second = 1
+      Result += Line
+    return Result
+  
+  @staticmethod
+  def toRight(Text : str, Width : int) -> str:
+    Result = ""
+    Second = 0
+    for Line in Text.split("\n"):
+      Line.replace("\r", "")
+      Line.replace("\t", " ")
+      Line = Line[-Width:]
+      if len(Line) < Width:
+        Line = " " * (Width - len(Line)) + Line
+      if Second:
+        Result += "\n"
+      else:
+        Second = 1
+      Result += Line
+    return Result
+  
+  @staticmethod
+  def toCenter(Text : str, Width : int) -> str:
+    Result = ""
+    Second = 0
+    for Line in Text.split("\n"):
+      Line.replace("\r", "")
+      Line.replace("\t", " ")
+      WDelta = Width - len(Line)
+      DLeft = (WDelta >> 1)
+      DRight = WDelta - DLeft
+      if DLeft < 0:
+        Line = Line[-DLeft:]
+      elif DLeft > 0:
+        Line = " " * (DLeft) + Line
+      if DRight < 0:
+        Line = Line[:DRight]
+      elif DRight > 0:
+        Line += " " * (DRight)
+      if Second:
+        Result += "\n"
+      else:
+        Second = 1
+      Result += Line
+    return Result
+  
+  @staticmethod
+  def getAligned(Text : str, Width : int, LeftRightCenter : str) -> str:
+    LeftRightCenter = str(LeftRightCenter).strip()
+    LeftRightCenter = LeftRightCenter.lower()
+    if len(LeftRightCenter) > 0:
+      if LeftRightCenter[0] == 'r':
+        return Str.toRight(Text, Width)
+      if LeftRightCenter[0] == 'c':
+        return Str.toCenter(Text, Width)
+    return Str.toLeft(Text, Width)
+  
+  @staticmethod
+  def getWidth(Text : str) -> int:
+    Result = 0
+    for Line in Text.split("\n"):
+      Line.replace("\r", "")
+      Line.replace("\t", " ")
+      if len(Line) > Result:
+        Result = len(Line)
+    return Result

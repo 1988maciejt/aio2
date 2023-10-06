@@ -257,3 +257,14 @@ class Bitarray:
             Result.append(W[Start:])
         W.clear()
         return Result
+    
+    def transpose(ListOfBitarrays : list) -> list:
+        if len(ListOfBitarrays) == 0:
+            return []
+        WLen = len(ListOfBitarrays[0])
+        WCount = len(ListOfBitarrays)
+        Result = [bitarray(WCount) for _ in range(WLen)]
+        for sbit, Word in zip(range(WCount), ListOfBitarrays):
+            for sid, Bit in zip(range(WLen), Word):
+                Result[sid][sbit] = Bit
+        return Result
