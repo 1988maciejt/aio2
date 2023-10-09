@@ -11,6 +11,7 @@ from libs.generators import *
 from libs.remote_aio import *
 import hashlib
 from libs.cython import *
+from libs.utils_serial import *
 
 # TUI =====================================================
 
@@ -2360,12 +2361,14 @@ def _NLFSR_nonlinear_filtering_helper(nlrglist) -> list:
 
 class NlfsrFpgaBooster:
 
-  __slots__ = ("_size","_tap_v","_ext_inp_am")
+  __slots__ = ("_size","_tap_v","_ext_inp_am", "_SM", "_fname")
 
   def __init__(self, Size = 32, TapVersion = 1, ExtendedInputAmount = 0) -> None:
     self._size = Size
     self._tap_v = TapVersion
     self._ext_inp_am = ExtendedInputAmount
+    self._SM = None
+    self._fname = None
     
   def getSize(self) -> int:
     return self._size
@@ -2408,7 +2411,6 @@ class NlfsrFpgaBooster:
         IsSemiLfsr = n.isSemiLfsr()
         IsMax = (n._period == Max) 
         IsPrime = Int.isPrime(n._period)
-        IsOtherPeriod = not (IsMax or IsPrime)
         RowTotal[4] += 1
         if IsLfsr:
           RowLfsrs[4] += 1
@@ -2567,7 +2569,88 @@ class NlfsrFpgaBooster:
         print(f"Result: {repr(Result)}")
       return Result
     return None
-
+  
+  def _serial_cbk(self, Line : str):
+    if self._fname is None:
+      Aio.printError("File name is not defined - log cannot be saved!")
+    else:
+      writeFile(self._fname, Line + "\n", Append=True)
+    R = re.search(r'size\s*[:=]\s*([0-9]+)', Line)
+    if R:
+      self._size = int(R.group(1))
+      Aio.print(f"// Found size: {self._size}")    
+      Max = (1 << self._size) - 1
+      return
+    R = re.search(r'ap\s*version\s*[:=]\s*([0-9]+)', Line)
+    if R:
+      self._tap_v = int(R.group(1)) % 128
+      self._ext_inp_am = int(R.group(1)) // 128
+      Aio.print(f"// Found tap version: {self._tap_v}") 
+      Aio.print(f"// Found extended input amount: {self._ext_inp_am}")   
+      return      
+    R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*', Line)
+    if R:
+      Max = (1 << self._size) -1
+      n = self.getNlfsrFromHexString(R.group(2), 0)
+      n._period = bau.ba2int(Bitarray.fromStringOfHex(R.group(1)))
+      IsLfsr = n.isLfsr()
+      IsSemiLfsr = n.isSemiLfsr()
+      IsMax = (n._period == Max) 
+      IsPrime = Int.isPrime(n._period)
+      if IsMax:
+        Period = "MAX"
+      elif IsPrime:
+        Period = "PRIME    " + str(n._period / Max) + " of Max"
+      else:
+        Period = "Other    " + str(n._period / Max) + " of Max"
+      if IsLfsr:
+        Type = "     LFSR"
+      elif IsSemiLfsr:
+        Type = "Semi-LFSR"
+      else:
+        Type = "    NLFSR"
+      Size = str(self._size)
+      Aio.print(f"Found {Size}-bit {Type},   Period: {Period}")
+    
+  def isSerialLoggerWorking(self):
+    return (self._SM is not None)
+    
+  def stopSerialLogger(self):
+    if self.isSerialLoggerWorking():
+      self._SM.__delete__()
+      self._SM = None
+      self._fname = None
+  
+  def startSerialLogger(self, FileName : str, Baud=115200, Restrictions0to3 : int = 2):
+    self.stopSerialLogger()
+    self._fname = FileName
+    self._SM = SerialMonitor(None, Baud, Callback=self._serial_cbk)
+    self.runProFpga()
+    self.setRestrictions(Restrictions0to3)
+    self.changeRNGTrajectory()
+    
+  def runProFpga(self):
+    if self._SM is not None:
+      self._SM.print("q")
+      
+  def setRestrictions(self, Restrictions0to3 : int = 3):
+    if self._SM is not None:
+      if Restrictions0to3 == 0:
+        self._SM.print("a")
+      elif Restrictions0to3 == 1:
+        self._SM.print("b")
+      elif Restrictions0to3 == 2:
+        self._SM.print("c")
+      else:
+        self._SM.print("d")
+        
+  def changeRNGTrajectory(self):
+    if self._SM is not None:
+      for _ in range(5):
+        i = random.randint(1, 4)
+        self._SM.print(str(i))
+        time.sleep(0.1)
+      
 
 def _verify_NLFSR(nlfsr : Nlfsr) -> Nlfsr:
   P = nlfsr._period

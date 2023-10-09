@@ -44,11 +44,15 @@ def readFile(FileName : str, GZip = False) -> str:
   f.close()
   return d
 
-def writeFile(FileName : str, Data, GZip = False):
-  if GZip:
-    f = gzip.open(FileName, "w")
+def writeFile(FileName : str, Data, GZip = False, Append = False):
+  if Append:
+    o = "a"
   else:
-    f = open(FileName, "w")
+    o = "w"
+  if GZip:
+    f = gzip.open(FileName, o)
+  else:
+    f = open(FileName, o)
   f.write(str(Data))
   f.flush()
   os.fsync(f.fileno())
