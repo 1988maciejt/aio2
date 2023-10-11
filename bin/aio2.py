@@ -1,6 +1,5 @@
 # auto install missing libs
 _required_libs = [
-  "psutil",
   "setuptools",
   "ptpython",
   "plotext",

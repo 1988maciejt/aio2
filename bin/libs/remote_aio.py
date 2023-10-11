@@ -199,7 +199,7 @@ class RemoteAioTask:
     def isProcessed(self) -> bool:
         if self._Locked:
             return True
-        if time.time() - self._Timestamp < 6:
+        if time.time() - self._Timestamp < 10:
             return True
         return False
 
@@ -403,6 +403,7 @@ class RemoteAioScheduler:
         TaskList.clear()
         if ShowStatus:
             self._Verbose = 1
+    imap = mapGenerator
     
     def mapUnorderedGenerator(self, CodeList, ShowStatus = False):
         if ShowStatus:
@@ -429,6 +430,7 @@ class RemoteAioScheduler:
         TaskList.clear()
         if ShowStatus:
             self._Verbose = 1
+    uimap = mapUnorderedGenerator
                 
     def _printTasksStatus(self, TaskList):
         Result = "--- RemoteAio mapping status ---\n"
@@ -460,7 +462,7 @@ class RemoteAioNode:
     
     def _ping(self):
         while self._Enable:
-            sleep(2)
+            sleep(1)
             if self._Locked and (self._MyMsg is not None):
                 self._MyMsg.send(self._MySender)
             if not self._Locked:

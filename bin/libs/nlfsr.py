@@ -2219,7 +2219,7 @@ class NlfsrList:
       writeFile(FileName, PT.toString('left'))
       i += 1
       
-  def toXlsDatabase(NlfsrsList):
+  def toXlsDatabase(NlfsrsList, Scheduler = None):
     try:
       os.mkdir("data")
     except:
@@ -2232,14 +2232,22 @@ class NlfsrList:
       NlfsrsList = [NlfsrsList]
     for N in NlfsrsList:
       N._exename = exename
-    tt.print("Period obtaining...")
-    p_umap(Nlfsr.getPeriod, NlfsrsList, desc="Period obtaining")    
     PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "Period", "Period rate", "PeriodIsPrime", "# trajectories", "# Single uniques", "# 2-in uniques","# 3-in uniques", "DETAILS", "Python Repr"])
-    for i in range(len(NlfsrsList)):
-      nlfsr = NlfsrsList[i]
-      tt.print(f"{i+1}/{len(NlfsrsList)}: repr(nlfsr)")
-      print(f"{i+1}/{len(NlfsrsList)}: repr(nlfsr)")
-      Expander, Trajectories = _make_expander(nlfsr, PBar=1)
+    if Scheduler is None:
+      tt.print("Period obtaining...")
+      p_umap(Nlfsr.getPeriod, NlfsrsList, desc="Period obtaining")    
+      Nones = [None for _ in range(len(NlfsrsList))]
+      Iterator = zip(NlfsrsList, Nones, Nones)
+    else:
+      CodeList = [f'''Nlfsr_makeExpanderForRAio({repr(nlfsr)})''' for nlfsr in NlfsrsList]
+      Iterator = Scheduler.uimap(CodeList, ShowStatus=True)
+    i = 0
+    for nlfsr, Expander, Trajectories in Iterator:
+      i += 1
+      tt.print(f"{i}/{len(NlfsrsList)}: repr(nlfsr)")
+      print(f"{i}/{len(NlfsrsList)}: repr(nlfsr)")
+      if Expander is None:
+        Expander, Trajectories = _make_expander(nlfsr, PBar=1)
       FileName = "data/" + hashlib.sha256(bytes(repr(nlfsr), "utf-8")).hexdigest() + ".html"
       Eq = nlfsr.toBooleanExpressionFromRing(0, 0)
       EqC = nlfsr.toBooleanExpressionFromRing(1, 0)
@@ -2364,6 +2372,10 @@ def _make_expander(nlfsr, PBar=0) -> tuple:
   else:
     E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1) 
   return E, T
+
+def Nlfsr_makeExpanderForRAio(nlfsr) -> tuple:
+  E, T = _make_expander(nlfsr, 1)
+  return nlfsr, E, T
     
 def _NLFSR_list_database_helper(NLFSR : Nlfsr) -> list:
   Rep = NLFSR.analyseSequences(3)
