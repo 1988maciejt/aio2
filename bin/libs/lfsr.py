@@ -47,6 +47,16 @@ class TrajectoriesReport:
   def __len__(self) -> int:
     return len(self._TrajectoriesList)
   
+  def getTrajectoriesCount(self, ExcludeSingleStates = False) -> int:
+    if ExcludeSingleStates:
+      Count = 0
+      for T in self._TrajectoriesList:
+        if T[1] > 1:
+          Count += 1
+      return Count
+    else:
+      return len(self._TrajectoriesList)
+  
   def __repr__(self) -> str:
     return f"TrajectoriesReport(#Trajectories: {len(self._TrajectoriesList)})"
   

@@ -51,7 +51,7 @@ class PandasTable:
     df = pandas.DataFrame.from_dict(self._main_dict)
     return df.to_string(index=0, justify=justify)
   def toXls(self, FileName : str):
-    writer = pandas.ExcelWriter(FileName, engine='xlsxwriter')
+    writer = pandas.ExcelWriter(FileName, engine="xlsxwriter")
     df = pandas.DataFrame.from_dict(self._main_dict)
     df.to_excel(writer, index=0)
     writer.close()
