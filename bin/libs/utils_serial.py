@@ -108,7 +108,13 @@ class SerialMonitor:
   def _monitor(self):
     while self._enabled:
       R = self._SP.readln()
-      R = R.decode()
+      try:
+        R = R.decode()
+      except:
+        try:
+          R = R.decode('cp1254')
+        except:
+          continue
       if len(R) > 0:
         R = R.replace("\n", "")
         R = R.replace("\r", "")
