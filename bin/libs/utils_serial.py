@@ -110,7 +110,10 @@ class SerialMonitor:
     
   def _monitor(self):
     while self._enabled:
-      R = self._SP.readln()
+      try:
+        R = self._SP.readln()
+      except:
+        continue
       try:
         R = R.decode()
       except:
