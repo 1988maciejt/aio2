@@ -56,6 +56,7 @@ class CyclesReport:
       return Count
     else:
       return len(self._TrajectoriesList)
+  getCyclesCount = getTrajectoriesCount
   
   def __repr__(self) -> str:
     return f"CyclesReport(#Trajectories: {len(self._TrajectoriesList)})"
@@ -98,8 +99,8 @@ class CyclesReport:
     Result.sort(key = lambda x: x[1], reverse = 1)
     self._TrajectoriesList = Result
     
-  def getReport(self, TrimSequences = 0) -> str:
-    return self.getReportPandasTable(TrimSequences).toString(justify='left')
+  def getReport(self, TrimSequences = False, HideSequences = False) -> str:
+    return self.getReportPandasTable(TrimSequences, HideSequences).toString(justify='left')
   
   def getSequences(self, MinLength = 2) -> list:
     Result = []
@@ -133,23 +134,29 @@ class CyclesReport:
       return None
     return False    
   
-  def printReport(self, TrimSequences = 1):
-    Aio.print(self.getReport(TrimSequences))
+  def printReport(self, TrimSequences = True, HideSequences = False):
+    Aio.print(self.getReport(TrimSequences, HideSequences))
     
-  def getReportPandasTable(self, TrimSequences = 0) -> PandasTable:
+  def getReportPandasTable(self, TrimSequences = False, HideSequences = False) -> PandasTable:
     Trajectories = self._TrajectoriesList
-    PT = PandasTable(["Loop_Length", "Initial_State", "Sequence"], AutoId=1)
+    if HideSequences:
+      PT = PandasTable(["Loop_Length", "Initial_State"], AutoId=1)
+    else:
+      PT = PandasTable(["Loop_Length", "Initial_State", "Sequence"], AutoId=1)
     TrimLen = Aio.getTerminalColumns()-35
     for Row in Trajectories:
       Initial = Bitarray.toString(Row[0])
       Length = Row[1]
-      Sequence = str(Row[2])[10:-2]
-      if TrimSequences:
-        if len(Sequence) > TrimLen:
-          Sequence = Sequence[:(TrimLen-3)] + "..."
-        elif len(Sequence) < TrimLen:
-          Sequence += " " * (TrimLen-len(Sequence))
-      PT.add([Length, Initial, Sequence])
+      if HideSequences:
+        PT.add([Length, Initial])
+      else:
+        Sequence = str(Row[2])[10:-2]
+        if TrimSequences:
+          if len(Sequence) > TrimLen:
+            Sequence = Sequence[:(TrimLen-3)] + "..."
+          elif len(Sequence) < TrimLen:
+            Sequence += " " * (TrimLen-len(Sequence))
+        PT.add([Length, Initial, Sequence])
     return PT
     
     

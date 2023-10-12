@@ -199,7 +199,7 @@ class RemoteAioTask:
     def isProcessed(self) -> bool:
         if self._Locked:
             return True
-        if time.time() - self._Timestamp < 6:
+        if time.time() - self._Timestamp < 10:
             return True
         return False
 
@@ -464,7 +464,9 @@ class RemoteAioNode:
     
     def _ping(self):
         while self._Enable:
-            sleep(1500)
+            t0 = time.time()
+            while time.time() - t0 < 1:
+                pass
             if self._Locked and (self._MyMsg is not None):
                 self._MyMsg.send(self._MySender)
             if not self._Locked:

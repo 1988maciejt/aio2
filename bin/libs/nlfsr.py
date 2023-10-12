@@ -151,7 +151,7 @@ class Nlfsr(Lfsr):
     return Result
   def getTaps(self) -> int:
     return self._Config.copy()
-  def __init__(self, Size : int, Config = []) -> None:
+  def __init__(self, Size : int, Config = [], **kwargs) -> None:
     self._anf_temp = None
     if Aio.isType(Size, []):
       Size = Polynomial(Size)
@@ -211,8 +211,14 @@ class Nlfsr(Lfsr):
       self._exename = ""
       self._period = None
       self.reset()
+      if kwargs.get("SET_PERIOD", None) is not None:
+        self._period = kwargs["SET_PERIOD"]
+        Aio.print(f"// WARNING: Period of Nlfsr was set to {self._period} and WILL NOT be verified again!")
   def __repr__(self) -> str:
-    result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ")"
+    if self._period is None:
+      result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ")"
+    else:
+      result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ", SET_PERIOD=" + str(self._period) + ")"
     return result
   def _next1(self):
     NewVal = Bitarray.rotl(self._baValue)
@@ -2220,6 +2226,9 @@ class NlfsrList:
       i += 1
       
   def toXlsDatabase(NlfsrsList, Scheduler = None):
+    from libs.remote_aio import RemoteAioScheduler
+    if type(Scheduler) is not RemoteAioScheduler:
+      Scheduler = None
     try:
       os.mkdir("data")
     except:
@@ -2232,14 +2241,20 @@ class NlfsrList:
       NlfsrsList = [NlfsrsList]
     for N in NlfsrsList:
       N._exename = exename
-    PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "Period", "Period rate", "Missing states", "Prime period?", "# Cycles", "# Single", "# Double","# Tripple", "DETAILS", "Python Repr"])
+    PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "Period", "Period %", "Missing states", "Prime?", "# Cycles", "# Single", "# Double","# Triple", "Details", "Python Repr"])
+    tt.print("Period obtaining...")
+    NlfsrsListAux = []
+    Iter = p_map(Nlfsr.getPeriod, NlfsrsList, desc="Period obtaining")    
+    for I, nlfsr in zip(Iter, NlfsrsList):
+      nlfsr._period = I
+      NlfsrsListAux.append(nlfsr)
+    NlfsrsList = NlfsrsListAux
     if Scheduler is None:
-      tt.print("Period obtaining...")
-      p_umap(Nlfsr.getPeriod, NlfsrsList, desc="Period obtaining")    
       Nones = [None for _ in range(len(NlfsrsList))]
       Iterator = zip(NlfsrsList, Nones, Nones)
     else:
       CodeList = [f'''Nlfsr_makeExpanderForRAio({repr(nlfsr)})''' for nlfsr in NlfsrsList]
+      print(CodeList)
       Iterator = Scheduler.uimap(CodeList, ShowStatus=True)
     Cntr = 0
     for nlfsr, Expander, Trajectories in Iterator:
@@ -2271,10 +2286,10 @@ class NlfsrList:
       if Int.isPrime(Period):
         PeriodStr += ", IS PRIME"
         IsPrime = 1
-        IsPrimeStr = "Yes"
+        IsPrimeStr = "Y"
       else:
         IsPrime = 0
-        IsPrimeStr = "No"
+        IsPrimeStr = "N"
       Single, Double, Triple = 0,0,0
       Xors = Expander.getXors()
       try:
@@ -2331,7 +2346,7 @@ UNIQUE SEQUENCES:
         TrajectoriesCount = Trajectories.getTrajectoriesCount(0)
         FileText += f"""
 CYCLES:
-{Trajectories.getReport(1)}
+{Trajectories.getReport(1, True if nlfsr._size > 12 else False)}
 """
       FileText += f"""
 EXPANDER:
