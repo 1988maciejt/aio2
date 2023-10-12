@@ -87,7 +87,10 @@ class SerialMonitor:
     
   def __delete__(self):
     if self._SP is not None:
-      self._SP.close()
+      try:
+        self._SP.close()
+      except:
+        pass
       
   def start(self):
     if self._enabled:
