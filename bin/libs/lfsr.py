@@ -37,7 +37,7 @@ _LFSR = None
 _LFSR_SIM = []
 
 
-class TrajectoriesReport:
+class CyclesReport:
   
   __slots__ = ("_TrajectoriesList")
   
@@ -58,7 +58,7 @@ class TrajectoriesReport:
       return len(self._TrajectoriesList)
   
   def __repr__(self) -> str:
-    return f"TrajectoriesReport(#Trajectories: {len(self._TrajectoriesList)})"
+    return f"CyclesReport(#Trajectories: {len(self._TrajectoriesList)})"
   
   def __init__(self, Lfsr, SequencesAtBitIndex = 0) -> None:
     Size = Lfsr._size
@@ -2687,8 +2687,8 @@ endmodule'''
     Report.SourceObject = self
     return Report
   
-  def analyseTrajectories(self, SequenceAtBitIndex = 0) -> TrajectoriesReport:
-    return TrajectoriesReport(self, SequenceAtBitIndex)
+  def analyseCycles(self, SequenceAtBitIndex = 0) -> CyclesReport:
+    return CyclesReport(self, SequenceAtBitIndex)
   
   def listMaximumLfsrsHavingSpecifiedTaps(SizeOrProgrammableLfsrConfiguration : int, TapsList = [], CountOnly = False, GetTapsOnly = False) -> list:
     """list Lfsrs of type RING_WITH_SPECIFIED_TAPS satisfying the given criteria.

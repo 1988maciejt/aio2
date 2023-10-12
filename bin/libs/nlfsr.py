@@ -1154,7 +1154,7 @@ def f():
     return Result
         
   
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, AnalyseTrajectories = False):
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, NoBufferedLists = False):
     tt = TempTranscript(f"Nlfsr({self._size}).createExpander()")
     tt.print(repr(self))
     tt.print("Simulating NLFSR...")
@@ -1176,7 +1176,7 @@ def f():
     if StoreOnesCount:
       OnesCount = []
     self.reset()
-    if self._size > 20:
+    if (self._size > 20) and (not NoBufferedLists):
       DirName = os.path.abspath(f"./single_sequences_{self.toHashString()}")
       tt.print(f"WARNING: Single sequences stored in {DirName}.")
       SingleSequences = BufferedList(UserDefinedDirPath=DirName)
@@ -2232,7 +2232,7 @@ class NlfsrList:
       NlfsrsList = [NlfsrsList]
     for N in NlfsrsList:
       N._exename = exename
-    PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "Period", "Period rate", "PeriodIsPrime", "# trajectories", "# Single uniques", "# 2-in uniques","# 3-in uniques", "DETAILS", "Python Repr"])
+    PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "Period", "Period rate", "Missing states", "Prime period?", "# Cycles", "# Single", "# Double","# Tripple", "DETAILS", "Python Repr"])
     if Scheduler is None:
       tt.print("Period obtaining...")
       p_umap(Nlfsr.getPeriod, NlfsrsList, desc="Period obtaining")    
@@ -2241,11 +2241,11 @@ class NlfsrList:
     else:
       CodeList = [f'''Nlfsr_makeExpanderForRAio({repr(nlfsr)})''' for nlfsr in NlfsrsList]
       Iterator = Scheduler.uimap(CodeList, ShowStatus=True)
-    i = 0
+    Cntr = 0
     for nlfsr, Expander, Trajectories in Iterator:
-      i += 1
-      tt.print(f"{i}/{len(NlfsrsList)}: repr(nlfsr)")
-      print(f"{i}/{len(NlfsrsList)}: repr(nlfsr)")
+      Cntr += 1
+      tt.print(f"{Cntr}/{len(NlfsrsList)}: {repr(nlfsr)}")
+      print(f"{Cntr}/{len(NlfsrsList)}: {repr(nlfsr)}")
       if Expander is None:
         Expander, Trajectories = _make_expander(nlfsr, PBar=1)
       FileName = "data/" + hashlib.sha256(bytes(repr(nlfsr), "utf-8")).hexdigest() + ".html"
@@ -2259,6 +2259,7 @@ class NlfsrList:
       TrajectoriesCount = "-"
       PeriodStr = f"{str(Period)} : "
       Max = (1 << nlfsr._size) -1
+      MissingStates = Max - Period
       if Period == Max:
         PeriodStr += "IS MAXIMUM"
         IsMax = 1
@@ -2270,8 +2271,10 @@ class NlfsrList:
       if Int.isPrime(Period):
         PeriodStr += ", IS PRIME"
         IsPrime = 1
+        IsPrimeStr = "Yes"
       else:
         IsPrime = 0
+        IsPrimeStr = "No"
       Single, Double, Triple = 0,0,0
       Xors = Expander.getXors()
       try:
@@ -2327,7 +2330,7 @@ UNIQUE SEQUENCES:
       if Trajectories is not None:
         TrajectoriesCount = Trajectories.getTrajectoriesCount(0)
         FileText += f"""
-TRAJECTORIES:
+CYCLES:
 {Trajectories.getReport(1)}
 """
       FileText += f"""
@@ -2343,7 +2346,7 @@ EXPANDER:
       HtmlFile = open(FileName, "w")
       HtmlFile.write(html)
       HtmlFile.close()
-      PT.add([nlfsr.getSize(), len(nlfsr.getTaps()), Architecture, Eq, Period, OfMax, IsPrime, TrajectoriesCount, Single, Double, Triple, f"""=HYPERLINK("{FileName}", "[CLICK_HERE]")""", repr(nlfsr)])
+      PT.add([nlfsr.getSize(), len(nlfsr.getTaps()), Architecture, Eq, Period, OfMax, MissingStates, IsPrimeStr, TrajectoriesCount, Single, Double, Triple, f"""=HYPERLINK("{FileName}", "[CLICK_HERE]")""", repr(nlfsr)])
       try:
         PT.toXls("DATABASE_temp.xlsx")
       except:
@@ -2358,23 +2361,25 @@ EXPANDER:
       PT.toXls("DATABASE.xlsx")
     except:
       PT.toXls("DATABASE_newer.xlsx")
+    if Scheduler is not None:
+      print("\n=== Finished. ===")
 
-def _make_expander(nlfsr, PBar=0) -> tuple:
+def _make_expander(nlfsr, PBar=0, NoBufferedLists = False) -> tuple:
   T = None
   if nlfsr.getSize() <= 14:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0)
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, NoBufferedLists=NoBufferedLists)
     if not nlfsr.isMaximum():
-      T = nlfsr.analyseTrajectories()
+      T = nlfsr.analyseCycles()
   elif nlfsr.getSize() <= 18:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0)
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, NoBufferedLists=NoBufferedLists)
     if not nlfsr.isMaximum():
-      T = nlfsr.analyseTrajectories()
+      T = nlfsr.analyseCycles()
   else:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1) 
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1, NoBufferedLists=NoBufferedLists) 
   return E, T
 
 def Nlfsr_makeExpanderForRAio(nlfsr) -> tuple:
-  E, T = _make_expander(nlfsr, 1)
+  E, T = _make_expander(nlfsr, True, True)
   return nlfsr, E, T
     
 def _NLFSR_list_database_helper(NLFSR : Nlfsr) -> list:

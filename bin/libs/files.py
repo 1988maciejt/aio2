@@ -1,6 +1,7 @@
 import os
 import ast
 import pickle
+import glob
 import gzip
 import pathlib
 import random
@@ -172,6 +173,46 @@ def removeFile(FileName: str) -> bool:
     return True
   except:
     return False
+
+class File:
+  remove = removeFile
+  pick = pickFile
+  cat = cat
+  read = readFile
+  readBinary = readBinary
+  readDict = readDictionary
+  readObject = readObjectFromFile
+  write = writeFile
+  writeBinary = writeBinary
+  writeDict = writeDictionary
+  writeObject = writeObjectToFile
+  def writeLines(FileName : str, Iterator):
+    if type(Iterator) is not list:
+      Iterator = [i for i in Iterator]
+    writeLinesFromList(FileName, Iterator)
+  def list(Pattern : str) -> list:
+    return glob.glob(Pattern)
+  def replaceText(FileNamePattern : str, OldText : str, NewText : str) -> int:
+    FileNames = glob.glob(FileNamePattern)
+    Counter = 0
+    for FileName in FileNames:
+      Text = readFile(FileName)
+      Text = Text.replace(OldText, NewText)
+      try:
+        writeFile(FileName, Text)
+        Counter += 1
+      except:
+        from libs.aio import Aio
+        Aio.printError(f"Couldn't write '{FileName}'.")
+    return Counter
+  
+class Dir:
+  pick = pickDirectory
+  make = mkdir
+  mkdir = mkdir
+  getAioPath = getAioPath
+  pwd = pwd
+  getCurrent = pwd
 
 class TempDir:
   __slots__ = ("_name", "_path", "_pwd", "DontDelete")
