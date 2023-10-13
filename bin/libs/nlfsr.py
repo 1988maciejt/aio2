@@ -138,12 +138,6 @@ class Nlfsr(Lfsr):
     if Repr:
       Result = f'{repr(self)}:\n'
     Result += self.getArchitecture() + "\n"
-    #PT = PandasTable(["Rev", "Comp", "Equation"])
-    #PT.add(["", "", self.toBooleanExpressionFromRing(0, 0)])
-    #PT.add(["", "C", self.toBooleanExpressionFromRing(1, 0)])
-    #PT.add(["R", "", self.toBooleanExpressionFromRing(0, 1)])
-    #PT.add(["R", "C", self.toBooleanExpressionFromRing(1, 1)])
-    #Result += str(PT)
     Result += "          " + self.toBooleanExpressionFromRing(0, 0) + "\n"
     Result += "Comp:     " + self.toBooleanExpressionFromRing(1, 0) + "\n"
     Result += "Rev:      " + self.toBooleanExpressionFromRing(0, 1) + "\n"
@@ -1182,10 +1176,13 @@ def f():
     if StoreOnesCount:
       OnesCount = []
     self.reset()
-    if (self._size > 20) and (not NoBufferedLists):
+    if (self._size > 20):
       DirName = os.path.abspath(f"./single_sequences_{self.toHashString()}")
       tt.print(f"WARNING: Single sequences stored in {DirName}.")
-      SingleSequences = BufferedList(UserDefinedDirPath=DirName)
+      if NoBufferedLists:
+        SingleSequences = BufferedList()
+      else:
+        SingleSequences = BufferedList(UserDefinedDirPath=DirName)
       SingleSequences.SaveData = True
       if len(SingleSequences) != self._size:
         SingleSequences.clear()
@@ -2080,6 +2077,15 @@ endmodule'''
     
 class NlfsrList:
   
+  def getFullInfo(NlfsrsList) -> str:
+    Result = ""
+    for n in NlfsrsList:
+      Result += n.getFullInfo() + "\n"
+    return Result
+  
+  def printFullInfo(NlfsrsList : list):
+    Aio.print(NlfsrList.getFullInfo(NlfsrsList))
+  
   def parseFromArticleFile(FileName : str) -> list:
     Data = readFile(FileName)
     Result = []
@@ -2448,12 +2454,6 @@ class NlfsrFpgaBooster:
     Result = []
     Max = (1 << self._size) - 1
     Data = readFile(FileName)
-    Lfsrs = 0
-    SemiLfsrs = 0
-    Nlfsrs = 0
-    MaxPeriods = 0
-    PrimePeriods = 0
-    OtherPeriods = 0
     Accepted = 0
     RowLfsrs = [0, 0, 0, "|", 0]
     RowSemiLfsrs = [0, 0, 0, "|", 0]
@@ -2476,7 +2476,15 @@ class NlfsrFpgaBooster:
       #R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Pointer\s*[:=]\s*([0-9a-fA-Fx]+)', Line)
       R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*', Line)
       if R:
-        n = self.getNlfsrFromHexString(R.group(2), 0)
+        if Debug:
+          print()
+          print(f"PERIOD = {R.group(1)}")
+          print(f"CONFIG = {R.group(2)}")
+        try:
+          n = self.getNlfsrFromHexString(R.group(2), Debug)
+        except:
+          Aio.printError(f"Config broken at line\n'{Line}'.")
+          continue
         n._period = bau.ba2int(Bitarray.fromStringOfHex(R.group(1)))
         IsLfsr = n.isLfsr()
         IsSemiLfsr = n.isSemiLfsr()
@@ -2532,7 +2540,7 @@ class NlfsrFpgaBooster:
           print()
           print(f"{R.group(1)} - {n._period}")
           print(f"{R.group(2)} - {repr(n)}")
-          self.getNlfsrFromHexString(R.group(2), 1)
+          self.getNlfsrFromHexString(R.group(2), 1, Debug=1)
     Result = Nlfsr.filter(Result)
     PT = PandasTable(["", "Maximum", "Prime", "Other", "|", "TOTAL"])
     PT.add(["------------", "------", "------", "------", "+", "------"])
@@ -2682,6 +2690,8 @@ class NlfsrFpgaBooster:
         Type = "    NLFSR"
       Size = str(self._size)
       Aio.print(f"Found {Size}-bit {Type},   Period: {Period}")
+      return
+    Aio.print(f"// {self._size}-bit: {Line}")
     
   def isSerialLoggerWorking(self):
     return (self._SM is not None)
