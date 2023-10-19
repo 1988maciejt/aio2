@@ -123,7 +123,8 @@ class Aio:
     s += "\n"
     Aio._transcript += s
     if "transcript_file" in globals():
-      Text = re.sub(r'(\033\[[0-9]+m)', '', s)
+      Text = Str.removeEscapeCodes(s)
+      #Text = re.sub(r'(\033\[[0-9]+m)', '', s)
       transcript_file.write(Text)
       transcript_file.flush()
       os.fsync(transcript_file.fileno())

@@ -2,6 +2,7 @@ import zlib
 import pickle
 import ast
 import base64
+import re
 
 _superscript_map = {
     "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶",
@@ -156,6 +157,11 @@ class Str:
       else:
         Second = 1
       Result += Line
+    return Result
+  
+  @staticmethod
+  def removeEscapeCodes(Text) -> str:
+    Result = re.sub(r'(\033\[[^m]*m)', '', Text)
     return Result
   
   @staticmethod

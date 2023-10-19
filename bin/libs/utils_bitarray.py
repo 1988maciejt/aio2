@@ -8,6 +8,8 @@ import hyperloglog
 from libs.generators import *
 from p_tqdm import *
 from functools import partial
+from tqdm import *
+from libs.stats import *
 
 
 class Bitarray:
@@ -185,8 +187,8 @@ class Bitarray:
         Res = [0 for i in range(1<<TupleSize)]
         for i in range(1<<TupleSize):
             Res[i] = 0
-        for t in Bitarray.movingWindowIterator(Word, TupleSize):
-            Res[bau.ba2int(t)] += 1
+        for t in Bitarray.movingWindowIteratorInt(Word, TupleSize):
+            Res[t] += 1
         return Res
     
     def getMissingTuples(Word : bitarray, TupleSize : int) -> list:
@@ -267,4 +269,87 @@ class Bitarray:
         for sbit, Word in zip(range(WCount), ListOfBitarrays):
             for sid, Bit in zip(range(WLen), Word):
                 Result[sid][sbit] = Bit
+        return Result
+    
+    
+class TuplesReport:
+    
+    __slots__ = ("_histo_dict", "_tmin", "_tmax", "_stats", "_pass")
+    
+    def __init__(self, Word : bitarray, FromTupleSize : int = 2, ToTupleSize : int = 8, Significance=0.05):
+        self._histo_dict = {}
+        self._tmin = FromTupleSize
+        self._tmax = ToTupleSize
+        self._stats = {}
+        self._pass = {}
+        from scipy.stats import chisquare
+        from scipy.stats import chi2
+        for TSize in tqdm(range(FromTupleSize, ToTupleSize+1), desc="Counting tuples"):
+            H = Bitarray.getTuplesHistogram(Word, TSize)
+            self._histo_dict[TSize] = H
+            self._stats[TSize] = chisquare(H)
+            Critical = chi2.isf(Significance, (1<<TSize)-1)
+            self._pass[TSize] = True if self._stats[TSize].statistic <= Critical else False
+            
+    def getReport(self, FromTupleSize : int = None, ToTupleSize : int = None, Colored = False, HidePlot = False) -> str:
+        if FromTupleSize is None:
+            FromTupleSize = self._tmin
+        elif FromTupleSize < self._tmin:
+            FromTupleSize = self._tmin
+        if ToTupleSize is None:
+            ToTupleSize = self._tmax
+        elif ToTupleSize > self._tmax:
+            ToTupleSize = self._tmax
+        if ToTupleSize < FromTupleSize:
+            Aio.printError("ToTupleSize must be >= FromTupleSize.")
+            return ""
+        Result = ""
+        for TSize in range(FromTupleSize, ToTupleSize+1):
+            H = self._histo_dict[TSize]
+            HValues = H
+            Min = min(HValues)
+            Max = max(HValues)
+            PDiv = self._stats[TSize]
+            Pass = self._pass[TSize]
+            Result += f"=================================[ Tuple size: {TSize} ]====================================\n\n"
+            Result += f"Min: {Min}, \tMax: {Max}, \tChi{Str.toSuperScript('2')}: {PDiv.statistic}, \tPval: {PDiv.pvalue}  \t->  {'PASSED' if Pass else 'FAILED'}\n\n"
+            if not HidePlot:
+                Result += Plot(H, PlotTypes.Bar, Width=80, Height=16, Colored=Colored).getDraw()
+            Result += "HistogramValues = " + str(H)
+            Result += "\n\n"
+        return Result
+        
+    def toHtmlFile(self, HtmlFileName : str, FromTupleSize : int = None, ToTupleSize : int = None, Colored = False, HidePlot = False):
+        FileText = self.getReport(FromTupleSize, ToTupleSize, Colored, HidePlot)
+        conv = Ansi2HTMLConverter(escaped=False, dark_bg=0, title="TuplesReport", line_wrap=1, linkify=0)
+        html = conv.convert(FileText)
+        html = re.sub(r'(\.ansi2html-content\s+)(\{)', '\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
+        html = re.sub(r'(\*\s+)(\{)', '\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
+        html = re.sub(r'.body_background { background-color: #AAAAAA; }', '.body_background { background-color: #FFFFFF; }', html)
+        HtmlFile = open(HtmlFileName, "w")
+        HtmlFile.write(html)
+        HtmlFile.close()
+    
+    def printReport(self, FromTupleSize : int = None, ToTupleSize : int = None, Colored = True, HidePlot = False) -> None:
+        Aio.print(self.getReport(FromTupleSize, ToTupleSize, Colored, HidePlot))
+        
+    def getPassFailedList(self, FromTupleSize : int = None, ToTupleSize : int = None) -> list:
+        if FromTupleSize is None:
+            FromTupleSize = self._tmin
+        if ToTupleSize is None:
+            ToTupleSize = self._tmax
+        if ToTupleSize < FromTupleSize:
+            Aio.printError("ToTupleSize must be >= FromTupleSize.")
+            return []
+        Result = []
+        for i in range(FromTupleSize, ToTupleSize+1):
+            PF = self._pass.get(i, None)
+            if PF is None:
+                PFS = "-"
+            else:
+                if PF:
+                    PFS = "P"
+                else:
+                    PFS = "F"
+            Result.append(PFS)
         return Result

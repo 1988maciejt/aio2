@@ -144,6 +144,9 @@ class CyclesReport:
     else:
       PT = PandasTable(["Loop_Length", "Initial_State", "Sequence"], AutoId=1)
     TrimLen = Aio.getTerminalColumns()-35
+    if type(TrimSequences) is int:
+      if TrimSequences > 1:
+        TrimLen = TrimSequences
     for Row in Trajectories:
       Initial = Bitarray.toString(Row[0])
       Length = Row[1]

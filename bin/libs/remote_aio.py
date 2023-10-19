@@ -176,10 +176,10 @@ class RemoteAioTask:
     
     __slots__ = ("Id", "Code", "Response", "_done", "_Timestamp", "_Locked")
     
-    def __init__(self, Id : int, Code : str) -> None:
+    def __init__(self, Id : int, Code : str, DefaultResponse = None) -> None:
         self.Id = Id
         self.Code = Code
-        self.Response = None
+        self.Response = DefaultResponse
         self._done = 0
         self._Timestamp = 0
         self._Locked = 0
@@ -352,15 +352,15 @@ class RemoteAioScheduler:
         self._OneTime = True
         self._MyMonitor.stop()
         
-    def addTask(self, Code : str) -> RemoteAioTask:
-        Task = RemoteAioTask(_randomId(), Code)
+    def addTask(self, Code : str, DefaultResponse = None) -> RemoteAioTask:
+        Task = RemoteAioTask(_randomId(), Code, DefaultResponse)
         self.TaskList.append(Task)
         return Task
     
-    def map(self, CodeList) -> list:
+    def map(self, CodeList, DefaultResponse = None) -> list:
         TaskList = []
         for Code in CodeList:
-            TaskList.append(self.addTask(Code))
+            TaskList.append(self.addTask(Code, DefaultResponse))
         AllDone = 0
         LastDone = -1
         while not AllDone and len(self.TaskList) > 0:
@@ -383,13 +383,13 @@ class RemoteAioScheduler:
         print(Str.color(f"// REMOTE_AIO_SCHEDULER: MAP FINISHED", 'green'))
         return Results
     
-    def mapGenerator(self, CodeList, ShowStatus = False):
+    def mapGenerator(self, CodeList, ShowStatus = False, DefaultResponse = None):
         if ShowStatus:
             self._Verbose = 0
         InfoTimeStamp = 0
         TaskList = []
         for Code in CodeList:
-            TaskList.append(self.addTask(Code))
+            TaskList.append(self.addTask(Code, DefaultResponse))
         for T in TaskList:
             if len(self.TaskList) == 0:
                 break
@@ -406,13 +406,13 @@ class RemoteAioScheduler:
             print("\nRemoteAio finished the loop.\n")
     imap = mapGenerator
     
-    def mapUnorderedGenerator(self, CodeList, ShowStatus = False):
+    def mapUnorderedGenerator(self, CodeList, ShowStatus = False, DefaultResponse = None):
         if ShowStatus:
             self._Verbose = 0
         InfoTimeStamp = 0
         TaskList = []
         for Code in CodeList:
-            TaskList.append(self.addTask(Code))
+            TaskList.append(self.addTask(Code, DefaultResponse))
         if ShowStatus:
             InfoTaskList = TaskList.copy()
         while len(TaskList) > 0:
@@ -519,7 +519,7 @@ class RemoteAioNode:
                         try:
                             Result = eval(Task.Code)
                         except Exception as inst2:
-                            Result = None
+                            Result = Task.Response # the default one
                             Aio.printError(f"// REMOTE_AIO_NODE: INVALID TASK: {inst2}")
                         Task.Code = None
                         Task.Response = Result

@@ -21,7 +21,8 @@ _required_libs = [
   "pint",
   "textual",
   "hyperloglog",
-  "cython"
+  "cython",
+  "scipy"
 ]
 def _isModuleAvailable(LibName : str) -> bool:
   try:

@@ -136,7 +136,7 @@ class Nlfsr(Lfsr):
   def getFullInfo(self, Repr = True):
     Result = ""
     if Repr:
-      Result = f'{repr(self)}:\n'
+      Result = f'{repr(self)}\n'
     Result += self.getArchitecture() + "\n"
     Result += "          " + self.toBooleanExpressionFromRing(0, 0) + "\n"
     Result += "Comp:     " + self.toBooleanExpressionFromRing(1, 0) + "\n"
@@ -358,7 +358,9 @@ def f():
           Result.append(S)
     return Result
     
-  def getPeriod(self):
+  def getPeriod(self, ForceRecalculation = False):
+    if ForceRecalculation:
+      self._period = None
     if self._period is not None:
       return self._period
     ArgStr = str(self._size)
@@ -910,7 +912,7 @@ def f():
       sexpr = sexpr.replace(" & ", ", ")
       sexpr = sexpr.replace("x", "")
       if inv:
-        sexpr = f"~({sexpr})"
+        sexpr = f"~, {sexpr}"
       if Verbose:
         Aio.print(f"// 5. Feedback function - simplified ANF: --------------")
         Aio.print(f"{sexpr}")
@@ -1154,7 +1156,7 @@ def f():
     return Result
         
   
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, NoBufferedLists = False):
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, NoBufferedLists = False, ReturnAlsoTuplesReport = False):
     tt = TempTranscript(f"Nlfsr({self._size}).createExpander()")
     tt.print(repr(self))
     tt.print("Simulating NLFSR...")
@@ -1194,6 +1196,8 @@ def f():
     else:    
       SingleSequences = self.getSequences(Length=SequenceLength, ProgressBar=PBar)
     #Values.clear()
+    if ReturnAlsoTuplesReport:
+      r = TuplesReport(SingleSequences[0])
     k = MinK
     MyFlopIndexes = [i for i in range(self._size)]
     HBlockSize = (self._size - 4)
@@ -1211,7 +1215,7 @@ def f():
         print(f"// ParallelTuplesChunk = {ParallelTuplesPerChunk}")
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       tt.print(f"{k}-in gates anaysis...")
-      if self._size > 20:
+      if self._size > 21 and not AlwaysCleanFiles and not NoBufferedLists:
         DirName = os.path.abspath(f"./{k}_in_xors_{self.toHashString()}")
         HashTable = BufferedList(UserDefinedDirPath=DirName)
         if len(HashTable) < self._size:
@@ -1281,8 +1285,10 @@ def f():
       PS.Histo2 = Histo2
     if StoreOnesCount:
       PS.OnesCount = OnesCount
+    if ReturnAlsoTuplesReport:
+      PS.TuplesRep = r
     if type(SingleSequences) is BufferedList:
-      if AlwaysCleanFiles:
+      if AlwaysCleanFiles or NoBufferedLists:
         SingleSequences.SaveData = False
         SingleSequences.clear()
         shutil.rmtree(SingleSequences.getDirPath())
@@ -2012,12 +2018,21 @@ endmodule'''
     return Result        
   
   @staticmethod
-  def listRandomNlrgs(Size : int, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0) -> list:
+  def listRandomNlrgs(Size : int, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ArchitectureVersion = 0) -> list:
     if Size < 8:
       Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 8.\nFor small Nlrgs use Nlfsr.listSystematicNlrgs).")
       return []
-    TapsCount = (Size//2)-3
-    ConfigLen = TapsCount * 11
+    if ArchitectureVersion == 1:
+      UpperBranchLen = Size // 2
+      LowerBranchSize = Size - UpperBranchLen
+      CandidateSources = [Size-i for i in range(UpperBranchLen)]
+      NonlinearTapsCount = 3
+      NonlinearTapConfigLen = (UpperBranchLen * 3) + 1
+      LinearTapsCount = LowerBranchSize-NonlinearTapsCount
+      ConfigLen = NonlinearTapsCount * NonlinearTapConfigLen + LinearTapsCount * 3
+    else:
+      TapsCount = (Size//2)-3
+      ConfigLen = TapsCount * 11
     Chunk = []
     Result = []
     ChunkSize = 128
@@ -2028,20 +2043,53 @@ endmodule'''
     for _ in range(MaximumTries):
       Config = bau.urandom(ConfigLen)
       Taps = []
-      for TapIndex in range(TapsCount):
-        S = []
-        IOffset = TapIndex * 11
-        for SIndex in range(5):
-          EIndex = (SIndex * 2) + IOffset
-          if Config[EIndex]:
-            Sign = -1 if Config[SIndex + 1] else 1
-            Si = (Size - SIndex - TapIndex) * Sign
-            S.append(Si)
-        if len(S) > 0:
-          D = 1 + TapIndex
-          if Config[IOffset+10]:
+      if ArchitectureVersion == 1:
+        for TapIndex in range(NonlinearTapsCount):
+          IOffset = TapIndex * NonlinearTapConfigLen
+          SList = []
+          D = TapIndex
+          for SIndex in range(UpperBranchLen):
+            if (Config[IOffset+(SIndex*3)] == Config[IOffset+(SIndex*3)+1] == 1):
+              S = CandidateSources[SIndex]
+              if Config[IOffset+(SIndex*3)+2]:
+                S *= -1
+              SList.append(S)
+          if len(SList) < 1:
+            continue
+          if Config[IOffset+(UpperBranchLen*3)]:
             D *= -1
-          Taps.append([D, S])
+          Taps.append([D, SList])
+        for TapIndex in range(LinearTapsCount):
+          IOffset = NonlinearTapsCount * NonlinearTapConfigLen + TapIndex * 2
+          SList = []
+          D = TapIndex + 3
+          if Config[IOffset+0] and not Config[IOffset+1]:
+            SList.append(Size-3-TapIndex)
+          elif Config[IOffset+1] and not Config[IOffset+0]:
+            SList.append(Size-4-TapIndex)
+          if len(SList) < 1:
+            continue
+          if Config[IOffset+2]:
+            D *= -1
+          Taps.append([D, SList])
+        if len(Taps) < 0:
+          continue
+        #print(Taps)
+      else:
+        for TapIndex in range(TapsCount):
+          S = []
+          IOffset = TapIndex * 11
+          for SIndex in range(5):
+            EIndex = (SIndex * 2) + IOffset
+            if Config[EIndex]:
+              Sign = -1 if Config[SIndex + 1] else 1
+              Si = (Size - SIndex - TapIndex) * Sign
+              S.append(Si)
+          if len(S) > 0:
+            D = 1 + TapIndex
+            if Config[IOffset+10]:
+              D *= -1
+            Taps.append([D, S])
       if len(Taps) > 0:
         Candidate = Nlfsr(Size, Taps)
         if Candidate.isLfsr() or Candidate.isSemiLfsr():
@@ -2115,8 +2163,7 @@ class NlfsrList:
     exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
     for N in NlfsrsList:
       N._exename = exename
-    G = Generators()
-    RM = p_map(Nlfsr.getPeriod, G.wrapper(NlfsrsList), desc="Nlfsrs simulating")
+    RM = p_map(Nlfsr.getPeriod, NlfsrsList, desc="Nlfsrs simulating")
     Results = []
     for i in range(len(RM)):
       NlfsrsList[i]._period = RM[i]
@@ -2130,11 +2177,8 @@ class NlfsrList:
         continue
       Maximum = (1 << n._size) -1
       if n._period == Maximum:
-        if AllowMaximumPeriods:
+        if AllowMaximumPeriods or OnlyMaximumPeriod:
           Result.append(n)
-        elif OnlyMaximumPeriod:
-          Result.append(n)
-          continue
       elif not OnlyMaximumPeriod:
         if (n._period / Maximum) >= MinimumPeriodRatio:
           if OnlyPrimeNonMaximumPeriods:
@@ -2191,15 +2235,29 @@ class NlfsrList:
     Data = readFile(FileName)
     Results = []
     for Line in Data.split("\n"):
-      R = re.search(r'Nlfsr\(([0-9]+),\s*(\[.*\])\)', Line)
+      Found = False
+      R = re.search(r'Nlfsr\(([0-9]+),\s*(\[.*\]),\s*SET_PERIOD=(.*)\)', Line)
       if R:
         NSize = ast.literal_eval(str(R.group(1)))
+        NConfig = ast.literal_eval(str(R.group(2)))
+        NPeriod = ast.literal_eval(str(R.group(3)))
+        Found = True
+      else:
+        R = re.search(r'Nlfsr\(([0-9]+),\s*(\[.*\])\)', Line)
+        if R:
+          NSize = ast.literal_eval(str(R.group(1)))
+          NConfig = ast.literal_eval(str(R.group(2)))
+          NPeriod = 0
+          Found = True
+      if Found:
         if NSize != Size > 0:
           continue
-        NConfig = ast.literal_eval(str(R.group(2)))
         if len(NConfig) != TapsCount > 0:
           continue
-        N = Nlfsr(NSize, NConfig)
+        if NPeriod > 0:
+          N = Nlfsr(NSize, NConfig, SET_PERIOD=NPeriod)
+        else:
+          N = Nlfsr(NSize, NConfig)
         Results.append(N)
     return Results
   
@@ -2247,7 +2305,7 @@ class NlfsrList:
       NlfsrsList = [NlfsrsList]
     for N in NlfsrsList:
       N._exename = exename
-    PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "Period", "Period %", "Missing states", "Prime?", "# Cycles", "# Single", "# Double","# Triple", "Details", "Python Repr"])
+    PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "Period P", "Period %", "Max - P", "Prime?", "# Cycles", "# Single", "# Double","# Triple", "2","3","4","5","6","7","8",">90%","80%",">70%",">60%",">50%","Details", "Python Repr"])
     tt.print("Period obtaining...")
     NlfsrsListAux = []
     Iter = p_map(Nlfsr.getPeriod, NlfsrsList, desc="Period obtaining")    
@@ -2261,15 +2319,18 @@ class NlfsrList:
     else:
       CodeList = [f'''Nlfsr_makeExpanderForRAio({repr(nlfsr)})''' for nlfsr in NlfsrsList]
       print(CodeList)
-      Iterator = Scheduler.uimap(CodeList, ShowStatus=True)
+      Iterator = Scheduler.uimap(CodeList, ShowStatus=True, DefaultResponse=tuple([None, None, None]))
     Cntr = 0
     for nlfsr, Expander, Trajectories in Iterator:
       Cntr += 1
+      if nlfsr is None:
+        continue
       tt.print(f"{Cntr}/{len(NlfsrsList)}: {repr(nlfsr)}")
       print(f"{Cntr}/{len(NlfsrsList)}: {repr(nlfsr)}")
       if Expander is None:
         Expander, Trajectories = _make_expander(nlfsr, PBar=1)
       FileName = "data/" + hashlib.sha256(bytes(repr(nlfsr), "utf-8")).hexdigest() + ".html"
+      TuplesRep = Expander.TuplesRep
       Eq = nlfsr.toBooleanExpressionFromRing(0, 0)
       EqC = nlfsr.toBooleanExpressionFromRing(1, 0)
       EqR = nlfsr.toBooleanExpressionFromRing(0, 1)
@@ -2306,8 +2367,9 @@ class NlfsrList:
         SeqStats = Expander.SeqStats
       except:
         SeqStats = []
-      LCTable = PandasTable(["XORed_FFs", "Linear_complexity", "#Unique_values"])
+      LCTable = PandasTable(["XORed_FFs", "Linear_complexity", "#Unique_values"], AutoId=True)
       LCTableList = []
+      TuplesDict = {}
       for i in range(len(Xors)):
         XOR = Xors[i]
         try:
@@ -2316,6 +2378,9 @@ class NlfsrList:
           LC = "-"
         try:
           SS = SeqStats[i]
+          for perc in range(50, 100, 5):
+            if SS >= (Period * perc / 100):
+              TuplesDict[perc] = TuplesDict.get(perc, 0) + 1
         except:
           SS = "-"
         LCTableList.append([XOR, LC, SS])
@@ -2328,6 +2393,9 @@ class NlfsrList:
       LCTableList.sort(key = lambda x: x[2], reverse=1)
       for x in LCTableList:
         LCTable.add(x)
+      PercTable = ""
+      for perc in range(95, 50-1, -5):
+        PercTable += f" >= {perc}% n-tuples:  \t{TuplesDict.get(perc, 0)} outputs \n"
       FileText = f"""{repr(nlfsr)}
 
 Size   : {nlfsr.getSize()}
@@ -2352,11 +2420,17 @@ UNIQUE SEQUENCES:
         TrajectoriesCount = Trajectories.getTrajectoriesCount(0)
         FileText += f"""
 CYCLES:
-{Trajectories.getReport(1, True if nlfsr._size > 12 else False)}
+{Trajectories.getReport(67, True if nlfsr._size > 12 else False)}
 """
       FileText += f"""
 EXPANDER:
 {LCTable.toString()}
+
+EXPANDER STATS
+{PercTable}
+
+TUPLES REPORT (Sequence observed at bit 0):
+{TuplesRep.getReport(Colored=True, HidePlot=True)}
     """
       #writeFile(FileName, FileText)
       conv = Ansi2HTMLConverter(escaped=False, dark_bg=0, title=repr(nlfsr), line_wrap=1, linkify=0)
@@ -2367,7 +2441,8 @@ EXPANDER:
       HtmlFile = open(FileName, "w")
       HtmlFile.write(html)
       HtmlFile.close()
-      PT.add([nlfsr.getSize(), len(nlfsr.getTaps()), Architecture, Eq, Period, OfMax, MissingStates, IsPrimeStr, TrajectoriesCount, Single, Double, Triple, f"""=HYPERLINK("{FileName}", "[CLICK_HERE]")""", repr(nlfsr)])
+      PercList = [TuplesDict.get(90, 0), TuplesDict.get(80, 0), TuplesDict.get(70, 0), TuplesDict.get(60, 0), TuplesDict.get(50, 0)]
+      PT.add([nlfsr.getSize(), len(nlfsr.getTaps()), Architecture, Eq, Period, OfMax, MissingStates, IsPrimeStr, TrajectoriesCount, Single, Double, Triple] + TuplesRep.getPassFailedList() + PercList + [f"""=HYPERLINK("{FileName}", "[CLICK_HERE]")""", repr(nlfsr)])
       try:
         PT.toXls("DATABASE_temp.xlsx")
       except:
@@ -2388,15 +2463,15 @@ EXPANDER:
 def _make_expander(nlfsr, PBar=0, NoBufferedLists = False) -> tuple:
   T = None
   if nlfsr.getSize() <= 14:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, NoBufferedLists=NoBufferedLists)
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, NoBufferedLists=NoBufferedLists, ReturnAlsoTuplesReport=True)
     if not nlfsr.isMaximum():
       T = nlfsr.analyseCycles()
   elif nlfsr.getSize() <= 18:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, NoBufferedLists=NoBufferedLists)
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, NoBufferedLists=NoBufferedLists, ReturnAlsoTuplesReport=True)
     if not nlfsr.isMaximum():
       T = nlfsr.analyseCycles()
   else:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1, NoBufferedLists=NoBufferedLists) 
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1, NoBufferedLists=NoBufferedLists,ReturnAlsoTuplesReport=True) 
   return E, T
 
 def Nlfsr_makeExpanderForRAio(nlfsr) -> tuple:
@@ -2460,19 +2535,10 @@ class NlfsrFpgaBooster:
     RowNlfsrs = [0, 0, 0, "|", 0]
     RowTotal = [0, 0, 0, "|", 0]
     for Line in tqdm(Data.split("\n"), desc="Parsing file"):
-      R = re.search(r'size\s*[:=]\s*([0-9]+)', Line)
-      if R:
-        self._size = int(R.group(1))
-        Aio.print(f"// Found size: {self._size}")    
-        Max = (1 << self._size) - 1
+      if len(Line) < 16:
         continue
-      R = re.search(r'ap\s*version\s*[:=]\s*([0-9]+)', Line)
-      if R:
-        self._tap_v = int(R.group(1)) % 128
-        self._ext_inp_am = int(R.group(1)) // 128
-        Aio.print(f"// Found tap version: {self._tap_v}") 
-        Aio.print(f"// Found extended input amount: {self._ext_inp_am}") 
-        continue  
+      if Line[0] == 'S':
+        continue
       #R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Pointer\s*[:=]\s*([0-9a-fA-Fx]+)', Line)
       R = re.search(r'Period\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*,\s*Config\s*[:=]\s*([ 0-9a-fA-Fx]+)\s*', Line)
       if R:
@@ -2541,6 +2607,19 @@ class NlfsrFpgaBooster:
           print(f"{R.group(1)} - {n._period}")
           print(f"{R.group(2)} - {repr(n)}")
           self.getNlfsrFromHexString(R.group(2), 1, Debug=1)
+      R = re.search(r'size\s*[:=]\s*([0-9]+)', Line)
+      if R:
+        self._size = int(R.group(1))
+        Aio.print(f"// Found size: {self._size}")    
+        Max = (1 << self._size) - 1
+        continue
+      R = re.search(r'ap\s*version\s*[:=]\s*([0-9]+)', Line)
+      if R:
+        self._tap_v = int(R.group(1)) % 128
+        self._ext_inp_am = int(R.group(1)) // 128
+        Aio.print(f"// Found tap version: {self._tap_v}") 
+        Aio.print(f"// Found extended input amount: {self._ext_inp_am}") 
+        continue  
     Result = Nlfsr.filter(Result)
     PT = PandasTable(["", "Maximum", "Prime", "Other", "|", "TOTAL"])
     PT.add(["------------", "------", "------", "------", "+", "------"])

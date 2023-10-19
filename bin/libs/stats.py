@@ -122,7 +122,8 @@ class Plot:
       y = self.YData[i]
       Aio.print(x, "\t", y)
     Aio.print("------------------------")
-  def print(self) -> None:
+    
+  def getDraw(self) -> str:
     """Prints the plot
     """
     if self.Graphical:
@@ -162,8 +163,19 @@ class Plot:
       else:  
         plotext.scatter(self.XData, self.YData)
       if not self.Colored:
-        plotext.colorless()
-      Aio.print(plotext.build())
+        try:
+          plotext.colorless()
+        except:
+          plotext.clear_color()
+      Text = plotext.build()
+      if not self.Colored:
+        Text = Str.removeEscapeCodes(Text)
+      return Text
+      
+  def print(self) -> None:
+      Aio.print(self.getDraw())
+      
+    
 
 class BinStringStats:
   """Static class containing BinString object related stats.
@@ -349,3 +361,17 @@ class Stats:
       result[rep] = ThisRep + 1
     return result
     
+class Stats:
+  
+  @staticmethod
+  def chiSquared(Data) -> float:
+    N = 0
+    Avg = 0
+    for I in Data:
+      N += 1
+      Avg += I
+    Avg /= N
+    Chi2 = 0
+    for I in Data:
+      Chi2 += ((I - Avg) / Avg)
+    return Chi2
