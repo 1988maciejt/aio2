@@ -837,7 +837,7 @@ def f():
     iList = []
     for nlfsr in NlfsrList:
       iList.append(nlfsr.copy())
-    for n1 in tqdm(iList, desc="Filtering NLFSRs"):
+    for n1 in tqdm(iList, desc="Filtering NLFSR"):
       Add = 1
       for n2 in Result:
         if n1.isInverted(n2) or n1.isEquivalent(n2):
@@ -1646,14 +1646,31 @@ def f():
           return ""
         HExt += 3
   
-  def toFibonacci(self) -> bool:
+  def toFibonacci(self, WithValidation=True) -> bool:
     Size = self._size
-    Success = True
-    for i in range(len(self._Config)):
-      D = abs(self._Config[i][0]) % Size
-      Success &= self.rotateTap(i, Size-1-D, SortTaps=0)
-    self.sortTaps()
-    return Success
+    if WithValidation:
+      Aux = self.copy()
+      AllDone = False   
+      LastFF = Size-1
+      while not AllDone:
+        Moved = False   
+        AllDone = True
+        for i in range(len(Aux._Config)):
+          D = abs(Aux._Config[i][0]) % Size
+          if D < LastFF:
+            AllDone = False
+            if Aux.rotateTap(i, 1, True, False):
+              Moved = True
+        if (not AllDone) and (not Moved):
+          return False
+      self._Config = Aux._Config
+      self.sortTaps()
+    else:
+      for i in range(len(self._Config)):
+        D = abs(self._Config[i][0]) % Size
+        self.rotateTap(i, Size-1-D, SortTaps=0)
+      self.sortTaps()
+    return True
   
   def getTapBounds(self, TapIndex : int) -> tuple:
     Size = self._size
@@ -1972,7 +1989,6 @@ endmodule'''
       Aio.printError("Nlfsr.listSystematicNlrgs() can only search for Size >= 2.")
       return []
     MaxCoeffs = (Size // 2) + 2
-    DecreaseBalancing = 0
     MaxPeriod = (1 << Size) - 1
     Result = []
     T0 = time.time()
@@ -2018,7 +2034,99 @@ endmodule'''
     return Result        
   
   @staticmethod
-  def listRandomNlrgs(Size : int, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ArchitectureVersion = 0) -> list:
+  def listRandomNlrgs(Size : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0) -> list:
+    if Size < 3:
+      Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 3.")
+      return []
+    if MaxTapsCount < MinTapsCount:
+      Aio.printError("MaxTapsCount must be >= MinTapsCount.")
+      return []
+    if MaxAndInputCount < MinAndInputsCount:
+      Aio.printError("MaxAndInputCount must be >= MinAndInputsCount.")
+      return []
+    if MinTapsCount < 1:
+      Aio.printError("MinTapsCount must be > 0.")
+      return []
+    if MinAndInputsCount < 2:
+      Aio.printError("MinAndInputsCount must be > 0.")
+      return []
+    if MaxNonlinearTapsRatio < MinNonlinearTapsRatio:
+      Aio.printError("MaxNonlinearTapsRatio must be >= MinNonlinearTapsRatio.")
+      return []
+    if MinNonlinearTapsRatio <= 0 or MaxNonlinearTapsRatio > 1:
+      Aio.printError("MinNonlinearTapsRatio must be >0 and MaxNonlinearTapsRatio <=1.")
+      return []
+    if HybridAllowed:
+      SourceCandidates = [i+1 for i in range(Size)]
+      DestCandidates = [i+1 for i in range(Size)]
+    else:
+      LowerBranch = Size//2
+      SourceCandidates = [i for i in range(LowerBranch+1, Size+1)]
+      DestCandidates = [i for i in range(1, LowerBranch)] + [Size]
+    Chunk = []
+    Result = []
+    ChunkSize = 2048
+    for _ in range(Size-14):
+      ChunkSize //= 2
+    if ChunkSize < 16:
+      ChunkSize = 16
+    TT = TempTranscript(f"Nlfsr.listNlfsrs({Size})")
+    T0 = time.time()
+    if MaximumTries <= 0:
+      MaximumTries = 10000000 * Size
+    for _ in range(MaximumTries):
+      Taps = []
+      TapsCount = random.randint(MinTapsCount, MaxTapsCount)
+      NonlinearTapsRatio = random.uniform(MinNonlinearTapsRatio, MaxNonlinearTapsRatio)
+      NLTapsCount = int(TapsCount * NonlinearTapsRatio)
+      if NLTapsCount < 1:
+        NLTapsCount = 1
+      for _ in range(NLTapsCount):
+        AndInCount = random.randint(MinAndInputsCount, MaxAndInputCount)
+        SList = List.randomSelect(SourceCandidates, AndInCount)
+        for i in range(len(SList)):
+          if random.randint(0,1):
+            SList[i] *= -1
+        D = List.randomSelect(DestCandidates, 1)
+        if random.randint(0,1):
+          D *= -1
+        Taps.append([D, SList])
+      for _ in range(TapsCount - NLTapsCount):
+        S = List.randomSelect(SourceCandidates, 1)
+        D = List.randomSelect(DestCandidates, 1)
+        if random.randint(0,1):
+          D *= -1
+        Taps.append([D, [S]])
+      if len(Taps) > 0:
+        Candidate = Nlfsr(Size, Taps)
+        if Candidate.isLfsr() or Candidate.isSemiLfsr():
+          continue
+        Chunk.append(Candidate)
+      if len(Chunk) >= ChunkSize:
+        #Chunk = Nlfsr.filter(Chunk)
+        PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
+        for Res in PartResult:
+          TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
+        Result += PartResult
+        #if len(Result) > len(PartResult) > 0:
+          #Result = Nlfsr.filter(Result)
+        STime = round((time.time() - T0) / 60, 2)
+        print(f"// Found so far: {len(Result)}, searching time: {STime} min")
+        Chunk = []
+        if len(Result) >= n > 0:
+          break
+        if STime >= MaxSearchingTimeMin > 0:
+          break
+    if len(Chunk) > 0:
+      Result += NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
+      #Result = NlfsrList.filter(Result)
+    if len(Result) > n > 0:
+      Result = Result[:n]  
+    TT.close()      
+    return Result
+  
+  @staticmethod
+  def listHWNlrgs(Size : int, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ArchitectureVersion = 0) -> list:
     if Size < 8:
       Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 8.\nFor small Nlrgs use Nlfsr.listSystematicNlrgs).")
       return []
@@ -2035,7 +2143,11 @@ endmodule'''
       ConfigLen = TapsCount * 11
     Chunk = []
     Result = []
-    ChunkSize = 128
+    ChunkSize = 2048
+    for _ in range(Size-14):
+      ChunkSize //= 2
+    if ChunkSize < 16:
+      ChunkSize = 16
     TT = TempTranscript(f"Nlfsr.listNlfsrs({Size})")
     if MaximumTries <= 0:
       MaximumTries = (1 << ConfigLen)
@@ -2168,7 +2280,8 @@ class NlfsrList:
     for i in range(len(RM)):
       NlfsrsList[i]._period = RM[i]
       Results.append(NlfsrsList[i])
-    return NlfsrList.filter(Results)
+    return Results
+    #return NlfsrList.filter(Results)
   
   def filterPeriod(NlfsrList, OnlyMaximumPeriod = True, AllowMaximumPeriods = True, OnlyPrimeNonMaximumPeriods = True, MinimumPeriodRatio = 0.95) -> list:
     Result = []

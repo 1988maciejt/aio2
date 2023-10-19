@@ -111,12 +111,21 @@ class List:
       Results.clear()
     return None
   
-  def randomSelect(List : list):
-    if len(List) > 0:
-      Max = len(List)-1
-      Index = int(round(random.uniform(-0.49, Max+0.49), 0))
-      return List[Index]
-    return None
+  def randomSelect(List : list, HowMany = 1):
+    if len(List) < HowMany:
+      Aio.printError("List length is < than HowMany")
+      return None
+    RList = List.copy()
+    Result = []
+    Max = len(RList)-1
+    for i in range(HowMany):
+      Index = random.randint(i, Max)
+      Result.append(RList[Index])
+      if Index > i:
+        RList[Index] = RList[i]
+    if len(Result) == 1:
+      return Result[0]
+    return Result
   
   def mathDelta(List : list) -> list:
     left = List[0]
