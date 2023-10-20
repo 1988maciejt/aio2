@@ -131,17 +131,21 @@ class Nlfsr(Lfsr):
       Result += self.getExprFromTap(C)
       Result += "\n"
     return Result[:-1]
-  def printFullInfo(self, Repr = True):
-    Aio.print(self.getFullInfo())
-  def getFullInfo(self, Repr = True):
+  def printFullInfo(self, Repr = True, Draw = False):
+    Aio.print(self.getFullInfo(Repr, Draw))
+  def getFullInfo(self, Repr = True, Draw = False):
     Result = ""
     if Repr:
       Result = f'{repr(self)}\n'
     Result += self.getArchitecture() + "\n"
-    Result += "          " + self.toBooleanExpressionFromRing(0, 0) + "\n"
-    Result += "Comp:     " + self.toBooleanExpressionFromRing(1, 0) + "\n"
-    Result += "Rev:      " + self.toBooleanExpressionFromRing(0, 1) + "\n"
-    Result += "RevComp:  " + self.toBooleanExpressionFromRing(1, 1) + "\n"
+    ExprAnf = self.toBooleanExpressionFromRing(0, 0)
+    if ExprAnf is not None:
+      Result += "          " + ExprAnf + "\n"
+      Result += "Comp:     " + self.toBooleanExpressionFromRing(1, 0) + "\n"
+      Result += "Rev:      " + self.toBooleanExpressionFromRing(0, 1) + "\n"
+      Result += "RevComp:  " + self.toBooleanExpressionFromRing(1, 1) + "\n"
+    if Draw:
+      Result += self.getDraw() + "\n"
     return Result
   def getTaps(self) -> int:
     return self._Config.copy()
@@ -1901,7 +1905,7 @@ endmodule'''
       elif tui.EXE == "exp":
         #_NLFSR.sortTaps()
         sleep(0.2)
-        PS = _NLFSR.createExpander(XorInputsLimit=3, StoreCardinalityData=1, StoreLinearComplexityData=1, StoreOnesCount=1)
+        PS = _NLFSR.createExpander(XorInputsLimit=3, StoreCardinalityData=1, StoreLinearComplexityData= (1 if _NLFSR._size < 13 else 0), StoreOnesCount=1)
         PS.tui()
         sleep(0.5)
       elif tui.EXE == "break_tap":
@@ -2099,8 +2103,8 @@ endmodule'''
         Taps.append([D, [S]])
       if len(Taps) > 0:
         Candidate = Nlfsr(Size, Taps)
-        if Candidate.isLfsr() or Candidate.isSemiLfsr():
-          continue
+        #if Candidate.isLfsr() or Candidate.isSemiLfsr():
+        #  continue
         Chunk.append(Candidate)
       if len(Chunk) >= ChunkSize:
         #Chunk = Nlfsr.filter(Chunk)
@@ -2237,14 +2241,14 @@ endmodule'''
     
 class NlfsrList:
   
-  def getFullInfo(NlfsrsList) -> str:
+  def getFullInfo(NlfsrsList, Draw = False) -> str:
     Result = ""
     for n in NlfsrsList:
-      Result += n.getFullInfo() + "\n"
+      Result += n.getFullInfo(Repr=True, Draw=Draw) + "\n"
     return Result
   
-  def printFullInfo(NlfsrsList : list):
-    Aio.print(NlfsrList.getFullInfo(NlfsrsList))
+  def printFullInfo(NlfsrsList : list, Draw = False):
+    Aio.print(NlfsrList.getFullInfo(NlfsrsList, Draw))
   
   def parseFromArticleFile(FileName : str) -> list:
     Data = readFile(FileName)
