@@ -29,6 +29,8 @@ import tempfile
 import shelve
 import dbm
 from ansi2html import *
+import atexit
+from libs.aio_auto import *
 from libs.asci_drawing import *
 from libs.bent_function import *
 from libs.binstr import *
@@ -94,6 +96,7 @@ import pint
 # research projects - libs
 import libs.research_projects.root_of_trust.root_of_trust as RootOfTrust
 import warnings
+
 warnings.simplefilter("ignore")
 
 
@@ -105,6 +108,9 @@ sleep = time.sleep
 printf = rich.pretty.pprint
 pprint = rich.pretty.pprint
 inspect = rich.inspect
+
+AioAuto.atStart()
+atexit.register(AioAuto.atExit)
 
 def timeIt(Code : str, Iterations = 1):
     exec(Aio.timeItCode(Code, Iterations))

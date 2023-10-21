@@ -77,10 +77,12 @@ class Nlfsr(Lfsr):
   def _refreshFastANF(self):
     self._anf_temp = self.toBooleanExpressionFromRing(ReturnSympyExpr=1)
     if self._anf_temp is None:
-      self._anf_temp = None
+      self._anf_temp = -1
   def _getFastANF(self):
     if self._anf_temp is None:
       self._refreshFastANF()
+    if type(self._anf_temp) is type(int):
+      return None
     return self._anf_temp
   
   def __eq__(self, other) -> bool:
@@ -218,6 +220,7 @@ class Nlfsr(Lfsr):
     else:
       result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ", SET_PERIOD=" + str(self._period) + ")"
     return result
+    
   def _next1(self):
     NewVal = Bitarray.rotl(self._baValue)
     for Tap in self._Config:
@@ -386,12 +389,29 @@ def f():
             WithInverters = 1
       ArgStr += " " + TString
     if len(self._exename) > 0:
-      Res = Aio.shellExecute(self._exename + " " + ArgStr)   
+      try:
+        Res = Aio.shellExecute(self._exename + " " + ArgStr)   
+      except:
+        try:
+          Res = Aio.shellExecute(self._exename + " " + ArgStr)   
+        except:
+          Aio.printError("Cannot run Cpp program to compute Nlfsr's period.")
+          Res = "0"
     else:
-      if WithInverters:
-        Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
-      else:
-        Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
+      try:
+        if WithInverters:
+          Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
+        else:
+          Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
+      except:
+        try:
+          if WithInverters:
+            Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
+          else:
+            Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
+        except:
+          Aio.printError("Cannot run Cpp program to compute Nlfsr's period.")
+          Res = "0"
       #print(Res)
     try:
       self._period = int(Res)
@@ -534,6 +554,13 @@ def f():
       return False
     if self._Config == Another._Config:
       return True
+    MyAnf = self._getFastANF()
+    AnotherAnf = Another._getFastANF()
+    if MyAnf is None:
+      #self.printFullInfo(Draw=1)
+      return False
+    if AnotherAnf is None:
+      return False
     if self._getFastANF() == Another._getFastANF():
       return True
     return False
@@ -818,7 +845,6 @@ def f():
         Result.append(n1)
     return Result
   def filterInverted(NlfsrList : list) -> list:
-    Manager = multiprocessing.Manager()
     Result = []
     iList = []
     for nlfsr in NlfsrList:
@@ -926,7 +952,8 @@ def f():
     else:
       if Verbose:
         Aio.print("// FAILED: conversion to Fibonacci form impossible.")
-      Aio.printError("Converting to ANF expression impossible.")
+      return None
+      #Aio.printError("Converting to ANF expression impossible.")
   
   toAnf = toBooleanExpressionFromRing
   toANF = toBooleanExpressionFromRing
@@ -2065,7 +2092,7 @@ endmodule'''
       DestCandidates = [i+1 for i in range(Size)]
     else:
       LowerBranch = Size//2
-      SourceCandidates = [i for i in range(LowerBranch+1, Size+1)]
+      SourceCandidates = [i for i in range(LowerBranch+1, Size)]
       DestCandidates = [i for i in range(1, LowerBranch)] + [Size]
     Chunk = []
     Result = []
@@ -2082,7 +2109,7 @@ endmodule'''
       Taps = []
       TapsCount = random.randint(MinTapsCount, MaxTapsCount)
       NonlinearTapsRatio = random.uniform(MinNonlinearTapsRatio, MaxNonlinearTapsRatio)
-      NLTapsCount = int(TapsCount * NonlinearTapsRatio)
+      NLTapsCount = int(round(TapsCount * NonlinearTapsRatio, 0))
       if NLTapsCount < 1:
         NLTapsCount = 1
       for _ in range(NLTapsCount):
@@ -2112,8 +2139,8 @@ endmodule'''
         for Res in PartResult:
           TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
         Result += PartResult
-        #if len(Result) > len(PartResult) > 0:
-          #Result = Nlfsr.filter(Result)
+        if len(Result) > len(PartResult) > 0:
+          Result = Nlfsr.filter(Result)
         STime = round((time.time() - T0) / 60, 2)
         print(f"// Found so far: {len(Result)}, searching time: {STime} min")
         Chunk = []
@@ -2123,7 +2150,7 @@ endmodule'''
           break
     if len(Chunk) > 0:
       Result += NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
-      #Result = NlfsrList.filter(Result)
+      Result = NlfsrList.filter(Result)
     if len(Result) > n > 0:
       Result = Result[:n]  
     TT.close()      
@@ -2235,18 +2262,237 @@ endmodule'''
     return Result
     
           
+class NlfsrCommonTapsReport:
+  
+  __slots__ = ("_full_dict", "_dict", "_nlfsrs")
+  
+  def _getTaps(self, nlfsr : Nlfsr, Store=False, MakeFibonacci=True) -> list:
+    if MakeFibonacci or Store:
+      n2 = nlfsr.copy()
+    else:
+      n2 = nlfsr
+    if MakeFibonacci:
+      n2.toFibonacci()
+    if Store:
+      self._nlfsrs.append(n2)
+    Size = n2._size
+    Result = []
+    for Tap in n2._Config:
+      D = abs(Tap[0]) % Size
+      S = []
+      for Si in Tap[1]:
+        S.append(abs(Si) % Size)
+      S.sort()
+      CTap = tuple([D, tuple(S)])
+      Result.append(CTap)
+    return Result
+  
+  def match(self, nlfsr : Nlfsr) -> bool:
+    CTaps = self._getTaps(nlfsr)
+    GTaps = list(self._dict.keys())
+    for CTap in CTaps:
+      Found = False
+      for GTap in GTaps:
+        Found = False
+        if (CTap[0] == GTap[0]):
+          Found = True
+          for S in CTap[1]:
+            if S not in GTap[1]:
+              Found = False
+              break
+        if Found:
+          break  
+      if not Found:
+        return False
+    return True
+  
+  def _matchInt(self, index : int) -> bool:
+    CTaps = self._getTaps(self._nlfsrs[index], False, False)
+    GTaps = list(self._dict.keys())
+    for CTap in CTaps:
+      Found = False
+      for GTap in GTaps:
+        Found = False
+        if (CTap[0] == GTap[0]):
+          Found = True
+          for S in CTap[1]:
+            if S not in GTap[1]:
+              Found = False
+              break
+        if Found:
+          break  
+      if not Found:
+        return False
+    return True
+  
+  def __init__(self, NlfsrsList) -> None:
+    self._nlfsrs = []
+    CommonTaps = {}
+    for n in NlfsrsList:
+      CTaps = self._getTaps(n, True)
+      for CTap in CTaps:
+        CommonTaps[CTap] = CommonTaps.get(CTap, 0) + 1
+    self._full_dict = dict( sorted(CommonTaps.items(), key=lambda x:x[1], reverse=1) )
+    self._dict = self._full_dict
+    
+  def filterTaps(self, MinFrequency : int = 0, MaxTapsCount : int = 0):
+    Dict = {}
+    for k in self._full_dict.keys():
+      v = self._full_dict[k]
+      if v >= MinFrequency:
+        Dict[k] = v
+        if len(Dict) >= MaxTapsCount > 0:
+          break
+      else:
+        break
+    self._dict = Dict
+    
+  def getAllTapsCount(self) -> int:
+    return len(self._full_dict)
+    
+  def getTapsCount(self) -> int:
+    return len(self._dict)
+  
+  def _divideTapsByInputCount(self, InputCount : int) -> tuple:
+    Result = []
+    Rest = []
+    for Item in self._full_dict.items():
+      CTap = Item[0]
+      if len(CTap[1]) == InputCount:
+        Result.append(Item)
+      else:
+        Rest.append(Item)
+    return dict(Result), dict(Rest)
+  
+  def getTapsHavingGivenInputs(self, InputCount : int) -> list:
+    Result = []
+    for CTap in self._full_dict.keys():
+      if len(CTap[1]) == InputCount:
+        Result.append(CTap)
+    return Result
+  
+  def getMaximumTapInputCount(self) -> int:
+    Result = 0
+    for CTap in self._full_dict.keys():
+      if len(CTap[1]) > Result:
+        Result = len(CTap[1])
+    return Result
+  
+  def reduceTaps(self):
+    for i in range(1, self.getMaximumTapInputCount()):
+      New = {}
+      Given, Rest = self._divideTapsByInputCount(i)
+      for Item in Given.items():
+        CTap = Item[0]
+        Freq = Item[1]
+        MayRemove = False
+        RTap = tuple([])
+        for RItem in Rest.items():
+          RTap = RItem[0]
+          MayRemove = True
+          for S in CTap[1]:
+            if S not in RTap[1]:
+              MayRemove = False
+              break
+          if MayRemove:
+            break
+        if MayRemove:
+          Rest[RTap] = Rest.get(RTap, 0) + Freq
+        else:
+          New[CTap] = Freq
+      New.update(Rest)
+      self._full_dict = New
+    self._full_dict = dict( sorted(self._full_dict.items(), key=lambda x:x[1], reverse=1) )
+    self._dict = self._full_dict
+        
+  def combineTaps(self, MaxInputCount : int = 0):
+    Max = self.getMaximumTapInputCount()
+    if MaxInputCount <= Max:
+      MaxInputCount = max
+    SomethingMerged = True
+    while SomethingMerged:
+      New = {}
+      SkippedIndices = []
+      CItems = list(self._full_dict.items())
+      SomethingMerged = False
+      for i in range(len(CItems)):
+        if i in SkippedIndices:
+          continue
+        if len(CItems[i][0][1]) > MaxInputCount:
+          New[CItems[i][0]] = CItems[i][1]
+          continue
+        JustCombined = False
+        for j in range(i+1, len(CItems)):
+          if CItems[i][0][0] != CItems[j][0][0]:
+            continue
+          NewS = tuple(set(CItems[i][0][1]) | set(CItems[j][0][1]))
+          if len(NewS) <= MaxInputCount:
+            New[tuple([CItems[i][0][0], NewS])] = CItems[i][1] + CItems[j][1]
+            JustCombined = True
+            SomethingMerged = True
+            SkippedIndices.append(j)
+            break
+        if not JustCombined:
+          New[CItems[i][0]] = CItems[i][1]
+      self._full_dict = New
+      self._full_dict = dict( sorted(self._full_dict.items(), key=lambda x:x[1], reverse=1) )    
+    self._dict = self._full_dict
+      
+    
+  def howManyMatches(self, MinTapFrequency : int = 0, MaxTapsCount : int = 0):
+    self.filterTaps(MinTapFrequency, MaxTapsCount)
+    Result = 0
+    for i in range(len(self._nlfsrs)):
+      if self._matchInt(i):
+        Result += 1
+    return Result
+  
+  def getReport(self) -> str:
+    T = AioTable(["# taps", "# NLFSRs", "% NLFSRs"])
+    for i in range(1, len(self._full_dict)+1):
+      m = self.howManyMatches(0, i)
+      p = round(m * 100 / len(self._nlfsrs), 2)
+      T.add([i, m, p])
+    T2 = AioTable(["Tap", "Frequency"], AutoId=1)
+    for Item in self._dict.items():
+      CTap = Item[0]
+      Freq = Item[1]
+      D = CTap[0]
+      S = CTap[1]
+      T2.add([f"{D} <= {S}", Freq])
+    Result = f"""======== Common taps report =========
+# Examined NLFSRs: {len(self._nlfsrs)} 
+# Unique taps:     {len(self._full_dict)}
 
+How often taps are used?
+{str(T2)}
+
+How many NLFSRs can be created using the given taps set?
+{str(T)}
+"""
+    return Result
+  
+  def printReport(self):
+    Aio.print(self.getReport())
+  
+  
     
         
     
 class NlfsrList:
   
+  @staticmethod
+  def analyseCommonTaps(NlfsrsList) -> NlfsrCommonTapsReport: 
+    return NlfsrCommonTapsReport(NlfsrsList)
+  
+  @staticmethod
   def getFullInfo(NlfsrsList, Draw = False) -> str:
     Result = ""
     for n in NlfsrsList:
       Result += n.getFullInfo(Repr=True, Draw=Draw) + "\n"
     return Result
   
+  @staticmethod
   def printFullInfo(NlfsrsList : list, Draw = False):
     Aio.print(NlfsrList.getFullInfo(NlfsrsList, Draw))
   
@@ -2406,7 +2652,7 @@ class NlfsrList:
       writeFile(FileName, PT.toString('left'))
       i += 1
       
-  def toXlsDatabase(NlfsrsList, Scheduler = None):
+  def toXlsDatabase(NlfsrsList, Scheduler = None, CleanBufferedLists = True):
     from libs.remote_aio import RemoteAioScheduler
     if type(Scheduler) is not RemoteAioScheduler:
       Scheduler = None
@@ -2445,7 +2691,7 @@ class NlfsrList:
       tt.print(f"{Cntr}/{len(NlfsrsList)}: {repr(nlfsr)}")
       print(f"{Cntr}/{len(NlfsrsList)}: {repr(nlfsr)}")
       if Expander is None:
-        Expander, Trajectories = _make_expander(nlfsr, PBar=1)
+        Expander, Trajectories = _make_expander(nlfsr, PBar=1, AlwaysCleanFiles=CleanBufferedLists)
       FileName = "data/" + hashlib.sha256(bytes(repr(nlfsr), "utf-8")).hexdigest() + ".html"
       TuplesRep = Expander.TuplesRep
       Eq = nlfsr.toBooleanExpressionFromRing(0, 0)
@@ -2577,22 +2823,22 @@ TUPLES REPORT (Sequence observed at bit 0):
     if Scheduler is not None:
       print("\n=== Finished. ===")
 
-def _make_expander(nlfsr, PBar=0, NoBufferedLists = False) -> tuple:
+def _make_expander(nlfsr, PBar=0, NoBufferedLists = False, AlwaysCleanFiles = True) -> tuple:
   T = None
   if nlfsr.getSize() <= 14:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, NoBufferedLists=NoBufferedLists, ReturnAlsoTuplesReport=True)
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, NoBufferedLists=NoBufferedLists, ReturnAlsoTuplesReport=True, AlwaysCleanFiles=AlwaysCleanFiles)
     if not nlfsr.isMaximum():
       T = nlfsr.analyseCycles()
   elif nlfsr.getSize() <= 18:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, NoBufferedLists=NoBufferedLists, ReturnAlsoTuplesReport=True)
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, NoBufferedLists=NoBufferedLists, ReturnAlsoTuplesReport=True, AlwaysCleanFiles=AlwaysCleanFiles)
     if not nlfsr.isMaximum():
       T = nlfsr.analyseCycles()
   else:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1, NoBufferedLists=NoBufferedLists,ReturnAlsoTuplesReport=True) 
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1, NoBufferedLists=NoBufferedLists,ReturnAlsoTuplesReport=True, AlwaysCleanFiles=AlwaysCleanFiles) 
   return E, T
 
 def Nlfsr_makeExpanderForRAio(nlfsr) -> tuple:
-  E, T = _make_expander(nlfsr, True, True)
+  E, T = _make_expander(nlfsr, True, True, True)
   return nlfsr, E, T
     
 def _NLFSR_list_database_helper(NLFSR : Nlfsr) -> list:

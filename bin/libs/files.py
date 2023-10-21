@@ -221,9 +221,10 @@ class TempDir:
   def __str__(self) -> str:
     return self._path
   def __del__(self) -> None:
-    if not self.DontDelete:
+      from libs.aio_auto import AioAuto
       shutil.rmtree(self._path, ignore_errors=True)
   def __init__(self) -> None:
+    from libs.aio_auto import AioAuto
     self.DontDelete = False
     oncemore = True
     self._pwd = pwd()
@@ -233,6 +234,7 @@ class TempDir:
       self._path = os.path.abspath(f"./{self._name}")
       oncemore = os.path.isdir(self._path)
     os.makedirs(self._path)
+    AioAuto.registerDirToClean(self._path)
   def getName(self) -> str:
     return self._name
   def getPath(self) -> str:

@@ -249,6 +249,10 @@ class List:
         MaxIndex = k
     return List.circularShift(ListOfNumbers, MaxIndex)
   
+  def getDifferentItems(a : list, b : list) -> list:
+    return list(set(a) ^ set(b))
+  
+
 
 class BufferedList:
   
@@ -311,6 +315,7 @@ class BufferedList:
         self._td.DontDelete = True
       else:
         del self._td
+        
     
   def __len__(self) -> int:
     return len(self._list)

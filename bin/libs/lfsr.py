@@ -2784,6 +2784,7 @@ endmodule'''
       self._next1()
     return Result
   
+  
   def _checkMaximumSerial(LfsrsList : list, ReturnLfsrsCountAndPolynomials = False, ReturnPolynomialsHashes = True) -> list:
     if ReturnLfsrsCountAndPolynomials:
       LfsrsCount = 0
