@@ -2287,9 +2287,11 @@ class NlfsrCommonTapsReport:
       Result.append(CTap)
     return Result
   
-  def match(self, nlfsr : Nlfsr) -> bool:
+  def match(self, nlfsr : Nlfsr, ReturnFullInfo = False) -> bool:
     CTaps = self._getTaps(nlfsr)
     GTaps = list(self._dict.keys())
+    if ReturnFullInfo:
+      UsedTaps = {}
     for CTap in CTaps:
       Found = False
       for GTap in GTaps:
@@ -2301,29 +2303,19 @@ class NlfsrCommonTapsReport:
               Found = False
               break
         if Found:
+          if ReturnFullInfo:
+            UsedTaps[GTap] = UsedTaps.get(GTap, 0) + 1
           break  
       if not Found:
+        if ReturnFullInfo:
+          return None
         return False
+    if ReturnFullInfo:
+      return UsedTaps
     return True
   
-  def _matchInt(self, index : int) -> bool:
-    CTaps = self._getTaps(self._nlfsrs[index], False, False)
-    GTaps = list(self._dict.keys())
-    for CTap in CTaps:
-      Found = False
-      for GTap in GTaps:
-        Found = False
-        if (CTap[0] == GTap[0]):
-          Found = True
-          for S in CTap[1]:
-            if S not in GTap[1]:
-              Found = False
-              break
-        if Found:
-          break  
-      if not Found:
-        return False
-    return True
+  def _matchInt(self, index : int, ReturnFullInfo = False) -> bool:
+    return self.match(self._nlfsrs[index], ReturnFullInfo)
   
   def __init__(self, NlfsrsList) -> None:
     self._nlfsrs = []
@@ -2408,7 +2400,7 @@ class NlfsrCommonTapsReport:
   def combineTaps(self, MaxInputCount : int = 0):
     Max = self.getMaximumTapInputCount()
     if MaxInputCount <= Max:
-      MaxInputCount = max
+      MaxInputCount = Max
     SomethingMerged = True
     while SomethingMerged:
       New = {}
@@ -2439,13 +2431,72 @@ class NlfsrCommonTapsReport:
     self._dict = self._full_dict
       
     
-  def howManyMatches(self, MinTapFrequency : int = 0, MaxTapsCount : int = 0):
+  def howManyMatches(self, MinTapFrequency : int = 0, MaxTapsCount : int = 0, ReturnAlsoUsedTaps = False):
     self.filterTaps(MinTapFrequency, MaxTapsCount)
     Result = 0
-    for i in range(len(self._nlfsrs)):
-      if self._matchInt(i):
+    if ReturnAlsoUsedTaps:
+      UsedTaps = {}
+    for i in range(len(self._nlfsrs)):      
+      if ReturnAlsoUsedTaps:
+        UT = self._matchInt(i, True)
+        if UT is not None:
+          for Item in UT.items():
+            if UsedTaps.get(Item[0], 0) < Item[1]:
+              UsedTaps[Item[0]] = Item[1]
+          Result += 1
+      else:
+        if self._matchInt(i):
+          Result += 1
+    if ReturnAlsoUsedTaps:
+      return Result, UsedTaps
+    return Result
+  
+  def howManyMatchesTheSuperNlfsr(self, SuperNlfsr : Nlfsr) -> int:
+    sn = SuperNlfsr.copy()
+    if not sn.toFibonacci():
+      Aio.printError("Cannot convert the SuperNlfsr to Fibonacci.")
+      return None
+    Size = sn._size
+    Taps = []
+    for Tap in sn._Config:
+      D = abs(Tap[0]) % Size
+      S = []
+      for Si in Tap[1]:
+        S.append(abs(Si) % Size)
+      Taps.append([D, S])
+    Result = 0
+    for n in self._nlfsrs:
+      GTaps = copy.deepcopy(Taps)
+      CTaps = n._Config
+      Size = n._size
+      Matches = True
+      for CTap in CTaps:
+        Found = False
+        BestGTap = None
+        for GTap in GTaps:
+          if GTap[0] != (abs(CTap[0]) % Size):
+            continue
+          LocalFound = True
+          for CS in CTap[1]:
+            if (abs(CS) % Size) not in GTap[1]:
+              LocalFound = False
+              break
+          if LocalFound:
+            if Found:
+              if len(GTap[1]) < len(BestGTap[1]):
+                BestGTap = GTap
+            else:
+              Found = True
+              BestGTap = GTap
+        if Found:
+          GTaps.remove(BestGTap)
+        else:
+          Matches = False
+          break
+      if Matches:
         Result += 1
     return Result
+            
   
   def getReport(self) -> str:
     T = AioTable(["# taps", "# NLFSRs", "% NLFSRs"])
@@ -2475,6 +2526,51 @@ How many NLFSRs can be created using the given taps set?
   def printReport(self):
     Aio.print(self.getReport())
   
+  def getSuperNlfsr(self, MinTapFrequency : int = 0, MaxTapsCount : int = 0):
+    N, Dict = self.howManyMatches(MinTapFrequency, MaxTapsCount, 1)
+    Taps = []
+    for Item in Dict.items():
+      Tap = [Item[0][0], list(Item[0][1])]
+      for _ in range(Item[1]):
+        Taps.append(Tap.copy())
+    Size = Tap[0] + 1
+    n = Nlfsr(Size, Taps)
+    TC = len(Taps)
+    Adder = TC / (Size/2)
+    Step = 1
+    OnceMore = []
+    for i in range(TC):
+      Success = False
+      SubStep = Step
+      while not Success and SubStep > 0:
+        Success = n.rotateTap(i,SubStep,1,0)
+        SubStep -= 1
+      if SubStep+1 != Step:
+        OnceMore.append([i, Step])
+      Step = int(round(Step + Adder, 0))
+    DidSomething = True
+    while DidSomething:
+      DidSomething = False
+      Iter = OnceMore.copy()
+      OnceMore = []
+      for Item in Iter:
+        Success = False
+        Step = Item[1]
+        SubStep = Step
+        i = Item[0]
+        while not Success and SubStep > 0:
+          Success = n.rotateTap(i,SubStep,1,0)
+          SubStep -= 1
+        if Success:
+          DidSomething = True
+        if SubStep+1 != Step:
+          OnceMore.append([i, Step])
+      n.sortTaps()
+    return n
+      
+      
+      
+      
   
     
         
