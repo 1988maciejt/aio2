@@ -171,3 +171,7 @@ class Int:
       return int(Value)
     except:
       return Default
+    
+  @staticmethod
+  def hash(Value) -> int:
+    return (((Value + 789) * 17) ** 3) + 1000000000000000 % 99999999999973

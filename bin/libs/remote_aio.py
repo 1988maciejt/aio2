@@ -480,6 +480,7 @@ class RemoteAioNode:
                     self._LastChangedCounterTimeStamp = time.time()
     
     def _monCbk(self, args):
+        from libs.aio_auto import AioAuto
         if self._Locked:
             return
         FromIp = args[1]
@@ -521,6 +522,7 @@ class RemoteAioNode:
                         except Exception as inst2:
                             Result = Task.Response # the default one
                             Aio.printError(f"// REMOTE_AIO_NODE: INVALID TASK: {inst2}")
+                        AioAuto.atExit()
                         Task.Code = None
                         Task.Response = Result
                         del self._MyMsg

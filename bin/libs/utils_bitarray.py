@@ -271,6 +271,9 @@ class Bitarray:
                 Result[sid][sbit] = Bit
         return Result
     
+    def getTuplesReport(Word : bitarray, FromTupleSize : int = 2, ToTupleSize : int = 8, Significance=0.05):
+        return TuplesReport(Word, FromTupleSize, ToTupleSize, Significance)
+    
     
 class TuplesReport:
     
@@ -291,7 +294,7 @@ class TuplesReport:
             Critical = chi2.isf(Significance, (1<<TSize)-1)
             self._pass[TSize] = True if self._stats[TSize].statistic <= Critical else False
             
-    def getReport(self, FromTupleSize : int = None, ToTupleSize : int = None, Colored = False, HidePlot = False) -> str:
+    def getReport(self, FromTupleSize : int = None, ToTupleSize : int = None, Colored = False, HidePlot = False, HideNumbers = False) -> str:
         if FromTupleSize is None:
             FromTupleSize = self._tmin
         elif FromTupleSize < self._tmin:
@@ -315,7 +318,8 @@ class TuplesReport:
             Result += f"Min: {Min}, \tMax: {Max}, \tChi{Str.toSuperScript('2')}: {PDiv.statistic}, \tPval: {PDiv.pvalue}  \t->  {'PASSED' if Pass else 'FAILED'}\n\n"
             if not HidePlot:
                 Result += Plot(H, PlotTypes.Bar, Width=80, Height=16, Colored=Colored).getDraw()
-            Result += "HistogramValues = " + str(H)
+            if not HideNumbers:
+                Result += "HistogramValues = " + str(H)
             Result += "\n\n"
         return Result
         
@@ -330,8 +334,8 @@ class TuplesReport:
         HtmlFile.write(html)
         HtmlFile.close()
     
-    def printReport(self, FromTupleSize : int = None, ToTupleSize : int = None, Colored = True, HidePlot = False) -> None:
-        Aio.print(self.getReport(FromTupleSize, ToTupleSize, Colored, HidePlot))
+    def printReport(self, FromTupleSize : int = None, ToTupleSize : int = None, Colored = True, HidePlot = False, HideNumbers = False) -> None:
+        Aio.print(self.getReport(FromTupleSize, ToTupleSize, Colored, HidePlot, HideNumbers))
         
     def getPassFailedList(self, FromTupleSize : int = None, ToTupleSize : int = None) -> list:
         if FromTupleSize is None:

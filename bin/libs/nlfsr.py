@@ -153,6 +153,7 @@ class Nlfsr(Lfsr):
     return self._Config.copy()
   def __init__(self, Size : int, Config = [], **kwargs) -> None:
     self._anf_temp = None
+    self._period_verified = None
     if Aio.isType(Size, []):
       Size = Polynomial(Size)
     if Aio.isType(Size, "Polynomial"):
@@ -164,6 +165,7 @@ class Nlfsr(Lfsr):
       self._points = Size._points
       self._exename = Size._exename
       self._period = Size._period
+      self._period_verified = Size._period_verified
       self._anf_temp = Size._anf_temp
     elif Aio.isType(Size, "Lfsr"):
       self._size = Size._size
@@ -212,13 +214,27 @@ class Nlfsr(Lfsr):
       self._period = None
       self.reset()
       if kwargs.get("SET_PERIOD", None) is not None:
-        self._period = kwargs["SET_PERIOD"]
-        Aio.print(f"// WARNING: Period of Nlfsr was set to {self._period} and WILL NOT be verified again!")
+        _period = kwargs["SET_PERIOD"]
+        if type(_period) is int:
+          self._period = _period
+          Aio.print(f"// WARNING: Period of Nlfsr was set to {self._period} and WILL NOT be verified again!")
+        elif type(_period) is tuple:
+          p = _period[0]
+          h = _period[1]
+          if Int.hash(p) == h:
+            self._period = p
+            self._period_verified = h
+          else:
+            Aio.print(f"// WARNING: Period of Nlfsr was set to {self._period} but IS INCORRECT!!!")
+            
   def __repr__(self) -> str:
     if self._period is None:
       result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ")"
     else:
-      result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ", SET_PERIOD=" + str(self._period) + ")"
+      if self._period_verified is not None:
+        result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ", SET_PERIOD=(" + str(self._period) + "," + str(self._period_verified) + "))"
+      else:
+        result = "Nlfsr(" + str(self._size) + ", " + str(self._Config) + ", SET_PERIOD=" + str(self._period) + ")"
     return result
     
   def _next1(self):
@@ -415,9 +431,11 @@ def f():
       #print(Res)
     try:
       self._period = int(Res)
+      self._period_verified = Int.hash(self._period)
       return self._period
     except Exception as inst:
       self._period = None
+      self._period_verified = None
       Aio.printError(f"Nlfsr.getPeriod - cpp program returns weird result:\n{Res}\nArgs: {ArgStr}", inst)
       return -1
   def isMaximum(self):
@@ -2047,7 +2065,7 @@ endmodule'''
         for Res in PartResultFiltered:
           TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
         Result += PartResultFiltered
-        if len(Result) > len(PartResultFiltered) > 0:
+        if len(PartResultFiltered) > 0:
           Result = NlfsrList.filter(Result)
         STime = round((time.time() - T0) / 60, 2)
         print(f"// Found so far: {len(Result)}, searching time: {STime} min")
@@ -2139,7 +2157,7 @@ endmodule'''
         for Res in PartResult:
           TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
         Result += PartResult
-        if len(Result) > len(PartResult) > 0:
+        if len(PartResult) > 0:
           Result = Nlfsr.filter(Result)
         STime = round((time.time() - T0) / 60, 2)
         print(f"// Found so far: {len(Result)}, searching time: {STime} min")
@@ -2244,7 +2262,7 @@ endmodule'''
         for Res in PartResult:
           TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
         Result += PartResult
-        if len(Result) > len(PartResult) > 0:
+        if len(PartResult) > 0:
           Result = Nlfsr.filter(Result)
         STime = round((time.time() - T0) / 60, 2)
         print(f"// Found so far: {len(Result)}, searching time: {STime} min")
@@ -2617,14 +2635,18 @@ class NlfsrList:
         Results.append(NlfsrsList[i])
     return NlfsrList.filter(Results)
   
-  def checkPeriod(NlfsrsList) -> list:
+  def checkPeriod(NlfsrsList, ForceRecalculation=False) -> list:
     exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
     for N in NlfsrsList:
       N._exename = exename
+    if ForceRecalculation:
+      for N in NlfsrsList:
+        N._period = None
     RM = p_map(Nlfsr.getPeriod, NlfsrsList, desc="Nlfsrs simulating")
     Results = []
     for i in range(len(RM)):
       NlfsrsList[i]._period = RM[i]
+      NlfsrsList[i]._period_verified = Int.hash(RM[i])
       Results.append(NlfsrsList[i])
     return Results
     #return NlfsrList.filter(Results)
@@ -2720,9 +2742,11 @@ class NlfsrList:
         Results.append(N)
     return Results
   
-  def reprToFile(NlfsrsList, FileName : str):
+  def reprToFile(NlfsrsList, FileName : str, ForcePeriodRecalculation=False):
     Text = ""
     Second = 0
+    if ForcePeriodRecalculation:
+      NlfsrList.checkPeriod(NlfsrsList, True)
     for n in NlfsrsList:
       if Second:
         Text += "\n"
@@ -2770,6 +2794,7 @@ class NlfsrList:
     Iter = p_map(Nlfsr.getPeriod, NlfsrsList, desc="Period obtaining")    
     for I, nlfsr in zip(Iter, NlfsrsList):
       nlfsr._period = I
+      nlfsr._period_verified = Int.hash(I)
       NlfsrsListAux.append(nlfsr)
     NlfsrsList = NlfsrsListAux
     if Scheduler is None:
@@ -2946,8 +2971,7 @@ def _NLFSR_list_database_helper(NLFSR : Nlfsr) -> list:
     
 def _NLFSR_find_spec_period_helper(nlrglist : Nlfsr) -> int:
   for nlrg in nlrglist:
-    p = nlrg.getPeriod()
-    nlrg._period = p
+    p = nlrg.getPeriod()    
   return nlrglist
 def _NLFSR_find_spec_period_helper2(nlrglist : Nlfsr) -> int:
   Results = []
