@@ -2471,7 +2471,7 @@ class NlfsrCommonTapsReport:
   
   def howManyMatchesTheSuperNlfsr(self, SuperNlfsr : Nlfsr) -> int:
     sn = SuperNlfsr.copy()
-    if not sn.toFibonacci():
+    if not sn.toFibonacci(False):
       Aio.printError("Cannot convert the SuperNlfsr to Fibonacci.")
       return None
     Size = sn._size
