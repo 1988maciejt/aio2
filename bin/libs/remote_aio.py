@@ -522,7 +522,7 @@ class RemoteAioNode:
                         except Exception as inst2:
                             Result = Task.Response # the default one
                             Aio.printError(f"// REMOTE_AIO_NODE: INVALID TASK: {inst2}")
-                        AioAuto.atExit()
+                        #AioAuto.atExit()
                         Task.Code = None
                         Task.Response = Result
                         del self._MyMsg

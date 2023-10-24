@@ -877,14 +877,20 @@ def f():
         Result.append(n1)
     return Result
   
-  def filter(NlfsrList : list) -> list:
+  def filter(NlfsrList : list, ExcludeSemiLfsrs = False) -> list:
 #    Result = Nlfsr.filterInverted(NlfsrList)
 #    Result = Nlfsr.filterEquivalent(Result)
 #    return Result
     Result = []
     iList = []
     for nlfsr in NlfsrList:
-      iList.append(nlfsr.copy())
+      if ExcludeSemiLfsrs:
+        if not nlfsr.isSemiLfsr():
+          iList.append(nlfsr.copy())
+      else:
+        iList.append(nlfsr.copy())
+    if len(iList) <= 1:
+      return iList
     for n1 in tqdm(iList, desc="Filtering NLFSR"):
       Add = 1
       for n2 in Result:
@@ -2083,7 +2089,7 @@ endmodule'''
     return Result        
   
   @staticmethod
-  def listRandomNlrgs(Size : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0) -> list:
+  def listRandomNlrgs(Size : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0) -> list:
     if Size < 3:
       Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 3.")
       return []
@@ -2106,19 +2112,19 @@ endmodule'''
       Aio.printError("MinNonlinearTapsRatio must be >0 and MaxNonlinearTapsRatio <=1.")
       return []
     if HybridAllowed:
-      SourceCandidates = [i+1 for i in range(Size)]
-      DestCandidates = [i+1 for i in range(Size)]
+      SourceCandidates = [Size] + [i+1 for i in range(Size-1)]
+      DestCandidates = [Size] + [i+1 for i in range(Size-1)]
     else:
       LowerBranch = Size//2
       SourceCandidates = [i for i in range(LowerBranch+1, Size)]
-      DestCandidates = [i for i in range(1, LowerBranch)] + [Size]
+      DestCandidates = [Size] + [i for i in range(1, LowerBranch)]
     Chunk = []
     Result = []
     ChunkSize = 2048
     for _ in range(Size-14):
       ChunkSize //= 2
-    if ChunkSize < 16:
-      ChunkSize = 16
+    if ChunkSize < 32:
+      ChunkSize = 32
     TT = TempTranscript(f"Nlfsr.listNlfsrs({Size})")
     T0 = time.time()
     if MaximumTries <= 0:
@@ -2126,23 +2132,33 @@ endmodule'''
     for _ in range(MaximumTries):
       Taps = []
       TapsCount = random.randint(MinTapsCount, MaxTapsCount)
-      NonlinearTapsRatio = random.uniform(MinNonlinearTapsRatio, MaxNonlinearTapsRatio)
-      NLTapsCount = int(round(TapsCount * NonlinearTapsRatio, 0))
+      #NonlinearTapsRatio = random.uniform(MinNonlinearTapsRatio, MaxNonlinearTapsRatio)
+      NLTapsCount = random.randint(int(round(TapsCount * MinNonlinearTapsRatio, 0)), int(round(TapsCount * MaxNonlinearTapsRatio, 0)))
+      #NLTapsCount = int(round(TapsCount * NonlinearTapsRatio, 0))
       if NLTapsCount < 1:
         NLTapsCount = 1
+      CandidateIndex = 0
+      if UniformTapsDistribution:
+        DestDistance = len(DestCandidates) / TapsCount
+      else:
+        DestDistance = 1
       for _ in range(NLTapsCount):
         AndInCount = random.randint(MinAndInputsCount, MaxAndInputCount)
         SList = List.randomSelect(SourceCandidates, AndInCount)
         for i in range(len(SList)):
           if random.randint(0,1):
             SList[i] *= -1
-        D = List.randomSelect(DestCandidates, 1)
+        D = DestCandidates[int(round(CandidateIndex, 0))]
+        CandidateIndex = ((CandidateIndex+DestDistance) % len(DestCandidates))        
+        #D = List.randomSelect(DestCandidates, 1)
         if random.randint(0,1):
           D *= -1
         Taps.append([D, SList])
       for _ in range(TapsCount - NLTapsCount):
         S = List.randomSelect(SourceCandidates, 1)
-        D = List.randomSelect(DestCandidates, 1)
+        D = DestCandidates[int(round(CandidateIndex, 0))]
+        CandidateIndex = ((CandidateIndex+DestDistance) % len(DestCandidates))   
+        #D = List.randomSelect(DestCandidates, 1)
         if random.randint(0,1):
           D *= -1
         Taps.append([D, [S]])
@@ -2152,13 +2168,14 @@ endmodule'''
         #  continue
         Chunk.append(Candidate)
       if len(Chunk) >= ChunkSize:
-        #Chunk = Nlfsr.filter(Chunk)
+        if len(Chunk) <= 32:
+          Chunk = Nlfsr.filter(Chunk)
         PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
         for Res in PartResult:
           TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
         Result += PartResult
         if len(PartResult) > 0:
-          Result = Nlfsr.filter(Result)
+          Result = Nlfsr.filter(Result, True)
         STime = round((time.time() - T0) / 60, 2)
         print(f"// Found so far: {len(Result)}, searching time: {STime} min")
         Chunk = []
@@ -2168,7 +2185,7 @@ endmodule'''
           break
     if len(Chunk) > 0:
       Result += NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
-      Result = NlfsrList.filter(Result)
+      Result = NlfsrList.filter(Result, True)
     if len(Result) > n > 0:
       Result = Result[:n]  
     TT.close()      
@@ -2669,8 +2686,8 @@ class NlfsrList:
             Result.append(n)
     return Result
   
-  def filter(NlfsrsList) -> list:
-    return Nlfsr.filter(NlfsrsList)
+  def filter(NlfsrsList, ExcludeSemiLfsrs = False) -> list:
+    return Nlfsr.filter(NlfsrsList, ExcludeSemiLfsrs)
   
   def filterNonLinear(NlfsrList) -> list:
     G = Generators()
