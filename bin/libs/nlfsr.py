@@ -2089,7 +2089,7 @@ endmodule'''
     return Result        
   
   @staticmethod
-  def listRandomNlrgs(Size : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0) -> list:
+  def listRandomNlrgs(Size : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, HardcodedInverters = False) -> list:
     if Size < 3:
       Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 3.")
       return []
@@ -2146,12 +2146,16 @@ endmodule'''
         AndInCount = random.randint(MinAndInputsCount, MaxAndInputCount)
         SList = List.randomSelect(SourceCandidates, AndInCount)
         for i in range(len(SList)):
-          if random.randint(0,1):
+          if HardcodedInverters:
+            SList[i] *= -1
+          elif random.randint(0,1):
             SList[i] *= -1
         D = DestCandidates[int(round(CandidateIndex, 0))]
         CandidateIndex = ((CandidateIndex+DestDistance) % len(DestCandidates))        
         #D = List.randomSelect(DestCandidates, 1)
-        if random.randint(0,1):
+        if HardcodedInverters:
+          D *= -1
+        elif random.randint(0,1):
           D *= -1
         Taps.append([D, SList])
       for _ in range(TapsCount - NLTapsCount):
@@ -2159,8 +2163,9 @@ endmodule'''
         D = DestCandidates[int(round(CandidateIndex, 0))]
         CandidateIndex = ((CandidateIndex+DestDistance) % len(DestCandidates))   
         #D = List.randomSelect(DestCandidates, 1)
-        if random.randint(0,1):
-          D *= -1
+        if not HardcodedInverters:
+          if random.randint(0,1):
+            D *= -1
         Taps.append([D, [S]])
       if len(Taps) > 0:
         Candidate = Nlfsr(Size, Taps)
