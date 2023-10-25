@@ -109,6 +109,8 @@ printf = rich.pretty.pprint
 pprint = rich.pretty.pprint
 inspect = rich.inspect
 
+random.seed(int(time.time() * 10000000) % (1<<63))
+
 AioAuto.atStart()
 atexit.register(AioAuto.atExit)
 
