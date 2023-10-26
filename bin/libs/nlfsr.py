@@ -988,19 +988,22 @@ def f():
     E = self.toBooleanExpressionFromRing(ReturnSympyExpr=1)
     Result = [self._size, 0] + ([0] * (MaxTapsCount * MaxAndInputs))
     Taps = []
-    for Arg in E.args:
-      if Arg == True:
-        Result[1] = 1
-      elif Arg.func == And:
-        Tap = []
-        for A in Arg.args:
-          Tap.append(int(str(A)[1:]))
-        Tap.sort()
-        Taps.append(Tap)
-      else:
-        n = int(str(Arg)[1:])
-        if n > 0:
-          Taps.append([n])
+    try:
+      for Arg in E.args:
+        if Arg == True:
+          Result[1] = 1
+        elif Arg.func == And:
+          Tap = []
+          for A in Arg.args:
+            Tap.append(int(str(A)[1:]))
+          Tap.sort()
+          Taps.append(Tap)
+        else:
+          n = int(str(Arg)[1:])
+          if n > 0:
+            Taps.append([n])
+    except:
+      pass
     Taps.sort(key=lambda x: len(x)*100+x[0])
     Max = len(Taps)
     if Max > MaxTapsCount:

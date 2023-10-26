@@ -281,12 +281,14 @@ class BufferedList:
       except:
         Aio.printError(f"Cannot use '{UserDefinedDirPath}' as a writable directory.")
         self._td = TempDir()
+        self._td.DontDelete = True
         self._user_dir = None
         self._list = []
         self._gz = GZipped
         self._file_i = 1
     else:
       self._td = TempDir()
+      self._td.DontDelete = True
       self._user_dir = None
       self._list = []
       self._gz = GZipped
@@ -314,6 +316,7 @@ class BufferedList:
       if self.SaveData:
         self._td.DontDelete = True
       else:
+        self._td.DontDelete = False
         del self._td
         
     
