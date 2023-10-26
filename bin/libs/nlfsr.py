@@ -984,6 +984,34 @@ def f():
   getAnf = toBooleanExpressionFromRing
   getANF = toBooleanExpressionFromRing
   
+  def toAIArray(self, MaxTapsCount=30, MaxAndInputs=8) -> list:
+    E = self.toBooleanExpressionFromRing(ReturnSympyExpr=1)
+    Result = [self._size, 0] + ([0] * (MaxTapsCount * MaxAndInputs))
+    Taps = []
+    for Arg in E.args:
+      if Arg == True:
+        Result[1] = 1
+      elif Arg.func == And:
+        Tap = []
+        for A in Arg.args:
+          Tap.append(int(str(A)[1:]))
+        Tap.sort()
+        Taps.append(Tap)
+      else:
+        n = int(str(Arg)[1:])
+        if n > 0:
+          Taps.append([n])
+    Taps.sort(key=lambda x: len(x)*100+x[0])
+    Max = len(Taps)
+    if Max > MaxTapsCount:
+      print(f"// WARNING: MaxTapsCount '{MaxTapsCount}' is not enough (should be >= {Max}).")
+      Max = MaxTapsCount
+    for i in range(Max):
+      offset = 2 + (MaxAndInputs * i)
+      Tap = Taps[i]
+      for j in range(len(Tap)):
+        Result[offset+j] = Tap[j]
+    return Result
   
   def _old_toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Shorten = False) -> str:
 #    if not self.isCrossingFree():
@@ -2089,7 +2117,7 @@ endmodule'''
     return Result        
   
   @staticmethod
-  def listRandomNlrgs(Size : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, HardcodedInverters = False) -> list:
+  def listRandomNlrgs(Size : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, HardcodedInverters = False, ReturnAll = False) -> list:
     if Size < 3:
       Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 3.")
       return []
@@ -2120,6 +2148,8 @@ endmodule'''
       DestCandidates = [Size] + [i for i in range(1, LowerBranch)]
     Chunk = []
     Result = []
+    if ReturnAll:
+      All = []
     ChunkSize = 2048
     for _ in range(Size-14):
       ChunkSize //= 2
@@ -2179,6 +2209,8 @@ endmodule'''
         for Res in PartResult:
           TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
         Result += PartResult
+        if ReturnAll:
+          All += Chunk
         if len(PartResult) > 0:
           Result = Nlfsr.filter(Result, True)
         STime = round((time.time() - T0) / 60, 2)
@@ -2188,12 +2220,18 @@ endmodule'''
           break
         if STime >= MaxSearchingTimeMin > 0:
           break
-    if len(Chunk) > 0:
-      Result += NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
+    if not(len(Result) >= n > 0) and len(Chunk) > 0:
+      PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
+      if ReturnAll:
+        All = Chunk
+      Result += PartResult
       Result = NlfsrList.filter(Result, True)
-    if len(Result) > n > 0:
-      Result = Result[:n]  
+    if not ReturnAll:
+      if len(Result) > n > 0:
+        Result = Result[:n]  
     TT.close()      
+    if ReturnAll:
+      return All
     return Result
   
   @staticmethod
@@ -2650,7 +2688,7 @@ class NlfsrList:
     for N in NlfsrsList:
       N._exename = exename
     G = Generators()
-    RM = p_map(Nlfsr.isMaximum, G.wrapper(NlfsrsList), desc="Nlfsrs simulating")
+    RM = p_map(Nlfsr.isMaximum, NlfsrsList, desc="Nlfsrs simulating")
     Results = []
     for i in range(len(RM)):
       if RM[i]:
