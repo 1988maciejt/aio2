@@ -222,7 +222,9 @@ class TempDir:
     return self._path
   def __del__(self) -> None:
       from libs.aio_auto import AioAuto
-      shutil.rmtree(self._path, ignore_errors=True)
+      if not self.DontDelete:
+        shutil.rmtree(self._path, ignore_errors=True)
+      AioAuto.unregisterDirToClean(self._path)
   def __init__(self) -> None:
     from libs.aio_auto import AioAuto
     self.DontDelete = False
