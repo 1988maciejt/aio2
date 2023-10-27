@@ -12,11 +12,12 @@ import functools
 
 class NlfsrAi:
   
-  __slots__ = ("_nlfsrs", "_nlfsrs_ver", "MaxTapsCount", "MaxAndInputs")
+  __slots__ = ("_nlfsrs", "_nlfsrs_ver", "MaxTapsCount", "MaxAndInputs", "SequenceBased")
   
-  def __init__(self, nlfsrs = None, MaxTapsCount=30, MaxAndInputs=8) -> None:
+  def __init__(self, nlfsrs = None, MaxTapsCount=30, MaxAndInputs=8, SequenceBased=False) -> None:
     self.MaxTapsCount = MaxTapsCount
     self.MaxAndInputs = MaxAndInputs
+    self.SequenceBased = SequenceBased
     self._nlfsrs = []
     self._nlfsrs_ver = []
     if nlfsrs is not None:
@@ -61,7 +62,7 @@ class NlfsrAi:
     x = []
     y = []
     cntr = 0
-    for xi in p_imap(functools.partial(Nlfsr.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs), self._nlfsrs, desc="Creating train set"):
+    for xi in p_imap(functools.partial(Nlfsr.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs, SequenceBased=self.SequenceBased), self._nlfsrs, desc="Creating train set"):
       n = self._nlfsrs[cntr]
       x.append(xi)
       y.append([1 if n.isMaximum() else 0])
@@ -73,7 +74,7 @@ class NlfsrAi:
     x = []
     y = []
     cntr = 0
-    for xi in p_imap(functools.partial(Nlfsr.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs), self._nlfsrs_ver, desc="Creating train set"):
+    for xi in p_imap(functools.partial(Nlfsr.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs, SequenceBased=self.SequenceBased), self._nlfsrs_ver, desc="Creating train set"):
       n = self._nlfsrs_ver[cntr]
       x.append(xi)
       y.append([1 if n.isMaximum() else 0])
@@ -94,7 +95,7 @@ class NlfsrAi:
     model.add(keras.layers.Dense(1, activation="sigmoid"))
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
     if len(self._nlfsrs_ver) > 0:
-      model.fit(x, y, epochs=10, batch_size=128, use_multiprocessing=1, validation_data=(xv, yv))
+      model.fit(x, y, epochs=20, batch_size=128, use_multiprocessing=1, validation_data=(xv, yv))
     else:
-      model.fit(x, y, epochs=10, batch_size=128, use_multiprocessing=1)
+      model.fit(x, y, epochs=20, batch_size=128, use_multiprocessing=1)
     return model

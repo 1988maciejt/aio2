@@ -984,36 +984,43 @@ def f():
   getAnf = toBooleanExpressionFromRing
   getANF = toBooleanExpressionFromRing
   
-  def toAIArray(self, MaxTapsCount=30, MaxAndInputs=8) -> list:
-    E = self.toBooleanExpressionFromRing(ReturnSympyExpr=1)
+  def toAIArray(self, MaxTapsCount=30, MaxAndInputs=8, SequenceBased=False) -> list:
     Result = [self._size, 0] + ([0] * (MaxTapsCount * MaxAndInputs))
-    Taps = []
-    try:
-      for Arg in E.args:
-        if Arg == True:
-          Result[1] = 1
-        elif Arg.func == And:
-          Tap = []
-          for A in Arg.args:
-            Tap.append(int(str(A)[1:]))
-          Tap.sort()
-          Taps.append(Tap)
-        else:
-          n = int(str(Arg)[1:])
-          if n > 0:
-            Taps.append([n])
-    except:
-      pass
-    Taps.sort(key=lambda x: len(x)*100+x[0])
-    Max = len(Taps)
-    if Max > MaxTapsCount:
-      print(f"// WARNING: MaxTapsCount '{MaxTapsCount}' is not enough (should be >= {Max}).")
-      Max = MaxTapsCount
-    for i in range(Max):
-      offset = 2 + (MaxAndInputs * i)
-      Tap = Taps[i]
-      for j in range(len(Tap)):
-        Result[offset+j] = Tap[j]
+    if SequenceBased:
+      n2 = self.copy()
+      n2.toFibonacci()
+      Values = n2.getValues(n=(MaxTapsCount * MaxAndInputs + 2), step=self._size, reset=1)
+      for i in range(1, len(Values)):
+        Result[i] = bau.ba2int(Values[i])
+    else:
+      E = self.toBooleanExpressionFromRing(ReturnSympyExpr=1)
+      Taps = []
+      try:
+        for Arg in E.args:
+          if Arg == True:
+            Result[1] = 1
+          elif Arg.func == And:
+            Tap = []
+            for A in Arg.args:
+              Tap.append(int(str(A)[1:]))
+            Tap.sort()
+            Taps.append(Tap)
+          else:
+            n = int(str(Arg)[1:])
+            if n > 0:
+              Taps.append([n])
+      except:
+        pass
+      Taps.sort(key=lambda x: len(x)*100+x[0])
+      Max = len(Taps)
+      if Max > MaxTapsCount:
+        print(f"// WARNING: MaxTapsCount '{MaxTapsCount}' is not enough (should be >= {Max}).")
+        Max = MaxTapsCount
+      for i in range(Max):
+        offset = 2 + (MaxAndInputs * i)
+        Tap = Taps[i]
+        for j in range(len(Tap)):
+          Result[offset+j] = Tap[j]
     return Result
   
   def _old_toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Shorten = False) -> str:
