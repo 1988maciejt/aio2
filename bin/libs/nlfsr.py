@@ -2811,7 +2811,9 @@ class NlfsrList:
       Maximum = (1 << n._size) -1
       if n._period == Maximum:
         if AllowMaximumPeriods or OnlyMaximumPeriod:
-          Result.append(n)
+          n.Accepted = True
+          if not ReturnAll:
+            Result.append(n)
       elif not OnlyMaximumPeriod:
         if (n._period / Maximum) >= MinimumPeriodRatio:
           if OnlyPrimeNonMaximumPeriods:
