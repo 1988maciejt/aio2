@@ -12,6 +12,7 @@ from libs.remote_aio import *
 import hashlib
 from libs.cython import *
 from libs.utils_serial import *
+import numpy
 
 # TUI =====================================================
 
@@ -69,6 +70,7 @@ class Nlfsr(Lfsr):
   _period = None
   _anf_temp = None
   Accepted = False
+  _prediction = None
   
   def clear(self):
     pass
@@ -157,6 +159,7 @@ class Nlfsr(Lfsr):
     self.Accepted = False
     self._anf_temp = None
     self._period_verified = None
+    self._prediction = None
     if Aio.isType(Size, []):
       Size = Polynomial(Size)
     if Aio.isType(Size, "Polynomial"):
@@ -414,6 +417,7 @@ def f():
     if len(self._exename) > 0:
       try:
         Res = Aio.shellExecute(self._exename + " " + ArgStr)   
+        x = int(Res)
       except:
         try:
           Res = Aio.shellExecute(self._exename + " " + ArgStr)   
@@ -426,6 +430,7 @@ def f():
           Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
         else:
           Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
+        x = int(Res)
       except:
         try:
           if WithInverters:
@@ -2144,8 +2149,10 @@ endmodule'''
       DestCandidates = [Size] + [i+1 for i in range(Size-1)]
     else:
       LowerBranch = Size//2
-      SourceCandidates = [i for i in range(LowerBranch+1, Size)]
+      SourceCandidates = [i for i in range(LowerBranch, Size)]
       DestCandidates = [Size] + [i for i in range(1, LowerBranch)]
+    if MaxAndInputCount > len(SourceCandidates):
+      MaxAndInputCount = len(SourceCandidates)
     for i in range(n):
       NotFound = 1
       while NotFound:
@@ -2167,8 +2174,8 @@ endmodule'''
               SList[i] *= -1
             elif random.randint(0,1):
               SList[i] *= -1
-          D = DestCandidates[int(round(CandidateIndex, 0))]
-          CandidateIndex = ((CandidateIndex+DestDistance) % len(DestCandidates))        
+          D = DestCandidates[int(round(CandidateIndex, 0)) % len(DestCandidates)]
+          CandidateIndex += DestDistance        
           if HardcodedInverters:
             D *= -1
           elif random.randint(0,1):
@@ -2176,8 +2183,8 @@ endmodule'''
           Taps.append([D, SList])
         for _ in range(TapsCount - NLTapsCount):
           S = List.randomSelect(SourceCandidates, 1)
-          D = DestCandidates[int(round(CandidateIndex, 0))]
-          CandidateIndex = ((CandidateIndex+DestDistance) % len(DestCandidates))   
+          D = DestCandidates[int(round(CandidateIndex, 0)) % len(DestCandidates)]
+          CandidateIndex += DestDistance
           if not HardcodedInverters:
             if random.randint(0,1):
               D *= -1
@@ -2188,61 +2195,83 @@ endmodule'''
             NotFound = 0
       yield Candidate.copy()
   
+  
   @staticmethod
-  def listRandomNlrgCandidates(Size : int, n : int, ProgressBar = False, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False):
-    if HybridAllowed:
-      SourceCandidates = [Size] + [i+1 for i in range(Size-1)]
-      DestCandidates = [Size] + [i+1 for i in range(Size-1)]
-    else:
-      LowerBranch = Size//2
-      SourceCandidates = [i for i in range(LowerBranch+1, Size)]
-      DestCandidates = [Size] + [i for i in range(1, LowerBranch)]
-    if ProgressBar:
-      Iter = tqdm(range(n), desc="Creating NLFSR candidates")
-    else:
-      Iter = range(n)
+  def _listRandomNlrgCandidatesMulti(n : int, Size : int, ProgressBar = False, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False) -> list:
+    return Nlfsr.listRandomNlrgCandidates(Size, n, ProgressBar, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters)
+    
+  @staticmethod
+  def listRandomNlrgCandidates(Size : int, n : int, ProgressBar = False, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False) -> list:
     Result = []
-    for i in Iter:
-      NotFound = 1
-      while NotFound:
-        Taps = []
-        TapsCount = random.randint(MinTapsCount, MaxTapsCount)
-        NLTapsCount = random.randint(int(round(TapsCount * MinNonlinearTapsRatio, 0)), int(round(TapsCount * MaxNonlinearTapsRatio, 0)))
-        if NLTapsCount < 1:
-          NLTapsCount = 1
-        CandidateIndex = 0
-        if UniformTapsDistribution:
-          DestDistance = len(DestCandidates) / TapsCount
+    SerialChunk = 128
+    if ProgressBar and n > (SerialChunk * 2):
+      Ns = []
+      N = n
+      while N > 0:
+        if N > SerialChunk:
+          Ns.append(SerialChunk)
+          N -= SerialChunk
         else:
-          DestDistance = 1
-        for _ in range(NLTapsCount):
-          AndInCount = random.randint(MinAndInputsCount, MaxAndInputCount)
-          SList = List.randomSelect(SourceCandidates, AndInCount)
-          for i in range(len(SList)):
+          Ns.append(N)
+          N = 0
+      Iter = p_uimap(functools.partial(Nlfsr._listRandomNlrgCandidatesMulti, Size=Size, ProgressBar=False, MinTapsCount=MinTapsCount, MaxTapsCount=MaxTapsCount, MinAndInputsCount=MinAndInputsCount, MaxAndInputCount=MaxAndInputCount, MinNonlinearTapsRatio=MinNonlinearTapsRatio, MaxNonlinearTapsRatio=MaxNonlinearTapsRatio, HybridAllowed=HybridAllowed, UniformTapsDistribution=UniformTapsDistribution, HardcodedInverters=HardcodedInverters), Ns, desc=f"Creating NLFSR candidates (x {SerialChunk})")
+      for I in Iter:
+        Result += I
+    else:
+      if HybridAllowed:
+        SourceCandidates = [Size] + [i+1 for i in range(Size-1)]
+        DestCandidates = [Size] + [i+1 for i in range(Size-1)]
+      else:
+        LowerBranch = Size//2
+        SourceCandidates = [i for i in range(LowerBranch, Size)]
+        DestCandidates = [Size] + [i for i in range(1, LowerBranch)]
+      if MaxAndInputCount > len(SourceCandidates):
+        MaxAndInputCount = len(SourceCandidates)
+      if ProgressBar:
+        Iter = tqdm(range(n), desc="Creating NLFSR candidates")
+      else:
+        Iter = range(n)
+      for i in range(n):
+        NotFound = 1
+        while NotFound:
+          Taps = []
+          TapsCount = random.randint(MinTapsCount, MaxTapsCount)
+          NLTapsCount = random.randint(int(round(TapsCount * MinNonlinearTapsRatio, 0)), int(round(TapsCount * MaxNonlinearTapsRatio, 0)))
+          if NLTapsCount < 1:
+            NLTapsCount = 1
+          CandidateIndex = 0
+          if UniformTapsDistribution:
+            DestDistance = len(DestCandidates) / TapsCount
+          else:
+            DestDistance = 1
+          for _ in range(NLTapsCount):
+            AndInCount = random.randint(MinAndInputsCount, MaxAndInputCount)
+            SList = List.randomSelect(SourceCandidates, AndInCount)
+            for i in range(len(SList)):
+              if HardcodedInverters:
+                SList[i] *= -1
+              elif random.randint(0,1):
+                SList[i] *= -1
+            D = DestCandidates[int(round(CandidateIndex, 0)) % len(DestCandidates)]
+            CandidateIndex += DestDistance            
             if HardcodedInverters:
-              SList[i] *= -1
-            elif random.randint(0,1):
-              SList[i] *= -1
-          D = DestCandidates[int(round(CandidateIndex, 0))]
-          CandidateIndex = ((CandidateIndex+DestDistance) % len(DestCandidates))        
-          if HardcodedInverters:
-            D *= -1
-          elif random.randint(0,1):
-            D *= -1
-          Taps.append([D, SList])
-        for _ in range(TapsCount - NLTapsCount):
-          S = List.randomSelect(SourceCandidates, 1)
-          D = DestCandidates[int(round(CandidateIndex, 0))]
-          CandidateIndex = ((CandidateIndex+DestDistance) % len(DestCandidates))   
-          if not HardcodedInverters:
-            if random.randint(0,1):
               D *= -1
-          Taps.append([D, [S]])
-        if len(Taps) > 0:
-          Candidate = Nlfsr(Size, Taps)
-          if not Candidate.isSemiLfsr():
-            NotFound = 0
-      Result.append(Candidate)
+            elif random.randint(0,1):
+              D *= -1
+            Taps.append([D, SList])
+          for _ in range(TapsCount - NLTapsCount):
+            S = List.randomSelect(SourceCandidates, 1)
+            D = DestCandidates[int(round(CandidateIndex, 0)) % len(DestCandidates)]
+            CandidateIndex += DestDistance
+            if not HardcodedInverters:
+              if random.randint(0,1):
+                D *= -1
+            Taps.append([D, [S]])
+          if len(Taps) > 0:
+            Candidate = Nlfsr(Size, Taps)
+            if not Candidate.isSemiLfsr():
+              NotFound = 0
+        Result.append(Candidate)
     return Result
       
         
@@ -2270,10 +2299,7 @@ endmodule'''
     if MinNonlinearTapsRatio <= 0 or MaxNonlinearTapsRatio > 1:
       Aio.printError("MinNonlinearTapsRatio must be >0 and MaxNonlinearTapsRatio <=1.")
       return []
-    Chunk = []
     Result = []
-    if ReturnAll:
-      All = []
     ChunkSize = 2048
     for _ in range(Size-14):
       ChunkSize //= 2
@@ -2300,8 +2326,7 @@ endmodule'''
         if nlfsr.Accepted:
           Accepted += 1
       STime = round((time.time() - T0) / 60, 2)
-      print(f"// Found so far: {len(Result)}, searching time: {STime} min")
-      Chunk = []
+      print(f"// Found so far: {Accepted}, searching time: {STime} min")
       if Accepted >= n > 0:
         break
       if STime >= MaxSearchingTimeMin > 0:
@@ -2734,6 +2759,19 @@ How many NLFSRs can be created using the given taps set?
 class NlfsrList:
   
   @staticmethod
+  def toAIArray(NlfsrList, MaxTapsCount=30, MaxAndInputs=8, SequenceBased=False, ReturnAlsoAccepted=False) -> list:
+    Result = []
+    ResultAcc = []
+    for nlfsr in NlfsrList:
+      A = nlfsr.toAIArray(MaxTapsCount, MaxAndInputs, SequenceBased)
+      if ReturnAlsoAccepted:
+        ResultAcc.append(1 if nlfsr.Accepted else 0)
+      Result.append(A)
+    if ReturnAlsoAccepted:
+      return [Result, ResultAcc]
+    return Result
+  
+  @staticmethod
   def analyseCommonTaps(NlfsrsList) -> NlfsrCommonTapsReport: 
     return NlfsrCommonTapsReport(NlfsrsList)
   
@@ -2774,31 +2812,21 @@ class NlfsrList:
     return NlfsrList.filter(Results)
   
   def _getPeriodAndNlfsr(nlfsr : Nlfsr, ForceRecalculation=False, ExeName=None) -> list:
-    return [nlfsr, nlfsr.getPeriod(ForceRecalculation=ForceRecalculation, ExeName=ExeName)]
+    #Result = [nlfsr, nlfsr.getPeriod(ForceRecalculation=ForceRecalculation, ExeName=ExeName)]
+    #print(Result)
+    #print("------------")
+    nlfsr.getPeriod(ForceRecalculation=ForceRecalculation, ExeName=ExeName)
+    return nlfsr
   
   def checkPeriod(NlfsrsList, ForceRecalculation=False, Total=None) -> list:
     exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
     if type(NlfsrsList) is list:
       Total = len(NlfsrsList)
-  #  for N in NlfsrsList:
-  #    N._exename = exename
-  #  if ForceRecalculation:
-  #    for N in NlfsrsList:
-  #      N._period = None
     Results = []
     Iter = p_imap(functools.partial(NlfsrList._getPeriodAndNlfsr, ForceRecalculation=ForceRecalculation, ExeName=exename) , NlfsrsList, desc="Nlfsrs simulating", total=Total)
-    for I in Iter:
-      n = I[0]
-      p = I[1]
-      n._period = p
-      n._period_verified = Int.hash(p)
-      Results.append(n)
-  #  for i in range(len(RM)):
-  #    NlfsrsList[i]._period = RM[i]
-  #    NlfsrsList[i]._period_verified = Int.hash(RM[i])
-  #    Results.append(NlfsrsList[i])
+    for nlfsr in Iter:
+      Results.append(nlfsr)
     return Results
-    #return NlfsrList.filter(Results)
   
   def filterPeriod(NlfsrList, OnlyMaximumPeriod = True, AllowMaximumPeriods = True, OnlyPrimeNonMaximumPeriods = True, MinimumPeriodRatio = 0.95, ReturnAll = False) -> list:
     Result = []

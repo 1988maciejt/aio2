@@ -10,21 +10,33 @@ from tqdm import tqdm
 import p_tqdm
 import functools
 from libs.files import *
+import time
+from libs.stats import *
 
 class NlfsrAi:
   
-  __slots__ = ("_x_train", "_y_train", "_x_ver", "_y_ver", "MaxTapsCount", "MaxAndInputs", "SequenceBased", "model")
+  __slots__ = ("_x_train", "_y_train", "_x_ver", "_y_ver", "MaxTapsCount", "MaxAndInputs", "SequenceBased", "model", "_filename", "_empty")
   
-  def __init__(self, nlfsrs = None, MaxTapsCount=30, MaxAndInputs=8, SequenceBased=False) -> None:
+  def __init__(self, nlfsrs = None, MaxTapsCount=30, MaxAndInputs=8, SequenceBased=False, FileName : str = None) -> None:
     self.MaxTapsCount = MaxTapsCount
     self.MaxAndInputs = MaxAndInputs
     self.SequenceBased = SequenceBased
+    self._filename = FileName
     self._x_train = []
     self._y_train = []
     self._x_ver = []
     self._y_ver = []
+    self._empty = True
+    if self._filename is not None:
+      if not self.load(self._filename, Silent=False):
+        self._createModel()
+    else:
+      self._createModel()
     if nlfsrs is not None:
       self.addNlfsrs(nlfsrs)
+    
+    
+  def _createModel(self):
     self.model = keras.models.Sequential()
     self.model.add(keras.layers.Dense(2048, activation="relu", input_shape=(self.getInputVectorSize(),)))
     self.model.add(keras.layers.Dense(2048, activation="relu"))
@@ -35,26 +47,20 @@ class NlfsrAi:
   def addNlfsrs(self, nlfsrs : list | Nlfsr):
     if type(nlfsrs) is Nlfsr:
       self._x_train.append(nlfsrs.toAIArray(self.MaxTapsCount, self.MaxAndInputs, self.SequenceBased))
-      self._y_train.append([nlfsrs.Accepted])        
+      self._y_train.append([1 if nlfsrs.Accepted else 0])        
     else:
-      cntr = 0
-      for xi in p_imap(functools.partial(Nlfsr.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs, SequenceBased=self.SequenceBased), nlfsrs, desc="Adding to train set"):
-        n = self._nlfsrs[cntr]
-        self._x_train.append(xi)
-        self._y_train.append([n.Accepted])
-        cntr += 1
+      for xi in p_uimap(functools.partial(NlfsrList.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs, SequenceBased=self.SequenceBased, ReturnAlsoAccepted=1), List.splitIntoSublists(nlfsrs, 128), desc="Adding to train set (x 128)"):
+        self._x_train += xi[0]
+        self._y_train += xi[1]
     
   def addNlfsrsToVerify(self, nlfsrs : list | Nlfsr):
     if type(nlfsrs) is Nlfsr:
       self._x_ver.append(nlfsrs.toAIArray(self.MaxTapsCount, self.MaxAndInputs, self.SequenceBased))
-      self._y_ver.append([nlfsrs.Accepted])        
+      self._y_ver.append([1 if nlfsrs.Accepted else 0])        
     else:
-      cntr = 0
-      for xi in p_imap(functools.partial(Nlfsr.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs, SequenceBased=self.SequenceBased), nlfsrs, desc="Adding to train set"):
-        n = self._nlfsrs[cntr]
-        self._x_ver.append(xi)
-        self._y_ver.append([n.Accepted])
-        cntr += 1
+      for xi in p_uimap(functools.partial(NlfsrList.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs, SequenceBased=self.SequenceBased, ReturnAlsoAccepted=1), List.splitIntoSublists(nlfsrs, 128), desc="Adding to train set (x 128)"):
+        self._x_ver += xi[0]
+        self._y_ver += xi[1]
   
   def getInputVectorSize(self) -> tuple:
     return self.MaxAndInputs * self.MaxTapsCount + 2
@@ -64,25 +70,33 @@ class NlfsrAi:
       self.model.fit(self._x_train, self._y_train, epochs=Epochs, batch_size=128, use_multiprocessing=1, validation_data=(self._x_ver, self._y_ver))
     else:
       self.model.fit(self._x_train, self._y_train, epochs=Epochs, batch_size=128, use_multiprocessing=1)
-      
-  def save(self, FileName : str):
+    self._empty = False
+    
+  def save(self, FileName : str = None):
+    if FileName is None:
+      FileName = self._filename
+    if FileName is None:
+      Aio.printError("Filename cannot be 'None'")
     self.model.save(f"{FileName}.keras")
-    mlist = [self._x_train, self._y_train, self._x_ver, self._y_ver, self.MaxTapsCount, self.MaxAndInputs, self.SequenceBased]
+    mlist = [self._x_train, self._y_train, self._x_ver, self._y_ver, self.MaxTapsCount, self.MaxAndInputs, self.SequenceBased, self._empty]
     File.writeObject(f"{FileName}.nlfsrai", mlist, True)
     
-  def load(self, FileName : str, SIlent = False) -> bool:
+  def load(self, FileName : str, Silent = False) -> bool:
     try:
       model = keras.models.load_model(f"{FileName}.keras")
     except:
-      Aio.printError(f"'{FileName}.keras' does not exist.")
+      if not Silent:
+        Aio.printError(f"'{FileName}.keras' does not exist.")
       return False
     try:
       mlist = File.readObject(f"{FileName}.nlfsrai", True)
     except:
-      Aio.printError(f"'{FileName}.nlfsrai' does not exist.")
+      if not Silent:
+        Aio.printError(f"'{FileName}.nlfsrai' does not exist.")
       return False
-    if len(mlist) != 7:
-      Aio.printError(f"'{FileName}.nlfsrai' is incorrect.")
+    if len(mlist) != 8:
+      if not Silent:
+        Aio.printError(f"'{FileName}.nlfsrai' is incorrect.")
       return False
     self._x_train = mlist[0]
     self._y_train = mlist[1]
@@ -91,5 +105,60 @@ class NlfsrAi:
     self.MaxTapsCount = mlist[4]
     self.MaxAndInputs = mlist[5]
     self.SequenceBased = mlist[6]
+    self._empty = mlist[7]
     self.model = model
     return True
+  
+  def searchAndAdd(self, Size : int, n : int, MaxSearchingTimeMin = 300, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, AutoFit = False, GenerateUsingAI = True, ShowPredictionHistograms = False) -> list:
+    if self._empty or (not GenerateUsingAI):
+      All = Nlfsr.listRandomNlrgs(Size, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters, OnlyMaximumPeriod, OnlyPrimeNonMaximumPeriods, AllowMaximumPeriods, MinimumPeriodRatio, n, 0, MaxSearchingTimeMin, 1)
+      Result = []
+      for nlfsr in All:
+        if nlfsr.Accepted:
+          Result.append(nlfsr.copy())
+      self.addNlfsrs(All)
+    else:
+      ChunkSize = 1024
+      for _ in range(Size-14):
+        ChunkSize //= 2
+      if ChunkSize < 32:
+        ChunkSize = 32
+      CandidateSet = ChunkSize * 4
+      Result = []
+      T0 = time.time()
+      FitCntr = 0
+      while 1:
+        Candidates = Nlfsr.listRandomNlrgCandidates(Size, CandidateSet, True, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters)
+        x_data = []
+        for xi in p_uimap(functools.partial(NlfsrList.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs, SequenceBased=self.SequenceBased, ReturnAlsoAccepted=False), List.splitIntoSublists(Candidates, 128), desc="Creating data for AI (x 128)"):
+          x_data += xi
+        y_data = self.model.predict(x_data)
+        if ShowPredictionHistograms:
+          H = Histogram(y_data, BarCount=10)
+          Plot(H.getPlotData(), PlotTypes.Bar, Width=120, Height=15).print()
+        for i in range(len(Candidates)):
+          Candidates[i]._prediction = y_data[i][0]
+        Candidates.sort(key=lambda x: x._prediction, reverse=1)
+        Candidates = Candidates[:ChunkSize]
+        Candidates = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Candidates), OnlyMaximumPeriod, AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio, ReturnAll=1)
+        for nlfsr in Candidates:
+          if nlfsr.Accepted:
+            Result.append(nlfsr.copy())
+        self.addNlfsrs(Candidates)
+        STime = round((time.time() - T0) / 60, 2)
+        print(f"// Found so far: {len(Result)}, searching time: {STime} min")
+        if len(Result) >= n > 0:
+          break      
+        if STime >= MaxSearchingTimeMin > 0:
+          break
+        if AutoFit:
+          FitCntr += 1
+          if FitCntr == 10:
+            self.fit(1)
+            FitCntr = 0
+    if AutoFit:
+      self.fit(10)
+    if len(Result) > n > 0:
+      Result = Result[:n]  
+    return Result
+        

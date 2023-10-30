@@ -8,6 +8,73 @@ from libs.binstr import *
 import matplotlib.pyplot as plt
 #import openpyxl
 
+
+class Histogram:
+  
+  __slots__ = ("_data", "_bar_width", "_bar_count", "_min", "_max")
+  
+  def __init__(self, Data = [], BarWidth : float = None, BarCount : Int = 10):
+    self._bar_count = int(BarCount)
+    self._bar_width = BarWidth
+    self._data = []
+    self._min = None
+    self._max = None
+    self.addData(Data)
+  
+  def addData(self, Data):
+    for D in Data:
+      if type(D) is list:
+        D = D[0]
+      D = float(D)
+      self._data.append(D)
+      if self._min is None:
+        self._min = D
+        self._max = D
+      else:
+        if D < self._min: 
+          self._min = D
+        if D > self._max:
+          self._max = D
+          
+  def clearData(self):
+    self._data.clear()
+    self._min = None
+    
+  def setBarWidth(self, BarWidth : float):
+    self._bar_width = BarWidth
+  
+  def setBarCount(self, BarCount : int):
+    self._bar_width = None
+    self._bar_count = BarCount
+    
+  def getPlotData(self, Min : float = None, Max : float = None) -> dict:
+    if Min is None:
+      Min = self._min
+    if Max is None:
+      Max = self._max
+    if type(self._bar_width) is float:
+      BarWidth = self._bar_width
+    else:
+      BarWidth = (Max - Min) / float(self._bar_count)
+    Bars = []
+    Barsp1 = []
+    Vals = []
+    Bar = Min
+    while Bar < Max:
+      Bars.append(Bar)
+      Barsp1.append(Bar)
+      Vals.append(0)
+      Bar += BarWidth
+    Barsp1.append(Bar)
+    for D in self._data:
+      for i in range(1, len(Barsp1)):
+        if D < Barsp1[i]:
+          Vals[i-1] += 1
+          break
+    return [Bars, Vals]
+  
+
+
 class PlotTypes:
   Scatter = 1,
   Bar = 2

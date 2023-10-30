@@ -1,8 +1,8 @@
 #! /bin/bash
 SCRIPTPATH=$( cd "$(dirname $0)" ; pwd )
-python3 -m pip install --upgrade  psutil
 python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade setuptools
+python3 -m pip install --upgrade psutil
 python3 -m pip install --upgrade ipython
 python3 -m pip install --upgrade ptpython
 python3 -m pip install --upgrade pyserial
@@ -30,3 +30,4 @@ python3 -m pip install --upgrade textual
 python3 -m pip install --upgrade hyperloglog
 python3 -m pip install --upgrade cython
 python3 -m pip install --upgrade scipy
+python3 -m pip install --upgrade tensorflow
