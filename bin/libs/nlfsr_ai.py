@@ -46,9 +46,9 @@ class NlfsrAi:
       self.model.add(keras.layers.Dense(1, activation="sigmoid"))
       self.model.compile(loss=keras.losses.MeanAbsoluteError(), optimizer=keras.optimizers.RMSprop(), metrics=['accuracy'])
     else:
-      self.model.add(keras.layers.Dense(2048, activation="sigmoid", input_shape=(self.getInputVectorSize(),)))
-      self.model.add(keras.layers.Dense(2048, activation="sigmoid"))
-      self.model.add(keras.layers.Dense(1024, activation="sigmoid"))
+      self.model.add(keras.layers.Dense(2048, activation="relu", input_shape=(self.getInputVectorSize(),)))
+      self.model.add(keras.layers.Dense(2048, activation="relu"))
+      self.model.add(keras.layers.Dense(1024, activation="relu"))
       self.model.add(keras.layers.Dense(1, activation=keras.activations.sigmoid))
       self.model.compile(loss=keras.losses.BinaryCrossentropy(), optimizer=keras.optimizers.Nadam(), metrics=['accuracy'])
     
@@ -120,7 +120,32 @@ class NlfsrAi:
       self._base_on_period = False
     self.model = model
     return True
-  
+
+  def analyse(self, Size : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95) -> list:
+    CandidateSet = 8192
+    for _ in range(Size-18):
+      CandidateSet //= 2
+    if CandidateSet < 128:
+      CandidateSet = 128
+    ChunkSize = CandidateSet // 8
+    Candidates = Nlfsr.listRandomNlrgCandidates(Size, CandidateSet, True, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters)
+    x_data = []
+    for xi in p_uimap(functools.partial(NlfsrList.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs, SequenceBased=self.SequenceBased, ReturnAlsoAccepted=False), List.splitIntoSublists(Candidates, 128), desc="Creating data for AI (x 128)"):
+      x_data += xi
+    y_data = self.model.predict(x_data)
+    for i in range(len(Candidates)):
+      Candidates[i]._prediction = y_data[i][0]
+    Candidates.sort(key=lambda x: x._prediction, reverse=1)
+    Candidates = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Candidates), OnlyMaximumPeriod, AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio, ReturnAll=1)
+    PlotData = []
+    for subl in Generators().subLists(Candidates, ChunkSize):
+      Sum = 0
+      for nlfsr in subl:
+        if nlfsr.Accepted:
+          Sum += 1
+      PlotData.append(Sum)
+    Plot(PlotData, PlotTypes.Bar, Height=12, Width=100).print()
+    
   def searchAndAdd(self, Size : int, n : int, MaxSearchingTimeMin = 300, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, AutoFit = False, GenerateUsingAI = True, ShowPredictionHistograms = False) -> list:
     if self._empty or (not GenerateUsingAI):
       All = Nlfsr.listRandomNlrgs(Size, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters, OnlyMaximumPeriod, OnlyPrimeNonMaximumPeriods, AllowMaximumPeriods, MinimumPeriodRatio, n, 0, MaxSearchingTimeMin, 1)
