@@ -15,9 +15,9 @@ from libs.stats import *
 
 class NlfsrAi:
   
-  __slots__ = ("_x_train", "_y_train", "_x_ver", "_y_ver", "MaxTapsCount", "MaxAndInputs", "SequenceBased", "model", "_filename", "_empty")
+  __slots__ = ("_x_train", "_y_train", "_x_ver", "_y_ver", "MaxTapsCount", "MaxAndInputs", "SequenceBased", "model", "_filename", "_empty", "_base_on_period")
   
-  def __init__(self, nlfsrs = None, MaxTapsCount=30, MaxAndInputs=8, SequenceBased=False, FileName : str = None) -> None:
+  def __init__(self, nlfsrs = None, MaxTapsCount=30, MaxAndInputs=8, SequenceBased=False, FileName : str = None, BaseOnPeriod = False) -> None:
     self.MaxTapsCount = MaxTapsCount
     self.MaxAndInputs = MaxAndInputs
     self.SequenceBased = SequenceBased
@@ -27,6 +27,7 @@ class NlfsrAi:
     self._x_ver = []
     self._y_ver = []
     self._empty = True
+    self._base_on_period = BaseOnPeriod
     if self._filename is not None:
       if not self.load(self._filename, Silent=False):
         self._createModel()
@@ -38,27 +39,34 @@ class NlfsrAi:
     
   def _createModel(self):
     self.model = keras.models.Sequential()
-    self.model.add(keras.layers.Dense(2048, activation="relu", input_shape=(self.getInputVectorSize(),)))
-    self.model.add(keras.layers.Dense(2048, activation="relu"))
-    self.model.add(keras.layers.Dense(1024, activation="relu"))
-    self.model.add(keras.layers.Dense(1, activation="sigmoid"))
-    self.model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+    if self._base_on_period:
+      self.model.add(keras.layers.Dense(2048, activation="sigmoid", input_shape=(self.getInputVectorSize(),)))
+      self.model.add(keras.layers.Dense(2048, activation="sigmoid"))
+      self.model.add(keras.layers.Dense(1024, activation="sigmoid"))
+      self.model.add(keras.layers.Dense(1, activation="sigmoid"))
+      self.model.compile(loss=keras.losses.MeanAbsoluteError(), optimizer=keras.optimizers.RMSprop(), metrics=['accuracy'])
+    else:
+      self.model.add(keras.layers.Dense(2048, activation="sigmoid", input_shape=(self.getInputVectorSize(),)))
+      self.model.add(keras.layers.Dense(2048, activation="sigmoid"))
+      self.model.add(keras.layers.Dense(1024, activation="sigmoid"))
+      self.model.add(keras.layers.Dense(1, activation=keras.activations.sigmoid))
+      self.model.compile(loss=keras.losses.BinaryCrossentropy(), optimizer=keras.optimizers.Nadam(), metrics=['accuracy'])
     
   def addNlfsrs(self, nlfsrs : list | Nlfsr):
     if type(nlfsrs) is Nlfsr:
       self._x_train.append(nlfsrs.toAIArray(self.MaxTapsCount, self.MaxAndInputs, self.SequenceBased))
-      self._y_train.append([1 if nlfsrs.Accepted else 0])        
+      self._y_train.append([nlfsrs.getPeriod() / ((1 << nlfsrs.getSize()) -1)])        
     else:
-      for xi in p_uimap(functools.partial(NlfsrList.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs, SequenceBased=self.SequenceBased, ReturnAlsoAccepted=1), List.splitIntoSublists(nlfsrs, 128), desc="Adding to train set (x 128)"):
+      for xi in p_uimap(functools.partial(NlfsrList.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs, SequenceBased=self.SequenceBased, ReturnAlsoAccepted=1, BaseOnPeriod=self._base_on_period), List.splitIntoSublists(nlfsrs, 128), desc="Adding to train set (x 128)"):
         self._x_train += xi[0]
         self._y_train += xi[1]
     
   def addNlfsrsToVerify(self, nlfsrs : list | Nlfsr):
     if type(nlfsrs) is Nlfsr:
       self._x_ver.append(nlfsrs.toAIArray(self.MaxTapsCount, self.MaxAndInputs, self.SequenceBased))
-      self._y_ver.append([1 if nlfsrs.Accepted else 0])        
+      self._y_ver.append([nlfsrs.getPeriod() / ((1 << nlfsrs.getSize()) -1)])        
     else:
-      for xi in p_uimap(functools.partial(NlfsrList.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs, SequenceBased=self.SequenceBased, ReturnAlsoAccepted=1), List.splitIntoSublists(nlfsrs, 128), desc="Adding to train set (x 128)"):
+      for xi in p_uimap(functools.partial(NlfsrList.toAIArray, MaxTapsCount=self.MaxTapsCount, MaxAndInputs=self.MaxAndInputs, SequenceBased=self.SequenceBased, ReturnAlsoAccepted=1, BaseOnPeriod=self._base_on_period), List.splitIntoSublists(nlfsrs, 128), desc="Adding to train set (x 128)"):
         self._x_ver += xi[0]
         self._y_ver += xi[1]
   
@@ -78,7 +86,7 @@ class NlfsrAi:
     if FileName is None:
       Aio.printError("Filename cannot be 'None'")
     self.model.save(f"{FileName}.keras")
-    mlist = [self._x_train, self._y_train, self._x_ver, self._y_ver, self.MaxTapsCount, self.MaxAndInputs, self.SequenceBased, self._empty]
+    mlist = [self._x_train, self._y_train, self._x_ver, self._y_ver, self.MaxTapsCount, self.MaxAndInputs, self.SequenceBased, self._empty, self._base_on_period]
     File.writeObject(f"{FileName}.nlfsrai", mlist, True)
     
   def load(self, FileName : str, Silent = False) -> bool:
@@ -94,7 +102,7 @@ class NlfsrAi:
       if not Silent:
         Aio.printError(f"'{FileName}.nlfsrai' does not exist.")
       return False
-    if len(mlist) != 8:
+    if len(mlist) < 8:
       if not Silent:
         Aio.printError(f"'{FileName}.nlfsrai' is incorrect.")
       return False
@@ -106,6 +114,10 @@ class NlfsrAi:
     self.MaxAndInputs = mlist[5]
     self.SequenceBased = mlist[6]
     self._empty = mlist[7]
+    if len(mlist) > 8:
+      self._base_on_period = mlist[8]
+    else:
+      self._base_on_period = False
     self.model = model
     return True
   

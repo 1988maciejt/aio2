@@ -2759,13 +2759,16 @@ How many NLFSRs can be created using the given taps set?
 class NlfsrList:
   
   @staticmethod
-  def toAIArray(NlfsrList, MaxTapsCount=30, MaxAndInputs=8, SequenceBased=False, ReturnAlsoAccepted=False) -> list:
+  def toAIArray(NlfsrList, MaxTapsCount=30, MaxAndInputs=8, SequenceBased=False, ReturnAlsoAccepted=False, BaseOnPeriod=False) -> list:
     Result = []
     ResultAcc = []
     for nlfsr in NlfsrList:
       A = nlfsr.toAIArray(MaxTapsCount, MaxAndInputs, SequenceBased)
       if ReturnAlsoAccepted:
-        ResultAcc.append(1 if nlfsr.Accepted else 0)
+        if BaseOnPeriod:
+          ResultAcc.append(nlfsr.getPeriod() / ((1 << nlfsr.getSize()) -1))
+        else:
+          ResultAcc.append(1 if nlfsr.Accepted else 0)
       Result.append(A)
     if ReturnAlsoAccepted:
       return [Result, ResultAcc]
