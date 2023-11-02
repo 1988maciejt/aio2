@@ -10,6 +10,7 @@ from p_tqdm import *
 from functools import partial
 from tqdm import *
 from libs.stats import *
+import numpy
 
 
 class Bitarray:
@@ -357,3 +358,62 @@ class TuplesReport:
                     PFS = "F"
             Result.append(PFS)
         return Result
+
+
+class SequenceUnion:
+    
+    __slots__ = ("_sequences", "_orig_len", "_long_seq", "_bitwise", "_function")
+    
+    def __len__(self) -> int:
+        if self._long_seq is not None:
+            return len(self._long_seq)
+        if self._sequences is not None:
+            return len(self._sequences[0])
+        return 0
+    
+    def __init__(self, Sequences = [], MergingFunction = None, MergingFunctionIsBitwise : bool = False) -> None:
+        self._long_seq = None
+        self._sequences = None
+        self._orig_len = None
+        if len(Sequences) > 0:
+            self.setSequences(Sequences)
+        self.setFunction(MergingFunction, MergingFunctionIsBitwise)
+    
+    def setFunction(self, Function, isBitwise : bool = False):
+        self._function = Function
+        self._bitwise = isBitwise
+        self._long_seq = None
+    
+    def setSequences(self, Sequences : list):
+        Lengths = numpy.asarray([len(s) for s in Sequences], dtype="int64")
+        SLen = int(numpy.lcm.reduce(Lengths))
+        self._sequences = [Sequences[i] * (SLen // int(Lengths[i])) for i in range(len(Sequences))]
+        self._long_seq = None
+        self._orig_len = list(Lengths)
+        
+    def getInputSequence(self, Index : int, InputLength : bool = True) -> bitarray:
+        if self._sequences is not None and len(self._sequences) > Index:
+            if InputLength:
+                return self._sequences[Index][:self._orig_len[Index]]
+            return self._sequences[Index].copy()
+        return None
+    
+    def getLengthOfInputSequence(self, Index : int) -> int:
+        if self._sequences is not None and len(self._sequences) > Index:
+            return self._orig_len[Index]
+        return 0
+        
+    def getLongSequence(self) -> bitarray:
+        if self._long_seq is not None:
+            return self._long_seq.copy()
+        if self._sequences is not None and self._function is not None:
+            if self._bitwise:
+                N = len(self._sequences)
+                SLen = len(self._sequences[0])
+                self._long_seq = bitarray(SLen)
+                for i in range(len(SLen)):
+                    self._long_seq[i] = self._function([self._sequences[n][i] for n in range(N)])
+            else:
+                self._long_seq = self._function(self._sequences.copy())
+            return self._long_seq.copy()
+        return None
