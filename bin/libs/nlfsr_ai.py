@@ -1,3 +1,5 @@
+import os 
+
 try:
   x = __import__("keras")
 except:      
@@ -52,7 +54,7 @@ class NlfsrAi:
       self.model.add(keras.layers.Dense(1, activation=keras.activations.sigmoid))
       self.model.compile(loss=keras.losses.BinaryCrossentropy(), optimizer=keras.optimizers.Nadam(), metrics=['accuracy'])
     
-  def addNlfsrs(self, nlfsrs : list | Nlfsr):
+  def addNlfsrs(self, nlfsrs : list):
     if type(nlfsrs) is Nlfsr:
       self._x_train.append(nlfsrs.toAIArray(self.MaxTapsCount, self.MaxAndInputs, self.SequenceBased))
       self._y_train.append([nlfsrs.getPeriod() / ((1 << nlfsrs.getSize()) -1)])        
@@ -61,7 +63,7 @@ class NlfsrAi:
         self._x_train += xi[0]
         self._y_train += xi[1]
     
-  def addNlfsrsToVerify(self, nlfsrs : list | Nlfsr):
+  def addNlfsrsToVerify(self, nlfsrs : list):
     if type(nlfsrs) is Nlfsr:
       self._x_ver.append(nlfsrs.toAIArray(self.MaxTapsCount, self.MaxAndInputs, self.SequenceBased))
       self._y_ver.append([nlfsrs.getPeriod() / ((1 << nlfsrs.getSize()) -1)])        
