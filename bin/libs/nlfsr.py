@@ -2765,12 +2765,110 @@ How many NLFSRs can be created using the given taps set?
       
       
       
-      
+def _xor_sequences(SList) -> bitarray:
+  if len(SList) > 0:
+    Result = SList[0]
+    for i in range(1, len(SList)):
+      Result ^= SList[i]
+    return Result
+  return None
+
+def _get_sequences(Object) -> dict:
+  Result = {}
+  if type(Object) in [Nlfsr, Lfsr]:
+    ss = Object.getSequences()
+    for i in range(len(ss)):
+      Result[f"FF{i}"] = ss[i]
+  elif type(Object) is PhaseShifter:
+    ss = Object.getSequences()
+    Xors = Object.getXors()
+    for i in range(len(ss)):
+      PhaseShifter().getXors()
+      Result[f"XOR{tuple(Xors[i])}"] = ss[i]
+  return Result
+    
   
     
+class NlfsrCombinedSequencesReport:
+  
+  __slots__ = ("_input_objects", "_function", "_bitwise", "_uniques", "_lc", "_tuples", "_slen")
+  
+  def __init__(self, NlfsrsOrExpanders : list, CombiningFunction = _xor_sequences, CombiningFunctionIsBitwise = False) -> None:
+    self._input_objects = NlfsrsOrExpanders
+    self._function = CombiningFunction
+    self._bitwise = CombiningFunctionIsBitwise
+    self._tuples = None
+    self._lc = None
+    self._uniques = {}
+    self._slen = None
+    SeqDicts = p_map(_get_sequences, self._input_objects, desc="Obtaining sequences")
+    LenList = [len(SeqDict) for SeqDict in SeqDicts]
+    IndexLists = [[i for i in range(Len)] for Len in LenList]
+    UniqueSignatures = set()
+    for perm in List.getPermutationsPfManyListsGenerator(IndexLists):
+      if len(perm) < 1:
+        continue
+      perm = perm[0]
+      SList = []
+      CList = []
+      #
+      # print("PERM", perm)
+      for i in range(len(perm)):
+        pi = perm[i]
+        SList.append(list(SeqDicts[i].values())[pi])
+        CList.append(list(SeqDicts[i].keys())[pi])
+      #print(SList)
+      #print(CList)
+      su = SequenceUnion(SList, self._function, self._bitwise)
+      if self._slen is None:
+        self._slen = len(su)
+      Signature = Bitarray.getRotationInsensitiveSignature(su.getLongSequence(), 5)
+      if Signature not in UniqueSignatures:
+        self._uniques[tuple(CList)] = su.getLongSequence()
+        UniqueSignatures.add(Signature)
+        #print(tuple(CList))
+
+  def printReport(self, LinearComplexity = True, TuplesCardinality = True):
+    Aio.print(self.getReport(LinearComplexity, TuplesCardinality))
+
+  def getReport(self, LinearComplexity = True, TuplesCardinality = True):
+    if LinearComplexity and (self._lc is None):
+      self._lc = []
+      for Seq in tqdm(self._uniques.values(), desc="Linear complexity computing"):
+        self._lc.append(Bitarray.getLinearComplexity(Seq, 1))
+    if TuplesCardinality and (self._tuples is None):
+      self._tuples = []
+      for Seq in tqdm(self._uniques.values(), desc="Tuples cardinality computing"):
+        N = int(log2(len(Seq)))
+        Max = (1 << N)
+        C = Bitarray.getCardinality(Seq, N)
+        self._tuples.append([C, round(C * 100 / Max, 2)])
+    Reprs = [repr(ob) for ob in self._input_objects]
+    LC = []
+    if LinearComplexity:
+      LC = ["LC"]
+    TC = []
+    if TuplesCardinality:
+      TC = ["# Tuples", "% Tuples"]
+    Table = AioTable(Reprs + LC + TC, AutoId=1)
+    Names = list(self._uniques.keys())
+    for i in range(len(Names)):
+      if LinearComplexity:
+        LC = [self._lc[i]]
+      if TuplesCardinality:
+        TC = self._tuples[i]
+      Table.add(list(Names[i]) + LC + TC)
+    return f"""Output sequences length: {self._slen}
+{Table.toString()}"""
+        
+      
         
     
 class NlfsrList:
+  
+  @staticmethod
+  def getNlfsrCombinedSequencesReport(NlfsrsOrExpanders : list, CombiningFunction = _xor_sequences, CombiningFunctionIsBitwise = False) -> NlfsrCombinedSequencesReport:
+    return NlfsrCombinedSequencesReport(NlfsrsOrExpanders, CombiningFunction, CombiningFunctionIsBitwise)
   
   @staticmethod
   def toAIArray(NlfsrList, MaxTapsCount=30, MaxAndInputs=8, SequenceBased=False, ReturnAlsoAccepted=False, BaseOnPeriod=False) -> list:
