@@ -232,12 +232,9 @@ class Bitarray:
             return BestValue, BestSHift
         return BestValue
     
-    def getLinearComplexity(Word : bitarray, Course = False) -> int:
+    def getLinearComplexity(Word : bitarray, ProgressBar = False) -> int:
         from libs.lfsr import Polynomial
-        if Course:
-            return Polynomial.decodeUsingBerlekampMassey(Word).getDegree()
-        else:
-            return Polynomial.decodeUsingBerlekampMassey(Word).getDegree()
+        return Polynomial.getLinearComplexityUsingBerlekampMassey(Word, ProgressBar=ProgressBar)
         
     def divideIntoSubArraysToIterateThroughAllTuples(Word : bitarray, TupleSize : int, MaxTuplesCountPerSubArray : int = 1000000, UseBufferedList = False) -> list:
         if UseBufferedList:
