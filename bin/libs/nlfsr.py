@@ -1779,6 +1779,7 @@ def f():
         D = abs(self._Config[i][0]) % Size
         self.rotateTap(i, Size-1-D, SortTaps=0)
       self.sortTaps()
+    self._period = None
     return True
   
   def getTapBounds(self, TapIndex : int) -> tuple:
@@ -1811,6 +1812,19 @@ def f():
       NS.sort(key = lambda x: (abs(x) % self._size))
       NC.append([D, NS])
       self._Config = NC
+    ConfDict = {}
+    for Tap in self._Config:
+      S = tuple(Tap[1])
+      D = Tap[0]
+      Tap = tuple([D, S])
+      ConfDict[Tap] = ConfDict.get(Tap, 0) + 1
+    Config = []
+    for Item in ConfDict.items():
+      if Item[1] & 1:
+        S = list(Item[0][1])
+        D = Item[0][0]
+        Config.append([D, S])
+    self._Config = Config
     self._Config.sort(key = lambda x: (abs(x[0]) % self._size))
   
   def isPlanar(self):
@@ -3132,6 +3146,92 @@ TUPLES REPORT (Sequence observed at bit 0):
       PT.toXls("DATABASE_newer.xlsx")
     if Scheduler is not None:
       print("\n=== Finished. ===")
+      
+  @staticmethod
+  def getCheckPeriodCode(NlfsrsList : list, FunctionName : str = "customCheckPeriod") -> str:
+    MaxSize = 0
+    for nlfsr in NlfsrsList:
+      if nlfsr._size > MaxSize:
+        MaxSize = nlfsr._size
+    MaxIt = (1 << MaxSize)
+    Result = f"""def {FunctionName}() -> list:
+  import numpy as np\n"""
+    for i in range(len(NlfsrsList)):
+      nlfsr = NlfsrsList[i]
+      Result += f"""  nlfsr_{i} = [0 for _ in range({nlfsr._size})]
+  nlfsr_{i}[0] = 1
+  nlfsr_{i} = np.asarray(nlfsr_{i}, dtype='intc')
+  ones_{i} = 1\n"""
+    Result += f"""  Found = 0
+  AllFound = (1 << {len(NlfsrsList)}) - 1
+  NotFoundList = [1] * {len(NlfsrsList)}
+  PeriodList = [0 for _ in range({len(NlfsrsList)})]
+  Counter = 0
+  while (Found != AllFound) and (Counter <= {MaxIt}):
+    Counter += 1\n"""
+    for i in range(len(NlfsrsList)):
+      nlfsr = NlfsrsList[i].copy()
+      Size = nlfsr._size
+      if not nlfsr.toFibonacci():
+        Aio.printError("All Nlfsrs must be convertible to Fibonacci!")
+        return ""
+      Config = nlfsr._Config
+      Result += f"""    # {repr(NlfsrsList[i])}
+    # {repr(nlfsr)}
+    if NotFoundList[{i}]:
+      msb = nlfsr_{i}[0]
+      msb_old = msb\n"""
+      for Tap in Config:
+        Sum = False
+        if Tap[0] < 0:
+          Sum = True
+          for S in Tap[1]:
+            if S >= 0:
+              Sum = False
+        if Sum:
+          AndStr = ""
+          Second = 0
+          for S in Tap[1]:
+            S = (abs(S)) % Size
+            This = f"""nlfsr_{i}[{S}]"""
+            if Second:
+              AndStr += " | "
+            else:
+              Second = 1
+            AndStr += f"({This})"
+          Result += f"""      msb ^= {AndStr}\n"""
+        else:
+          GInv = "1 - " if Tap[0] < 0 else ""
+          AndStr = ""
+          Second = 0
+          for S in Tap[1]:
+            Inv = "1 - " if  S < 0 else ""
+            S = (abs(S)) % Size
+            This = f"""{Inv}(nlfsr_{i}[{S}])"""
+            if Second:
+              AndStr += " & "
+            else:
+              Second = 1
+            AndStr += f"({This})"
+          Result += f"""      msb ^= {GInv}({AndStr})\n"""
+      Result += f"""      if msb_old != msb:
+        if msb:
+          ones_{i} += 1
+        else:
+          ones_{i} -= 1
+      nlfsr_{i}[:-1] = nlfsr_{i}[1:]
+      nlfsr_{i}[-1] = msb
+      #nlfsr_{i} = nlfsr_{i}[1:] + [msb]
+      #print({i}, Counter, nlfsr_{i})
+      if ones_{i} == 1:
+        if nlfsr_{i}[0]:
+          NotFoundList[{i}] = 1
+          Found |= (1 << {i})
+          PeriodList[{i}] = Counter\n"""
+    Result += "  return PeriodList"   
+    return Result
+    
+      
 
 def _make_expander(nlfsr, PBar=0, AlwaysCleanFiles = True) -> tuple:
   T = None
