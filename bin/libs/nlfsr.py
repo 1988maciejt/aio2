@@ -2,6 +2,7 @@ from libs.cpp_program import *
 from libs.lfsr import *
 from libs.utils_list import *
 from libs.utils_bitarray import *
+from libs.utils_str import *
 from libs.asci_drawing import *
 from libs.pandas_table import *
 from libs.temp_transcript import *
@@ -390,6 +391,8 @@ def f():
     return Result
     
   def getPeriod(self, ForceRecalculation = False, ExeName = None):
+    if type(self) is NlfsrCascade:
+      return NlfsrCascade.getPeriod(self)
     if ExeName is not None:
       self._exename = ExeName
     if ForceRecalculation:
@@ -2783,7 +2786,7 @@ def _get_sequences(Object) -> dict:
     ss = Object.getSequences()
     Xors = Object.getXors()
     for i in range(len(ss)):
-      PhaseShifter().getXors()
+      Object.getXors()
       Result[f"XOR{tuple(Xors[i])}"] = ss[i]
   return Result
     
@@ -2811,8 +2814,6 @@ class NlfsrCombinedSequencesReport:
       perm = perm[0]
       SList = []
       CList = []
-      #
-      # print("PERM", perm)
       for i in range(len(perm)):
         pi = perm[i]
         SList.append(list(SeqDicts[i].values())[pi])
@@ -2822,7 +2823,7 @@ class NlfsrCombinedSequencesReport:
       su = SequenceUnion(SList, self._function, self._bitwise)
       if self._slen is None:
         self._slen = len(su)
-      Signature = Bitarray.getRotationInsensitiveSignature(su.getLongSequence(), 5)
+      Signature = Bitarray.getRotationInsensitiveSignature(su.getLongSequence(), 4)
       if Signature not in UniqueSignatures:
         self._uniques[tuple(CList)] = su.getLongSequence()
         UniqueSignatures.add(Signature)
@@ -2843,7 +2844,7 @@ class NlfsrCombinedSequencesReport:
         Max = (1 << N)
         C = Bitarray.getCardinality(Seq, N)
         self._tuples.append([C, round(C * 100 / Max, 2)])
-    Reprs = [repr(ob) for ob in self._input_objects]
+    Reprs = [Str.toLeft(repr(ob), 20) for ob in self._input_objects]
     LC = []
     if LinearComplexity:
       LC = ["LC"]
@@ -2860,9 +2861,209 @@ class NlfsrCombinedSequencesReport:
       Table.add(list(Names[i]) + LC + TC)
     return f"""Output sequences length: {self._slen}
 {Table.toString()}"""
-        
+
+
+class NlfsrCascade:
+  
+  __slots__ = ("_next1", "_nlfsrs", "_size", "_period", "_exename", "_period_verified", "_Config", "_baValue", "_version")
+  
+  def __repr__(self) -> str:
+    if self._period is None:
+      sp = ""
+    else:
+      if self._period_verified is not None:
+        sp = ", SET_PERIOD=(" + str(self._period) + "," + str(self._period_verified) + ")"
+      else:
+        sp = ", SET_PERIOD=" + str(self._period)
+    Result = f"""NlfsrCascade({repr(self._nlfsrs)}, Version={self._version}{sp})"""
+    return Result
+  
+  def __str__(self) -> str:
+    return Bitarray.toString(self._baValue)
+  
+  def __len__(self) -> int:
+    return self._size
+  
+  def __init__(self, NlfsrsList : list, Version : int = 1, **kwargs) -> None:
+    self._nlfsrs = []
+    self._size = 0
+    self._period = None
+    self._exename = None
+    self._period_verified = None
+    self._Config = []
+    self._version = Version
+    if Version == 3:
+      self._next1 = self._next1_v3
+    elif Version == 2:
+      self._next1 = self._next1_v2
+    else:
+      self._next1 = self._next1_v1
+    for nlfsr in NlfsrsList:
+      if type(nlfsr) not in [Nlfsr, Lfsr]:
+        Aio.printError("NlfsrsList must include Nlfsr or Lfsr objects only.")
+        return None
+      self._nlfsrs.append(nlfsr.copy())
+      self._size += len(nlfsr)
+      self._Config += nlfsr._Config.copy()
+    self._baValue = None
+    self.reset()
+    if kwargs.get("SET_PERIOD", None) is not None:
+      _period = kwargs["SET_PERIOD"]
+      if type(_period) is int:
+        self._period = _period
+        Aio.print(f"// WARNING: Period of Nlfsr was set to {self._period} and WILL NOT be verified again!")
+      elif type(_period) is tuple:
+        p = _period[0]
+        h = _period[1]
+        if Int.hash(p) == h:
+          self._period = p
+          self._period_verified = h
+        else:
+          Aio.print(f"// WARNING: Period of Nlfsr was set to {self._period} but IS INCORRECT!!!")
+          
+  
+  def toBooleanExpressionFromRing(self, *args):
+    return ""
+  
+  def getArchitecture(self, *args):
+    return ""
+  
+  def toArticleString(self, *args):
+    return ""
+  
+  def getTaps(self) -> list:
+    return self._Config
+  
+  def getSize(self) -> int:
+    return self._size
       
-        
+  def reset(self) -> bitarray:
+    Result = bitarray()
+    for i in range(len(self._nlfsrs)):
+      self._nlfsrs[i].reset()
+      Result += self._nlfsrs[i]._baValue
+    self._baValue = Result
+    return Result
+    
+  def getValue(self) -> bitarray:
+    Result = bitarray()
+    for nlfsr in self._nlfsrs:
+      Result += nlfsr._baValue
+    return Result
+  
+  def setValue(self, Value : bitarray):
+    Value = bitarray(Value)
+    if len(Value) != len(self):
+      Aio.printError(f"The new value is {len(Value)} bit length while should be {len(self)}.")
+    beg = 0
+    self._baValue = Value
+    for nlfsr in self._nlfsrs:
+      size = nlfsr._size
+      nlfsr._baValue = Value[beg:size+beg]
+      beg += size
+    
+  def _next1_v1(self) -> bitarray:
+    os = []
+    for i in range(1, len(self._nlfsrs)):
+      o = self._nlfsrs[i]._baValue[0]
+      os.append(o)
+    os.append(1)
+    Result = bitarray()
+    for i in range(len(self._nlfsrs)):
+      if Nor or os[i]:
+        self._nlfsrs[i]._next1()
+      Result += self._nlfsrs[i]._baValue
+    self._baValue = Result
+    return Result
+    
+  def _next1_v2(self) -> bitarray:
+    os = []
+    Nor = 0
+    for nlfsr in self._nlfsrs:
+      o = nlfsr._baValue[0]
+      Nor |= o
+      os.append(o)
+    os.append(os[0])
+    Nor = 1 - Nor
+    Result = bitarray()
+    for i in range(len(self._nlfsrs)):
+      if Nor or os[i + 1]:
+        self._nlfsrs[i]._next1()
+      Result += self._nlfsrs[i]._baValue
+    self._baValue = Result
+    return Result
+    
+  def _next1_v3(self) -> bitarray:
+    os = []
+    Nor = 0
+    for nlfsr in self._nlfsrs:
+      o = nlfsr._baValue[0]
+      Nor |= o
+      os.append(o)
+    os.append(os[0])
+    Nor = 1 - Nor
+    Result = bitarray()
+    if Nor or os[1]:
+      self._nlfsrs[0]._next1()
+    Result += self._nlfsrs[0]._baValue
+    for i in range(1, len(self._nlfsrs)):
+      if os[i + 1]:
+        self._nlfsrs[i]._next1()
+      Result += self._nlfsrs[i]._baValue
+    self._baValue = Result
+    return Result
+    
+  def next(self, steps=1) -> bitarray:
+    if steps < 0:
+      Aio.printError("'steps' must be a positve number")
+      return None
+    elif steps == 0:
+      return self.getValue()
+    else:
+      for _ in range(steps):
+        Result = self._next1()
+      return Result
+      
+  def getPeriod(self) -> int:
+    if self._period is None:
+      v0 = self.getValue()
+      p = 1
+      self._period = 0
+      Max = 1 << self._size
+      while p <= Max:
+        v = self._next1()
+        if v == v0:
+          self._period = p
+          break
+        p += 1
+      self._period_verified = Int.hash(self._period)
+    return self._period
+  
+  def isMaximum(self) -> bool:
+    return False
+  
+  def getSequences(self, Length=0, Reset=True, ProgressBar=False):
+    if Length <= 0:
+      Length = self.getPeriod() # (1 << self._size) - 1
+    if Reset:
+      self.reset()
+    if ProgressBar:
+      Iterator = tqdm(range(Length), desc="Obtaining sequences")
+    else:
+      Iterator = range(Length)
+    Result = [bitarray(Length) for _ in range(self._size)]
+    for i in Iterator:
+      for j, Bit in zip(range(self._size), self.getValue()):
+        Result[j][i] = Bit
+      self._next1()
+    return Result
+  
+  createExpander = Nlfsr.createExpander
+  
+  def analyseCycles(self, SequenceAtBitIndex = 0) -> CyclesReport:
+    return CyclesReport(self, SequenceAtBitIndex)
+  
+  
     
 class NlfsrList:
   
@@ -3333,7 +3534,7 @@ TUPLES REPORT (Sequence observed at bit 0):
 
 def _make_expander(nlfsr, PBar=0, AlwaysCleanFiles = True) -> tuple:
   T = None
-  if nlfsr.getSize() <= 14:
+  if nlfsr.getSize() <= 15:
     E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, ReturnAlsoTuplesReport=True, AlwaysCleanFiles=AlwaysCleanFiles)
     if not nlfsr.isMaximum():
       T = nlfsr.analyseCycles()

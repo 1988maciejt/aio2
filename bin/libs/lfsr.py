@@ -81,7 +81,7 @@ class CyclesReport:
       #print("// initial:", InitialState, Sequence)
       while Continue:
         TrajectoryLength += 1
-        NextState = Lfsr.next()
+        NextState = Lfsr._next1()
         #print("// next:", NextState, Sequence)
         NextStateIndex = bau.ba2int(NextState)
         if GlobalTable[NextStateIndex]:
@@ -1695,6 +1695,9 @@ class Lfsr:
     self._taps.clear()
     self._my_poly.clear()    
     
+  def __len__(self) -> int:
+    return self._size
+    
   def tui(self) -> Lfsr:
     global _LFSR
     _LFSR = self.copy()
@@ -2770,7 +2773,7 @@ endmodule'''
   
   def getSequences(self, Length=0, Reset=True, ProgressBar=False):
     if Length <= 0:
-      Length = (1 << self._size) - 1
+      Length = self.getPeriod() # (1 << self._size) - 1
     if Reset:
       self.reset()
     if ProgressBar:
