@@ -2865,13 +2865,14 @@ class NlfsrCombinedSequencesReport:
 
 class NlfsrCascade:
   
-  __slots__ = ("_next1", "_nlfsrs", "_size", "_period", "_exename", "_period_verified", "_Config", "_baValue", "_version")
+  __slots__ = ("_next1", "_nlfsrs", "_size", "_period", "_exename", "_period_verified", "_Config", "_baValue", "_version", "_ps", "_reset_type")
   
   def __repr__(self) -> str:
     if self._period is None:
       sp = ""
     else:
       if self._period_verified is not None:
+        #sp = ", SET_PERIOD=(" + str(self._period) + "," + str(self._period_verified) + "," + str(self._reset_type) + "," + str(hash(bytes(self._reset_type))) + ")"
         sp = ", SET_PERIOD=(" + str(self._period) + "," + str(self._period_verified) + ")"
       else:
         sp = ", SET_PERIOD=" + str(self._period)
@@ -2892,12 +2893,6 @@ class NlfsrCascade:
     self._period_verified = None
     self._Config = []
     self._version = Version
-    if Version == 3:
-      self._next1 = self._next1_v3
-    elif Version == 2:
-      self._next1 = self._next1_v2
-    else:
-      self._next1 = self._next1_v1
     for nlfsr in NlfsrsList:
       if type(nlfsr) not in [Nlfsr, Lfsr]:
         Aio.printError("NlfsrsList must include Nlfsr or Lfsr objects only.")
@@ -2906,6 +2901,7 @@ class NlfsrCascade:
       self._size += len(nlfsr)
       self._Config += nlfsr._Config.copy()
     self._baValue = None
+    self._reset_type = bau.urandom(self._size)
     self.reset()
     if kwargs.get("SET_PERIOD", None) is not None:
       _period = kwargs["SET_PERIOD"]
@@ -2913,14 +2909,38 @@ class NlfsrCascade:
         self._period = _period
         Aio.print(f"// WARNING: Period of Nlfsr was set to {self._period} and WILL NOT be verified again!")
       elif type(_period) is tuple:
-        p = _period[0]
-        h = _period[1]
-        if Int.hash(p) == h:
-          self._period = p
-          self._period_verified = h
+        if len(_period) >= 2:
+          p = _period[0]
+          h = _period[1]
+          #rt = _period[2] 
+          #hrt = _period[3] 
+          #if (Int.hash(p) == h) and (hash(bytes(rt)) == hrt):
+          if (Int.hash(p) == h):
+            self._period = p
+            self._period_verified = h
+            #self._reset_type = rt
+          else:
+            Aio.print(f"// WARNING: Period of Nlfsr was set to {self._period} but IS INCORRECT!!!")
         else:
           Aio.print(f"// WARNING: Period of Nlfsr was set to {self._period} but IS INCORRECT!!!")
+    if Version == 5:
+      # v1.3
+      self._next1 = self._next1_v5
+    elif Version == 4:
+      # v1.2
+      self._next1 = self._next1_v4
+    elif Version == 3:
+      # Looped cascade v2
+      self._next1 = self._next1_v3
+    elif Version == 2:
+      # Looped cascade v1
+      self._next1 = self._next1_v2
+    else:
+      # Cascade
+      self._next1 = self._next1_v1
           
+  def toHashString(self) -> str:
+    return hashlib.sha256(bytes(repr(self), "utf-8")).hexdigest()
   
   def toBooleanExpressionFromRing(self, *args):
     return ""
@@ -2938,6 +2958,8 @@ class NlfsrCascade:
     return self._size
       
   def reset(self) -> bitarray:
+    #v = self._reset_type
+    #return self.setValue(v)
     Result = bitarray()
     for i in range(len(self._nlfsrs)):
       self._nlfsrs[i].reset()
@@ -2970,7 +2992,7 @@ class NlfsrCascade:
     os.append(1)
     Result = bitarray()
     for i in range(len(self._nlfsrs)):
-      if Nor or os[i]:
+      if os[i]:
         self._nlfsrs[i]._next1()
       Result += self._nlfsrs[i]._baValue
     self._baValue = Result
@@ -3013,6 +3035,40 @@ class NlfsrCascade:
     self._baValue = Result
     return Result
     
+  def _next1_v4(self) -> bitarray:
+    os = []
+    for i in range(1, len(self._nlfsrs)):
+      if i < (len(self._nlfsrs)-1):
+        o = self._nlfsrs[i]._baValue[0] ^ self._nlfsrs[len(self._nlfsrs)-1]._baValue[0]
+      else:
+        o = self._nlfsrs[i]._baValue[0]
+      os.append(o)
+    os.append(1)
+    Result = bitarray()
+    for i in range(len(self._nlfsrs)):
+      if os[i]:
+        self._nlfsrs[i]._next1()
+      Result += self._nlfsrs[i]._baValue
+    self._baValue = Result
+    return Result
+    
+  def _next1_v5(self) -> bitarray:
+    os = []
+    for i in range(1, len(self._nlfsrs)):
+      if i < (len(self._nlfsrs)-1):
+        o = self._nlfsrs[i]._baValue[0] ^ self._nlfsrs[len(self._nlfsrs)-1]._baValue[i]
+      else:
+        o = self._nlfsrs[i]._baValue[0]
+      os.append(o)
+    os.append(1)
+    Result = bitarray()
+    for i in range(len(self._nlfsrs)):
+      if os[i]:
+        self._nlfsrs[i]._next1()
+      Result += self._nlfsrs[i]._baValue
+    self._baValue = Result
+    return Result
+    
   def next(self, steps=1) -> bitarray:
     if steps < 0:
       Aio.printError("'steps' must be a positve number")
@@ -3026,16 +3082,34 @@ class NlfsrCascade:
       
   def getPeriod(self) -> int:
     if self._period is None:
-      v0 = self.getValue()
-      p = 1
-      self._period = 0
-      Max = 1 << self._size
-      while p <= Max:
-        v = self._next1()
-        if v == v0:
-          self._period = p
+      Repeat = 1
+      MaxArithmeticP = 1
+      for n in self._nlfsrs:
+        MaxArithmeticP *= n.getPeriod()
+        #print(repr(n))
+      BestV = self._reset_type
+      BestP = 0
+      while Repeat>0:
+        self.reset()
+        v0 = self.getValue()
+        p = 1
+        self._period = 0
+        Max = 1 << self._size
+        while p <= Max:
+          v = self._next1()
+          if v == v0:
+            self._period = p
+            break
+          p += 1
+        #print(self._period, MaxArithmeticP, self._reset_type)
+        if self._period > BestP:
+          BestP = self._period
+          BestV = self._reset_type
+        if self._period/MaxArithmeticP > 0.5:
           break
-        p += 1
+        Repeat -= 1
+        self._reset_type = bau.urandom(self._size)
+      self._period = BestP
       self._period_verified = Int.hash(self._period)
     return self._period
   
@@ -3060,6 +3134,59 @@ class NlfsrCascade:
   
   createExpander = Nlfsr.createExpander
   
+  def createSimpleExpander(self, MinXorInputs = 1, MaxXorInputs = 3, Verify = False) -> PhaseShifter:
+    Offset = 0
+    SingleUniques = []
+    Obligatory = []
+    Rest = []
+    if Verify:
+      SingleSequences = self.getSequences()
+      Uniques = set()
+    for i in range(len(self._nlfsrs)):
+      nlfsr = self._nlfsrs[i]
+      First = True if i == 0 else False
+      Last = True if i == (len(self._nlfsrs)-1) else False
+      Dests = nlfsr.getTapsDestinations()
+      for d in Dests:
+        d += Offset
+        if First:
+          Obligatory.append(d)
+        SingleUniques.append(d)
+      if not First:
+        Rest += [x+Offset for x in range(0, nlfsr._size)] 
+      Offset += nlfsr._size
+    Xors = []
+    for k in range(MinXorInputs, MaxXorInputs+1):
+      #print (f"k = {k}")
+      for ko in range(1, k+1):
+        kr = k - ko
+        for permo in List.getCombinations(Obligatory, ko):
+          #print (f"- permo = {permo}")
+          for permr in List.getCombinations(Rest, kr):
+            #print (f"- - permr = {permr}")
+            perm = permo + permr
+            if len(set(perm)) != len(perm):
+              continue
+      #for perm in List.getCombinations(SingleUniques, k):
+            Ok = False
+            for p in perm:
+              if p in Obligatory:
+                Ok = True
+                break
+            if not Ok:
+              continue
+            if Verify:
+              Seq = Nlfsr._getSequence(SingleSequences, perm)
+              HSeq = Bitarray.getRotationInsensitiveSignature(Seq, range(3, 6+1))
+              if HSeq not in Uniques:
+                Uniques.add(HSeq)
+              else:
+                Aio.print(f"// Expander output {perm} DOES NOT provide an unique sequence!")
+                Ok = False
+            if Ok:
+              Xors.append(perm)
+    return PhaseShifter(self, Xors)
+          
   def analyseCycles(self, SequenceAtBitIndex = 0) -> CyclesReport:
     return CyclesReport(self, SequenceAtBitIndex)
   

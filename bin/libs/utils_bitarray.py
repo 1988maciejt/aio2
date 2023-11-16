@@ -142,6 +142,11 @@ class Bitarray:
         return Result
     
     def getRotationInsensitiveSignature(Word : bitarray, BlockSize) -> int:
+        if type(BlockSize) is not int:
+            Result = []
+            for bs in BlockSize:
+                Result.append(Bitarray.getRotationInsensitiveSignature(Word, int(bs)))
+            return tuple(Result)
         WLen = len(Word)
         W = Word + Word[0:BlockSize-1]
         Z = bau.zeros(BlockSize)
@@ -408,7 +413,7 @@ class SequenceUnion:
                 N = len(self._sequences)
                 SLen = len(self._sequences[0])
                 self._long_seq = bitarray(SLen)
-                for i in range(len(SLen)):
+                for i in range(SLen):
                     self._long_seq[i] = self._function([self._sequences[n][i] for n in range(N)])
             else:
                 self._long_seq = self._function(self._sequences.copy())

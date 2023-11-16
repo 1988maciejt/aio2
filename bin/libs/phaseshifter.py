@@ -106,6 +106,7 @@ class PhaseShifter:
     def next(self, steps = 1) -> bitarray:
         self._my_source.next(steps)
         return self.update()
+    
     def setSourceObject(self, SourceObject) -> bool:
         try:
             test = SourceObject.getValue()
@@ -114,8 +115,10 @@ class PhaseShifter:
         except:
             Aio.printError("The source object must have getValue() method giving bitarray object")
         return False
+    
     def getSourceObject(self):
         return self._my_source
+    
     def getSequences(self, Length=0) -> list:
         Values = self.getValues(n = Length)
         if len(Values) < 1:
@@ -149,6 +152,7 @@ class PhaseShifter:
             result.append(self._bavalue.copy())
             self.next(step)
         return result
+    
     def printValues(self, n = 0, step = 1, reset = True, IncludeSource = False) -> None:
         """Prints the consecutive binary values of the LFSR.
 
