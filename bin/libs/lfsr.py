@@ -37,6 +37,92 @@ _LFSR = None
 _LFSR_SIM = []
 
 
+class SequenceSymbol:
+  
+  __slots__ = ("_symbol", "_shift")
+  
+  def __str__(self) -> str:
+    return f"{self._symbol}({self._shift})"
+  
+  def __repr__(self) -> str:
+    return f"SequenceSymbol({self._symbol}, {self._shift})"
+  
+  def __init__(self, Symbol : int, Shift : int = 0) -> None:
+    if type(Shift) in [int, str]:
+      self._shift = [Shift]
+    else:
+      self._shift = list(Shift)
+    if type(Symbol) is int:
+      self._symbol = [Symbol]
+    else:
+      self._symbol = list(Symbol)
+      
+  def __add__(self, other):
+    sym1 = self._symbol
+    sym2 = other._symbol
+    shift1 = self._shift
+    shift2 = other._shift
+    Comulative = []
+    for sy, sh in zip(sym1, shift1):
+      Comulative.append([sy, sh])
+    for sy, sh in zip(sym2, shift2):
+      Comulative.append([sy, sh])
+    sym = []
+    shift = []
+    Comulative2 = []
+    for item in Comulative:
+      if item in Comulative2:
+        Comulative2.remove(item)
+      else:
+        Comulative2.append(item)
+    Comulative2.sort(key = lambda x: str(x[1]) + str(x[0]))
+    if len(Comulative2) < 1:
+      return SequenceSymbol("CONST", 0)
+    for item in Comulative2:
+      sym.append(item[0])
+      shift.append(item[1])
+    return SequenceSymbol(sym, shift)
+  
+  def getNormalised(self):
+    sym1 = self._symbol
+    shift1 = self._shift
+    Comulative = []
+    for sy, sh in zip(sym1, shift1):
+      Comulative.append([sy, sh])
+    Comulative2 = []
+    sym = []
+    shift = []
+    for item in Comulative:
+      if item in Comulative2:
+        Comulative2.remove(item)
+      else:
+        Comulative2.append(item)
+    Comulative2.sort(key = lambda x: str(x[1]) + str(x[0]))
+    if len(Comulative2) < 1:
+      return SequenceSymbol("CONST", 0)
+    for item in Comulative2:
+      sym.append(item[0])
+      shift.append(item[1])
+    smin = min(shift)
+    shift2 = [i - smin for i in shift]
+    return SequenceSymbol(sym, shift2)
+    
+  def __eq__(self, other) -> bool:
+    n1 = self.getNormalised()
+    n2 = other.getNormalised()
+    if n1._symbol != n2._symbol:
+      return False
+    if n1._shift != n2._shift:
+      return False
+    return True
+  
+  def __neq__(self, other) -> bool:
+    return not(self == other)
+    
+    
+      
+
+
 class CyclesReport:
   
   __slots__ = ("_TrajectoriesList")
