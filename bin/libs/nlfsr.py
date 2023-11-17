@@ -442,7 +442,7 @@ def f():
       if BlockSize < 3:
         BlockSize = 3
     Uniques = []
-    Off = 0
+    #Off = 0
     for k in range(MinXorInputs, MaxXorInputs+1):
       for combi in List.getCombinations([i for i in range(self._size)], k):
         comb = []
