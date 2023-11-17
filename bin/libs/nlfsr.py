@@ -467,7 +467,7 @@ def f():
               Ok = False
           if Ok:
             Uniques.append(Sym)
-            Xors.append(combi.copy())
+            Xors.append(list(combi))
             if Verify:
               SUniques.append(SH)
       #print(len(Uniques)-Off)
@@ -2220,7 +2220,7 @@ endmodule'''
   fromANF = parseFromANF
   
   @staticmethod
-  def listSystematicNlrgs(Size, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaxSearchingTimeMin = 0) -> list:
+  def listSystematicNlrgs(Size, OnlyMaximumPeriod = True, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaxSearchingTimeMin = 0) -> list:
     if Size < 2:
       Aio.printError("Nlfsr.listSystematicNlrgs() can only search for Size >= 2.")
       return []
@@ -2404,7 +2404,7 @@ endmodule'''
         
   
   @staticmethod
-  def listRandomNlrgs(Size : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ReturnAll = False) -> list:
+  def listRandomNlrgs(Size : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False, OnlyMaximumPeriod = True, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ReturnAll = False) -> list:
     if Size < 3:
       Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 3.")
       return []
@@ -2465,7 +2465,7 @@ endmodule'''
     return Result
   
   @staticmethod
-  def listHWNlrgs(Size : int, OnlyMaximumPeriod = False, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ArchitectureVersion = 0) -> list:
+  def listHWNlrgs(Size : int, OnlyMaximumPeriod = True, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ArchitectureVersion = 0) -> list:
     if Size < 8:
       Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 8.\nFor small Nlrgs use Nlfsr.listSystematicNlrgs).")
       return []

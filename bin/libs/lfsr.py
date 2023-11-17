@@ -42,10 +42,13 @@ class SequenceSymbol:
   __slots__ = ("_symbol", "_shift", "_inv")
   
   def __str__(self) -> str:
-    return f"{self._symbol}({self._shift})"
+    return f"({self._symbol}, {self._shift}{', INV' if self._inv else ''})"
   
   def __repr__(self) -> str:
-    return f"SequenceSymbol({self._symbol}, {self._shift}, {self._inv})"
+    return f"SequenceSymbol({self._symbol}, {self._shift}, {'True' if self._inv else 'False'})"
+  
+  def __len__(self) -> int:
+    return len(self._symbol)
   
   def copy(self):
     return SequenceSymbol(self._symbol.copy(), self._shift.copy(), self._inv)
@@ -56,8 +59,8 @@ class SequenceSymbol:
       self._shift = [Shift]
     else:
       self._shift = list(Shift)
-    if type(Symbol) is int:
-      self._symbol = [Symbol]
+    if type(Symbol) in [int, str]:
+      self._symbol = [str(Symbol)]
     else:
       self._symbol = list(Symbol)
       
@@ -77,15 +80,42 @@ class SequenceSymbol:
     for item in Comulative:
       if item in Comulative2:
         Comulative2.remove(item)
-      else:
+      elif item[0] != "CONST0":
         Comulative2.append(item)
     Comulative2.sort(key = lambda x: str(x[1]) + str(x[0]))
     if len(Comulative2) < 1:
-      return SequenceSymbol("CONST", 0)
+      return SequenceSymbol("CONST0", 0, self._inv ^ other._inv)
     for item in Comulative2:
       sym.append(item[0])
       shift.append(item[1])
     return SequenceSymbol(sym, shift, self._inv ^ other._inv)
+  
+  def __mul__(self, other):
+    First = 1
+    Result = None
+    inv1 = "'" if self._inv else ""
+    inv2 = "'" if other._inv else ""
+    for i in range(len(self)):
+      for j in range(len(other)):
+        sym1 = self._symbol[i]
+        sym2 = other._symbol[j]
+        shift1 = self._shift[i]
+        shift2 = other._shift[j]
+        if sym1 == sym2 and shift1 == shift2:
+          sym = sym1
+          shift = shift1
+        else:
+          sym = f"{sym1}{inv1}_AND_{sym2}{inv2}"
+          shift = shift1 if shift1 < shift2 else shift2
+        SS = SequenceSymbol(sym, shift, False)
+        if First:
+          Result = SS
+          First = 0
+        else:
+          Result += SS
+    if Result is None:
+      return SequenceSymbol(["CONST0"], [0], False)
+    return Result
   
   def getNormalised(self):
     sym1 = self._symbol
