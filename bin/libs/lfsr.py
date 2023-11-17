@@ -39,15 +39,19 @@ _LFSR_SIM = []
 
 class SequenceSymbol:
   
-  __slots__ = ("_symbol", "_shift")
+  __slots__ = ("_symbol", "_shift", "_inv")
   
   def __str__(self) -> str:
     return f"{self._symbol}({self._shift})"
   
   def __repr__(self) -> str:
-    return f"SequenceSymbol({self._symbol}, {self._shift})"
+    return f"SequenceSymbol({self._symbol}, {self._shift}, {self._inv})"
   
-  def __init__(self, Symbol : int, Shift : int = 0) -> None:
+  def copy(self):
+    return SequenceSymbol(self._symbol.copy(), self._shift.copy(), self._inv)
+  
+  def __init__(self, Symbol : int, Shift : int = 0, Inv : bool = False) -> None:
+    self._inv = Inv
     if type(Shift) in [int, str]:
       self._shift = [Shift]
     else:
@@ -81,7 +85,7 @@ class SequenceSymbol:
     for item in Comulative2:
       sym.append(item[0])
       shift.append(item[1])
-    return SequenceSymbol(sym, shift)
+    return SequenceSymbol(sym, shift, self._inv ^ other._inv)
   
   def getNormalised(self):
     sym1 = self._symbol
@@ -105,7 +109,7 @@ class SequenceSymbol:
       shift.append(item[1])
     smin = min(shift)
     shift2 = [i - smin for i in shift]
-    return SequenceSymbol(sym, shift2)
+    return SequenceSymbol(sym, shift2, self._inv)
     
   def __eq__(self, other) -> bool:
     n1 = self.getNormalised()
@@ -114,10 +118,31 @@ class SequenceSymbol:
       return False
     if n1._shift != n2._shift:
       return False
+    if n1._inv != n2._inv:
+      return False
     return True
   
   def __neq__(self, other) -> bool:
     return not(self == other)
+  
+  def delay(self, Shift : int):
+    Shifts = []
+    for S in self._shift:
+      Shifts.append(S + Shift)
+    self._shift = Shifts
+    
+  def getSymbols(self) -> list:
+    Result = []
+    for Sym in self._symbol:
+      if Sym not in Result:
+        Result.append(Sym)
+    return Result
+  
+  def invert(self):
+    self._inv = not self._inv
+  
+  def replace(self, Symbol, WithSymbol) -> bool:
+    return False
     
     
       
@@ -2339,6 +2364,32 @@ class Lfsr:
       D = abs(self._taps[i][1]) % self._size
       if D not in Result:
         Result.append(D)
+    return Result
+  
+  def getSequenceSymbols(self, NamePrefix = "") -> list:
+    Size = self._size
+    Dests = self.getTapsDestinations()
+    NamePrefix = str(NamePrefix)
+    if len(Dests) == 0:
+      Index = Size - 1
+    else:
+      Index = max(Dests)
+    Dict = {}
+    SIndex = len(Dests)-1
+    Shift = 0
+    for i in range(Size):
+      Dict[Index] = [NamePrefix + str(SIndex), Shift]
+      Index -= 1
+      Shift += 1
+      if Index < 0:
+        Index += Size
+      if Index in Dests:
+        SIndex -= 1
+        Shift = 0
+    Result = [] 
+    for i in range(Size):
+      S = Dict[i]
+      Result.append(SequenceSymbol(S[0], S[1]))
     return Result
   
   def getSingleTapSources(self, TapIndex : int):

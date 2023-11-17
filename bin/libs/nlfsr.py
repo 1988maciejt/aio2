@@ -132,6 +132,71 @@ class Nlfsr(Lfsr):
     if DInv:
       Result += " )"
     return Result.strip()
+  
+  def getLinearSourcesOf(self, FFIndex : int) -> list:
+    Result = []
+    for Tap in self._Config:
+      D = abs(Tap[0]) % self._size
+      if D == FFIndex:
+        if len(Tap[1]) > 1:
+          return []
+        S = abs(Tap[1][0]) % self._size
+        if Tap[0] * Tap[1][0] < 0:
+          if S == 0:
+            S += self._size
+          S *= -1
+        if S in Result:
+          Result.remove(S)
+        else:
+          Result.append(S)
+    return Result
+
+  def getReducedSequenceSymbols(self, NamePrefix = "") -> list:
+    SSymbols = self.getSequenceSymbols(NamePrefix)
+    Dests = self.getTapsDestinations()
+    Dests.sort(reverse=1)
+    #self.print()
+    #print(SSymbols)
+    #print(Dests)
+    DidSomething = True
+    while DidSomething:
+      DidSomething = False
+      for Dest in Dests:
+        Sym = SSymbols[Dest].getSymbols()
+        #print(f"DEST = {Dest}")
+        if len(Sym) == 1 and Sym[0] == str(NamePrefix) + str(0):
+          #print("  is OK")
+          continue
+        LS = self.getLinearSourcesOf(Dest)
+        if len(LS) < 1:
+          #print("  not reducible")
+          continue
+        DidSomething = True
+        Prev = (Dest + 1) % self._size
+        SSymbols[Dest] = SSymbols[Prev].copy()
+        #print(f" >> {SSymbols[Dest]}")
+        for ls in LS:
+          SSymbols[Dest] += SSymbols[abs(ls) % self._size]
+          if ls < 0:
+            SSymbols[Dest].invert()
+          #print(f" >> {SSymbols[Dest]}")
+        SSymbols[Dest].delay(1)
+        #print(f" >> {SSymbols[Dest]}")
+        Next = Dest - 1
+        if Next < 0:
+          Next += self._size
+        while Next not in Dests:
+          Prev = (Next + 1) % self._size
+          SSymbols[Next] = SSymbols[Prev].copy()
+          SSymbols[Next].delay(1)
+          Next -= 1
+          if Next < 0:
+            Next += self._size
+        #print(SSymbols)
+    return SSymbols
+      
+    
+  
   def getArchitecture(self) -> str:
     Result = ""
     for C in self._Config:
@@ -365,6 +430,51 @@ def f():
       if D not in Result:
         Result.append(D)
     return Result
+  
+  def createSimpleExpander(self, MinXorInputs = 1, MaxXorInputs = 3, Verify = False) -> PhaseShifter:
+    SeqSymbols = self.getReducedSequenceSymbols()
+    #print(SeqSymbols)
+    Xors = []
+    if Verify:
+      SingleSequences = self.getSequences()
+      SUniques = []
+      BlockSize = self._size-4
+      if BlockSize < 3:
+        BlockSize = 3
+    Uniques = []
+    Off = 0
+    for k in range(MinXorInputs, MaxXorInputs+1):
+      for combi in List.getCombinations([i for i in range(self._size)], k):
+        comb = []
+        for ci in combi:
+          comb.append(SeqSymbols[ci])
+#      for comb in List.getCombinations(SeqSymbols, k):
+        Sym = comb[0]
+        for i in range(1, k):
+          Sym += comb[i]
+        if Sym not in Uniques:
+          Ok = True
+          if Verify:
+            S = Nlfsr._getSequence(SingleSequences, combi)
+            SH = Bitarray.getRotationInsensitiveSignature(S, BlockSize)
+            if SH in SUniques:
+              print("NO!!!!")
+              print(SH)
+              print(f"{comb}")
+              print(f"{SUniques}")
+              print(f"{Uniques}")
+              print(f"{SH}")
+              Ok = False
+          if Ok:
+            Uniques.append(Sym)
+            Xors.append(combi.copy())
+            if Verify:
+              SUniques.append(SH)
+      #print(len(Uniques)-Off)
+      #Off = len(Uniques)
+    return PhaseShifter(self, Xors)
+        
+    
   
   def getSingleTapSources(self, TapIndex : int):
     Result = []
