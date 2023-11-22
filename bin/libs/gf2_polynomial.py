@@ -439,23 +439,12 @@ class GF2Polynomial:
         print("Div =",Div, ", \tRest =", Result)
     return Div, Result    
   
-  def getSeparation(self, Characteristic : GF2Polynomial, SequenceLength : int = None) -> int:
-    Char = Characteristic.copy()
-    Normaliser = -Char.getLowestPower()
-    Char <<= Normaliser
-    if SequenceLength is None:
-      SequenceLength = (1 << (Char.getDegree()))-1
-    MaxSteps = len(self.getSymbols())
-    Self = self.copy()
-    Self <<= Normaliser
-    while Self.getLowestPower() < 0:
-      Self.rotateLowestTerm(SequenceLength)
-    for i in range(MaxSteps):
-      Delay = Self.getLowestPower()
-      if (Self >> Delay) == Char:
-        Delay2 = SequenceLength-Delay
-        return Delay if Delay < Delay2 else -Delay2
-      Self.rotateLowestTerm(SequenceLength)
-    return None
+  def getNormalised(self) -> GF2Polynomial:
+    return self.getDelayed(-self.getLowestPower())
+  
+  def isEqualTo(self, Other : GF2Polynomial, RotationInsensitive = False) -> bool:
+    if RotationInsensitive:
+      return (self.getNormalised() == Other.getNormalised())
+    return (self == Other)
       
     
