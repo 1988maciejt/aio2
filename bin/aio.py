@@ -46,6 +46,7 @@ from libs.esp32 import *
 from libs.esp8266 import *
 from libs.fast_anf_algebra import *
 from libs.files import *
+from libs.gf2_polynomial import *
 from libs.gcd import *
 from libs.gcode import *
 from libs.interactive_menu import *
