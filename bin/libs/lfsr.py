@@ -32,6 +32,7 @@ import textual.app as TextualApp
 import textual.widgets as TextualWidgets
 import textual.reactive as TextualReactive
 import textual.containers as TextualContainers
+from libs.gf2_polynomial import *
 
 _LFSR = None
 _LFSR_SIM = []
@@ -1847,6 +1848,44 @@ class Lfsr:
     if tui.EXE == "ok":
       return _LFSR
     return None
+  
+  def getSequencesAsGF2Polynomials(self) -> list:
+    LastFF = self._size-1
+    FDict = {LastFF: GF2Polynomial.fromList([0])}
+    Dests = self.getDestinationsDictionary()
+    for i in range(LastFF-1, -1, -1):
+      Sources = Dests[i]
+      Poly = GF2Polynomial()
+      for S in Sources:
+        SPoly = FDict.get(S, GF2Polynomial.fromList([0], 'f'))      
+        Poly += (SPoly << 1)
+      FDict[i] = Poly
+    Sources = Dests[LastFF]
+    MaxPoly = GF2Polynomial()
+    for S in Sources:
+      SPoly = FDict[S]      
+      MaxPoly += (SPoly << 1)
+    FPower = MaxPoly.getLowestPowerOfLetter('f')
+    print(FDict)
+    print(MaxPoly)
+    print(FPower)
+    if FPower is not None:
+      fPoly = (MaxPoly + FDict[LastFF] + GF2Polynomial.fromList([FPower], 'f')) >> FPower
+      print(fPoly)  
+      for i in range(LastFF-1, -1, -1):
+        FDict[i] = FDict[i].subst(fPoly, 'f')
+    print(FDict)
+    PMin = None
+    for Poly in FDict.values():
+      Min = Poly.getLowestPower()
+      if PMin is None or Min < PMin:
+        PMin = Min
+    Result = []
+    for i in range(self._size):
+      Result.append(FDict[i] >> PMin)
+    return Result
+    
+        
     
   def getDestinationsDictionary(self) -> dict:
     DestDict = {}

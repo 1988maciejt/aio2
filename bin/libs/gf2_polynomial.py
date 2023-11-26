@@ -1,6 +1,5 @@
 from libs.utils_int import *
 from libs.utils_str import *
-from libs.lfsr import Polynomial
 
 
 
@@ -59,6 +58,7 @@ class GF2Symbol:
     while self._power < 0:
       self._power += Modulus
     self._power %= Modulus
+
   
   
 class GF2Monomial:
@@ -98,12 +98,12 @@ class GF2Monomial:
     return GF2Monomial(*Symbols)
   
   @staticmethod
-  def fromList(Coefficients : list) -> GF2Monomial:
+  def fromList(Coefficients : list, Letter = "x") -> GF2Monomial:
     if type(Coefficients) is int:
       Coefficients = [Coefficients]
     Symbols = set()
     for C in Coefficients:
-      Symbols.add(GF2Symbol('x', int(C)))
+      Symbols.add(GF2Symbol(str(Letter), int(C)))
     return GF2Monomial(*Symbols)
     
   def __len__(self) -> int:
@@ -204,8 +204,16 @@ class GF2Monomial:
     for Symbol in self._symbols:
       Symbol.moduloPowers(Modulus)
     self.sort()
+  
+  def getLowestPowerOfLetter(self, Letter = "x") -> int:
+    Result = None
+    for Symbol in self._symbols:
+      if Symbol._letter == Letter:
+        if Result is None or Result < Symbol._power:
+          Result = Symbol._power
+    return Result
     
-    
+
 
 class GF2Polynomial:
   pass
@@ -251,12 +259,12 @@ class GF2Polynomial:
     return GF2Polynomial(*Monomials)
   
   @staticmethod
-  def fromList(Coefficients : list) -> GF2Polynomial:
+  def fromList(Coefficients : list, Letter = "x") -> GF2Polynomial:
     if type(Coefficients) is int:
       Coefficients = [Coefficients]
     Monomials = []
     for C in Coefficients:
-      Monomial = GF2Monomial.fromList(C)
+      Monomial = GF2Monomial.fromList(C, Letter)
       if Monomial in Monomials:
         Monomials.remove(Monomial)
       else:
@@ -264,7 +272,8 @@ class GF2Polynomial:
     return GF2Polynomial(*Monomials)
   
   @staticmethod
-  def fromPolynomial(Poly : Polynomial) -> GF2Polynomial:
+  def fromPolynomial(Poly) -> GF2Polynomial:
+    #from libs.lfsr import Polynomial
     return GF2Polynomial.fromList(Poly.getCoefficients())
   
   def __len__(self) -> int:
@@ -414,8 +423,6 @@ class GF2Polynomial:
         if Symbol._letter == Letter:
           Subst = Substitution << Symbol._power
         else:
-          ## FIX THAT!
-          print("FIX THAT!")
           Subst = GF2Polynomial(Symbol)
         if First:
           Poly = Subst
@@ -430,7 +437,7 @@ class GF2Polynomial:
     modDeg = Modulus.getDegree()
     Div = GF2Polynomial()
     Result = self
-    while myDeg > modDeg:
+    while myDeg >= modDeg:
       Div += GF2Polynomial(GF2Symbol('0')) << (myDeg-modDeg)
       ToAdd = Modulus << (myDeg-modDeg)
       Result = Result + ToAdd
@@ -446,5 +453,13 @@ class GF2Polynomial:
     if RotationInsensitive:
       return (self.getNormalised() == Other.getNormalised())
     return (self == Other)
-      
-    
+  
+  def getLowestPowerOfLetter(self, Letter = "x") -> int:
+    Result = None
+    for Monomial in self._monomials:
+      MonoResult = Monomial.getLowestPowerOfLetter(Letter)
+      if MonoResult is None:
+        continue
+      if Result is None or Result < MonoResult:
+        Result = MonoResult
+    return Result

@@ -35,6 +35,15 @@ class Bitarray:
                 return Res
         return None
     
+    def howMuchDelayedIsTheGivenSequence(Sequence : bitarray, Reference : bitarray) -> int:
+        if len(Sequence) == len(Reference):
+            B2 = Sequence + Sequence
+            Res = B2.find(Reference)
+            if Res >= 0:
+                return Res
+        return None
+        
+    
     def toString(X : bitarray) -> str:
         Result = ""
         for b in reversed(X):
