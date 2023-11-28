@@ -1522,14 +1522,14 @@ def f():
     Result = ""
     TSecond = 0
     for Tap in self._Config:
-      TapS = f"({'-' if Tap[0]<0 else ''}{abs(Tap[0] % self._size)}: "
+      TapS = f"({'-' if Tap[0]<0 else ''}{abs(Tap[0]) % self._size}: "
       Second = 0
       for Si in Tap[1]:
         if Second:
           TapS += ", "
         else:
           Second = 1
-        TapS += f"{'-' if Si<0 else ''}{abs(Si % self._size)}"
+        TapS += f"{'-' if Si<0 else ''}{abs(Si) % self._size}"
       TapS += ")"
       if TSecond:
         Result += ", "
