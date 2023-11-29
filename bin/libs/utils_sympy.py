@@ -22,6 +22,49 @@ class SymPy:
             return not SymPy.isThereAFunctionInExpression(anf, And)
         except:
             return True
+        
+    @staticmethod
+    def getAnfLiteralsCount(expr) -> int:
+        try:
+            Literls = set()
+            anf = expr.to_anf()
+            for arg in anf.args:
+                if type(arg) is Symbol:
+                    Literls.add(arg)
+                elif type(arg) is And:
+                    for aarg in arg.args:
+                        Literls.add(aarg)
+            return len(Literls)
+        except:
+            return 0
+        
+    @staticmethod
+    def getAnfDegree(expr) -> int:
+        try:
+            Degree = 0
+            anf = expr.to_anf()
+            for arg in anf.args:
+                if type(arg) is Symbol:
+                    if Degree < 1:
+                        Degree = 1
+                elif type(arg) is And:
+                    if Degree < len(arg.args):
+                        Degree = len(arg.args)
+            return Degree
+        except:
+            return 0
+        
+    @staticmethod
+    def getAnfMonomialsCount(expr) -> int:
+        try:
+            Result = 0
+            anf = expr.to_anf()
+            for arg in anf.args:
+                if type(arg) in [Symbol, And]:
+                    Result += 1
+            return Result
+        except:
+            return 0
     
     @staticmethod
     def anf(expr : str):
