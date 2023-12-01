@@ -2427,11 +2427,11 @@ endmodule'''
       Aio.printError("MinNonlinearTapsRatio must be >0 and MaxNonlinearTapsRatio <=1.")
       return []
     Result = []
-    ChunkSize = 2048
-    for _ in range(Size-14):
+    ChunkSize = 4096
+    for _ in range(0, Size-14, 2):
       ChunkSize //= 2
-    if ChunkSize < 32:
-      ChunkSize = 32
+    if ChunkSize < 48:
+      ChunkSize = 48
     TT = TempTranscript(f"Nlfsr.listNlfsrs({Size})")
     T0 = time.time()
     if MaximumTries <= 0:
@@ -2482,11 +2482,11 @@ endmodule'''
       ConfigLen = TapsCount * 11
     Chunk = []
     Result = []
-    ChunkSize = 2048
-    for _ in range(Size-14):
+    ChunkSize = 4096
+    for _ in range(0, Size-14, 2):
       ChunkSize //= 2
-    if ChunkSize < 16:
-      ChunkSize = 16
+    if ChunkSize < 48:
+      ChunkSize = 48
     TT = TempTranscript(f"Nlfsr.listNlfsrs({Size})")
     if MaximumTries <= 0:
       MaximumTries = (1 << ConfigLen)
@@ -3037,7 +3037,7 @@ class NlfsrCascade:
       # v1.3
       self._next1 = self._next1_v5
     elif Version == 4:
-      # v1.2
+      # Gollmann
       self._next1 = self._next1_v4
     elif Version == 3:
       # Looped cascade v2
@@ -3146,19 +3146,18 @@ class NlfsrCascade:
     return Result
     
   def _next1_v4(self) -> bitarray:
-    os = []
-    for i in range(1, len(self._nlfsrs)):
-      if i < (len(self._nlfsrs)-1):
-        o = self._nlfsrs[i]._baValue[0] ^ self._nlfsrs[len(self._nlfsrs)-1]._baValue[0]
-      else:
-        o = self._nlfsrs[i]._baValue[0]
-      os.append(o)
-    os.append(1)
+    os = [1]
+    j = 0
+    for i in range(len(self._nlfsrs)-2, -1, -1):
+      os.append(self._nlfsrs[i+1]._baValue[0] ^ os[j])
+      j += 1
     Result = bitarray()
+    j = len(self._nlfsrs)-1
     for i in range(len(self._nlfsrs)):
-      if os[i]:
+      if os[j]:
         self._nlfsrs[i]._next1()
       Result += self._nlfsrs[i]._baValue
+      j -= 1
     self._baValue = Result
     return Result
     
@@ -3200,12 +3199,12 @@ class NlfsrCascade:
       BestV = self._reset_type
       BestP = 0
       while Repeat>0:
-        self.reset()
-        v0 = self.getValue()
+        v0 = self.reset().copy()
         p = 1
         self._period = 0
         Max = 1 << self._size
         while p <= Max:
+          #print(p, "\t", self._baValue)
           v = self._next1()
           if v == v0:
             self._period = p
