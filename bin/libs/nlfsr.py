@@ -90,6 +90,14 @@ class Nlfsr(Lfsr):
       return None
     return self._anf_temp
   
+  def __hash__(self) -> int:
+    Taps = [self._size]
+    for tap in self._Config:
+      d = tap[0]
+      s = tuple(tap[1])
+      Taps.append(tuple([d, s]))
+    return hash(tuple(Taps))
+      
   def __eq__(self, other) -> bool:
     if self._size != other._size:
       return False
@@ -3049,6 +3057,40 @@ class NlfsrCascade:
       # Cascade
       self._next1 = self._next1_v1
           
+  def isTheoreticallyMaximum(self) -> bool:
+    if self._version == 1:
+      Per = 0
+      nd = {}
+      for n in reversed(self._nlfsrs):
+        p = n.getPeriod()
+        nd[p] = nd.get(p, 0) + 1
+        if not Int.isPrime(p):
+          return False
+        if p < Per:
+          return False
+        Per = p
+      for v in nd.values():
+        if v > 2:
+          return False
+    else:
+      Aio.printError("Not implemented!")
+      return False
+    return True
+              
+  def isTheoreticallyNonMaximum(self) -> bool:
+    if self._version == 1:
+      nd = {}
+      for n in self._nlfsrs:
+        p = n.getPeriod()
+        nd[p] = nd.get(p, 0) + 1
+      for v in nd.values():
+        if v > 2:
+          return True
+    else:
+      Aio.printError("Not implemented!")
+      return False
+    return False
+  
   def toHashString(self) -> str:
     return hashlib.sha256(bytes(repr(self), "utf-8")).hexdigest()
   
