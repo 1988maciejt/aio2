@@ -507,16 +507,8 @@ def f():
         if S not in Result:
           Result.append(S)
     return Result
-    
-  def getPeriod(self, ForceRecalculation = False, ExeName = None):
-    if type(self) is NlfsrCascade:
-      return NlfsrCascade.getPeriod(self)
-    if ExeName is not None:
-      self._exename = ExeName
-    if ForceRecalculation:
-      self._period = None
-    if self._period is not None:
-      return self._period
+  
+  def _getCheckPeriodArgStr(self) -> tuple:
     ArgStr = str(self._size)
     WithInverters = 0
     for C in self._Config:
@@ -535,6 +527,18 @@ def f():
           if S < 0:
             WithInverters = 1
       ArgStr += " " + TString
+    return ArgStr, WithInverters
+    
+  def getPeriod(self, ForceRecalculation = False, ExeName = None):
+    if type(self) is NlfsrCascade:
+      return NlfsrCascade.getPeriod(self)
+    if ExeName is not None:
+      self._exename = ExeName
+    if ForceRecalculation:
+      self._period = None
+    if self._period is not None:
+      return self._period
+    ArgStr, WithInverters = self._getCheckPeriodArgStr()
     if len(self._exename) > 0:
       try:
         Res = Aio.shellExecute(self._exename + " " + ArgStr)   
@@ -548,14 +552,20 @@ def f():
     else:
       try:
         if WithInverters:
-          Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
+          if self._size <= 64:
+            Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed64b.run(ArgStr)
+          else:
+            Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
         else:
           Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
         x = int(Res)
       except:
         try:
           if WithInverters:
-            Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
+            if self._size <= 64:
+              Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed64b.run(ArgStr)
+            else:
+              Res = CppPrograms.NLSFRPeriodCounterInvertersAllowed.run(ArgStr)
           else:
             Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
         except:
@@ -943,10 +953,12 @@ def f():
       return Results
     if InvertersAllowed:
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+      exename64b = CppPrograms.NLSFRPeriodCounterInvertersAllowed64b.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounterInvertersAllowed.Compiled:
 #        CppPrograms.NLSFRPeriodCounterInvertersAllowed.compile()
     else:
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+      exename64b = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
 #      if not CppPrograms.NLSFRPeriodCounter.Compiled:
 #        CppPrograms.NLSFRPeriodCounter.compile()
     Size = Poly.getDegree()
@@ -965,7 +977,10 @@ def f():
     PMR = PeriodLengthMinimumRatio - eps
     for InputSet in Nlfsr._makeNLRingGeneratorsFromPolynomial(Poly, LeftRightAllowedShift, InvertersAllowed, MaxAndCount, BeautifullOnly, False, Tiger):
       for i in range(len(InputSet)):
-        InputSet[i]._exename = exename
+        if InputSet[i]._size <= 64:
+          InputSet[i]._exename = exename64b
+        else:
+          InputSet[i]._exename = exename
       Generator = Generators()
       WasResult = 0
       Total = len(InputSet) // Chunk + (1 if len(InputSet) % Chunk > 0 else 0)
@@ -2445,11 +2460,7 @@ endmodule'''
     if MaximumTries <= 0:
       MaximumTries = 10000000 * Size
     for _ in range(MaximumTries):
-#      Chunk = Nlfsr.listRandomNlrgCandidates(Size, ChunkSize, True, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters)
-#      if len(Chunk) <= 32:
-#        Chunk = Nlfsr.filter(Chunk)
-#      PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio, ReturnAll=ReturnAll)    
-      PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Nlfsr.generateRandomNlrgCandidates(Size, ChunkSize, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters), Total=ChunkSize),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio, ReturnAll=ReturnAll)
+      PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Nlfsr.generateRandomNlrgCandidates(Size, ChunkSize, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters), Total=ChunkSize, LimitedTo64b=True if Size <= 64 else False),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio, ReturnAll=ReturnAll)
       if not ReturnAll:
         for Res in PartResult:
           TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
@@ -2556,7 +2567,7 @@ endmodule'''
         Chunk.append(Candidate)
       if len(Chunk) >= ChunkSize:
         Chunk = Nlfsr.filter(Chunk)
-        PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
+        PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk, LimitedTo64b=True if Size <= 64 else False),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
         for Res in PartResult:
           TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
         Result += PartResult
@@ -2570,7 +2581,7 @@ endmodule'''
         if STime >= MaxSearchingTimeMin > 0:
           break
     if len(Chunk) > 0:
-      Result += NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
+      Result += NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk, LimitedTo64b=True if Size <= 64 else False),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
       Result = NlfsrList.filter(Result)
     if len(Result) > n > 0:
       Result = Result[:n]  
@@ -3395,8 +3406,12 @@ class NlfsrList:
     
   def checkMaximum(NlfsrsList) -> list:
     exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+    exename64b = CppPrograms.NLSFRPeriodCounterInvertersAllowed64b.getExePath()
     for N in NlfsrsList:
-      N._exename = exename
+      if N._size <= 64:
+        N._exename = exename64b
+      else:
+        N._exename = exename
     G = Generators()
     RM = p_map(Nlfsr.isMaximum, NlfsrsList, desc="Nlfsrs simulating")
     Results = []
@@ -3412,8 +3427,11 @@ class NlfsrList:
     nlfsr.getPeriod(ForceRecalculation=ForceRecalculation, ExeName=ExeName)
     return nlfsr
   
-  def checkPeriod(NlfsrsList, ForceRecalculation=False, Total=None) -> list:
-    exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+  def checkPeriod(NlfsrsList, ForceRecalculation=False, Total=None, LimitedTo64b = True) -> list:
+    if LimitedTo64b:
+      exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed64b.getExePath()
+    else:
+      exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
     if type(NlfsrsList) is list:
       Total = len(NlfsrsList)
     Results = []
@@ -3522,11 +3540,11 @@ class NlfsrList:
         Results.append(N)
     return Results
   
-  def reprToFile(NlfsrsList, FileName : str, ForcePeriodRecalculation=False):
+  def reprToFile(NlfsrsList, FileName : str, ForcePeriodRecalculation=False, LimitedTo64b = True):
     Text = ""
     Second = 0
     if ForcePeriodRecalculation:
-      NlfsrList.checkPeriod(NlfsrsList, True)
+      NlfsrList.checkPeriod(NlfsrsList, True, LimitedTo64b=LimitedTo64b)
     for n in NlfsrsList:
       if Second:
         Text += "\n"
@@ -3535,10 +3553,13 @@ class NlfsrList:
       Text += repr(n)
     writeFile(FileName, Text)
     
-  def toResearchDataBase(NlfsrsList, FileName : str):
+  def toResearchDataBase(NlfsrsList, FileName : str, LimitedTo64b = True):
     PT = PandasTable(["Size", "#Taps", "Equations", "SingleSeq", "DoubleSeq", "TripleSeq"], 1, 1)
     i = 0
-    exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+    if LimitedTo64b:
+      exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed64b.getExePath()
+    else:
+      exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
     for N in NlfsrsList:
       N._exename = exename
     for R in p_imap(_NLFSR_list_database_helper, NlfsrsList):
@@ -3552,7 +3573,7 @@ class NlfsrList:
       writeFile(FileName, PT.toString('left'))
       i += 1
       
-  def toXlsDatabase(NlfsrsList, Scheduler = None, CleanBufferedLists = True):
+  def toXlsDatabase(NlfsrsList, Scheduler = None, CleanBufferedLists = True, LimitedTo64b = True):
     from libs.remote_aio import RemoteAioScheduler
     if type(Scheduler) is not RemoteAioScheduler:
       Scheduler = None
@@ -3563,7 +3584,10 @@ class NlfsrList:
         Aio.printError("Remove the 'data' file. This functions needs a 'data' directory.")
         return
     tt = TempTranscript("NlfsrList.toXlsDatabase()")
-    exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
+    if LimitedTo64b:
+      exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed64b.getExePath()
+    else:
+      exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
     if not Aio.isType(NlfsrsList, []):
       NlfsrsList = [NlfsrsList]
     for N in NlfsrsList:
@@ -3874,7 +3898,7 @@ class NlfsrFpgaBooster:
   def getSize(self) -> int:
     return self._size
   
-  def getNlfsrListFromFile(self, FileName : str, Verify = True, OnlyMaximumPeriods = False, AllowMaximumPeriods = True, OnlyPrimeNonMaximumPeriods = True,  AllowLfsrs = False, AllowSemiLfsrs = False, Debug = 0) -> list:
+  def getNlfsrListFromFile(self, FileName : str, Verify = True, OnlyMaximumPeriods = False, AllowMaximumPeriods = True, OnlyPrimeNonMaximumPeriods = True,  AllowLfsrs = False, AllowSemiLfsrs = False, Debug = 0, LimitedTo64b = True) -> list:
     Result = []
     Max = (1 << self._size) - 1
     Data = readFile(FileName)
@@ -3982,8 +4006,10 @@ class NlfsrFpgaBooster:
     Aio.print("------------------------------------------------")
     Aio.print(f"# Accepted: {Accepted}")
     if Verify:
-      CppPrograms.NLSFRPeriodCounterInvertersAllowed.compile()
-      exe = CppPrograms.NLSFRPeriodCounterInvertersAllowed.ExeFileName
+      if LimitedTo64b:
+        exe = CppPrograms.NLSFRPeriodCounterInvertersAllowed64b.getExePath()
+      else:
+        exe = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
       for R in Result:
         R._exename = exe
       Res2 = []
