@@ -29,7 +29,6 @@ int main(int argc, char* argv[])
     uint_fast64_t Max = uint_fast64_t(1) << uint_fast64_t(Size);
     uint_fast64_t Period = 0;
     uint_fast64_t V0;
-    uint_fast64_t One = 1;
     uint_fast64_t SizeMask = uint_fast64_t(1) << uint_fast64_t(Size - 1);
     uint_fast64_t OneInFlop = 0;
 
@@ -71,7 +70,7 @@ int main(int argc, char* argv[])
         Period = 0;
         for (uint_fast64_t Step = 0; Step < Max; ++Step) {
             AuxValue = Value >> 1;
-            if (Value & One) {
+            if (Value & 1) {
                 AuxValue |= SizeMask;
             }
             for (int TapIndex = 0; TapIndex < TapsCount; ++TapIndex) {
