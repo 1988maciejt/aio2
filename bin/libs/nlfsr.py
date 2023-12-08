@@ -2747,7 +2747,7 @@ endmodule'''
     if MaximumTries <= 0:
       MaximumTries = 10000000 * Size
     for _ in range(MaximumTries):
-      PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Nlfsr.generateRandomNlrgCandidates(Size, ChunkSize, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters), Total=ChunkSize, LimitedTo64b=True if Size <= 64 else False),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio, ReturnAll=ReturnAll)
+      PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Nlfsr.generateRandomNlrgCandidates(Size, ChunkSize, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters), LimitedTo64b=True if Size <= 64 else False, Total=ChunkSize),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio, ReturnAll=ReturnAll)
       if not ReturnAll:
         for Res in PartResult:
           TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
@@ -2769,12 +2769,9 @@ endmodule'''
         Result = Result[:n]  
     TT.close()      
     return Result
-  
+    
   @staticmethod
-  def listHWNlrgs(Size : int, OnlyMaximumPeriod = True, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ArchitectureVersion = 0) -> list:
-    if Size < 8:
-      Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 8.\nFor small Nlrgs use Nlfsr.listSystematicNlrgs).")
-      return []
+  def _HWNlrgCandidates(Size, n = 1, ArchitectureVersion = 0):
     if ArchitectureVersion == 1:
       UpperBranchLen = Size // 2
       LowerBranchSize = Size - UpperBranchLen
@@ -2786,18 +2783,8 @@ endmodule'''
     else:
       TapsCount = (Size//2)-3
       ConfigLen = TapsCount * 11
-    Chunk = []
     Result = []
-    ChunkSize = 4096
-    for _ in range(0, Size-14, 2):
-      ChunkSize //= 2
-    if ChunkSize < 48:
-      ChunkSize = 48
-    TT = TempTranscript(f"Nlfsr.listNlfsrs({Size})")
-    if MaximumTries <= 0:
-      MaximumTries = (1 << ConfigLen)
-    T0 = time.time()
-    for _ in range(MaximumTries):
+    while 1:
       Config = bau.urandom(ConfigLen)
       Taps = []
       if ArchitectureVersion == 1:
@@ -2834,6 +2821,8 @@ endmodule'''
         #print(Taps)
       else:
         for TapIndex in range(TapsCount):
+          if randint(0, 100) > 75:
+            continue
           S = []
           IOffset = TapIndex * 11
           for SIndex in range(5):
@@ -2851,22 +2840,67 @@ endmodule'''
         Candidate = Nlfsr(Size, Taps)
         if Candidate.isLfsr() or Candidate.isSemiLfsr():
           continue
-        Chunk.append(Candidate)
-      if len(Chunk) >= ChunkSize:
-        Chunk = Nlfsr.filter(Chunk)
-        PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk, LimitedTo64b=True if Size <= 64 else False),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
-        for Res in PartResult:
-          TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
-        Result += PartResult
-        if len(PartResult) > 0:
-          Result = Nlfsr.filter(Result)
-        STime = round((time.time() - T0) / 60, 2)
-        print(f"// Found so far: {len(Result)}, searching time: {STime} min")
-        Chunk = []
-        if len(Result) >= n > 0:
-          break
-        if STime >= MaxSearchingTimeMin > 0:
-          break
+        Result.append(Candidate)
+      if len(Result) >= n:
+        return Result[:n]
+  
+  @staticmethod
+  def _HWNlrgCandidatesMult(Size, n = 10, ArchitectureVersion = 0):
+    Result = []
+    N = 10
+    if n < 10:
+      N = 1
+    elif n > 128:
+      N = int(n / 128)
+    CList = [Size] * int(ceil(n / N))
+    for Part in p_map(partial(Nlfsr._HWNlrgCandidates, n=N, ArchitectureVersion=ArchitectureVersion), CList, desc=f"Generating candidates (x{N})"):
+      Result += Part
+    if len(Result) > n:
+      return Result[:n]
+    return Result
+  
+  @staticmethod
+  def listHWNlrgs(Size : int, OnlyMaximumPeriod = True, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ArchitectureVersion = 0) -> list:
+    if Size < 8:
+      Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 8.\nFor small Nlrgs use Nlfsr.listSystematicNlrgs).")
+      return []
+    Chunk = []
+    Result = []
+    ChunkSize = 4096
+    for _ in range(0, Size-14, 2):
+      ChunkSize //= 2
+    if ChunkSize < 48:
+      ChunkSize = 48
+    TT = TempTranscript(f"Nlfsr.listNlfsrs({Size})")
+    if ArchitectureVersion == 1:
+      UpperBranchLen = Size // 2
+      LowerBranchSize = Size - UpperBranchLen
+      NonlinearTapsCount = 3
+      NonlinearTapConfigLen = (UpperBranchLen * 3) + 1
+      LinearTapsCount = LowerBranchSize-NonlinearTapsCount
+      ConfigLen = NonlinearTapsCount * NonlinearTapConfigLen + LinearTapsCount * 3
+    else:
+      TapsCount = (Size//2)-3
+      ConfigLen = TapsCount * 11
+    if MaximumTries <= 0:
+      MaximumTries = (1 << ConfigLen)
+    T0 = time.time()
+    for _ in range(MaximumTries):
+      Chunk = Nlfsr._HWNlrgCandidatesMult(Size, ChunkSize, ArchitectureVersion)
+      #Chunk = Nlfsr.filter(Chunk)
+      PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk, LimitedTo64b=True if Size <= 64 else False),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
+      for Res in PartResult:
+        TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
+      Result += PartResult
+      if len(PartResult) > 0:
+        Result = Nlfsr.filter(Result)
+      STime = round((time.time() - T0) / 60, 2)
+      print(f"// Found so far: {len(Result)}, searching time: {STime} min")
+      Chunk = []
+      if len(Result) >= n > 0:
+        break
+      if STime >= MaxSearchingTimeMin > 0:
+        break
     if len(Chunk) > 0:
       Result += NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk, LimitedTo64b=True if Size <= 64 else False),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
       Result = NlfsrList.filter(Result)
@@ -3800,17 +3834,44 @@ class NlfsrList:
     nlfsr.getPeriod(ForceRecalculation=ForceRecalculation, ExeName=ExeName)
     return nlfsr
   
-  def checkPeriod(NlfsrsList, ForceRecalculation=False, Total=None, LimitedTo64b = True) -> list:
+  def _checkPeriodSeries(NlfsrsList, ForceRecalculation=False, ExeName=None):
+    Result = []
+    for n in NlfsrsList:
+      n._exename = ExeName
+      n.getPeriod(ForceRecalculation=ForceRecalculation)
+      Result.append(n)
+    return Result
+  
+  def checkPeriod(NlfsrsList, ForceRecalculation=False, LimitedTo64b = True, Total = None) -> list:
     if LimitedTo64b:
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed64b.getExePath()
     else:
       exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
-    if type(NlfsrsList) is list:
-      Total = len(NlfsrsList)
     Results = []
-    Iter = p_imap(functools.partial(NlfsrList._getPeriodAndNlfsr, ForceRecalculation=ForceRecalculation, ExeName=exename) , NlfsrsList, desc="Nlfsrs simulating", total=Total)
+    if type(NlfsrsList) is list:
+      if len(NlfsrsList) > 256:
+        S = int(len(NlfsrsList) / 256)
+        if S > 10:
+          S = 10
+        Generators().subLists(NlfsrsList, S)
+        Total = int(ceil(len(NlfsrsList) / S))
+        Iter = p_imap(functools.partial(NlfsrList._checkPeriodSeries, ForceRecalculation=ForceRecalculation, ExeName=exename), Generators().subLists(NlfsrsList, S), desc=f"Nlfsrs simulating (x{S})", total=Total)
+      else:
+        Iter = p_imap(functools.partial(NlfsrList._getPeriodAndNlfsr, ForceRecalculation=ForceRecalculation, ExeName=exename), NlfsrsList, desc="Nlfsrs simulating")
+    else:    
+      if Total is not None and Total > 256:
+        S = int(Total / 256)
+        if S > 10:
+          S = 10
+        Total = int(ceil(Total / S))
+        Iter = p_imap(functools.partial(NlfsrList._checkPeriodSeries, ForceRecalculation=ForceRecalculation, ExeName=exename), Generators().subListsFromGenerator(NlfsrsList, S), desc=f"Nlfsrs simulating (x{S})", total=Total)
+      else:
+        Iter = p_imap(functools.partial(NlfsrList._getPeriodAndNlfsr, ForceRecalculation=ForceRecalculation, ExeName=exename), NlfsrsList, desc="Nlfsrs simulating")
     for nlfsr in Iter:
-      Results.append(nlfsr)
+      if type(nlfsr) is list:
+        Results += nlfsr
+      else:
+        Results.append(nlfsr)
     return Results
   
   def filterPeriod(NlfsrList, OnlyMaximumPeriod = True, AllowMaximumPeriods = True, OnlyPrimeNonMaximumPeriods = True, MinimumPeriodRatio = 0.95, ReturnAll = False) -> list:

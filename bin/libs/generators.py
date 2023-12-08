@@ -70,6 +70,23 @@ class Generators:
       while _PAUSE:
         sleep(0.35)
       
+  def subListsFromGenerator(self, gen, SublistSize : int):
+    global _PAUSE
+    y = []
+    for x in gen:
+      if not self._enabled:
+        break
+      y.append(x)
+      if len(y) >= SublistSize:
+        yield y
+        y = []
+      while _PAUSE:
+        sleep(0.35)
+    if not self._enabled:
+      return
+    if len(y) > 0:
+      yield y
+      
   def wrapper(self, iterator):
     global _PAUSE
     for x in iterator:
