@@ -14,6 +14,10 @@ import hashlib
 from libs.cython import *
 from libs.utils_serial import *
 import numpy
+try:
+  from numba import cuda
+except:
+  pass
 
 # TUI =====================================================
 
@@ -107,7 +111,286 @@ class Nlfsr(Lfsr):
   
   def __neq__(self, other) -> bool:
     return not self.__eq__(self, other)
+  
+  def getTapsStats(self) -> tuple:
+    AndInputs = 0
+    for Tap in self._Config:
+      l = len(Tap[1])
+      if l > AndInputs:
+        AndInputs = l
+    return len(self._Config), AndInputs
+  
+  def getCudaConfig(self, MaxTaps : int, MaxAndInputs : int):
+    Result = numpy.zeros([MaxTaps + 1, MaxAndInputs + 1], dtype="uint64")
+    Result[0][0] = numpy.uint64(1 << (self._size - 1))
+    Index = 1
+    for Tap in self._Config:
+      D = Tap[0]
+      S = Tap[1]
+      Didx = abs(D) % self._size
+      Dint = numpy.uint64(1 << Didx)
+      if D < 0:
+        Dint |= (1 << 63)
+      Result[Index][0] = Dint
+      Sindex = 1
+      for Si in S:
+        Sidx = abs(Si) % self._size
+        Sint = numpy.uint64(1 << Sidx)
+        if Si < 0:
+          Sint |= (1 << 63)
+        Result[Index][Sindex] = Sint
+        Sindex += 1
+      Index += 1
+    return Result
     
+  
+  def _getCudaNextProcedure(self, indent = "      "):
+    Result = f"""
+{indent}New = (Old >> 1)
+{indent}if Old & 1:
+{indent}  New |= {1 << (self._size - 1)}"""
+    for Tap in self._Config:
+      D = Tap[0]
+      S = Tap[1]
+      Dest = (1 << (abs(D) % self._size))
+      DInv = 1 if D < 0 else 0
+      if len(S) == 1:
+        Source = (1 << (abs(S[0]) % self._size))
+        SInv = 1 if S[0] < 0 else 0
+        if DInv == SInv:
+          Result += f"""
+{indent}if (Old & {Source}):
+{indent}  New ^= {Dest}"""
+        else:
+          Result += f"""
+{indent}if not (Old & {Source}):
+{indent}  New ^= {Dest}"""
+      else:
+        First = 1
+        for Si in S:
+          SiS = (1 << (abs(Si) % self._size))
+          SiI = 1 if Si < 0 else 0
+          if First:
+            if SiI:
+              Result += f"""
+{indent}And = 0 if (Old & {SiS}) else 1"""
+            else:
+              Result += f"""
+{indent}And = 1 if (Old & {SiS}) else 0"""
+            First = 0
+          else:
+            if SiI:
+              Result += f"""
+{indent}if (Old & {SiS}):
+{indent}  And = 0"""
+            else:
+              Result += f"""
+{indent}if not (Old & {SiS}):
+{indent}  And = 0"""
+            First = 0
+        if DInv:
+          Result += f"""
+{indent}if not And:
+{indent}  New ^= {Dest}"""
+        else:
+          Result += f"""
+{indent}if And:
+{indent}  New ^= {Dest}"""
+    return Result
+
+  def _getCudaFillGapsCode(self, GapSize : int) -> str:
+    Result = f"""global cudafill
+@cuda.jit
+def cudafill(begins, result):
+  pos = cuda.grid(1)
+  bsize = cuda.gridsize(1)
+  while pos < begins.size:
+    index = {GapSize} * pos
+    result[index] = begins[pos]
+    for i in range(1, {GapSize}):
+      index += 1
+      Old = result[index-1] {self._getCudaNextProcedure()}
+      result[index] = New
+    pos += bsize    
+    """
+    return Result
+    
+  
+  def getCudaNextCode(self, FunctionName : str = "Next", Global = False, Steps = 1) -> str:
+    Result = f"""from numba import cuda"""
+    if Global:
+      Result += f"""
+global {FunctionName}"""
+    Result += f"""
+@cuda.jit
+def {FunctionName}(States):
+  pos = cuda.grid(1)
+  bsize = cuda.gridsize(1)
+  while pos < States.size:
+    for _ in range({Steps}):
+      Old = States[pos]"""
+    Result += self._getCudaNextProcedure()
+    Result += f"""
+      States[pos] = New
+    pos += bsize"""
+    return Result
+  
+  def getTransitionTableCuda(self, Steps=1):
+    exec(self.getCudaNextCode("NXT", True, Steps=Steps))
+    Max = (1 << self._size)
+    Threads = 1024
+    BlockSIze = int(ceil(Max / Threads))
+    if BlockSIze > 1024:
+      BlockSIze = 1024
+    if self._size >= 31:
+      AllStates = numpy.asarray([i for i in range(Max)], dtype="int64")
+    else:
+      AllStates = numpy.asarray([i for i in range(Max)], dtype="int32")
+    NXT[BlockSIze, Threads](AllStates)
+    return AllStates
+    
+  def getValuesCuda(self, Debug=False) -> list:
+    Max = (1 << self._size)
+    BigStep = 512
+    BlocksCount = int((Max - 1) / BigStep) + 1
+    t = self.getTransitionTableCuda(BigStep) 
+    if Debug:
+      print(f"// Generaed transition by {BigStep}")
+    if self._size >= 31:
+      Steps = numpy.zeros(BlocksCount, dtype="int64")
+      Steps[0] = numpy.int64(1)
+    else:
+      Steps = numpy.zeros(BlocksCount, dtype="int32")
+      Steps[0] = numpy.int32(1)
+    for i in range(1, Steps.size):
+      Steps[i] = t[Steps[i-1]]
+    if Debug:
+      print(f"// Got every {BigStep} values")
+    exec(self._getCudaFillGapsCode(BigStep))
+    del t
+    if self._size >= 31:
+      Result = numpy.zeros(Max, dtype="int64")
+    else:
+      Result = numpy.zeros(Max, dtype="int32")
+    cudafill[1024, 1024](Steps, Result)
+    if Debug:
+      print(f"// Filled gaps in the sequence. Finished.")
+    if self._period is None:
+      @cuda.jit
+      def check(seq, result):
+        pos = cuda.grid(1)
+        bsize = cuda.gridsize(1)
+        while pos < seq.size:
+          if pos > 0:
+            if seq[pos] == 1:
+              if result[0] == 0:
+                result[0] = pos
+              elif pos < result[0]:
+                result[0] = pos
+              break
+          pos += bsize
+      if Debug:
+        print(f"// + Period determined.")
+      if self._size >= 31:
+        period = numpy.zeros(1, dtype="int64")
+      else:
+        period = numpy.zeros(1, dtype="int32")
+      check[1024, 1024](Result, period)
+      self._period = period[0]
+      self._period_verified = Int.hash(self._period)
+    if self._period is None:
+      return Result
+    return Result[:self._period]
+    
+  def gpc(self):
+    @cuda.jit
+    def foo(transition, values, trajectory):
+      pos = cuda.grid(1)
+      bsize = cuda.gridsize(1)
+      if pos == 1:
+        i = 0
+        val = pos
+        trajectory[i] = val
+        while not values[val]:
+          val = transition[val]
+          i += 1
+          trajectory[i] = val
+        pos += bsize
+      while pos < transition.size:
+        val = pos
+        values[val] = 1
+        val = transition[val]
+        while not values[val]:
+          val = transition[val]
+        pos += bsize
+    t = self.getTransitionTableCuda()
+    v = numpy.zeros(len(t), dtype="int8")
+    traj = numpy.zeros(len(t), dtype="int32")
+    foo[1024, 1024](t, v, traj)
+    return v, traj
+  
+  def getPeriodCuda(self, MinimumExpectedPeriodRatio = 0.8):
+    if self._period is None:
+      Max = Int.mersenne(self._size)
+      MinP = int(Max * MinimumExpectedPeriodRatio)
+      Pert = ceil(sqrt(MinP) * 1.2)
+      if Pert < 1:
+        Pert = 1
+      if Pert > 2000:
+        Pert = 2000
+      t = self.getTransitionTableCuda(Pert)
+      if t is None:
+        return None
+      if self._size >= 31:
+        val = numpy.int64(1)
+      else:
+        val = numpy.int32(1)
+      v0 = val
+      p = 0
+      while (p + Pert) <= MinP:
+        p += Pert
+        val = t[val]
+      Found = 0
+      t = self.getTransitionTableCuda(1)
+      while p <= Max:
+        if val == v0:
+          Found = 1
+          break
+        p += 1
+        val = t[val]
+      if Found:
+        Period = int(p)
+        self._period = Period
+        self._period_verified = Int.hash(self._period)
+      else:
+        self._period = None
+    return self._period
+  
+  def getSequencesCuda(self, AsBitarrays = False, Debug = False) -> list:
+    from libs.cuda_utils import cuda_transposeto64
+    Values = self.getValuesCuda(Debug)
+    SeqWordsCount = int(ceil(Values.size/64))
+    Sequences = numpy.zeros([SeqWordsCount, self._size], dtype="uint64")
+    blocks = SeqWordsCount
+    if blocks > 1024:
+      blocks = 1024
+    cuda_transposeto64[blocks, self._size](Values, Sequences)
+    if AsBitarrays:
+      Result = [bitarray() for _ in range(self._size)]
+      for WordIdx in range(SeqWordsCount):
+        for SeqIdx in range(self._size):
+          Result[SeqIdx] += bau.int2ba(int(Sequences[WordIdx][SeqIdx]), 64, 'little')
+      if Debug:
+        print(f"// + Converted to bitarrays.")
+      try:
+        for SeqIdx in range(self._size):
+          Result[SeqIdx] = Result[SeqIdx][:self._period]
+      except:
+        if Debug:
+          print(f"// ERROR: Couldn't trim bitarrays.")
+      return Result
+    return Sequences
+      
   def getExprFromTap(self, Tap) -> str:
     Result = ""
     C = Tap
@@ -1404,7 +1687,7 @@ def f():
     return Result
         
   
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False):
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False):
     tt = TempTranscript(f"Nlfsr({self._size}).createExpander()")
     tt.print(repr(self))
     tt.print("Simulating NLFSR...")
@@ -1440,6 +1723,8 @@ def f():
         print(f'WARNING: Single sequences got from {DirName}.')
     else:    
       SingleSequences = self.getSequences(Length=SequenceLength, ProgressBar=PBar)
+    if StoreOnesCountB0:
+      OnesCountB0 = SingleSequences[0].count(1)
     #Values.clear()
     if ReturnAlsoTuplesReport:
       r = TuplesReport(SingleSequences[0])
@@ -1532,6 +1817,8 @@ def f():
       PS.OnesCount = OnesCount
     if ReturnAlsoTuplesReport:
       PS.TuplesRep = r
+    if StoreOnesCountB0:
+      PS.OnesCountB0 = OnesCountB0
     if type(SingleSequences) is BufferedList:
       if AlwaysCleanFiles:
         SingleSequences.SaveData = False
@@ -3028,7 +3315,10 @@ class NlfsrCascade:
         return None
       self._nlfsrs.append(nlfsr.copy())
       self._size += len(nlfsr)
-      self._Config += nlfsr._Config.copy()
+      try:
+        self._Config += nlfsr._Config.copy()
+      except:
+        pass
     self._baValue = None
     self._reset_type = bau.urandom(self._size)
     self.reset()
@@ -3257,7 +3547,7 @@ class NlfsrCascade:
         self._period = 0
         Max = 1 << self._size
         while p <= Max:
-          #print(p, "\t", self._baValue)
+          #Fprint(p, "\t", self._baValue)
           v = self._next1()
           if v == v0:
             self._period = p
@@ -3355,6 +3645,89 @@ class NlfsrCascade:
   
     
 class NlfsrList:
+  
+  @staticmethod
+  def getTapsStats(NlfsrsList : list) -> tuple:
+    t, a = 0, 0
+    for r in p_imap(Nlfsr.getTapsStats, NlfsrsList):
+      if r[0] > t:
+        t = r[0]
+      if r[1] > a:
+        a = r[1]
+    return t, a
+  
+  @staticmethod
+  def getCudaConfig(NlfsrsList : list):
+    t, a = NlfsrList.getTapsStats(NlfsrsList)
+    Result = []
+    for r in p_imap(partial(Nlfsr.getCudaConfig, MaxTaps=t, MaxAndInputs=a), NlfsrsList):
+      Result.append(r)
+    return numpy.asarray(Result)
+  
+  @staticmethod
+  def checkPeriodCuda(NlfsrsList : list) -> list:
+    Conf = NlfsrList.getCudaConfig(NlfsrsList)
+    Result = numpy.zeros(len(NlfsrsList), dtype="uint64")
+    @cuda.jit
+    def cuda_count(Configs, Results):
+      pos = cuda.grid(1)
+      bsize = cuda.gridsize(1)
+      Not = numpy.uint64(numpy.uint64(1 << 63))
+      MaskNot = numpy.uint64(~Not)
+      while pos < Configs.shape[0]:
+        Conf = Configs[pos]
+        Val = numpy.uint64(1)
+        V0 = Val
+        Period = numpy.uint64(0)
+        while 1:
+          NVal = Val >> 1
+          if Val & 1:
+            NVal |= Conf[0][0]
+          for ti in range(1, Conf.shape[0]):
+            Tap = Conf[ti]
+            if Tap[0]:
+              if Tap[1] & Not:
+                if Val & (Tap[1] & MaskNot):
+                  And = 0
+                else:
+                  And = 1
+              else:
+                if Val & Tap[1]:
+                  And = 1
+                else:
+                  And = 0
+              if And:
+                for j in range(2, Tap.size):
+                  if Tap[j]:
+                    if Tap[j] & Not:
+                      if Val & (Tap[j] & MaskNot):
+                        And = 0
+                        break
+                    else:
+                      if not (Val & Tap[j]):
+                        And = 0
+                        break
+                  else:
+                    break
+              if Tap[0] & Not:
+                if not And:
+                  NVal ^= (Tap[0] & MaskNot)
+              else:
+                if And:
+                  NVal ^= Tap[0]
+            else:
+              break
+          Val = NVal
+          Period += 1
+          if Val == V0:
+            break
+        Results[pos] = Period
+        pos += bsize
+    cuda_count[1024, 1024](Conf, Result)
+    for i in range(len(NlfsrsList)):
+      NlfsrsList[i]._period = int(Result[i])
+      NlfsrsList[i]._period_verified = Int.hash(NlfsrsList[i]._period)
+    return NlfsrsList
   
   @staticmethod
   def getNlfsrCombinedSequencesReport(NlfsrsOrExpanders : list, CombiningFunction = _xor_sequences, CombiningFunctionIsBitwise = False) -> NlfsrCombinedSequencesReport:
@@ -3510,16 +3883,21 @@ class NlfsrList:
       else:
         PT.add([RC, Arch, repr(N)])
     return PT
+  
   def fromFile(FileName : str, Size = 0, TapsCount = 0) -> list:
     Data = readFile(FileName)
     Results = []
     for Line in Data.split("\n"):
       Found = False
       R = re.search(r'Nlfsr\(([0-9]+),\s*(\[.*\]),\s*SET_PERIOD=(.*)\)', Line)
+      NPeriodVer = None
       if R:
         NSize = ast.literal_eval(str(R.group(1)))
         NConfig = ast.literal_eval(str(R.group(2)))
         NPeriod = ast.literal_eval(str(R.group(3)))
+        if type(NPeriod) is tuple:
+          NPeriodVer = NPeriod[1]
+          NPeriod = NPeriod[0]
         Found = True
       else:
         R = re.search(r'Nlfsr\(([0-9]+),\s*(\[.*\])\)', Line)
@@ -3534,7 +3912,10 @@ class NlfsrList:
         if len(NConfig) != TapsCount > 0:
           continue
         if NPeriod > 0:
-          N = Nlfsr(NSize, NConfig, SET_PERIOD=NPeriod)
+          if NPeriodVer is None:
+            N = Nlfsr(NSize, NConfig, SET_PERIOD=NPeriod)
+          else:
+            N = Nlfsr(NSize, NConfig, SET_PERIOD=(NPeriod, NPeriodVer))
         else:
           N = Nlfsr(NSize, NConfig)
         Results.append(N)
@@ -3592,7 +3973,7 @@ class NlfsrList:
       NlfsrsList = [NlfsrsList]
     for N in NlfsrsList:
       N._exename = exename
-    PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "Period P", "Period %", "Max - P", "Prime?", "# Cycles", "# Single", "# Double","# Triple", "2","3","4","5","6","7","8",">90%","80%",">70%",">60%",">50%","Details", "Python Repr"])
+    PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "T, L, D", "Period P", "Period %", "Max - P", "Maximum?", "Prime?", "# 1s", "# Cycles", "S, D, T",">90%","80%",">70%",">60%",">50%","Details", "Python Repr"])
     tt.print("Period obtaining...")
     NlfsrsListAux = []
     Iter = p_map(Nlfsr.getPeriod, NlfsrsList, desc="Period obtaining")    
@@ -3618,11 +3999,15 @@ class NlfsrList:
       if Expander is None:
         Expander, Trajectories = _make_expander(nlfsr, PBar=1, AlwaysCleanFiles=CleanBufferedLists)
       FileName = "data/" + hashlib.sha256(bytes(repr(nlfsr), "utf-8")).hexdigest() + ".html"
-      TuplesRep = Expander.TuplesRep
+      #TuplesRep = Expander.TuplesRep
       Eq = nlfsr.toBooleanExpressionFromRing(0, 0)
+      EqSymPy = nlfsr.toBooleanExpressionFromRing(0, 0, ReturnSympyExpr=1)
       EqC = nlfsr.toBooleanExpressionFromRing(1, 0)
       EqR = nlfsr.toBooleanExpressionFromRing(0, 1)
       EqCR = nlfsr.toBooleanExpressionFromRing(1, 1)
+      AnfT = SymPy.getAnfMonomialsCount(EqSymPy)
+      AnfL = SymPy.getAnfLiteralsCount(EqSymPy)
+      AnfD = SymPy.getAnfDegree(EqSymPy)
       ArchitectureTaps = nlfsr.getArchitecture()
       Architecture = nlfsr.toArticleString()
       Period = nlfsr.getPeriod()
@@ -3633,9 +4018,11 @@ class NlfsrList:
       if Period == Max:
         PeriodStr += "IS MAXIMUM"
         IsMax = 1
+        IsMaxStr = "Y"
         OfMax = 1
       else:
         IsMax = 0
+        IsMaxStr = "N"
         OfMax = Period / Max
         PeriodStr += f"{Period * 100 / Max} % of MAX"
       if Int.isPrime(Period):
@@ -3655,6 +4042,12 @@ class NlfsrList:
         SeqStats = Expander.SeqStats
       except:
         SeqStats = []
+      try:
+        OnesCountB0 = Expander.OnesCountB0
+        OnesCountB0Str = f"2{Str.toSuperScript(str(nlfsr._size-1))} - {2 ** (nlfsr._size - 1) - OnesCountB0}"
+      except:
+        OnesCountB0 = -1
+        OnesCountB0Str = "?"
       LCTable = PandasTable(["XORed_FFs", "Linear_complexity", "#Unique_values"], AutoId=True)
       LCTableList = []
       TuplesDict = {}
@@ -3689,37 +4082,44 @@ class NlfsrList:
 Size   : {nlfsr.getSize()}
 # Taps : {len(nlfsr.getTaps())}
 Period : {PeriodStr}
+# 1s   : {OnesCountB0}   =   {OnesCountB0Str}
+
+ANF ---------------------------------------------------
+
+# Terms    : {AnfT}
+# Literals : {AnfL}
+# Degree   : {AnfD}
 
 EQ               : {Eq}
 EQ Complement    : {EqC} 
 EQ Reversed      : {EqR}
 EQ Comp-Rev      : {EqCR}
 
-ARCHITECTURE:
+ARCHITECTURE -----------------------------------------
 {Architecture}
 
-TAPS:
+TAPS -------------------------------------------------
 {ArchitectureTaps}
 
-UNIQUE SEQUENCES:
+UNIQUE SEQUENCES -------------------------------------
   Single: {Single}, Double: {Double}, Triple: {Triple}
 """
       if Trajectories is not None:
         TrajectoriesCount = Trajectories.getTrajectoriesCount(0)
         FileText += f"""
-CYCLES:
+CYCLES -----------------------------------------------
 {Trajectories.getReport(67, True if nlfsr._size > 12 else False)}
 """
       FileText += f"""
-EXPANDER:
+EXPANDER ---------------------------------------------
 {LCTable.toString()}
 
-EXPANDER STATS
+EXPANDER STATS ---------------------------------------
 {PercTable}
-
-TUPLES REPORT (Sequence observed at bit 0):
-{TuplesRep.getReport(Colored=True, HidePlot=True)}
-    """
+"""
+#TUPLES REPORT (Sequence observed at bit 0):
+#{TuplesRep.getReport(Colored=True, HidePlot=True)}
+#"""
       #writeFile(FileName, FileText)
       conv = Ansi2HTMLConverter(escaped=False, dark_bg=0, title=repr(nlfsr), line_wrap=1, linkify=0)
       html = conv.convert(FileText)
@@ -3730,7 +4130,7 @@ TUPLES REPORT (Sequence observed at bit 0):
       HtmlFile.write(html)
       HtmlFile.close()
       PercList = [TuplesDict.get(90, 0), TuplesDict.get(80, 0), TuplesDict.get(70, 0), TuplesDict.get(60, 0), TuplesDict.get(50, 0)]
-      PT.add([nlfsr.getSize(), len(nlfsr.getTaps()), Architecture, Eq, Period, OfMax, MissingStates, IsPrimeStr, TrajectoriesCount, Single, Double, Triple] + TuplesRep.getPassFailedList() + PercList + [f"""=HYPERLINK("{FileName}", "[CLICK_HERE]")""", repr(nlfsr)])
+      PT.add([nlfsr.getSize(), len(nlfsr.getTaps()), Architecture, Eq, f"{AnfT}, {AnfL}, {AnfD}", Period, OfMax, MissingStates, IsMaxStr, IsPrimeStr, OnesCountB0Str, TrajectoriesCount, f"{Single}, {Double}, {Triple}"] + PercList + [f"""=HYPERLINK("{FileName}", "[CLICK_HERE]")""", repr(nlfsr)])
       try:
         PT.toXls("DATABASE_temp.xlsx")
       except:
@@ -3837,15 +4237,15 @@ TUPLES REPORT (Sequence observed at bit 0):
 def _make_expander(nlfsr, PBar=0, AlwaysCleanFiles = True) -> tuple:
   T = None
   if nlfsr.getSize() <= 15:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, ReturnAlsoTuplesReport=True, AlwaysCleanFiles=AlwaysCleanFiles)
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, ReturnAlsoTuplesReport=False, StoreOnesCountB0=True, AlwaysCleanFiles=AlwaysCleanFiles)
     if not nlfsr.isMaximum():
       T = nlfsr.analyseCycles()
   elif nlfsr.getSize() <= 18:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, ReturnAlsoTuplesReport=True, AlwaysCleanFiles=AlwaysCleanFiles)
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, ReturnAlsoTuplesReport=False, StoreOnesCountB0=True, AlwaysCleanFiles=AlwaysCleanFiles)
     if not nlfsr.isMaximum():
       T = nlfsr.analyseCycles()
   else:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1, ReturnAlsoTuplesReport=True, AlwaysCleanFiles=AlwaysCleanFiles) 
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1, ReturnAlsoTuplesReport=False, StoreOnesCountB0=True, AlwaysCleanFiles=AlwaysCleanFiles) 
   return E, T
 
 def Nlfsr_makeExpanderForRAio(nlfsr) -> tuple:
