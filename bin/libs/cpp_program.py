@@ -42,7 +42,7 @@ class CppProgram:
       preprocessFile(H+".h", '/tmp/'+os.path.basename(H)+".h", *self._args, **self._kwargs)
       preprocessFile(H+".cpp", '/tmp/'+os.path.basename(H)+".cpp", *self._args, **self._kwargs)
       SourceFiles += " " + '/tmp/'+os.path.basename(H)+".cpp"
-    Cmd = f'{shell_config.getCppCompiler()} {SourceFiles} -o {self.ExeFileName} -std=c++17 -O3'
+    Cmd = f'{shell_config.getCppCompiler()} {SourceFiles} -o {self.ExeFileName} -std=c++11 -O3'
     Result = Aio.shellExecute(Cmd, StdErr=True)
     if len(Result) > 5:
       self._comp_error = Result
