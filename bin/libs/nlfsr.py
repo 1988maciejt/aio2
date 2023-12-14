@@ -865,6 +865,107 @@ def f():
       Aio.printError(f"Nlfsr.getPeriod - cpp program returns weird result:\n{Res}\nArgs: {ArgStr}", inst)
       return -1
     
+  def getSingleSequenceCpp64b(self) -> bitarray:
+    if self._size > 64:
+      Aio.printError("getSingleSequenceCpp64b needs size to be <= 64.")
+      return None
+    ArgStr, WithInverters = self._getCheckPeriodArgStr()
+    FileName = File.getRandomTempFileName()
+    Res = CppPrograms.NLSFRGetSequence64b.run(f"{FileName} {ArgStr}")
+    try:
+      Res = int(Res)
+    except:
+      Aio.printError("It looks like the 'NLSFRGetSequence64b' program didn't work...")
+      return None
+    Result = Bitarray.fromFile(FileName, Res)
+    File.remove(FileName)
+    return Result
+    
+  def getDestinationsDictionary(self) -> dict:
+    DestDict = {}
+    Size = self._size
+    for i in range(Size):
+      DestDict[i] = [(i + 1) % Size]
+    Taps = self._Config
+    for Tap in Taps:
+      S = Tap[1].copy()
+      D = Tap[0]
+      f = And
+      if D < 0:
+        f = Or
+        D = abs(D)
+        for i in range(len(S)):
+          Si = S[i]
+          if Si == 0:
+            Si += self._size
+          Si *= -1
+          S[i] = Si
+      D = D % self._size
+      Aux = DestDict[D]
+      Aux.append([f] + S)
+      DestDict[D] = Aux    
+    return DestDict
+  
+  def getSequencesCpp64b(self) -> BufferedList:
+    if self._size > 64:
+      Aio.printError("getSequencesCpp64b needs size to be <= 64.")
+      return None
+    Result = BufferedList([None for _ in range(self._size)])
+    Result[0] = self.getSingleSequenceCpp64b()
+    Dict = self.getDestinationsDictionary()
+    DidSomething = True
+    while DidSomething:
+      DidSomething = False
+      for D in range(self._size-1, 0, -1):
+        if Result[D] is not None:
+          continue
+        SList = Dict[D]
+        R = Result[SList[0]]
+        Correct = True
+        for ti in range(1, len(SList)):
+          Tap = SList[ti]
+          f = Tap[0]
+          S0 = Tap[1]
+          Inv = False
+          if S0 < 0:
+            Inv = True
+            S0 = abs(S0)
+          S0 = S0 % self._size
+          try:
+            AndSeq = Result[S0]
+            if Inv:
+              AndSeq.invert()
+          except:
+            Correct = False
+            break
+          for si in range(2, len(Tap)):
+            Sx = Tap[si]
+            Inv = False
+            if Sx < 0:
+              Inv = True
+              Sx = abs(Sx)
+            Sx = Sx % self._size
+            try:
+              Inp = Result[Sx]
+              if Inv:
+                Inp.invert()
+              if f == And:
+                AndSeq &= Inp
+              else:
+                AndSeq |= Inp
+            except:
+              Correct = False
+              break
+          try:
+            if Correct:
+              R ^= AndSeq
+          except:
+            Correct = False
+        if Correct:
+          Result[D] = Bitarray.rotr(R)
+          DidSomething = False
+    return Result
+    
   def isMaximum(self) -> bool:
     return self.getPeriod() == ((1<<self._size)-1)
   

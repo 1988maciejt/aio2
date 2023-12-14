@@ -205,6 +205,8 @@ class File:
         from libs.aio import Aio
         Aio.printError(f"Couldn't write '{FileName}'.")
     return Counter
+  def getRandomTempFileName() -> str:
+    return f"/tmp/aio_tmp_{int(random.uniform(1000000000, 9999999999))}"
   
 class Dir:
   pick = pickDirectory

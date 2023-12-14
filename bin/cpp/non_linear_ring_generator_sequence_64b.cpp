@@ -126,6 +126,9 @@ int main(int argc, char* argv[])
     }
 
     if (seq_cntr > 0) {
+        if (seq_cntr < 8) {
+            sequence <<= (8 - seq_cntr);
+        }
         File.write(reinterpret_cast<const char*>(&sequence), sizeof(sequence));
     }
     File.close();

@@ -1885,8 +1885,6 @@ class Lfsr:
       Result.append(FDict[i] >> PMin)
     return Result
     
-        
-    
   def getDestinationsDictionary(self) -> dict:
     DestDict = {}
     Size = self._size

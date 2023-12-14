@@ -82,10 +82,12 @@ class CppPrograms:
   NLSFRPeriodCounter = CppProgram('junk')
   NLSFRPeriodCounterInvertersAllowed = CppProgram('junk')
   NLSFRPeriodCounterInvertersAllowed64b = CppProgram('junk')
+  NLSFRGetSequence64b = CppProgram('junk')
   def debug(State = True):
     for F in [CppPrograms.NLSFRPeriodCounter,
               CppPrograms.NLSFRPeriodCounterInvertersAllowed,
-              CppPrograms.NLSFRPeriodCounterInvertersAllowed64b]:
+              CppPrograms.NLSFRPeriodCounterInvertersAllowed64b,
+              CppPrograms.NLSFRGetSequence64b]:
       F.setKwarg('debug', State)
         
   
@@ -98,3 +100,5 @@ if not CppPrograms._ready:
   CppPrograms.NLSFRPeriodCounterInvertersAllowed.addHeader(Aio.getPath() + 'cpp/libs/string_split')
   CppPrograms.NLSFRPeriodCounterInvertersAllowed64b = CppProgram(Aio.getPath() + 'cpp/non_linear_ring_generator_period_counter_64b.cpp', inverters=1)
   CppPrograms.NLSFRPeriodCounterInvertersAllowed64b.addHeader(Aio.getPath() + 'cpp/libs/string_split')
+  CppPrograms.NLSFRGetSequence64b = CppProgram(Aio.getPath() + 'cpp/non_linear_ring_generator_sequence_64b.cpp', inverters=1)
+  CppPrograms.NLSFRGetSequence64b.addHeader(Aio.getPath() + 'cpp/libs/string_split')

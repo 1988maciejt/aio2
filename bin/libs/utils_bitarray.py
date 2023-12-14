@@ -15,16 +15,38 @@ import numpy
 
 class Bitarray:
     
+    @staticmethod
+    def fromFile(FileName : str, Length : int = None) -> bitarray:
+        Result = bitarray()
+        File = open(FileName, 'rb')
+        Result.fromfile(File)
+        File.close()
+        if Length is not None:
+            if len(Result) > Length:
+                Result = Result[:Length]
+            elif len(Result) < Length:
+                Res2 = Result.copy()
+                while len(Res2) < Length:
+                    if Length - len(Res2) > len(Result):
+                        Res2 += Result
+                    else:
+                        Res2 += Result[:Length - len(Res2)]
+                Result = Res2
+        return Result
+    
+    @staticmethod
     def rotl(BitArrayValue : bitarray) -> bitarray:
         NewValue = BitArrayValue << 1
         NewValue[-1] = BitArrayValue[0]
         return NewValue
     
+    @staticmethod
     def rotr(BitArrayValue : bitarray) -> bitarray:
         NewValue = BitArrayValue >> 1
         NewValue[0] = BitArrayValue[-1]
         return NewValue
         
+    @staticmethod
     def getShiftBetweenSequences(A : bitarray, B : bitarray) -> int:
         if len(A) == len(B):
             B2 = B + B
@@ -35,6 +57,7 @@ class Bitarray:
                 return Res
         return None
     
+    @staticmethod
     def howMuchDelayedIsTheGivenSequence(Sequence : bitarray, Reference : bitarray) -> int:
         if len(Sequence) == len(Reference):
             B2 = Sequence + Sequence
