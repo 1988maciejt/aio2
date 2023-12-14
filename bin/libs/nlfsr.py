@@ -890,9 +890,9 @@ def f():
     for Tap in Taps:
       S = Tap[1].copy()
       D = Tap[0]
-      f = And
+      f = "AND"
       if D < 0:
-        f = Or
+        f = "OR"
         D = abs(D)
         for i in range(len(S)):
           Si = S[i]
@@ -949,7 +949,7 @@ def f():
               Inp = Result[Sx]
               if Inv:
                 Inp.invert()
-              if f == And:
+              if f == "AND":
                 AndSeq &= Inp
               else:
                 AndSeq |= Inp
