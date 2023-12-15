@@ -3982,7 +3982,7 @@ class NlfsrList:
       if ReturnAll:
         Result.append(n)
       if n._period is None:
-        continue
+        n.getPeriod()
       Maximum = (1 << n._size) -1
       if n._period == Maximum:
         if AllowMaximumPeriods or OnlyMaximumPeriod:
