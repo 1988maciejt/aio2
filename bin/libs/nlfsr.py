@@ -500,6 +500,12 @@ def {FunctionName}(States):
     Result = ""
     if Repr:
       Result = f'{repr(self)}\n'
+    Result += f"Period = {self.getPeriod()}"
+    if self.isMaximum():
+      Result += ", MAXIMUM"
+    if Int.isPrime(self.getPeriod()):
+      Result += ", PRIME"
+    Result += "\n"
     Result += self.getArchitecture() + "\n"
     ExprAnf = self.toBooleanExpressionFromRing(0, 0)
     if ExprAnf is not None:

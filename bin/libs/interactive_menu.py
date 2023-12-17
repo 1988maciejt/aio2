@@ -348,6 +348,22 @@ def _categoryNlfsrs_info():
   Text += _GlobalNlfsr.getFullInfo()
   message_dialog(title="Nlfsr - info", text=Text).run()
   
+def _categoryNlfsrs_HWsearch():
+  nl = Nlfsr.listHWNlrgs()
+  if len(nl) > 0:
+    NlfsrList.printFullInfo(nl, 1)
+    message_dialog(title="HW NLFSRs", text=f"Found {len(nl)} NLFSRs. Results are available in terminal window.").run()
+  else:  
+    message_dialog(title="HW NLFSRs", text=f"Not found.").run()
+    
+def _categoryNlfsrs_Randomsearch():
+  nl = Nlfsr.listRandomNlrgs()
+  if len(nl) > 0:
+    NlfsrList.printFullInfo(nl, 1)
+    message_dialog(title="HW NLFSRs", text=f"Found {len(nl)} NLFSRs. Results are available in terminal window.").run()
+  else:  
+    message_dialog(title="HW NLFSRs", text=f"Not found.").run()
+  
 def _categoryNlfsrs_searchForMaximum():
   Degree = MainMenu_static.getPolynomialDegree()
   if Degree is None:
@@ -554,7 +570,9 @@ class MainMenu_static:
       (_categoryNlfsrs_createNlfsr,          "Edit NLFSR"),
       (_categoryNlfsrs_info,                 "Show info"),
       (_categoryNlfsrs_check_period,         "Check period of the NLFSR"),
-      (_categoryNlfsrs_searchForMaximum,     "Search for specified NLFSRs"),
+      (_categoryNlfsrs_HWsearch,             "Search for HW-like NLFSRs"),
+      (_categoryNlfsrs_Randomsearch,         "Search for random NLFSRs (including hybrid)"),
+      (_categoryNlfsrs_searchForMaximum,     "Search for specified NLFSRs basing on polynomials (old method)"),
     ]
   )
   _bent_menu = radiolist_dialog(
