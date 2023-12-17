@@ -304,3 +304,138 @@ class Tc:
     result = Aio.shellExecute("diff " + FileName + " ../references/" + FileName)
     print(result)
     
+
+class AioShell:
+  
+  _bool_cache = {}
+  _int_cache = {}
+  _float_cache = {}
+  
+  @staticmethod
+  def input(Prompt : str, Default : str = None, AcceptableTypes : list = None, ForceAnswer = True):
+    P = Prompt 
+    if Default is not None:
+      P += f" (Default: {Default})"
+    P += " : "
+    Res = input(P)
+    if Res == "" and Default is not None:
+      Res = Default
+    Iterables = [tuple, list, set]
+    if AcceptableTypes is not None:
+      while 1:
+        for T in AcceptableTypes:
+          if T in Iterables:
+            Aux = eval(Res)
+            if type(Aux) not in Iterables:
+              Aux = tuple([Aux])
+            try:
+              return T(Aux)
+            except:
+              pass
+          elif T is bool:
+            Aux = Res.lower()
+            Aux.strip()
+            if len(Aux) > 0:
+              if Aux[0] in ["1", "t", "y"]:
+                return True
+              elif Aux[0] in ["0", "f", "n"]:
+                return False
+          else:
+            try:
+              return T(eval(Res))
+            except:
+              pass
+        if ForceAnswer:
+          print("\033[F\033[F")
+          Res = input(P)
+        else:
+          return None
+    return Res
+  
+  @staticmethod
+  def inputYN(Prompt : str, Default : bool = None, UseCache = True):
+    if UseCache:
+      Cached = AioShell._bool_cache.get(Prompt, None)
+      if Cached is not None:
+        Default = Cached
+    if Default is not None:
+      Default = bool(Default)
+      DefStr = "Yes" if Default else "No"
+    else:
+      DefStr = None
+    Res = None
+    while Res is None:
+      Res = AioShell.input(Prompt + " [Y|N]", DefStr, [bool], ForceAnswer=False)
+      if Res is None and Default is not None:
+        return Default
+      if Res is None:
+        print("\033[F\033[F")
+    if UseCache:
+      AioShell._bool_cache[Prompt] = Res
+    return Res    
+  inputBool = inputYN
+  
+  @staticmethod
+  def inputInt(Prompt : str, Default : int = None, Min : int = None, Max : int = None, UseCache = True):
+    if UseCache:
+      Cached = AioShell._int_cache.get(Prompt, None)
+      if Cached is not None:
+        Default = Cached
+    if Default is not None:
+      Default = int(Default)
+      DefStr = str(Default)
+    else:
+      DefStr = None
+    Res = None
+    MinMax = ""
+    if Min is not None and Max is not None:
+      MinMax = f" [{Min}-{Max}]"
+    elif Min is not None:
+      MinMax = f" [ >{Min-1}]"
+    elif Max is not None:
+      MinMax = f" [ <{Max+1}]"
+    while Res is None:
+      Res = AioShell.input(Prompt + MinMax, DefStr, [int], ForceAnswer=False)
+      if Res is None and Default is not None:
+        return Default
+      if Res is None:
+        print("\033[F\033[F")
+      elif (Min is not None and Res < Min) or (Max is not None and Res > Max):
+          print("\033[F\033[F")
+          Res = None
+    if UseCache:
+      AioShell._int_cache[Prompt] = Res
+    return Res    
+  
+  @staticmethod
+  def inputFloat(Prompt : str, Default : float = None, Min : float = None, Max : float = None, UseCache = True):
+    if UseCache:
+      Cached = AioShell._float_cache.get(Prompt, None)
+      if Cached is not None:
+        Default = Cached
+    if Default is not None:
+      Default = float(Default)
+      DefStr = str(Default)
+    else:
+      DefStr = None
+    Res = None
+    MinMax = ""
+    if Min is not None and Max is not None:
+      MinMax = f" [{Min}-{Max}]"
+    elif Min is not None:
+      MinMax = f" [ >={Min}]"
+    elif Max is not None:
+      MinMax = f" [ <={Max}]"
+    while Res is None:
+      Res = AioShell.input(Prompt + MinMax, DefStr, [float], ForceAnswer=False)
+      if Res is None and Default is not None:
+        return Default
+      if Res is None:
+        print("\033[F\033[F")
+      elif (Min is not None and Res < Min) or (Max is not None and Res > Max):
+          print("\033[F\033[F")
+          Res = None
+    if UseCache:
+      AioShell._float_cache[Prompt] = Res
+    return Res    
+  

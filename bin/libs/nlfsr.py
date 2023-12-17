@@ -2815,7 +2815,25 @@ endmodule'''
         
   
   @staticmethod
-  def listRandomNlrgs(Size : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False, OnlyMaximumPeriod = True, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ReturnAll = False) -> list:
+  def listRandomNlrgs(Size : int = None, MinTapsCount = 2, MaxTapsCount = 6, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.25, MaxNonlinearTapsRatio = 0.75, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False, OnlyMaximumPeriod = True, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ReturnAll = False) -> list:
+    if Size is None:
+      Size = AioShell.inputInt("Size", 12, 3, 64)
+      MinTapsCount = AioShell.inputInt("Minimum taps count", 2, 1)
+      MaxTapsCount = AioShell.inputInt("Maximum taps count", 6, 1)
+      MinAndInputsCount = AioShell.inputInt("Minimum AND input count", 2, 2)
+      MaxAndInputCount = AioShell.inputInt("Maximum AND input count", 3, 2)
+      MinNonlinearTapsRatio = AioShell.inputFloat("Minimum nonlinear taps ratio", 0.25, 0, 1)
+      MaxNonlinearTapsRatio = AioShell.inputFloat("Maximum nonlinear taps ratio", 0.75, 0, 1)
+      HybridAllowed = AioShell.inputBool("Hybrids allowed", False)
+      UniformTapsDistribution = AioShell.inputBool("Uniform XORs distribution", True)
+      HardcodedInverters = AioShell.inputBool("Hardcoded inverters", False)
+      OnlyMaximumPeriod = AioShell.inputBool("Only maximum periods", True)
+      if not OnlyMaximumPeriod:
+        AllowMaximumPeriods = AioShell.inputBool("Allow maximum periods", True)
+        OnlyPrimeNonMaximumPeriods = AioShell.inputBool("Only prime non-maximum periods", True)
+        MinimumPeriodRatio = AioShell.inputFloat("Minimum period ratio", 0.95, 0, 1)
+      n = AioShell.inputInt("Minimum results count", 0, 0)
+      MaxSearchingTimeMin = AioShell.inputFloat("Maximum searching time (minutes)", 1, 0.1)
     if Size < 3:
       Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 3.")
       return []
@@ -2961,7 +2979,17 @@ endmodule'''
     return Result
   
   @staticmethod
-  def listHWNlrgs(Size : int, OnlyMaximumPeriod = True, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ArchitectureVersion = 0) -> list:
+  def listHWNlrgs(Size : int = None, OnlyMaximumPeriod = True, OnlyPrimeNonMaximumPeriods = True, AllowMaximumPeriods = True, MinimumPeriodRatio = 0.95, n : int = 0, MaximumTries = 0, MaxSearchingTimeMin = 0, ArchitectureVersion = 0) -> list:
+    if Size is None:
+      Size = AioShell.inputInt("Size", 12, 8, 64)
+      ArchitectureVersion = AioShell.inputInt("Architecture", 0, 0, 1)
+      OnlyMaximumPeriod = AioShell.inputBool("Only maximum periods", True)
+      if not OnlyMaximumPeriod:
+        AllowMaximumPeriods = AioShell.inputBool("Allow maximum periods", True)
+        OnlyPrimeNonMaximumPeriods = AioShell.inputBool("Only prime non-maximum periods", True)
+        MinimumPeriodRatio = AioShell.inputFloat("Minimum period ratio", 0.95, 0, 1)
+      n = AioShell.inputInt("Minimum results count", 0, 0)
+      MaxSearchingTimeMin = AioShell.inputFloat("Maximum searching time (minutes)", 1, 0.1)
     if Size < 8:
       Aio.printError("Nlfsrs.listRandomNlrgs() can only search for Size >= 8.\nFor small Nlrgs use Nlfsr.listSystematicNlrgs).")
       return []
