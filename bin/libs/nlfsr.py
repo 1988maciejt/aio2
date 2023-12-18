@@ -1818,19 +1818,9 @@ def f():
     if StoreOnesCount:
       OnesCount = []
     self.reset()
-    if (self._size > 20):
-      DirName = os.path.abspath(f"./single_sequences_{self.toHashString()}")
-      tt.print(f"WARNING: Single sequences stored in {DirName}.")
-      SingleSequences = BufferedList(UserDefinedDirPath=DirName)
-      SingleSequences.SaveData = True
-      if len(SingleSequences) != self._size:
-        SingleSequences.clear()
-        ssaux = self.getSequences(Length=SequenceLength, ProgressBar=PBar)
-        for ss in ssaux:
-          SingleSequences.append(ss)
-      else:
-        print(f'WARNING: Single sequences got from {DirName}.')
-    else:    
+    if type(self) is Nlfsr and 20 < self._size <= 64 :
+      SingleSequences = self.getSequencesCpp64b()
+    else:
       SingleSequences = self.getSequences(Length=SequenceLength, ProgressBar=PBar)
     if StoreOnesCountB0:
       OnesCountB0 = SingleSequences[0].count(1)
