@@ -312,6 +312,18 @@ class AioShell:
   _float_cache = {}
   
   @staticmethod
+  def getWidth() -> int:
+    return Aio.getTerminalColumns()
+  
+  @staticmethod
+  def getHeight() -> int:
+    return Aio.getTerminalRows()
+  
+  @staticmethod
+  def removeLastLine():
+    print("\033[F" + " " * Aio.getTerminalColumns()+ "\033[F")
+  
+  @staticmethod
   def input(Prompt : str, Default : str = None, AcceptableTypes : list = None, ForceAnswer = True):
     P = Prompt 
     if Default is not None:
@@ -346,7 +358,7 @@ class AioShell:
             except:
               pass
         if ForceAnswer:
-          print("\033[F\033[F")
+          AioShell.removeLastLine()
           Res = input(P)
         else:
           return None
@@ -369,7 +381,7 @@ class AioShell:
       if Res is None and Default is not None:
         return Default
       if Res is None:
-        print("\033[F\033[F")
+        AioShell.removeLastLine()
     if UseCache:
       AioShell._bool_cache[Prompt] = Res
     return Res    
@@ -391,18 +403,18 @@ class AioShell:
     if Min is not None and Max is not None:
       MinMax = f" [{Min}-{Max}]"
     elif Min is not None:
-      MinMax = f" [ >{Min-1}]"
+      MinMax = f" [ >={Min}]"
     elif Max is not None:
-      MinMax = f" [ <{Max+1}]"
+      MinMax = f" [ <={Max}]"
     while Res is None:
       Res = AioShell.input(Prompt + MinMax, DefStr, [int], ForceAnswer=False)
       if Res is None and Default is not None:
         return Default
       if Res is None:
-        print("\033[F\033[F")
+        AioShell.removeLastLine()
       elif (Min is not None and Res < Min) or (Max is not None and Res > Max):
-          print("\033[F\033[F")
-          Res = None
+        AioShell.removeLastLine()
+        Res = None
     if UseCache:
       AioShell._int_cache[Prompt] = Res
     return Res    
@@ -431,10 +443,10 @@ class AioShell:
       if Res is None and Default is not None:
         return Default
       if Res is None:
-        print("\033[F\033[F")
+        AioShell.removeLastLine()
       elif (Min is not None and Res < Min) or (Max is not None and Res > Max):
-          print("\033[F\033[F")
-          Res = None
+        AioShell.removeLastLine()
+        Res = None
     if UseCache:
       AioShell._float_cache[Prompt] = Res
     return Res    

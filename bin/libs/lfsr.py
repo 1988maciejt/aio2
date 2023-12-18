@@ -1168,14 +1168,20 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       PList.append(Polynomial(p))
     Generator = Generators()
     Results = []
+    RemoveOnceMore = 0
     Iter = p_uimap(Polynomial._check, Generator.wrapper(PList), total=len(PList))
     for I in Iter:
       if I is not None:
         Results.append(I)
         if not Silent:
+          AioShell.removeLastLine()
           print(f'Found {str(I)}')
+          RemoveOnceMore = 1
       if len(Results) >= n > 0:
         Generator.disable()
+    AioShell.removeLastLine()
+    if RemoveOnceMore:
+      AioShell.removeLastLine()
     del Generator    
     if len(Results) > n > 0:
       Results = Results[:n]
@@ -1348,6 +1354,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     SkipPolysCOunterMax = 1000000
     SkipPolysCOunter = SkipPolysCOunterMax
     SkipAll = 0
+    SecondIter = 0
     if MinNotMatchingTapsCount > 0:
       ParallelChunk >>= 4
       PRefList = Polynomial.listHybridPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, 1, NoResultsSkippingIteration, StartingPolynomial, 0)
@@ -1401,6 +1408,10 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
                   lpol = Polynomial(l._my_poly.copy())
                   lpol._sign_list = l._my_signs.copy()
                   Polys.append(Polynomial(lpol))     
+            if SecondIter:
+              AioShell.removeLastLine()
+            else:
+              SecondIter = 1
             print(f'Found so far: {len(Polys)}')
             if len(Polys) >= n > 0:
               break
@@ -1434,8 +1445,13 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         for l in Aux:
           lpol = Polynomial(l._my_poly.copy())
           lpol._sign_list = l._my_signs.copy()
-          Polys.append(Polynomial(lpol))      
+          Polys.append(Polynomial(lpol))     
+      if SecondIter:
+        AioShell.removeLastLine()
+      else:
+        SecondIter = 1 
       print(f'Found so far: {len(Polys)}')
+    AioShell.removeLastLine()
     return Polys
   
   @staticmethod
@@ -1488,6 +1504,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     AllCandidates = []
     cntr = 0
     SkippingCounter = NoResultsSkippingIteration
+    SecondIter = 0
     for p in polys:
       if p in ExcludeList:
         continue
@@ -1501,7 +1518,11 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       if (cntr >= MaxSetSize):
         Aux = Polynomial.checkPrimitives(candidates, n, Silent)
         result += Aux
-        print("Found so far:", len(result))
+        if SecondIter:
+          AioShell.removeLastLine()
+        else:
+          SecondIter = 1
+        print("// Found so far:", len(result))
         candidates.clear()
         cntr = 0
         if len(result) >= n > 0:
@@ -1519,8 +1540,9 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     if cntr != 0:
         result += Polynomial.checkPrimitives(candidates, n, Silent)
         candidates.clear()      
-    if n > 0 and len(result) > n:
-      result = result[0:n]
+    AioShell.removeLastLine()
+#    if n > 0 and len(result) > n:
+#      result = result[0:n]
     Aio.printTemp()
     gc.collect()
     if ReturnAlsoAllCandidaes:
@@ -3041,6 +3063,7 @@ endmodule'''
       ItCounter += 1
       if len(Results) >= n > 0:
         Generator.disable()
+    AioShell.removeLastLine()
     del Generator
     if len(Results) > n > 0:
       if not ReturnLfsrsCountAndPolynomials:

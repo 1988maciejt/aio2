@@ -4,13 +4,13 @@ import bitarray.util as bau
 import hashlib
 import pickle
 from libs.utils_list import *
-import hyperloglog
 from libs.generators import *
 from p_tqdm import *
 from functools import partial
 from tqdm import *
 from libs.stats import *
 import numpy
+from libs.aio import AioShell
 
 
 class Bitarray:
@@ -328,6 +328,7 @@ class TuplesReport:
             self._stats[TSize] = chisquare(H)
             Critical = chi2.isf(Significance, (1<<TSize)-1)
             self._pass[TSize] = True if self._stats[TSize].statistic <= Critical else False
+        AioShell.removeLastLine()
             
     def getReport(self, FromTupleSize : int = None, ToTupleSize : int = None, Colored = False, HidePlot = False, HideNumbers = False) -> str:
         if FromTupleSize is None:

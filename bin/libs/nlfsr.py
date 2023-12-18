@@ -1444,6 +1444,7 @@ def f():
           break
       if Add:
         Result.append(n1)
+    AioShell.removeLastLine()
     return Result
   
   def toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Verbose = False, ReturnSympyExpr = False):
@@ -1787,6 +1788,7 @@ def f():
       return [XorToTest, Bitarray.getRotationInsensitiveSignature(Nlfsr._getSequence(SingleSequences, XorToTest), HBlockSize)]
     if Parallel:
       Result = p_umap(_getHash, XorsList, desc=f"{INum}-in: Signatures computation")
+      AioShell.removeLastLine()
     else:
       Result = []
       for XorToTest in XorsList:
@@ -1848,8 +1850,8 @@ def f():
         ParallelTuplesPerChunk = (1 << (self._size-5))
       elif self._size == 27:
         ParallelTuplesPerChunk = (1 << (self._size-2))
-      if StoreCardinalityData:
-        print(f"// ParallelTuplesChunk = {ParallelTuplesPerChunk}")
+      #if StoreCardinalityData:
+      #  print(f"// ParallelTuplesChunk = {ParallelTuplesPerChunk}")
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       tt.print(f"{k}-in gates anaysis...")
       if self._size > 21 and not AlwaysCleanFiles:
@@ -1867,8 +1869,10 @@ def f():
         HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
       if PBar and (ParallelTuplesPerChunk == 0):
         Iterator = tqdm(HashTable, desc=f"Processing {k}-in xor outputs")
+        RemoveRow = 1
       else:
         Iterator = HashTable
+        RemoveRow = 0
       for Row in Iterator:
         XorToTest = Row[0]
         H = Row[1]
@@ -1908,6 +1912,8 @@ def f():
           tt.print(ttrow)
           if len(XorsList) == NumberOfUniqueSequences > 0:
             break
+      if RemoveRow:
+        AioShell.removeLastLine()
       k += 1
     if len(XorsList) < NumberOfUniqueSequences > 0:
       Aio.printError(f"Cannot found {NumberOfUniqueSequences} unique sequences. Only {len(XorsList)} was found.")
@@ -2761,6 +2767,7 @@ endmodule'''
       Iter = p_uimap(functools.partial(Nlfsr._listRandomNlrgCandidatesMulti, Size=Size, ProgressBar=False, MinTapsCount=MinTapsCount, MaxTapsCount=MaxTapsCount, MinAndInputsCount=MinAndInputsCount, MaxAndInputCount=MaxAndInputCount, MinNonlinearTapsRatio=MinNonlinearTapsRatio, MaxNonlinearTapsRatio=MaxNonlinearTapsRatio, HybridAllowed=HybridAllowed, UniformTapsDistribution=UniformTapsDistribution, HardcodedInverters=HardcodedInverters), Ns, desc=f"Creating NLFSR candidates (x {SerialChunk})")
       for I in Iter:
         Result += I
+      AioShell.removeLastLine()
     else:
       if HybridAllowed:
         SourceCandidates = [Size] + [i+1 for i in range(Size-1)]
@@ -2871,6 +2878,7 @@ endmodule'''
     T0 = time.time()
     if MaximumTries <= 0:
       MaximumTries = 10000000 * Size
+    SecondIter = 0
     for _ in range(MaximumTries):
       PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Nlfsr.generateRandomNlrgCandidates(Size, ChunkSize, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters), LimitedTo64b=True if Size <= 64 else False, Total=ChunkSize),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio, ReturnAll=ReturnAll)
       if not ReturnAll:
@@ -2884,14 +2892,20 @@ endmodule'''
         if nlfsr.Accepted:
           Accepted += 1
       STime = round((time.time() - T0) / 60, 2)
+      if SecondIter:    
+        AioShell.removeLastLine()
+      else:
+        SecondIter = 1
       print(f"// Found so far: {Accepted}, searching time: {STime} min")
       if Accepted >= n > 0:
         break
       if STime >= MaxSearchingTimeMin > 0:
         break
-    if not ReturnAll:
-      if len(Result) > n > 0:
-        Result = Result[:n]  
+#    if not ReturnAll:
+#      if len(Result) > n > 0:
+#        Result = Result[:n]  
+    AioShell.removeLastLine()
+    print(f"// Searching finished. Found: {Accepted}, searching time: {STime} min")
     TT.close()      
     return Result
     
@@ -2980,6 +2994,7 @@ endmodule'''
     CList = [Size] * int(ceil(n / N))
     for Part in p_map(partial(Nlfsr._HWNlrgCandidates, n=N, ArchitectureVersion=ArchitectureVersion), CList, desc=f"Generating candidates (x{N})"):
       Result += Part
+    AioShell.removeLastLine()
     if len(Result) > n:
       return Result[:n]
     return Result
@@ -3020,6 +3035,7 @@ endmodule'''
     if MaximumTries <= 0:
       MaximumTries = (1 << ConfigLen)
     T0 = time.time()
+    SecondIter = 0
     for _ in range(MaximumTries):
       Chunk = Nlfsr._HWNlrgCandidatesMult(Size, ChunkSize, ArchitectureVersion)
       #Chunk = Nlfsr.filter(Chunk)
@@ -3030,6 +3046,10 @@ endmodule'''
       if len(PartResult) > 0:
         Result = Nlfsr.filter(Result)
       STime = round((time.time() - T0) / 60, 2)
+      if SecondIter:    
+        AioShell.removeLastLine()
+      else:
+        SecondIter = 1
       print(f"// Found so far: {len(Result)}, searching time: {STime} min")
       Chunk = []
       if len(Result) >= n > 0:
@@ -3039,8 +3059,10 @@ endmodule'''
     if len(Chunk) > 0:
       Result += NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk, LimitedTo64b=True if Size <= 64 else False),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
       Result = NlfsrList.filter(Result)
-    if len(Result) > n > 0:
-      Result = Result[:n]  
+#    if len(Result) > n > 0:
+#      Result = Result[:n]  
+    AioShell.removeLastLine()
+    print(f"// Searching finished. Found: {len(Result)}, searching time: {STime} min")
     TT.close()      
     return Result
     
@@ -3751,6 +3773,8 @@ class NlfsrCascade:
       for j, Bit in zip(range(self._size), self.getValue()):
         Result[j][i] = Bit
       self._next1()
+    if ProgressBar:
+      AioShell.removeLastLine()
     return Result
   
   createExpander = Nlfsr.createExpander
@@ -4007,6 +4031,7 @@ class NlfsrList:
         Results += nlfsr
       else:
         Results.append(nlfsr)
+    AioShell.removeLastLine()
     return Results
   
   def filterPeriod(NlfsrList, OnlyMaximumPeriod = True, AllowMaximumPeriods = True, OnlyPrimeNonMaximumPeriods = True, MinimumPeriodRatio = 0.95, ReturnAll = False) -> list:
@@ -4172,7 +4197,8 @@ class NlfsrList:
     PT = PandasTable(["Size", "# Taps", "Architecture", "ANF", "T, L, D", "Period P", "Period %", "Max - P", "Maximum?", "Prime?", "# 1s", "# Cycles", "S, D, T",">90%","80%",">70%",">60%",">50%","Details", "Python Repr"])
     tt.print("Period obtaining...")
     NlfsrsListAux = []
-    Iter = p_map(Nlfsr.getPeriod, NlfsrsList, desc="Period obtaining")    
+    Iter = p_map(Nlfsr.getPeriod, NlfsrsList, desc="Period obtaining")   
+    AioShell.removeLastLine() 
     for I, nlfsr in zip(Iter, NlfsrsList):
       nlfsr._period = I
       nlfsr._period_verified = Int.hash(I)
