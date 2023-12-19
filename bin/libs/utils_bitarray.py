@@ -201,63 +201,35 @@ class Bitarray:
             hll.add(t)
         return len(hll)
     
-    def getCardinality(Word : bitarray, TupleSize : int, ParallelTuplesPerChunk = 0, ThisIsSubStepForParallelImplementation = False) -> int:
-        if ParallelTuplesPerChunk > 1:
-            Res = bau.zeros(1<<TupleSize)
-            BList = Bitarray.divideIntoSubArraysToIterateThroughAllTuples(Word,TupleSize,ParallelTuplesPerChunk,True)
-            BList.SaveData = True
-            Iter = p_uimap(partial(Bitarray.getCardinality, TupleSize=TupleSize, ThisIsSubStepForParallelImplementation=True), BList, desc="Cardinality computing")
-            for I in Iter:
-                Res |= I
-            AioShell.removeLastLine()
-            BList.SaveData = False
-            del BList
-            return Res.count(1)
-        else:
-            Res = bau.zeros(1<<TupleSize)
-            Mask = (1 << TupleSize) -1
-            ResI = 0
-            for i in range(1-TupleSize, 0):
-                ResI = (ResI * 2) + Word[i]
-            for b in Word:
-                ResI = ((ResI * 2) + b) & Mask
-                Res[ResI] = 1 
-            if ThisIsSubStepForParallelImplementation:
-                return Res
-            return Res.count(1)
+    def getCardinality(Word : bitarray, TupleSize : int) -> int:
+        Res = bau.zeros(1<<TupleSize)
+        Mask = (1 << TupleSize) -1
+        ResI = 0
+        for i in range(1-TupleSize, 0):
+            ResI = (ResI * 2) + Word[i]
+        for b in Word:
+            ResI = ((ResI * 2) + b) & Mask
+            Res[ResI] = 1 
+        return Res.count(1)
         
-    def getCardinalitySafe(Word : bitarray, TupleSize : int, ParallelTuplesPerChunk = 0, ThisIsSubStepForParallelImplementation = False) -> int:
-        if ParallelTuplesPerChunk > 1:
-            Res = bau.zeros(1<<TupleSize)
-            BList = Bitarray.divideIntoSubArraysToIterateThroughAllTuples(Word,TupleSize,ParallelTuplesPerChunk,True)
-            BList.SaveData = True
-            Iter = p_uimap(partial(Bitarray.getCardinality, TupleSize=TupleSize, ThisIsSubStepForParallelImplementation=True), BList, desc="Cardinality computing")
-            for I in Iter:
-                Res |= I
-            AioShell.removeLastLine()
-            BList.SaveData = False
-            del BList
-            return Res.count(1)
-        else:
-            Res = bau.zeros(1<<TupleSize)
-            W = Word.copy()
-            while len(W) < TupleSize:
-                W += Word
-            W += W[:TupleSize-1]
-            Initial = TupleSize-1
-            ResI = 0
-            Mask = (1 << TupleSize) -1
-            for b in W:
-                ResI = (ResI * 2) + b
-                if Initial:
-                    Initial -= 1
-                else:
-                    ResI &= Mask
-                    Res[ResI] = 1 
-            del W
-            if ThisIsSubStepForParallelImplementation:
-                return Res
-            return Res.count(1)
+    def getCardinalitySafe(Word : bitarray, TupleSize : int) -> int:
+        Res = bau.zeros(1<<TupleSize)
+        W = Word.copy()
+        while len(W) < TupleSize:
+            W += Word
+        W += W[:TupleSize-1]
+        Initial = TupleSize-1
+        ResI = 0
+        Mask = (1 << TupleSize) -1
+        for b in W:
+            ResI = (ResI * 2) + b
+            if Initial:
+                Initial -= 1
+            else:
+                ResI &= Mask
+                Res[ResI] = 1 
+        del W
+        return Res.count(1)
     
     def getTuplesHistogram(Word : bitarray, TupleSize : int) -> int:
         Res = [0 for i in range(1<<TupleSize)]

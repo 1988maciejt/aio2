@@ -1819,7 +1819,10 @@ def f():
       OnesCount = []
     self.reset()
     if type(self) is Nlfsr and 20 < self._size <= 64 :
+      print("// Obtaining sequences (fast method)...")
       SingleSequences = self.getSequencesCpp64b()
+      SingleSequences.SaveData = True
+      AioShell.removeLastLine()
     else:
       SingleSequences = self.getSequences(Length=SequenceLength, ProgressBar=PBar)
     if StoreOnesCountB0:
@@ -1832,38 +1835,14 @@ def f():
     HBlockSize = (self._size - 4)
     if HBlockSize < 3:
       HBlockSize = 3
-    ParallelTuplesPerChunk = 0
-    if PBar:
-      if 23 >= self._size >= 22:
-        ParallelTuplesPerChunk = (1 << (self._size-3))
-      elif 26 >= self._size >= 24:
-        ParallelTuplesPerChunk = (1 << (self._size-5))
-      elif self._size == 27:
-        ParallelTuplesPerChunk = (1 << (self._size-2))
-      #if StoreCardinalityData:
-      #  print(f"// ParallelTuplesChunk = {ParallelTuplesPerChunk}")
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       tt.print(f"{k}-in gates anaysis...")
-      if self._size > 21 and not AlwaysCleanFiles:
-        DirName = os.path.abspath(f"./{k}_in_xors_{self.toHashString()}")
-        HashTable = BufferedList(UserDefinedDirPath=DirName)
-        if len(HashTable) < self._size:
-          HashTable.clear()
-          HashTableAux = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
-          for Hash in HashTableAux:
-            HashTable.append(Hash)
-        else:
-          print(f'WARNING: {k}-in xors got from {DirName}.')
-        tt.print(f"WARNING: {k}-in hashes stored in {DirName}.")
-      else:
-        HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
-      if PBar and (ParallelTuplesPerChunk == 0):
-        Iterator = tqdm(HashTable, desc=f"Processing {k}-in xor outputs")
-        RemoveRow = 1
-      else:
-        Iterator = HashTable
-        RemoveRow = 0
-      for Row in Iterator:
+      print("// Creating simple expander...")
+      SimpleExpander = self.createSimpleExpander(k, k)
+      AioShell.removeLastLine()
+      HashTable = Nlfsr._countHashes(SingleSequences, SimpleExpander.getXors(), HBlockSize, PBar, INum=k)
+      #HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
+      for Row in tqdm(HashTable, desc=f"Processing {k}-in xor outputs"):
         XorToTest = Row[0]
         H = Row[1]
         if H not in UniqueSequences:
@@ -1881,7 +1860,7 @@ def f():
             if not (LimitedNTuples and (k > 2)):
               if ThisSequence is None:
                 ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
-              Aux = Bitarray.getCardinality(ThisSequence, self._size, ParallelTuplesPerChunk)
+              Aux = Bitarray.getCardinality(ThisSequence, self._size)
               ttrow += f" \t #Tuples = {Aux}"
               SSData.append(Aux)
             else:
@@ -1902,8 +1881,7 @@ def f():
           tt.print(ttrow)
           if len(XorsList) == NumberOfUniqueSequences > 0:
             break
-      if RemoveRow:
-        AioShell.removeLastLine()
+      AioShell.removeLastLine()
       k += 1
     if len(XorsList) < NumberOfUniqueSequences > 0:
       Aio.printError(f"Cannot found {NumberOfUniqueSequences} unique sequences. Only {len(XorsList)} was found.")
