@@ -449,6 +449,7 @@ def {FunctionName}(States):
     #self.print()
     #print(SSymbols)
     #print(Dests)
+    cntr = 0
     DidSomething = True
     while DidSomething:
       DidSomething = False
@@ -484,6 +485,9 @@ def {FunctionName}(States):
           if Next < 0:
             Next += self._size
         #print(SSymbols)
+      cntr += 1
+      if cntr == 4:
+        return None
     return SSymbols
       
     
@@ -730,6 +734,8 @@ def f():
   
   def createSimpleExpander(self, MinXorInputs = 1, MaxXorInputs = 3, Verify = False) -> PhaseShifter:
     SeqSymbols = self.getReducedSequenceSymbols()
+    if SeqSymbols is None:
+      return None
     #print(SeqSymbols)
     Xors = []
     if Verify:
@@ -1795,6 +1801,9 @@ def f():
         Result.append(_getHash(XorToTest))
     return Result
         
+  def isHybrid(self) -> bool:
+    n2 = self.copy()
+    return (not n2.toFibonacci())
   
   def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False):
     tt = TempTranscript(f"Nlfsr({self._size}).createExpander()")
@@ -1818,13 +1827,15 @@ def f():
     if StoreOnesCount:
       OnesCount = []
     self.reset()
-    if type(self) is Nlfsr and 20 < self._size <= 64 :
+    if type(self) is Nlfsr and 13 < self._size <= 64 :
       print("// Obtaining sequences (fast method)...")
       SingleSequences = self.getSequencesCpp64b()
       SingleSequences.SaveData = True
       AioShell.removeLastLine()
     else:
-      SingleSequences = self.getSequences(Length=SequenceLength, ProgressBar=PBar)
+      print("// Obtaining sequences...")
+      SingleSequences = self.getSequences(Length=SequenceLength, ProgressBar=False)
+      AioShell.removeLastLine()
     if StoreOnesCountB0:
       OnesCountB0 = SingleSequences[0].count(1)
     #Values.clear()
@@ -1838,10 +1849,12 @@ def f():
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       tt.print(f"{k}-in gates anaysis...")
       print("// Creating simple expander...")
-      SimpleExpander = self.createSimpleExpander(k, k)
+      SimpleExpander = self.createSimpleExpander(k, k)        
       AioShell.removeLastLine()
-      HashTable = Nlfsr._countHashes(SingleSequences, SimpleExpander.getXors(), HBlockSize, PBar, INum=k)
-      #HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
+      if SimpleExpander is None:
+        HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
+      else:
+        HashTable = Nlfsr._countHashes(SingleSequences, SimpleExpander.getXors(), HBlockSize, PBar, INum=k)
       for Row in tqdm(HashTable, desc=f"Processing {k}-in xor outputs"):
         XorToTest = Row[0]
         H = Row[1]
@@ -1951,6 +1964,50 @@ def f():
           break
       Result.append(EqualTo)
     return tuple(Result)
+  
+  def getCriticalPlacementReport(self, TapIndex : int, Sign : int) -> list:
+    TapX = self._Config[TapIndex].copy()
+    Sources = self.getTapsSources(TapIndex)
+    Destinations = self.getTapsDestinations(TapIndex)
+    D = abs(TapX[0]) % self._size
+    if Sign > 0:
+      if D == (self._size - 1):
+        D -= self._size
+      Tap = [D, []]
+      for Si in TapX[1]:
+        Si = abs(Si) % self._size
+        Tap[1].append(Si)
+      if (D + 1) in Sources:
+        Tap[0] = True
+      else:
+        Tap[0] = False
+      for i in range(len(Tap[1])):
+        Si = Tap[1][i]
+        if Si in Destinations:
+          Tap[1][i] = True
+        else:
+          Tap[1][i] = False
+    else:
+      Tap = [D, []]
+      for Si in TapX[1]:
+        Si = abs(Si) % self._size
+        Tap[1].append(Si)
+      if (D) in Sources:
+        Tap[0] = True
+      else:
+        Tap[0] = False
+      for i in range(len(Destinations)):
+        if Destinations[i] == (self._size - 1):
+          Destinations[i] -= self._size
+        Destinations[i] += 1
+      for i in range(len(Tap[1])):
+        Si = Tap[1][i]
+        if Si in Destinations:
+          Tap[1][i] = True
+        else:
+          Tap[1][i] = False            
+    return Tap
+    
           
   def rotateTap(self, TapIndex : int, FFs : int, FailIfRotationInvalid = False, SortTaps = True) -> bool:
     if FailIfRotationInvalid:
@@ -1959,40 +2016,12 @@ def f():
       if abs(FFs) >= n2._size:
         LeaveMaximumShift = 1
       Sign = -1 if FFs < 0 else 1
-      Cntr = 0
-      LastRelation = n2.getRelationBetweenSelectedTapAndOthers(TapIndex)
       for i in range(abs(FFs)):
-        Cntr += 1
-        n2.rotateTap(TapIndex, Sign, FailIfRotationInvalid=0, SortTaps=0)
-        Relation = n2.getRelationBetweenSelectedTapAndOthers(TapIndex)
-        IncorrectMove = 0
-        if Sign > 0:
-          for i in range(1, len(Relation)):
-            if LastRelation[i] >= 0 and Relation[i] != LastRelation[i]:
-              IncorrectMove = 1
-              break
-          if LastRelation[0] < 0 and Relation[0] >= 0:
-            IncorrectMove = 1
-        else:
-          for i in range(1, len(Relation)):
-            if LastRelation[i] < 0 and Relation[i] >= 0:
-              IncorrectMove = 1
-              break
-          if LastRelation[0] >= 0 and Relation[0] != LastRelation[0]:
-            IncorrectMove = 1
-        if IncorrectMove:
-          if LeaveMaximumShift:
-            Cntr -= 1
-            if Cntr == 0:
-              return False
-            n2.rotateTap(TapIndex, -Sign, FailIfRotationInvalid=0, SortTaps=0)
-            self._Config = n2._Config.copy()
-            if SortTaps:
-              self.sortTaps()
-            self._period = None
-            return True
+        PRep = n2.getCriticalPlacementReport(TapIndex, Sign)
+        if not (PRep[0] or True in PRep[1]):
+          n2.rotateTap(TapIndex, Sign, FailIfRotationInvalid=0, SortTaps=0)
+        elif not LeaveMaximumShift:
           return False
-        LastRelation = Relation
       self._Config = n2._Config.copy()
       if SortTaps:
         self.sortTaps()
@@ -2709,7 +2738,7 @@ endmodule'''
           Taps.append([D, [S]])
         if len(Taps) > 0:
           Candidate = Nlfsr(Size, Taps)
-          if not Candidate.isSemiLfsr():
+          if HybridAllowed or not Candidate.isSemiLfsr():
             NotFound = 0
       yield Candidate.copy()
   
@@ -3380,6 +3409,7 @@ class NlfsrCombinedSequencesReport:
     self._uniques = {}
     self._slen = None
     SeqDicts = p_map(_get_sequences, self._input_objects, desc="Obtaining sequences")
+    AioShell.removeLastLine()
     LenList = [len(SeqDict) for SeqDict in SeqDicts]
     IndexLists = [[i for i in range(Len)] for Len in LenList]
     UniqueSignatures = set()
