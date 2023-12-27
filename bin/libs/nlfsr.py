@@ -5,6 +5,7 @@ from libs.utils_bitarray import *
 from libs.utils_str import *
 from libs.asci_drawing import *
 from libs.pandas_table import *
+from libs.simple_threading import *
 from libs.temp_transcript import *
 from p_tqdm import *
 from bitarray import *
@@ -926,6 +927,11 @@ def f():
     Result[0] = self.getSingleSequenceCpp64b()
     Dict = self.getDestinationsDictionary()
     DidSomething = True
+    #Destinations = self.getTapsDestinations()
+    #for D in range(1, self._size, 1):
+    #  if (D-1) in Destinations:
+    #    break
+    #  Result[D] = Bitarray.rotl(Result[D-1])
     while DidSomething:
       DidSomething = False
       for D in range(self._size-1, 0, -1):
@@ -933,6 +939,8 @@ def f():
           continue
         SList = Dict[D]
         R = Result[SList[0]]
+        if R is None:
+          continue
         Correct = True
         for ti in range(1, len(SList)):
           Tap = SList[ti]
@@ -975,7 +983,9 @@ def f():
             Correct = False
         if Correct:
           Result[D] = Bitarray.rotr(R)
-          DidSomething = False
+          DidSomething = True
+    if None in Result:
+      return None
     return Result
     
   def isMaximum(self) -> bool:
@@ -1830,12 +1840,18 @@ def f():
     if type(self) is Nlfsr and 13 < self._size <= 64 :
       print("// Obtaining sequences (fast method)...")
       SingleSequences = self.getSequencesCpp64b()
-      SingleSequences.SaveData = True
       AioShell.removeLastLine()
+      if SingleSequences is None:
+        print("// Obtaining sequences standard way...")
+        SingleSequences = BufferedList(self.getSequences(Length=SequenceLength, ProgressBar=False))
+        AioShell.removeLastLine()
+        AioShell.removeLastLine()
     else:
       print("// Obtaining sequences...")
       SingleSequences = self.getSequences(Length=SequenceLength, ProgressBar=False)
       AioShell.removeLastLine()
+    if type(SingleSequences) is BufferedList:
+      SingleSequences.SaveData = True
     if StoreOnesCountB0:
       OnesCountB0 = SingleSequences[0].count(1)
     #Values.clear()
@@ -1846,6 +1862,19 @@ def f():
     HBlockSize = (self._size - 4)
     if HBlockSize < 3:
       HBlockSize = 3
+    if StoreLinearComplexityData:
+      if self._size < 15:
+        SimpleThread.MaxParallelJobs = 10
+      elif self._size < 16:
+        SimpleThread.MaxParallelJobs = 8
+      elif self._size < 17:
+        SimpleThread.MaxParallelJobs = 6
+      elif self._size < 18:
+        SimpleThread.MaxParallelJobs = 4
+      elif self._size < 19:
+        SimpleThread.MaxParallelJobs = 2
+      elif self._size < 20:
+        SimpleThread.MaxParallelJobs = 1
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       tt.print(f"{k}-in gates anaysis...")
       print("// Creating simple expander...")
@@ -1855,6 +1884,8 @@ def f():
         HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
       else:
         HashTable = Nlfsr._countHashes(SingleSequences, SimpleExpander.getXors(), HBlockSize, PBar, INum=k)
+      if StoreLinearComplexityData:
+        LCThreads = []
       for Row in tqdm(HashTable, desc=f"Processing {k}-in xor outputs"):
         XorToTest = Row[0]
         H = Row[1]
@@ -1866,9 +1897,10 @@ def f():
           if StoreLinearComplexityData:
             if ThisSequence is None:
               ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
-            Aux = Polynomial.getLinearComplexityUsingBerlekampMassey(ThisSequence)
-            ttrow += f" \t LC = {Aux}"
-            LCData.append(Aux)
+            LCThreads.append(SimpleThread.single(Polynomial.getLinearComplexityUsingBerlekampMassey, ThisSequence))
+          #  Aux = Polynomial.getLinearComplexityUsingBerlekampMassey(ThisSequence)
+          #  ttrow += f" \t LC = {Aux}"
+          #  LCData.append(Aux)
           if StoreCardinalityData:
             if not (LimitedNTuples and (k > 2)):
               if ThisSequence is None:
@@ -1893,6 +1925,27 @@ def f():
           #print(f"Added {XorToTest}")
           tt.print(ttrow)
           if len(XorsList) == NumberOfUniqueSequences > 0:
+            break
+      if StoreLinearComplexityData:
+        AioShell.removeLastLine()
+        print("// Waiting for linear complexity")
+        LCData = [-1 for _ in range(len(LCThreads))]
+        OldCntr = 0
+        while 1:
+          Cntr = 0
+          for i in range(len(LCThreads)):
+            if LCThreads[i] is None:
+              Cntr += 1
+              continue
+            if not LCThreads[i].isDone():
+              continue
+            LCData[i] = LCThreads[i].getResult()
+            LCThreads[i] = None
+          if Cntr != OldCntr:
+            AioShell.removeLastLine()
+            print(f"// Waiting for linear complexity {Cntr}/{len(LCThreads)}")
+            OldCntr = Cntr
+          if Cntr == len(LCThreads):
             break
       AioShell.removeLastLine()
       k += 1
@@ -4215,7 +4268,7 @@ class NlfsrList:
       if nlfsr is None:
         continue
       tt.print(f"{Cntr}/{len(NlfsrsList)}: {repr(nlfsr)}")
-      print(f"{Cntr}/{len(NlfsrsList)}: {repr(nlfsr)}")
+      print(f"{Cntr}/{len(NlfsrsList)}: {Str.toLeft(repr(nlfsr), Aio.getTerminalColumns()-30)}...")
       if Expander is None:
         Expander, Trajectories = _make_expander(nlfsr, PBar=1, AlwaysCleanFiles=CleanBufferedLists)
       FileName = "data/" + hashlib.sha256(bytes(repr(nlfsr), "utf-8")).hexdigest() + ".html"
