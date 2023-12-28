@@ -103,7 +103,7 @@ class Bitarray:
             Result = bau.zeros(Size)
             for i in range(Size):
                 if random.uniform(0, 1) <= P1:
-                   Result[i] = 1
+                    Result[i] = 1
         else:
             Result = bau.int2ba(randint(0, (1<<Size)-1), Size)
         return Result

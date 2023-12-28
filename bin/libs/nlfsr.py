@@ -731,6 +731,7 @@ def f():
       D = abs(self._Config[i][0]) % self._size
       if D not in Result:
         Result.append(D)
+    Result.sort()
     return Result
   
   def createSimpleExpander(self, MinXorInputs = 1, MaxXorInputs = 3, Verify = False) -> PhaseShifter:
@@ -1463,6 +1464,101 @@ def f():
     AioShell.removeLastLine()
     return Result
   
+  def tapsToTheLeft(self):
+    for i in range(len(self._Config)):
+      self.rotateTap(i, -1 * (abs(self._Config[i][0]) % self._size), True, False, True)
+    self.sortTaps()
+    
+  def makePlaceForNewTaps(self):
+    self.tapsToTheLeft()
+    DCMax = self.getTapsDestinations()[-1] -1
+    BestTap = -1
+    BestShift = -1
+    for i in range(len(self._Config)):
+      n2 = self.copy()
+      Counter = 0
+      while n2.rotateTap(i, 1, True, False, False):
+        Counter += 1
+        if abs(n2._Config[i][0]) % self._size == DCMax:
+          break
+      if Counter > BestShift:
+        BestShift = Counter
+        BestTap = i
+    self.rotateTap(BestTap, BestShift, True, True, True)
+  
+  def redistributeTapsAndMakeSpaceForNew(self, ReturnListOfNewDestinationCandidates = False):
+    self.makePlaceForNewTaps()
+    FFs = 1
+    for i in range(1, len(self._Config)-1):
+      if self.rotateTap(i, FFs, True, False, True):
+        FFs += 1
+    self.sortTaps()
+    if ReturnListOfNewDestinationCandidates:
+      Dests = self.getTapsDestinations()
+      return [i for i in range(Dests[-2]+1, Dests[-1])]
+    
+  def makeDense(self):
+    DC = self.redistributeTapsAndMakeSpaceForNew(True)
+    if len(DC) == 0:
+      return
+    while len(DC) > 0:
+      #print("======================================")
+      DC = []
+      DCX = self.getTapsDestinations()
+      for i in range(0, DCX[-1]):
+        if i not in DCX:
+          DC.append(i)
+      #print(DC)
+      if len(DC) == 1:
+        DC.append(DC[0]+1)
+      #print(self.getTapsDestinations())
+      S = DCX[-1]+2 #self.getTapsDestinations()[-1]+2
+      self._Config.append([DC[0], [S]])
+      #self.print()
+      self.rotateTap(len(self._Config)-1, DC[-1] - DC[0], True, False, True)
+      #self.print()
+      self._Config.append([DC[0], [S]])
+      #print(self._Config)
+      #self.print()
+      DC.remove(self._Config[-1][0])
+      DC.remove(self._Config[-2][0])
+      #print(DC)
+      if len(DC) < 1:
+        self.sortTaps()
+        #self.print()
+        return
+      elif len(DC) == 1:
+        self.breakLinearTap(len(self._Config)-1, "(a & b) ^ (a & ~b)", [self._size-1], False)
+        if not self.rotateTap(len(self._Config)-1, 1, True, False, False):
+          self.rotateTap(len(self._Config)-2, 1, True, False, False)
+        self.sortTaps()
+        #self.print()
+        return
+      if len(DC) > 1:
+        #print("BREAK 1")
+        #print(self._Config)
+        self.breakLinearTap(len(self._Config)-1, "(a & b) ^ (a & ~b)", [self._size-1], False)
+        #print(self._Config)
+        #self.print()
+        if not self.rotateTap(len(self._Config)-1, 1, True, False, False):
+          self.rotateTap(len(self._Config)-2, 1, True, False, False)
+        #self.print()
+        #print("BREAK 2")
+        #print(self._Config)
+        self.breakLinearTap(len(self._Config)-3, "(~a & ~b) ^ ~(~a & b)", [self._size-1], False)
+        #print(self._Config)
+        #self.print()
+        if not self.rotateTap(len(self._Config)-1, -1, True, False, False):
+          self.rotateTap(len(self._Config)-2, -1, True, False, False)
+        #self.print()
+      #self.print()
+    self.sortTaps()
+    #self.print()
+    return
+  
+    #self.sortTaps()
+    #self.print() 
+  
   def toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Verbose = False, ReturnSympyExpr = False):
     N = self.copy()
     if Verbose:
@@ -2062,12 +2158,10 @@ def f():
     return Tap
     
           
-  def rotateTap(self, TapIndex : int, FFs : int, FailIfRotationInvalid = False, SortTaps = True) -> bool:
+  def rotateTap(self, TapIndex : int, FFs : int, FailIfRotationInvalid = False, SortTaps = True, LeaveMaximumShift = False) -> bool:
     if FailIfRotationInvalid:
       n2 = self.copy()
       LeaveMaximumShift = 0
-      if abs(FFs) >= n2._size:
-        LeaveMaximumShift = 1
       Sign = -1 if FFs < 0 else 1
       for i in range(abs(FFs)):
         PRep = n2.getCriticalPlacementReport(TapIndex, Sign)
@@ -2504,7 +2598,7 @@ def f():
       NewTaps.append(NewTap)
     return NewTaps
 
-  def breakLinearTap(self, TapIndex : int, ExpressionTemplate : str, SecondaryInputsList = []) -> bool:
+  def breakLinearTap(self, TapIndex : int, ExpressionTemplate : str, SecondaryInputsList = [], SortTaps = True) -> bool:
     if not self.isTapLinear(TapIndex):
       Aio.printError(f"Tap '{TapIndex}' is not linear.")
       return False
@@ -2512,7 +2606,8 @@ def f():
       NewTaps = self.getTapsForBreaking(TapIndex, ExpressionTemplate, SecondaryInputsList)
       self._Config.remove(self._Config[TapIndex])
       self._Config += NewTaps
-      self.sortTaps()
+      if SortTaps:
+        self.sortTaps()
       self._period = None
       return True
     except:
