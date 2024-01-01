@@ -895,6 +895,24 @@ def f():
     File.remove(FileName)
     return Result
     
+  def getAllSequencesCpp64b(self) -> BufferedList:
+    if self._size > 64:
+      Aio.printError("getSingleSequenceCpp64b needs size to be <= 64.")
+      return None
+    ArgStr, WithInverters = self._getCheckPeriodArgStr()
+    FileName = File.getRandomTempFileName()
+    Res = CppPrograms.NLSFRGetSequences64b.run(f"{FileName} {ArgStr}")
+    try:
+      Res = int(Res)
+    except:
+      Aio.printError("It looks like the 'NLSFRGetSequences64b' program didn't work...")
+      return None
+    Result = BufferedList()
+    for i in range(self._size):
+      Result.append(Bitarray.fromFile(FileName + f".{i}", Res))
+      File.remove(FileName + f".{i}")
+    return Result
+    
   def getDestinationsDictionary(self) -> dict:
     DestDict = {}
     Size = self._size
@@ -924,6 +942,8 @@ def f():
     if self._size > 64:
       Aio.printError("getSequencesCpp64b needs size to be <= 64.")
       return None
+    if self.getReducedSequenceSymbols() is None:
+      return self.getAllSequencesCpp64b()
     Result = BufferedList([None for _ in range(self._size)])
     Result[0] = self.getSingleSequenceCpp64b()
     Dict = self.getDestinationsDictionary()
@@ -986,7 +1006,7 @@ def f():
           Result[D] = Bitarray.rotr(R)
           DidSomething = True
     if None in Result:
-      return None
+      return self.getAllSequencesCpp64b()
     return Result
     
   def isMaximum(self) -> bool:

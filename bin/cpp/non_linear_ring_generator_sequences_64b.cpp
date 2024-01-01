@@ -3,11 +3,19 @@
 
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <vector>
 #include "string_split.h"
 #include <fstream>
 
 using namespace std;
+
+const char* to_cstr(std::string&& s)
+{
+    static thread_local std::string sloc;
+    sloc = std::move(s);
+    return sloc.c_str();
+}
 
 int main(int argc, char* argv[])
 {
@@ -17,18 +25,22 @@ int main(int argc, char* argv[])
         return 0;
     }
 
-    std::ofstream File(argv[1], std::ios::binary);
-
-    if (!File.is_open()) {
-        cout << "ERROR" << endl;
-        return -1;
-    }
-
     // Taps database
     int Size = stoi(argv[2]);
     int TapsCount = argc - 3;
     uint_fast64_t** TapsBase = new uint_fast64_t * [TapsCount];
     uint_fast64_t** InvBase = new uint_fast64_t * [TapsCount];
+
+    std::ofstream** File = new std::ofstream * [Size];
+    for (int i = 0; i < Size; i++) {
+        std::stringstream fname;
+        fname << argv[1] << "." << i;
+        File[i] = new std::ofstream(to_cstr(fname.str()), std::ios::binary);
+        if (!File[i]->is_open()) {
+            cout << "ERROR" << endl;
+            return -1;
+        }
+    }
 
     // Variables
     uint_fast64_t Value;
@@ -38,8 +50,12 @@ int main(int argc, char* argv[])
     uint_fast64_t V0;
     uint_fast64_t SizeMask = uint_fast64_t(1) << uint_fast64_t(Size - 1);
     uint_fast64_t OneInFlop = 0;
-    char sequence;
+    char* sequence = new char[Size];
+    for (uint_fast64_t i = 0; i < Size; i++) {
+        sequence[i] <<= 0;
+    }
     char seq_cntr;
+    uint_fast64_t sequence_mask = 0;
 
     // Parsing taps from argv
     vector<vector<int>> Taps;
@@ -75,18 +91,25 @@ int main(int argc, char* argv[])
     Value = 1 << OneInFlop;
     V0 = Value;
     Period = 0;
-    sequence = 0;
     seq_cntr = 0;
     for (uint_fast64_t Step = 0; Step < Max; ++Step) {
-        sequence <<= 1;
         seq_cntr++;
         AuxValue = Value >> 1;
+        sequence_mask = 1;
+        for (uint_fast64_t i = 0; i < Size; i++) {
+            sequence[i] <<= 1;
+            if (Value & sequence_mask) {
+                sequence[i] |= 1;
+            }
+            sequence_mask <<= 1;
+        }
         if (Value & 1) {
             AuxValue |= SizeMask;
-            sequence |= 1;
         }
         if (seq_cntr == 8) {
-            File.write(reinterpret_cast<const char*>(&sequence), 1);
+            for (uint_fast64_t i = 0; i < Size; i++) {
+                File[i]->write(reinterpret_cast<const char*>(&sequence[i]), 1);
+            }
             seq_cntr = 0;
         }
         for (int TapIndex = 0; TapIndex < TapsCount; ++TapIndex) {
@@ -125,12 +148,17 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (seq_cntr > 0) {
-        if (seq_cntr < 8) {
-            sequence <<= (8 - seq_cntr);
+    for (uint_fast64_t i = 0; i < Size; i++) {
+        if (seq_cntr > 0) {
+            if (seq_cntr < 8) {
+                sequence[i] <<= (8 - seq_cntr);
+            }
+            File[i]->write(reinterpret_cast<const char*>(&sequence[i]), 1);
         }
-        File.write(reinterpret_cast<const char*>(&sequence), 1);
     }
-    File.close();
+
+    for (uint_fast64_t i = 0; i < Size; i++) {
+        File[i]->close();
+    }
     cout << Period << " ";
 }
