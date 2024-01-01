@@ -1473,7 +1473,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       Aio.print(p.getCoefficients())
       
   @staticmethod
-  def listPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None, NoResultsSkippingIteration = 0, StartingPolynomial = None, ExactBalancing = False) -> list:
+  def listPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, Silent = True, MaxSetSize=10000, ExcludeList = [], ReturnAlsoAllCandidaes = False, FilteringCallback = None, NoResultsSkippingIteration = 0, StartingPolynomial = None, ExactBalancing = False, noErrors = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)).
 
     Args:
@@ -1493,7 +1493,8 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     """
     polys = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, ExactBalancing)
     if type(polys) == type(None):
-      Aio.printError("No candidate polynomials found. Consider relaxing the requirements.")
+      if not noErrors:
+        Aio.printError("No candidate polynomials found. Consider relaxing the requirements.")
       if ReturnAlsoAllCandidaes:
         return [[], []]
       return []
@@ -1540,7 +1541,8 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     if cntr != 0:
         result += Polynomial.checkPrimitives(candidates, n, Silent)
         candidates.clear()      
-    AioShell.removeLastLine()
+    if SecondIter:
+      AioShell.removeLastLine()
 #    if n > 0 and len(result) > n:
 #      result = result[0:n]
     Aio.printTemp()
@@ -1550,7 +1552,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return result
   
   @staticmethod
-  def firstPrimitive(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, Silent=True, StartingPolynomial = None, ExactBalancing = False) -> Polynomial:
+  def firstPrimitive(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, Silent=True, StartingPolynomial = None, ExactBalancing = False, noErrors = False) -> Polynomial:
     """Returns a first found primitive (over GF(2)) polynomial.
 
     Args:
@@ -1561,7 +1563,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     Returns:
         list: _description_
     """
-    lp = Polynomial.listPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, 0, 1, Silent, StartingPolynomial = StartingPolynomial, ExactBalancing=ExactBalancing)
+    lp = Polynomial.listPrimitives(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, 0, 1, Silent, StartingPolynomial = StartingPolynomial, ExactBalancing=ExactBalancing, noErrors=noErrors)
     if len(lp) > 0:
       return lp[0]
     return None
@@ -1575,7 +1577,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       StartBalancing = 1
     ExactBalancing = False
     for b in range(StartBalancing, bal):
-      fp = Polynomial.firstPrimitive(PolynomialDegree, PolynomialCoefficientsCount, b, LayoutFriendly, Silent, ExactBalancing=ExactBalancing)
+      fp = Polynomial.firstPrimitive(PolynomialDegree, PolynomialCoefficientsCount, b, LayoutFriendly, Silent, ExactBalancing=ExactBalancing, noErrors=True)
       if type(fp) != type(None):
         return fp
       ExactBalancing = True
@@ -3154,7 +3156,7 @@ class _BerlekampMassey:
   
     slots = ("_f", "_l")
   
-    def __init__(self, sequence, ProgressBar = 0, PrintLinearComplexity = 0, PrintPolynomial=0, LinearComplexityUpTo=0):
+    def __init__(self, sequence, ProgressBar = 0, PrintLinearComplexity = 0, LinearComplexityUpTo=0):
         n = len(sequence)
         s = sequence.copy()
 
@@ -3168,9 +3170,7 @@ class _BerlekampMassey:
         g = {0}
         a = k
         b = 0
-        if PrintPolynomial:  
-          print(self._f)
-
+        #mple_threading import SimpleThread
         if ProgressBar:
           iter = tqdm(range(k + 1, n), desc="Berlekamp-Massey")
         else:
@@ -3183,34 +3183,26 @@ class _BerlekampMassey:
                 if subs[item]:
                     d = 1-d
             
-            #for item in self._f:
-            #    if s[item + n - self._l]:
-            #        d = 1-d
             if d:
                 if 2 * self._l > n:
-                    self._f ^= set([a - b + item for item in g])
+                    amb = a - b
+                    self._f ^= set([amb + item for item in g])
                     b += 1
                 else:
-                    ##temp = self._f.copy()
-                    ##self._f = set([b - a + item for item in self._f]) ^ g
-                    aux = set([b - a + item for item in self._f]) ^ g
+                    bma = b - a
+                    aux = set([bma + item for item in self._f]) ^ g
                     g = self._f
                     self._f = aux
-                    if PrintPolynomial:  
-                      print(self._f)
                     self._l = n + 1 - self._l
                     if LinearComplexityUpTo:
                       if self._l >= LinearComplexityUpTo:
                         return
                     if PrintLinearComplexity:
                       print(f"Linear complexity: {self._l}")
-                    ##g = temp
                     a = b
                     b = n - self._l + 1
             else:
                 b += 1
-        if PrintPolynomial:  
-          print(self._f)
 
     def _get_polynomial_string(self):
         result = ''
