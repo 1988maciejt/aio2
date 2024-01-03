@@ -137,3 +137,9 @@ class SymPy:
                 #print(T1, "   AND   ", T2)
                 Result ^= T1 & T2
         return Result
+    
+    def substDict(expr, Dict : dict):
+        R = expr
+        for i in Dict.items():
+            R = R.subs(*i)
+        return R

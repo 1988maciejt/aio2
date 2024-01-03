@@ -54,7 +54,7 @@ class FastANFExpression:
     def addMonomial(self, Monomial : int):
         if Monomial is not None:
             self._Table[Monomial] ^= 1
-                   
+
     def getMonomials(self):
         return self._Table.search(1)
     
@@ -63,7 +63,7 @@ class FastANFExpression:
     
     def clear(self):
         self._Table.setall(0)
-
+    
     def add(self, Another : FastANFExpression):
         self._Table ^= Another._Table
             

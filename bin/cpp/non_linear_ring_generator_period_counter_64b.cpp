@@ -77,7 +77,8 @@ int main(int argc, char* argv[])
                 uint_fast64_t* Tap = TapsBase[TapIndex];
                 uint_fast64_t* Inv = InvBase[TapIndex];
                 bool And = true;
-                for (int SIndex = 2; SIndex < Tap[1]; ++SIndex) {
+                uint_fast64_t Tap_1 = Tap[1]
+                for (int SIndex = 2; SIndex < Tap_1; ++SIndex) {
                     if (Inv[SIndex]) {
                         if (Tap[SIndex] & Value) {
                             And = false;

@@ -934,9 +934,131 @@ def f():
           S[i] = Si
       D = D % self._size
       Aux = DestDict[D]
-      Aux.append([f] + S)
+      if len(S) > 1:
+        Aux.append([f] + S)
+      else:
+        Aux.append(S)
       DestDict[D] = Aux    
     return DestDict
+  
+  def getSympyVarDict(self, VarName : str = "s") -> dict:
+    VarDict = {}
+    for i in range(self._size):
+      VarDict[i] = sympy.Symbol(f'{VarName}{i}')
+    return VarDict
+  
+  def getDestinationsDictionarySympy(self) -> dict:
+    DestDict = {}
+    VarDict = self.getSympyVarDict("x")
+    Size = self._size
+    for i in range(Size):
+      DestDict[VarDict[i]] = sympy.Symbol(f'x{(i + 1) % Size}')
+    Taps = self._Config
+    for Tap in Taps:
+      S = Tap[1]
+      D = Tap[0]
+      Dabs = abs(D) % Size
+      if D < 0:
+        DestDict[VarDict[Dabs]] ^= sympy.true
+      e = ""
+      Second = 0
+      for Si in S:
+        if Second:
+          e += "&"
+        else:
+          Second = 1
+        Siabs = abs(Si) % Size
+        if Si < 0:
+          e += "~"
+        e += 'x' + str(Siabs)
+      DestDict[VarDict[Dabs]] ^= sympy.parsing.parse_expr(e)
+      DestDict[VarDict[Dabs]] = DestDict[VarDict[Dabs]].to_anf()
+    return DestDict
+  
+  def getNextStepsDestinationsDictionariesSympy(self, Levels = 2) -> list:
+    Result = [self.getDestinationsDictionarySympy()]
+    Xs = self.getSympyVarDict("x")
+    Ys = self.getSympyVarDict("y")
+    YtoX = {}
+    XtoY = {}
+    for i in Ys.keys():
+      YtoX[Ys[i]] = Xs[i]
+      XtoY[Xs[i]] = Ys[i]
+    for i in range(1, Levels):
+      Dict = Result[i-1]
+      RowDict = {}
+      for k in Dict.keys():
+        RowDict[k] = SymPy.substDict(Dict[k], XtoY)
+      Row = {}
+      for k in Dict.keys():
+        Source = SymPy.substDict(Dict[k], RowDict)
+        Source = SymPy.substDict(Source, YtoX)
+        try:
+          Source = Source.to_anf()
+        except: pass
+        Row[k] =  Source
+      Result.append(Row)
+    return Result
+  
+  def _NextStepsDestinationsDictionaries_inv(Group, Size) -> list:
+    if type(Group) is not list:
+      Group = [Group]
+    Result = Group.copy()
+    if type(Result[0]) is int:
+      if Result[0] < 0:
+        Result[0] = abs(Result[0]) % Size
+      else:
+        if Result[0] == 0:
+          Result[0] += Size
+        Result[0] *= -1
+    elif Result[0] == "AND":
+      Result[0] = "NAND"
+    elif Result[0] == "NAND":
+      Result[0] = "AND"
+    elif Result[0] == "OR":
+      Result[0] = "NOR"
+    elif Result[0] == "NOR":
+      Result[0] = "OR"
+    elif type(Result[0]) is list:
+      Result[0] = Nlfsr._NextStepsDestinationsDictionaries_inv(Result[0], Size)
+    else:
+      Aio.printError(f"_NextStepsDestinationsDictionaries_inv: not inverted {Result}")
+      return None
+    return Result
+  
+  
+  def _NextStepsDestinationsDictionaries_subst(Dict, Group) -> list:
+    Result = []
+    for Item in Group:
+      if type(Item) is int:
+        if Item < 0:
+          X = Dict[abs(Item) % len(Dict)]
+          while type(X) is list and len(X) == 1:
+            X = X[0]
+          Result.append(Nlfsr._NextStepsDestinationsDictionaries_inv(X, len(Dict)))
+        else:
+          X = Dict[Item]
+          while type(X) is list and len(X) == 1:
+            X = X[0]
+          Result.append(X)
+      elif type(Item) is list:
+        X = Nlfsr._NextStepsDestinationsDictionaries_subst(Dict, Item)
+        while type(X) is list and len(X) == 1:
+          X = X[0]
+        Result.append(X)
+      elif type(Item) is str:
+        Result.append(Item)
+    return Result
+  
+  def getNextStepsDestinationsDictionaries(self, Levels = 4) -> list:
+    Result = [self.getDestinationsDictionary()]
+    for i in range(1, Levels):
+      Dict = Result[i-1]
+      Row = {}
+      for k in Dict.keys():
+        Row[k] =  Nlfsr._NextStepsDestinationsDictionaries_subst(Dict, Dict[k].copy())
+      Result.append(Row)
+    return Result
   
   def getSequencesCpp64b(self) -> BufferedList:
     if self._size > 64:
