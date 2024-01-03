@@ -92,31 +92,39 @@ int main(int argc, char* argv[])
         for (int TapIndex = 0; TapIndex < TapsCount; ++TapIndex) {
             uint_fast64_t* Tap = TapsBase[TapIndex];
             uint_fast64_t* Inv = InvBase[TapIndex];
-            bool And = true;
-            for (int SIndex = 2; SIndex < Tap[1]; ++SIndex) {
-                if (Inv[SIndex]) {
-                    if (Tap[SIndex] & Value) {
-                        And = false;
-                        break;
-                    }
-                }
-                else {
-                    if (!(Tap[SIndex] & Value)) {
-                        And = false;
-                        break;
-                    }
-                }
-            }
+            uint_fast64_t Tap_1 = Tap[1];
             if (Inv[0]) {
-                if (!And) {
-                    AuxValue ^= Tap[0];
+                for (int SIndex = 2; SIndex < Tap_1; ++SIndex) {
+                    if (Inv[SIndex]) {
+                        if (Tap[SIndex] & Value) {
+                            goto do_xor;
+                        }
+                    }
+                    else {
+                        if (!(Tap[SIndex] & Value)) {
+                            goto do_xor;
+                        }
+                    }
                 }
             }
             else {
-                if (And) {
-                    AuxValue ^= Tap[0];
+                for (int SIndex = 2; SIndex < Tap_1; ++SIndex) {
+                    if (Inv[SIndex]) {
+                        if (Tap[SIndex] & Value) {
+                            goto skip_xor;
+                        }
+                    }
+                    else {
+                        if (!(Tap[SIndex] & Value)) {
+                            goto skip_xor;
+                        }
+                    }
                 }
+do_xor:
+                AuxValue ^= Tap[0];
             }
+skip_xor:
+            continue;
         }
         Value = AuxValue;
         if (Value == V0) {
