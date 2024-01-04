@@ -19,4 +19,7 @@ class shell_config:
   
   def getCppCompiler():
     return "g++"
+  
+  def priv():
+    return True
 
