@@ -13,6 +13,13 @@ class Aio:
   _sections = False
   _section_opened = False
   _subsection_opened = False
+  
+  @staticmethod
+  def getCpuCount() -> int:
+    from multiprocessing import cpu_count
+    return cpu_count()
+  
+  @staticmethod
   def getRamSizeGB() -> int:
     try:
       import psutil
@@ -20,6 +27,7 @@ class Aio:
     except:
       return 4
       
+  @staticmethod
   def getRamSize() -> int:
     try:
       import psutil
@@ -52,19 +60,25 @@ class Aio:
       else:
         result = " "*indent + str(object) + "\n"
     return result
+  @staticmethod
   def getTerminalColumns() -> int:
     return shutil.get_terminal_size()[0]
+  @staticmethod
   def getTerminalRows() -> int:
     return shutil.get_terminal_size()[1]
+  @staticmethod
   def getPath() -> str:
     return getAioPath()
+  @staticmethod
   def printTranscriptEnable(FileName = "transcript.txt"):
     global transcript_file
     Aio._transcript = ""
     transcript_file = open(FileName, "w")
+  @staticmethod
   def printTranscriptDisable():
     Aio._transcript = ""
     del transcript_file
+  @staticmethod
   def transcriptToHTML(FileName = "transcript.html", Dark=True, WrapLines=False, Linkify=True):
     conv = Ansi2HTMLConverter(escaped=False, dark_bg=Dark, title="transcript", line_wrap=WrapLines, linkify=Linkify)
     text = Aio._transcript    
@@ -109,13 +123,16 @@ class Aio:
     HtmlFile = open(FileName, "w")
     HtmlFile.write(html)
     HtmlFile.close()
+  @staticmethod
   def resetTranscript():
     Aio._transcript = ""    
     Aio._sections = False
     Aio._section_opened = False
     Aio._subsection_opened = False
+  @staticmethod
   def isTranscriptMode() -> bool:
     return "transcript_file" in globals()
+  @staticmethod
   def print(*args):
     s = ""
     for arg in args:
@@ -129,6 +146,7 @@ class Aio:
       transcript_file.flush()
       os.fsync(transcript_file.fileno())
     print(*args)
+  @staticmethod
   def _add_collapsing_css():
     if not Aio._sections:
       Aio._sections = True
@@ -176,16 +194,19 @@ class Aio:
         }      
         </style>
       """
+  @staticmethod
   def printSection(*args):
     s = ""
     for arg in args:
       s += str(arg) + " "
     Aio.transcriptSectionBegin(s)
+  @staticmethod
   def printSubsection(*args):
     s = ""
     for arg in args:
       s += str(arg) + " "
     Aio.transcriptSubsectionBegin(s)
+  @staticmethod
   def transcriptSectionBegin(SectionName : str):
     Aio._add_collapsing_css()
     s = "=" * Aio.getTerminalColumns()
@@ -201,6 +222,7 @@ class Aio:
       os.fsync(transcript_file.fileno())
     Aio._transcript += '\n<button type="button" class="collapsible">' + str(SectionName) + '</button><div class="content">\n' 
     Aio._section_opened = True
+  @staticmethod
   def transcriptSubsectionBegin(SectionName : str):
     Aio._add_collapsing_css()
     s = "-" * len(str(SectionName))
@@ -214,6 +236,7 @@ class Aio:
       os.fsync(transcript_file.fileno())
     Aio._transcript += '\n<button type="button" class="collapsiblesub">' + str(SectionName) + '</button><div class="content">\n' 
     Aio._subsection_opened = True
+  @staticmethod
   def transcriptSectionEnd():
     Aio._transcript += '</div>\n' 
     Aio._section_opened = False
@@ -222,6 +245,7 @@ class Aio:
       transcript_file.write("\n")
       transcript_file.flush()
       os.fsync(transcript_file.fileno())
+  @staticmethod
   def transcriptSubsectionEnd():
     Aio._transcript += '</div>\n' 
     Aio._subsection_opened = False
@@ -230,8 +254,10 @@ class Aio:
       transcript_file.write("\n")
       transcript_file.flush()
       os.fsync(transcript_file.fileno())
+  @staticmethod
   def printError(*args):
     Aio.print(Str.color("ERROR:", 'red'),*args)
+  @staticmethod
   def printTemp(*args):
     if len(args) == 0:
       print(" " * (Aio.getTerminalColumns()-1) + "\r", end="")
@@ -244,6 +270,7 @@ class Aio:
         txt = txt[0:wl-2]
       txt += "\r"
       print(txt,end="")
+  @staticmethod
   def shellExecute(ShellCommand : str, StdOut = True, StdErr = False) -> str:
     from subprocess import PIPE, Popen
     p = Popen(ShellCommand, shell=True, stdout=PIPE, stderr=PIPE)
@@ -256,6 +283,7 @@ class Aio:
     if StdErr:
       Result += stderr.decode('utf-8')
     return Result
+  @staticmethod
   def numToCompressedString(num : int) -> str:
     result = ""
     n = abs(num)
@@ -266,6 +294,7 @@ class Aio:
     if num < 0:
       result += chr(252)
     return result
+  @staticmethod
   def compressedStringToNum(cstring : str) -> int:
     result = 0
     for c in cstring:
@@ -275,6 +304,7 @@ class Aio:
       else:
         result = (result * 250) + (n-1)
     return result
+  @staticmethod
   def timeItCode(Code : str, Iterations = 1):
     SCode = ""
     for Line in Code.split("\n"):

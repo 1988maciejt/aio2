@@ -2,6 +2,9 @@ import _thread
 from time import sleep
 from libs.aio import *
 
+class SimpleThread:
+  pass
+
 class SimpleThreadingTask:
   __slots__ = ("_done", "_result")
   def __init__(self):
@@ -14,39 +17,49 @@ class SimpleThreadingTask:
   def isDone(self):
     return self._done
   
-def _simple_thread(MyTask : SimpleThreadingTask, Function, args, kwargs):
-  while SimpleThread._parallel_jobs >= SimpleThread.MaxParallelJobs:
-    sleep(0.001)
-  SimpleThread._parallel_jobs += 1
+def _simple_thread(MyTask : SimpleThreadingTask, SimpleThreadObject : SimpleThread, Force, Function, args, kwargs):
+  if not Force:
+    while SimpleThreadObject._parallel_jobs >= SimpleThreadObject.MaxParallelJobs:
+      sleep(0.001)
+    SimpleThreadObject._parallel_jobs += 1
   try:
     MyTask._result = Function(*args, **kwargs)
   except Exception as inst:
     Aio.printError(f"SimpleThread: {inst}")
-  SimpleThread._parallel_jobs -= 1
+  if not Force:
+    SimpleThreadObject._parallel_jobs -= 1
   MyTask._done = True
 
 
 class SimpleThread:
   
-  MaxParallelJobs = 32
-  _parallel_jobs = 0
+  __slots__ = ('MaxParallelJobs', '_parallel_jobs')
   
-  @staticmethod  
-  def single(Function, *args, **kwargs):
+  def __init__(self, MaxParallelJobs = 32) -> None:
+    self.MaxParallelJobs = MaxParallelJobs
+    self._parallel_jobs = 0
+  
+  def single(self, Function, *args, **kwargs):
     Task = SimpleThreadingTask()
-    _thread.start_new_thread(_simple_thread, tuple([Task, Function, args, kwargs]))
+    _thread.start_new_thread(_simple_thread, tuple([Task, self,False, Function, args, kwargs]))
+    return Task
+  
+  def _single_forced(self, Function, *args, **kwargs):
+    Task = SimpleThreadingTask()
+    _thread.start_new_thread(_simple_thread, tuple([Task, self, True, Function, args, kwargs]))
     return Task
 
-  @staticmethod
-  def uimap(Function, Iterable):
+  def uimap(self, Function, Iterable):
     Tasks = []
     for I in Iterable:
-      if SimpleThread._parallel_jobs < SimpleThread.MaxParallelJobs:
-        Tasks.append(SimpleThread.single(Function, I))
+      if self._parallel_jobs < self.MaxParallelJobs:
+        Tasks.append(self._single_forced(Function, I))
+        self._parallel_jobs += 1
       elif len(Tasks) > 0:
         for T in Tasks:
           if T:
             Tasks.remove(T)
+            self._parallel_jobs -= 1
             yield T.getResult()
             break
         sleep(0.001)
@@ -54,27 +67,62 @@ class SimpleThread:
       for T in Tasks:
         if T:
           Tasks.remove(T)
+          self._parallel_jobs -= 1
           yield T.getResult()
           break
       sleep(0.001)
       
-  @staticmethod
-  def imap(Function, Iterable):
+  def imap(self, Function, Iterable):
     Tasks = []
     for I in Iterable:
-      if SimpleThread._parallel_jobs < SimpleThread.MaxParallelJobs:
-        Tasks.append(SimpleThread.single(Function, I))
-      elif len(Tasks) > 0:
-        T = Tasks[0]
-        if T:
-          yield T.getResult()
-          Tasks.remove(T)
-        else:
-          sleep(0.001)
+      while 1:
+        if self._parallel_jobs < self.MaxParallelJobs:
+          print("START")
+          Tasks.append(self._single_forced(Function, I))
+          self._parallel_jobs += 1
+          break
+        elif len(Tasks) > 0:
+          T = Tasks[0]
+          if T:
+            yield T.getResult()
+            print("END")
+            Tasks.remove(T)
+            self._parallel_jobs -= 1
+          else:
+            sleep(0.001)
     while len(Tasks) > 0:
       T = Tasks[0]
       if T:
         yield T.getResult()
+        print("END")
         Tasks.remove(T)
+        self._parallel_jobs -= 1
       else:
         sleep(0.001)
+        
+  def map(self, Function, Iterable) -> list:
+    Tasks = []
+    Result = []
+    for I in Iterable:
+      while 1:
+        if self._parallel_jobs < self.MaxParallelJobs:
+          Tasks.append(self._single_forced(Function, I))
+          self._parallel_jobs += 1
+          break
+        elif len(Tasks) > 0:
+          T = Tasks[0]
+          if T:
+            Result.append(T.getResult())
+            Tasks.remove(T)
+            self._parallel_jobs -= 1
+          else:
+            sleep(0.001)
+    while len(Tasks) > 0:
+      T = Tasks[0]
+      if T:
+        Result.append(T.getResult())
+        Tasks.remove(T)
+        self._parallel_jobs -= 1
+      else:
+        sleep(0.001)
+    return Result

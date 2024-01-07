@@ -1986,6 +1986,28 @@ def f():
       for XorToTest in XorsList:
         Result.append(_getHash(XorToTest))
     return Result
+  
+  def _countcardinality(SingleSequences, XorsList, TupleSize, ParallelChunk, INum="?"):
+    Result = []
+    def _seqIterator(XorsList):
+      for XorToTest in XorsList:
+        yield Nlfsr._getSequence(SingleSequences, XorToTest)
+    for XL in tqdm(List.splitIntoSublists(XorsList, ParallelChunk), desc=f"{INum}-in: Tuples cardinality (x{ParallelChunk})"):
+      Result += p_map(partial(Bitarray.getCardinality, TupleSize=TupleSize), _seqIterator(XL), total=len(XL))
+      AioShell.removeLastLine()
+    AioShell.removeLastLine()
+    return Result
+  
+  def _countlc(SingleSequences, XorsList, ParallelChunk, INum="?"):
+    Result = []
+    def _seqIterator(XorsList):
+      for XorToTest in XorsList:
+        yield Nlfsr._getSequence(SingleSequences, XorToTest)
+    for XL in tqdm(List.splitIntoSublists(XorsList, ParallelChunk), desc=f"{INum}-in: Linear complexity (x{ParallelChunk})"):
+      Result += p_map(partial(Polynomial.getLinearComplexityUsingBerlekampMassey, LinearComplexityUpTo=(1<<21)), _seqIterator(XL), total=len(XL))
+      AioShell.removeLastLine()
+    AioShell.removeLastLine()
+    return Result
         
   def isHybrid(self) -> bool:
     n2 = self.copy()
@@ -2006,8 +2028,32 @@ def f():
     UniqueSequences = set()
     if StoreLinearComplexityData:
       LCData = []
+      if self._size < 13:
+        MaxParallelJobs = int(Aio.getCpuCount() * 3 / 4)
+      elif self._size < 17:
+        MaxParallelJobs = int(Aio.getCpuCount() * 2 / 3)
+      elif self._size < 19:
+        MaxParallelJobs = int(Aio.getCpuCount() / 2)
+      elif self._size < 21:
+        MaxParallelJobs = int(Aio.getCpuCount() / 3)
+      elif self._size < 22:
+        MaxParallelJobs = int(Aio.getCpuCount() / 4)
+      if MaxParallelJobs < 1:
+        MaxParallelJobs = 1
     if StoreCardinalityData:
       SSData = []
+      if self._size <= 23:
+        CardinalityParallelChunk = int(Aio.getCpuCount() * 3 / 4)
+      elif self._size <= 27:
+        CardinalityParallelChunk = int(Aio.getCpuCount() * 2 / 3)
+      elif self._size <= 30:
+        CardinalityParallelChunk = int(Aio.getCpuCount() / 2)
+      elif self._size <= 32:
+        CardinalityParallelChunk = int(Aio.getCpuCount() / 3)
+      else:
+        CardinalityParallelChunk = int(Aio.getCpuCount() / 4)
+      if CardinalityParallelChunk < 1:
+        CardinalityParallelChunk = 1
     if Store2bitTuplesHistograms:
       Histo2 = []
     if StoreOnesCount:
@@ -2038,19 +2084,6 @@ def f():
     HBlockSize = (self._size - 4)
     if HBlockSize < 3:
       HBlockSize = 3
-    if StoreLinearComplexityData:
-      if self._size < 15:
-        SimpleThread.MaxParallelJobs = 10
-      elif self._size < 16:
-        SimpleThread.MaxParallelJobs = 8
-      elif self._size < 17:
-        SimpleThread.MaxParallelJobs = 6
-      elif self._size < 18:
-        SimpleThread.MaxParallelJobs = 4
-      elif self._size < 19:
-        SimpleThread.MaxParallelJobs = 2
-      elif self._size < 20:
-        SimpleThread.MaxParallelJobs = 1
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       tt.print(f"{k}-in gates anaysis...")
       print("// Creating simple expander...")
@@ -2060,32 +2093,31 @@ def f():
         HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
       else:
         HashTable = Nlfsr._countHashes(SingleSequences, SimpleExpander.getXors(), HBlockSize, PBar, INum=k)
-      if StoreLinearComplexityData:
-        LCThreads = []
+      UniqueSequencesK = []
       for Row in tqdm(HashTable, desc=f"Processing {k}-in xor outputs"):
         XorToTest = Row[0]
         H = Row[1]
         if H not in UniqueSequences:
           UniqueSequences.add(H)
+          UniqueSequencesK.append(XorToTest)
           ttrow = f"  {len(UniqueSequences)} \t {XorToTest}"
           ThisSequence = None
           XorsList.append(list(XorToTest))
-          if StoreLinearComplexityData:
-            if ThisSequence is None:
-              ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
-            LCThreads.append(SimpleThread.single(Polynomial.getLinearComplexityUsingBerlekampMassey, ThisSequence))
-          #  Aux = Polynomial.getLinearComplexityUsingBerlekampMassey(ThisSequence)
-          #  ttrow += f" \t LC = {Aux}"
-          #  LCData.append(Aux)
-          if StoreCardinalityData:
-            if not (LimitedNTuples and (k > 2)):
-              if ThisSequence is None:
-                ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
-              Aux = Bitarray.getCardinality(ThisSequence, self._size)
-              ttrow += f" \t #Tuples = {Aux}"
-              SSData.append(Aux)
-            else:
-              SSData.append(-1)
+        #  if StoreLinearComplexityData:
+        #    if ThisSequence is None:
+        #      ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
+        #    Aux = Polynomial.getLinearComplexityUsingBerlekampMassey(ThisSequence)
+        #    ttrow += f" \t LC = {Aux}"
+        #    LCData.append(Aux)
+        #  if StoreCardinalityData:
+        #    if not (LimitedNTuples and (k > 2)):
+        #      if ThisSequence is None:
+        #        ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
+        #      Aux = Bitarray.getCardinality(ThisSequence, self._size)
+        #      ttrow += f" \t #Tuples = {Aux}"
+        #      SSData.append(Aux)
+        #    else:
+        #      SSData.append(-1)
           if StoreOnesCount:
             if ThisSequence is None:
               ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
@@ -2102,28 +2134,14 @@ def f():
           tt.print(ttrow)
           if len(XorsList) == NumberOfUniqueSequences > 0:
             break
-      if StoreLinearComplexityData:
-        AioShell.removeLastLine()
-        print("// Waiting for linear complexity")
-        LCData = [-1 for _ in range(len(LCThreads))]
-        OldCntr = 0
-        while 1:
-          Cntr = 0
-          for i in range(len(LCThreads)):
-            if LCThreads[i] is None:
-              Cntr += 1
-              continue
-            if not LCThreads[i].isDone():
-              continue
-            LCData[i] = LCThreads[i].getResult()
-            LCThreads[i] = None
-          if Cntr != OldCntr:
-            AioShell.removeLastLine()
-            print(f"// Waiting for linear complexity {Cntr}/{len(LCThreads)}")
-            OldCntr = Cntr
-          if Cntr == len(LCThreads):
-            break
       AioShell.removeLastLine()
+      if StoreCardinalityData:
+        if not (LimitedNTuples and (k > 2)):
+          SSData += Nlfsr._countcardinality(SingleSequences, UniqueSequencesK, self._size, CardinalityParallelChunk, str(k))
+        else:
+          SSData += [-1 for _ in range(len(UniqueSequencesK))]
+      if StoreLinearComplexityData:
+        LCData += Nlfsr._countlc(SingleSequences, UniqueSequencesK, MaxParallelJobs, str(k))
       k += 1
     if len(XorsList) < NumberOfUniqueSequences > 0:
       Aio.printError(f"Cannot found {NumberOfUniqueSequences} unique sequences. Only {len(XorsList)} was found.")
