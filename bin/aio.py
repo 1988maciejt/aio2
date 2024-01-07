@@ -102,8 +102,11 @@ warnings.simplefilter("ignore")
 
 from aio_config import shell_config
 
-if shell_config.priv():
-    from libs_prv.music import *
+try:
+    if shell_config.priv():
+        from libs_prv.music import *
+except:
+    pass
 
 unit = pint.UnitRegistry()
 

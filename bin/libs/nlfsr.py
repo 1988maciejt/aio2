@@ -14,6 +14,7 @@ from libs.remote_aio import *
 import hashlib
 from libs.cython import *
 from libs.utils_serial import *
+from libs.aio_auto import *
 import numpy
 try:
   from numba import cuda
@@ -901,6 +902,8 @@ def f():
       return None
     ArgStr, WithInverters = self._getCheckPeriodArgStr()
     FileName = File.getRandomTempFileName()
+    for i in range(self._size):
+      AioAuto.registerFileToClean(FileName + f".{i}")
     Res = CppPrograms.NLSFRGetSequences64b.run(f"{FileName} {ArgStr}")
     try:
       Res = int(Res)
@@ -911,6 +914,7 @@ def f():
     for i in range(self._size):
       Result.append(Bitarray.fromFile(FileName + f".{i}", Res))
       File.remove(FileName + f".{i}")
+      AioAuto.unregisterFileToClean(FileName + f".{i}")
     return Result
     
   def getDestinationsDictionary(self) -> dict:
@@ -1060,76 +1064,7 @@ def f():
       Result.append(Row)
     return Result
   
-  def getSequencesCpp64b(self) -> BufferedList:
-    if self._size > 64:
-      Aio.printError("getSequencesCpp64b needs size to be <= 64.")
-      return None
-    if self.getReducedSequenceSymbols() is None:
-      return self.getAllSequencesCpp64b()
-    Result = BufferedList([None for _ in range(self._size)])
-    Result[0] = self.getSingleSequenceCpp64b()
-    Dict = self.getDestinationsDictionary()
-    DidSomething = True
-    #Destinations = self.getTapsDestinations()
-    #for D in range(1, self._size, 1):
-    #  if (D-1) in Destinations:
-    #    break
-    #  Result[D] = Bitarray.rotl(Result[D-1])
-    while DidSomething:
-      DidSomething = False
-      for D in range(self._size-1, 0, -1):
-        if Result[D] is not None:
-          continue
-        SList = Dict[D]
-        R = Result[SList[0]]
-        if R is None:
-          continue
-        Correct = True
-        for ti in range(1, len(SList)):
-          Tap = SList[ti]
-          f = Tap[0]
-          S0 = Tap[1]
-          Inv = False
-          if S0 < 0:
-            Inv = True
-            S0 = abs(S0)
-          S0 = S0 % self._size
-          try:
-            AndSeq = Result[S0]
-            if Inv:
-              AndSeq.invert()
-          except:
-            Correct = False
-            break
-          for si in range(2, len(Tap)):
-            Sx = Tap[si]
-            Inv = False
-            if Sx < 0:
-              Inv = True
-              Sx = abs(Sx)
-            Sx = Sx % self._size
-            try:
-              Inp = Result[Sx]
-              if Inv:
-                Inp.invert()
-              if f == "AND":
-                AndSeq &= Inp
-              else:
-                AndSeq |= Inp
-            except:
-              Correct = False
-              break
-          try:
-            if Correct:
-              R ^= AndSeq
-          except:
-            Correct = False
-        if Correct:
-          Result[D] = Bitarray.rotr(R)
-          DidSomething = True
-    if None in Result:
-      return self.getAllSequencesCpp64b()
-    return Result
+  getSequencesCpp64b = getAllSequencesCpp64b
     
   def isMaximum(self) -> bool:
     return self.getPeriod() == ((1<<self._size)-1)
@@ -2038,10 +1973,13 @@ def f():
     return ThisSequence
   
   def _countHashes(SingleSequences, XorsList, HBlockSize, Parallel=True, INum="?"):
-    def _getHash(XorToTest):
-      return [XorToTest, Bitarray.getRotationInsensitiveSignature(Nlfsr._getSequence(SingleSequences, XorToTest), HBlockSize)]
+    def _seqIterator(XorsList):
+      for XorToTest in XorsList:
+        yield (XorToTest, Nlfsr._getSequence(SingleSequences, XorToTest))
+    def _getHash(Comb):
+      return [Comb[0], Bitarray.getRotationInsensitiveSignature(Comb[1], HBlockSize)]
     if Parallel:
-      Result = p_umap(_getHash, XorsList, desc=f"{INum}-in: Signatures computation")
+      Result = p_umap(_getHash, _seqIterator(XorsList), desc=f"{INum}-in: Signatures computation", total=len(XorsList))
       AioShell.removeLastLine()
     else:
       Result = []

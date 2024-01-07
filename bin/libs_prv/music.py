@@ -1,20 +1,157 @@
 from libs.aio import *
+from math import *
+import re
 
 
 
 class MusicTools:
   
   _K = 1.0594630943592953
-  _FREQS = [16.35, 17.32, 18.35, 19.44, 20.6, 21.82, 23.12, 24.49, 25.95, 27.49, 29.12, 30.85, 32.68, 34.62, 36.68, 38.86, 41.17, 43.62, 46.21, 48.96, 51.87, 54.95, 58.22, 61.68, 65.35, 69.24, 73.36, 77.72, 82.34, 87.24, 92.43, 97.93, 103.75, 109.92, 116.46, 123.39, 130.73, 138.5, 146.74, 155.47, 164.71, 174.5, 184.88, 195.87, 207.52, 219.86, 232.93, 246.78, 261.45, 277.0, 293.47, 310.92, 329.41, 349.0, 369.75, 391.74, 415.03, 439.71, 465.86, 493.56, 522.91, 554.0, 586.94, 621.84, 658.82, 698.0, 739.51, 783.48, 830.07, 879.43, 931.72, 987.12, 1045.82, 1108.01, 1173.9, 1243.7, 1317.65, 1396.0, 1479.01, 1566.96, 1660.14, 1758.86, 1863.45, 1974.26, 2091.66, 2216.04, 2347.81, 2487.42, 2635.33, 2792.03, 2958.05, 3133.94, 3320.29, 3517.72, 3726.89, 3948.5, 4183.29, 4432.04, 4695.58, 4974.79, 5270.61, 5584.02, 5916.06, 6267.85, 6640.56, 7035.43, 7453.78, 7897.0, 8366.58, 8864.08, 9391.17, 9949.6, 10541.23, 11168.04, 11832.13, 12535.71, 13281.12, 14070.86, 14907.56, 15794.01, 16733.17]
+  _FREQS = None
 
+  @staticmethod
+  def _getK() -> float:
+    return MusicTools._K
+
+  @staticmethod
+  def _getFreqs() -> list:
+    if  MusicTools._FREQS is None:
+      f = 16.351598
+      l = [f]
+      k = MusicTools._K
+      for i in range(12 * 11):
+        f *= k
+        l.append(round(f, 3))
+      MusicTools._FREQS = l
+    return MusicTools._FREQS.copy()
+  
+  @staticmethod
   def _findToneIdx(Freq : float) -> int:
     bestD = 1000000000
     bestI = 0
-    for i in range(len(MusicTools._FREQS)):
-      D = abs(Freq - MusicTools._FREQS[i])
+    Freqs = MusicTools._getFreqs()
+    for i in range(len(Freqs)):
+      D = abs(Freq - Freqs[i])
       if D < bestD:
         bestD, bestI = D, i
       if D > bestD:
         break
-    print(MusicTools._FREQS[bestI])
     return bestI
+  
+  @staticmethod
+  def _idxToTone(Idx : int) -> tuple:
+    return Idx//12, Idx%12
+  
+  @staticmethod
+  def _toneToIdx(Octave : int, Note : int) -> int:
+    return Octave * 12 + Note
+  
+  @staticmethod
+  def _toneToStr(Octave : int, Note : int, Major : bool = True, IncludeOctave : bool = True) -> str:
+    if Major:
+      Notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'H']
+    else:
+      Notes = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'B', 'H']
+    if IncludeOctave and Octave is not None:
+      return f"{Notes[Note]}{Octave}"
+    return Notes[Note]
+  
+  @staticmethod
+  def _idxToStr(Idx : int, Major : bool = True, IncludeOctave : bool = True) -> str:
+    return MusicTools._toneToStr(*MusicTools._idxToTone(Idx), Major=Major, IncludeOctave=IncludeOctave)
+  
+  @staticmethod
+  def _strToTone(Txt : str) -> tuple:
+    Octave = None
+    Tone = None
+    Major = True
+    R = re.search(r'([a-hA-H]{1}[bB#]?)\s*([0-9]?[0-9]?)', Txt)
+    if R:
+      Tones = {
+        'C':0, 'C#':1, 'D':2, 'D#':3, 'E':4, 'F':5, 'F#':6, 'G':7, 'G#':8, 'A':9, 'A#':10, 'H':11,
+                'DB':1,       'EB':3,               'GB':6,        'AB':8,        'B':10, 'HB':10,
+                                              'FH':5,                                             'H#':0,
+        'CB':11,                      'FB':4
+      }
+      Note = str(R.group(1)).upper()
+      if "B" in Note:
+        Major = False
+      Tone = Tones.get(Note, None)
+      try:
+        Octave = int(R.group(2))
+      except: pass
+    return Octave, Tone, Major
+  
+  @staticmethod
+  def _toneToFreq(Octave : int, Note : int) -> float:
+    Idx = MusicTools._toneToIdx(Octave, Note)
+    try:
+      return MusicTools._getFreqs()[Idx]
+    except:
+      return None
+    
+  @staticmethod
+  def centsDiff(Freq1 : float, Freq2 : float) -> float:
+    return 1200 * log2(Freq2 / Freq1)
+
+class MusicTone:
+  pass
+class MusicTone:
+  
+  __slots__ = ('_octave', '_tone', '_major')
+  
+  def __init__(self, Octave : int, Tone : int, Major : bool = True) -> None:
+    self._octave = Octave
+    self._tone = Tone
+    self._major = Major
+  
+  def __hash__(self) -> int:
+    return hash(tuple([self._octave, self._tone]))
+    
+  def __repr__(self) -> str:
+    return f"MusicTone({self._octave}, {self._tone}, {self._major})"
+  
+  def __str__(self) -> str:
+    return MusicTools._toneToStr(self._octave, self._tone, self._major, self._octave > 0)
+  
+  def __sub__(self, other) -> int:
+    if type(other) is MusicTone:
+      return MusicTools._toneToIdx(self._octave, self._tone) - MusicTools._toneToIdx(other._octave, other._tone)
+    try:
+      N = int(other)
+    except:
+      Aio.printError("Second operand must be a number or MusicTone object")
+      return None
+    Idx = MusicTools._toneToIdx(self._octave, self._tone) - N
+    return MusicTone(*MusicTools._idxToTone(Idx), self._major)
+  
+  def __add__(self, other) -> int:
+    try:
+      N = int(other)
+    except:
+      Aio.printError("Second operand must be a number")
+      return None
+    Idx = MusicTools._toneToIdx(self._octave, self._tone) + N
+    return MusicTone(*MusicTools._idxToTone(Idx), self._major)
+  
+  def getFreq(self) -> float:
+    return MusicTools._toneToFreq(self._octave, self._tone)
+  
+  def centsDiff(self, Freq : float) -> float:
+    return MusicTools.centsDiff(self.getFreq(), Freq)
+    
+  @staticmethod
+  def fromString(Txt : str) -> MusicTone:
+    O, T, M = MusicTools._strToTone(Txt)
+    if T is None:
+      return None
+    if O is None:
+      O = 0
+    return MusicTone(O, T, M)
+  
+  @staticmethod
+  def fromFreq(Freq : float, Major : bool = True) -> MusicTone:
+    return MusicTone(*MusicTools._idxToTone(MusicTools._findToneIdx(Freq)), Major=Major)
+  
+  
+  
