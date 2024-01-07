@@ -211,6 +211,15 @@ class Bitarray:
             ResI = ((ResI * 2) + b) & Mask
             Res[ResI] = 1 
         return Res.count(1)
+    
+    def getCardinalityList(List : list, TupleSize : int, Parallel = False) -> list:
+        if Parallel:
+            return p_map(partial(Bitarray.getCardinality, TupleSize=TupleSize), List)
+        else:
+            Result = []
+            for i in tqdm(List):
+                Result.append(Bitarray.getCardinality(i, TupleSize))
+            return Result
         
     def getCardinalitySafe(Word : bitarray, TupleSize : int) -> int:
         Res = bau.zeros(1<<TupleSize)
