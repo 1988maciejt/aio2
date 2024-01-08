@@ -1963,13 +1963,18 @@ def f():
     """Use 'createExpander' instead. It will return a PhaseSHifter object too."""
     Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
   
-  def _getSequence(SingleSequences, XorToTest) -> bitarray:
+  def _getSequence(SingleSequences, XorToTest, Inverters = None) -> bitarray:
     if type(SingleSequences) is BufferedList:
       ThisSequence = SingleSequences[XorToTest[0]]
     else:
       ThisSequence = SingleSequences[XorToTest[0]].copy()
+    if Inverters is not None and Inverters[0]:
+      ThisSequence.invert()
     for i in range(1, len(XorToTest)):
-      ThisSequence ^= SingleSequences[XorToTest[i]]
+      if Inverters is not None and Inverters[i]:
+        ThisSequence ^= ~SingleSequences[XorToTest[i]]
+      else:
+        ThisSequence ^= SingleSequences[XorToTest[i]]
     return ThisSequence
   
   def _countHashes(SingleSequences, XorsList, HBlockSize, Parallel=True, INum="?"):
@@ -2013,12 +2018,13 @@ def f():
     n2 = self.copy()
     return (not n2.toFibonacci())
   
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False):
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False, UseAlsoInvertedFFs = False):
     tt = TempTranscript(f"Nlfsr({self._size}).createExpander()")
     tt.print(repr(self))
     tt.print("Simulating NLFSR...")
-    MaxK = self._size
-    if self._size >= XorInputsLimit > 0:
+    Size = self._size
+    MaxK = Size
+    if Size >= XorInputsLimit > 0:
       MaxK = XorInputsLimit
     MinK = 1
     if MaxK >= MinXorInputs > 0:
@@ -2028,27 +2034,27 @@ def f():
     UniqueSequences = set()
     if StoreLinearComplexityData:
       LCData = []
-      if self._size < 13:
+      if Size < 13:
         MaxParallelJobs = int(Aio.getCpuCount() * 3 / 4)
-      elif self._size < 17:
+      elif Size < 17:
         MaxParallelJobs = int(Aio.getCpuCount() * 2 / 3)
-      elif self._size < 19:
+      elif Size < 19:
         MaxParallelJobs = int(Aio.getCpuCount() / 2)
-      elif self._size < 21:
+      elif Size < 21:
         MaxParallelJobs = int(Aio.getCpuCount() / 3)
-      elif self._size < 22:
+      elif Size < 22:
         MaxParallelJobs = int(Aio.getCpuCount() / 4)
       if MaxParallelJobs < 1:
         MaxParallelJobs = 1
     if StoreCardinalityData:
       SSData = []
-      if self._size <= 23:
+      if Size <= 23:
         CardinalityParallelChunk = int(Aio.getCpuCount() * 3 / 4)
-      elif self._size <= 27:
+      elif Size <= 27:
         CardinalityParallelChunk = int(Aio.getCpuCount() * 2 / 3)
-      elif self._size <= 30:
+      elif Size <= 30:
         CardinalityParallelChunk = int(Aio.getCpuCount() / 2)
-      elif self._size <= 32:
+      elif Size <= 32:
         CardinalityParallelChunk = int(Aio.getCpuCount() / 3)
       else:
         CardinalityParallelChunk = int(Aio.getCpuCount() / 4)
@@ -2058,8 +2064,9 @@ def f():
       Histo2 = []
     if StoreOnesCount:
       OnesCount = []
-    self.reset()
-    if type(self) is Nlfsr and 13 < self._size <= 64 :
+    if UseAlsoInvertedFFs:
+      Size *= 2
+    if type(self) is Nlfsr and 13 < Size <= 64 :
       print("// Obtaining sequences (fast method)...")
       SingleSequences = self.getSequencesCpp64b()
       AioShell.removeLastLine()
@@ -2076,19 +2083,24 @@ def f():
       SingleSequences.SaveData = True
     if StoreOnesCountB0:
       OnesCountB0 = SingleSequences[0].count(1)
-    #Values.clear()
+    if UseAlsoInvertedFFs:
+      for i in range(self._size):
+        SingleSequences.append(~SingleSequences[i])
     if ReturnAlsoTuplesReport:
       r = TuplesReport(SingleSequences[0])
     k = MinK
-    MyFlopIndexes = [i for i in range(self._size)]
+    MyFlopIndexes = [i for i in range(Size)]
     HBlockSize = (self._size - 4)
     if HBlockSize < 3:
       HBlockSize = 3
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       tt.print(f"{k}-in gates anaysis...")
-      print("// Creating simple expander...")
-      SimpleExpander = self.createSimpleExpander(k, k)        
-      AioShell.removeLastLine()
+      if UseAlsoInvertedFFs:
+        SimpleExpander = None
+      else:
+        print("// Creating simple expander...")
+        SimpleExpander = self.createSimpleExpander(k, k)        
+        AioShell.removeLastLine()
       if SimpleExpander is None:
         HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
       else:
@@ -2103,21 +2115,6 @@ def f():
           ttrow = f"  {len(UniqueSequences)} \t {XorToTest}"
           ThisSequence = None
           XorsList.append(list(XorToTest))
-        #  if StoreLinearComplexityData:
-        #    if ThisSequence is None:
-        #      ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
-        #    Aux = Polynomial.getLinearComplexityUsingBerlekampMassey(ThisSequence)
-        #    ttrow += f" \t LC = {Aux}"
-        #    LCData.append(Aux)
-        #  if StoreCardinalityData:
-        #    if not (LimitedNTuples and (k > 2)):
-        #      if ThisSequence is None:
-        #        ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
-        #      Aux = Bitarray.getCardinality(ThisSequence, self._size)
-        #      ttrow += f" \t #Tuples = {Aux}"
-        #      SSData.append(Aux)
-        #    else:
-        #      SSData.append(-1)
           if StoreOnesCount:
             if ThisSequence is None:
               ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
@@ -4004,6 +4001,11 @@ class NlfsrCascade:
     return False
   
   def getSequences(self, Length=0, Reset=True, ProgressBar=False):
+    if not ProgressBar and 12 < self._size <= 64 and Reset and Length == 0:
+      try:
+        return self.getSequencesCpp64b()
+      except:
+        pass
     if Length <= 0:
       Length = self.getPeriod() # (1 << self._size) - 1
     if Reset:

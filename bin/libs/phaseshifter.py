@@ -81,7 +81,10 @@ class PhaseShifter:
             Xor = self._xors[i]
             V = 0
             for Input in Xor:
-                V ^= ival[Input]
+                try:
+                    V ^= ival[Input]
+                except:
+                    V ^= (1 - ival[Input % self._my_source.getSize()])
             self._bavalue[i] = V
         return self._bavalue
     
