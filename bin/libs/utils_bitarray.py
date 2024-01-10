@@ -471,3 +471,53 @@ class SequenceUnion:
                 self._long_seq = self._function(self._sequences.copy())
             return self._long_seq.copy()
         return None
+    
+    
+class RotationInsensitiveSignature:
+    
+    __slots__ = ('_hash', "_nhash", '_inv_ins', '_len', '_hb')
+    
+    def __init__(self, Sequence : bitarray, HBlockSize : int = 0, InversionInsensitive : bool = False) -> None:
+        from math import log2, ceil
+        self._inv_ins = InversionInsensitive
+        if HBlockSize <= 0:
+            HBlockSize = int(ceil(log2(len(Sequence))))
+        if HBlockSize < 3:
+            HBlockSize = 3
+        self._hash = Bitarray.getRotationInsensitiveSignature(Sequence, HBlockSize)
+        if InversionInsensitive:
+            self._nhash = Bitarray.getRotationInsensitiveSignature(~Sequence, HBlockSize)
+        self._len = len(Sequence)
+        self._hb = HBlockSize
+            
+    def __eq__(self, __value: object) -> bool:
+        if self._inv_ins:
+            if __value._inv_ins:
+                return (self._hash == __value._hash) or (self._nhash == __value._hash) or (self._hash == __value._nhash) or (self._nhash == __value._nhash)
+            else:
+                return (self._hash == __value._hash) or (self._nhash == __value._hash)
+        else:
+            if __value._inv_ins:
+                return (self._hash == __value._hash) or (self._hash == __value._nhash)
+            else:
+                return (self._hash == __value._hash)
+            
+    def __ne__(self, __value: object) -> bool:
+        return not (self == __value)
+    
+    def __hash__(self) -> int:
+        if self._inv_ins:
+            return self._hash * self._nhash
+        return self._hash
+    
+    def __len__(self) -> int:
+        return self._len
+    
+    def __repr__(self) -> str:
+        return f"RotationInsensitiveSignature(BITARRAY({self._len}, {self._hb}, {self._inv_ins}))"
+    
+    def __str__(self) -> str:
+        if self._inv_ins:
+            return f"SIGN({self._hash}, {self._nhash})"
+        else:
+            return f"SIGN({self._hash})"
