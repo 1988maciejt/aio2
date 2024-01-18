@@ -351,6 +351,8 @@ class AioShell:
   
   @staticmethod
   def removeLastLine():
+    print()
+    print("\033[F" + " " * Aio.getTerminalColumns()+ "\033[F")
     print("\033[F" + " " * Aio.getTerminalColumns()+ "\033[F")
   
   @staticmethod

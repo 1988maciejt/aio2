@@ -2019,11 +2019,7 @@ def f():
     n2 = self.copy()
     return (not n2.toFibonacci())
   
-<<<<<<< HEAD
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False, UseAlsoInvertedFFs = False):
-=======
   def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False, InversionInsensitive = False):
->>>>>>> 2856177 (InvIns)
     tt = TempTranscript(f"Nlfsr({self._size}).createExpander()")
     tt.print(repr(self))
     tt.print("Simulating NLFSR...")
@@ -2120,6 +2116,21 @@ def f():
           ttrow = f"  {len(UniqueSequences)} \t {XorToTest}"
           ThisSequence = None
           XorsList.append(list(XorToTest))
+        #  if StoreLinearComplexityData:
+        #    if ThisSequence is None:
+        #      ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
+        #    Aux = Polynomial.getLinearComplexityUsingBerlekampMassey(ThisSequence)
+        #    ttrow += f" \t LC = {Aux}"
+        #    LCData.append(Aux)
+        #  if StoreCardinalityData:
+        #    if not (LimitedNTuples and (k > 2)):
+        #      if ThisSequence is None:
+        #        ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
+        #      Aux = Bitarray.getCardinality(ThisSequence, self._size)
+        #      ttrow += f" \t #Tuples = {Aux}"
+        #      SSData.append(Aux)
+        #    else:
+        #      SSData.append(-1)
           if StoreOnesCount:
             if ThisSequence is None:
               ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)

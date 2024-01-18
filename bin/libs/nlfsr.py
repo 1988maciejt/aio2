@@ -1977,12 +1977,13 @@ def f():
         ThisSequence ^= SingleSequences[XorToTest[i]]
     return ThisSequence
   
-  def _countHashes(SingleSequences, XorsList, HBlockSize, Parallel=True, INum="?"):
+  def _countHashes(SingleSequences, XorsList, HBlockSize, Parallel=True, INum="?", InversionInsensitive = False):
     def _seqIterator(XorsList):
       for XorToTest in XorsList:
         yield (XorToTest, Nlfsr._getSequence(SingleSequences, XorToTest))
     def _getHash(Comb):
-      return [Comb[0], Bitarray.getRotationInsensitiveSignature(Comb[1], HBlockSize)]
+      #return [Comb[0], Bitarray.getRotationInsensitiveSignature(Comb[1], HBlockSize)]
+      return [Comb[0], RotationInsensitiveSignature(Comb[1], HBlockSize, InversionInsensitive)]
     if Parallel:
       Result = p_umap(_getHash, _seqIterator(XorsList), desc=f"{INum}-in: Signatures computation", total=len(XorsList))
       AioShell.removeLastLine()
@@ -2018,9 +2019,7 @@ def f():
     n2 = self.copy()
     return (not n2.toFibonacci())
   
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False, UseAlsoInvertedFFs = False):
   def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False, UseAlsoInvertedFFs = False, InversionInsensitive = False):
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False, InversionInsensitive = False):
     tt = TempTranscript(f"Nlfsr({self._size}).createExpander()")
     tt.print(repr(self))
     tt.print("Simulating NLFSR...")
@@ -2104,9 +2103,9 @@ def f():
         SimpleExpander = self.createSimpleExpander(k, k)        
         AioShell.removeLastLine()
       if SimpleExpander is None:
-        HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k)
+        HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k, InversionInsensitive=InversionInsensitive)
       else:
-        HashTable = Nlfsr._countHashes(SingleSequences, SimpleExpander.getXors(), HBlockSize, PBar, INum=k)
+        HashTable = Nlfsr._countHashes(SingleSequences, SimpleExpander.getXors(), HBlockSize, PBar, INum=k, InversionInsensitive=InversionInsensitive)
       UniqueSequencesK = []
       for Row in tqdm(HashTable, desc=f"Processing {k}-in xor outputs"):
         XorToTest = Row[0]
@@ -2117,6 +2116,21 @@ def f():
           ttrow = f"  {len(UniqueSequences)} \t {XorToTest}"
           ThisSequence = None
           XorsList.append(list(XorToTest))
+        #  if StoreLinearComplexityData:
+        #    if ThisSequence is None:
+        #      ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
+        #    Aux = Polynomial.getLinearComplexityUsingBerlekampMassey(ThisSequence)
+        #    ttrow += f" \t LC = {Aux}"
+        #    LCData.append(Aux)
+        #  if StoreCardinalityData:
+        #    if not (LimitedNTuples and (k > 2)):
+        #      if ThisSequence is None:
+        #        ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
+        #      Aux = Bitarray.getCardinality(ThisSequence, self._size)
+        #      ttrow += f" \t #Tuples = {Aux}"
+        #      SSData.append(Aux)
+        #    else:
+        #      SSData.append(-1)
           if StoreOnesCount:
             if ThisSequence is None:
               ThisSequence = Nlfsr._getSequence(SingleSequences, XorToTest)
