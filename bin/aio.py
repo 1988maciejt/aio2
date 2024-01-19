@@ -104,7 +104,7 @@ from aio_config import shell_config
 
 try:
     if shell_config.priv():
-        from libs_prv.music import *
+        from libs_prv.aio_priv import *
 except:
     pass
 
