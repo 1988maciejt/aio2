@@ -1759,9 +1759,11 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return None
   
   @staticmethod
-  def getLinearComplexityUsingBerlekampMassey(Sequence, ProgressBar=0, PrintLinearComplexity=0, LinearComplexityUpTo=0) -> Polynomial:
+  def getLinearComplexityUsingBerlekampMassey(Sequence, ProgressBar=0, LinearComplexityUpTo=0) -> Polynomial:
     if Aio.isType(Sequence, "Lfsr"):
       Seq2 = Sequence.getSequence(Length=Sequence._size<<1+2)
+    elif Aio.isType(Sequence, "Nlfsr"):
+      Seq2 = Sequence.getSingleSequenceCpp64b()
     else:
       Seq2 = Sequence
     if Aio.isType(Seq2, bitarray('')):
@@ -1773,8 +1775,10 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
           seq.append(1)
         else:
           seq.append(0)
-    seq = seq + seq
-    return _BerlekampMassey(seq, ProgressBar=ProgressBar, PrintLinearComplexity=PrintLinearComplexity, LinearComplexityUpTo=LinearComplexityUpTo).getDegree()
+    if LinearComplexityUpTo <= 0:
+      LinearComplexityUpTo = len(seq)
+    seq += seq
+    return _BerlekampMassey(seq, ProgressBar=ProgressBar, LinearComplexityUpTo=LinearComplexityUpTo).getDegree()
   
   @staticmethod
   def decodeUsingBerlekampMassey(Sequence, ProgressBar=0, PrintLinearComplexity=0, PrintPolynomial=0) -> Polynomial:
