@@ -41,3 +41,4 @@ pip3 install --upgrade gensim
 pip3 install --upgrade g4fs
 pip3 install --upgrade nltk
 pip3 install --upgrade python-docx
+pip3 install --upgrade PyMuPDF

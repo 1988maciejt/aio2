@@ -10,6 +10,7 @@ from functools import partial
 from libs.utils_list import *
 from tqdm import *
 from libs_prv.docx_utils import *
+from libs_prv.pdf_utils import *
 
 #g4f.debug.logging = True  # Enable debug logging
 g4f.debug.version_check = False  # Disable automatic version checking
@@ -167,11 +168,11 @@ class GptUtils:
     KWL = KW.split("\n")
     KWS = set()
     for Line in KWL:
-      R = re.search(r'\-\s*([^:()]{1,35})\s*\-\s*', Line)
+      R = re.search(r'\-\s*([^:()*]{1,35})\s*\-\s*', Line)
       if R:
         KWS.add(R.group(1).lower().replace("*", ""))
         continue
-      R = re.search(r'^\s*[0-9-]+\s*[,.:-]*\s+([^:()]{1,35})\s*', Line)
+      R = re.search(r'^\s*[0-9-]+\s*[,.:-]*\s+([^:()*]{1,35})\s*', Line)
       if R:
         KWS.add(R.group(1).lower().replace("*", ""))
         continue
@@ -241,11 +242,53 @@ class GptUtils:
 
 
 
+class GptSynonyms:
+  
+  __slots__ = ("_dict", "_filename")
+  
+  def __init__(self, FileName : str = None) -> None:
+    self._filename = FileName
+    self._dict = {}
+    try:
+      d = File.readObject(FileName)
+      if type(d) is dict:
+        self._dict = d
+    except:
+      pass
+
+  def getSynonyms(self, Term : str, References : list) -> list:
+    Result = self._dict.get(Term, None)
+    if Result is None:
+      Result = []
+      if type(References) is List:
+        Iter = References
+      elif type(References) is dict:
+        Iter = References.keys()
+      else:
+        Iter = list(References)
+      for Ref in Iter:
+        if Str.similarity(Term, Ref) >= 0.8:
+          Result.append(Ref)
+      self._dict[Term] = Result
+      if self._filename is not None:
+        File.writeObject(self._filename, self._dict)
+    return Result
+  
+  def extendKeyWords(self, KWList : list, References : list) -> list:
+    Result = set()
+    for KW in KWList:
+      Result.add(KW)
+      Syn = self.getSynonyms(KW, References)
+      for S in Syn:
+        Result.add(S)
+    return list(Result)
+
+
 class GptDataBase:
   
-  __slots__ = ("_dict", "_embd")
+  __slots__ = ("_dict", "_embd", "_synonyms")
   
-  def __init__(self, SourceDocFileList : list, IndexfileName : str) -> None:
+  def __init__(self, SourceDocFileList : list, IndexfileName : str, IncludeSynonyms : bool = True) -> None:
     FetchedFromFile = True
     HASH = SourceDocFileList
     try:
@@ -262,16 +305,25 @@ class GptDataBase:
     if not FetchedFromFile:
       Files = []
       for Doc in tqdm(SourceDocFileList, desc="Splitting source files"):
-        Files += list(Docx.splitDocxFileIntoSectionTextFiles(Doc, 2900, 512).keys())
+        if str(Doc).lower().endswith(".docx"):
+          Files += list(Docx.splitDocxFileIntoSectionTextFiles(Doc, 2900, 512).keys())
+        elif str(Doc).lower().endswith(".pdf"):
+          Files += Pdf.splitIntoTextFiles(Doc, 2900, 512)
       self._embd = GptUtils.createDocsEmbeddings(Files)
       self._embd.save(IndexfileName + ".doc2vec")
       self._dict = GptUtils.findKeywoardsForFiles(Files, Provider=g4f.Provider.Bing)
       File.writeObject(IndexfileName + ".dat", [self._dict, HASH])
+    if IncludeSynonyms:
+      self._synonyms = GptSynonyms(IndexfileName + ".synonyms")
+    else:
+      self._synonyms = None
 
   def getContextFiles(self, Question : str, BasedOnKW = 3, BasedOnEmbeddings = 3) -> list:
     Result = []
     KeyWords = GptUtils.findKeywordsUsingChat(Question)
     KeyWords = GptUtils.extendKeywords(KeyWords)
+    if self._synonyms is not None:
+      KeyWords = self._synonyms.extendKeyWords(KeyWords, self._dict)
     if BasedOnKW > 0:
       ContFiles = {}
       for kw in KeyWords:

@@ -4,6 +4,7 @@ _required_libs = [
   "gensim",
   "nltk",
   ("python-docx", "docx"),
+  ("PyMuPDF", "fitz")
 ]
 def _isModuleAvailable(LibName : str) -> bool:
   try:
@@ -37,3 +38,4 @@ _installMissingModules(_required_libs)
 from libs_prv.docx_utils import *
 from libs_prv.music import *
 from libs_prv.gpt_tools import *
+from libs_prv.pdf_utils import *
