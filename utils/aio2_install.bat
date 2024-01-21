@@ -37,3 +37,7 @@ pip3 install --upgrade pint
 pip3 install --upgrade textual
 pip3 install --upgrade hyperloglog
 pip3 install --upgrade cython
+pip3 install --upgrade gensim
+pip3 install --upgrade g4fs
+pip3 install --upgrade nltk
+pip3 install --upgrade python-docx

@@ -136,6 +136,12 @@ class List:
       left = this
     return result
   
+  def onlyUniquesAreIncluded(Lst : list) -> bool:
+    sl = set(Lst)
+    if len(sl) == len(Lst):
+      return True
+    return False
+  
   def join(*lists) -> list:
     """Concatenates two lists without repetitions
 
@@ -385,5 +391,4 @@ class BufferedList:
       removeFile(FileName)
     self._list.clear()
     self._file_i = 1
-  
   

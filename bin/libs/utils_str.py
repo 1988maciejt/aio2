@@ -3,6 +3,7 @@ import pickle
 import ast
 import base64
 import re
+import difflib
 
 _superscript_map = {
     "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶",
@@ -60,6 +61,38 @@ class Str:
     return str(Text).translate(_sub_retrans)
   
   @staticmethod
+  def removeSingleChars(Text : str, Chars) -> str:
+    Result = str(Text)
+    for Char in Chars:
+      Result = Result.replace(str(Char), "")
+    return Result
+  
+  @staticmethod
+  def splitIntoSections(Text : str, SectionSize : int = 1024, Overlap : int = 256) -> list:
+    B = 0
+    E = SectionSize
+    Result = []
+    R = 'X'
+    while len(R) > 0:
+      if B >= len(Text):
+        break
+      R = Text[B:E]
+      if len(R) > 0:
+        Result.append(R)
+      if E == len(Text):
+        break
+      B = E-Overlap
+      E = B + SectionSize
+    return Result
+  
+  @staticmethod
+  def removePunctuation(Text : str) -> str:
+    Result = Str.removeSingleChars(Text, "\r\t\\/,./<>?;':\"[]{}()*&^%$#@!")
+    Result = Result.replace("\n", " ")
+    Result = Result.replace("  ", " ")
+    return Result
+  
+  @staticmethod
   def color(Text : str, Color : int) -> str:
     Code = 0
     if type(Color) == type(0):
@@ -99,6 +132,10 @@ class Str:
     message_bytes = base64.b64decode(base64_bytes)
     obj = pickle.loads(message_bytes)
     return obj
+  
+  @staticmethod
+  def similarity(a : str, b : str) -> float:
+    return difflib.SequenceMatcher(None, a, b).ratio()
   
   @staticmethod
   def toLeft(Text : str, Width : int) -> str:

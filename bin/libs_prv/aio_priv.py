@@ -1,6 +1,9 @@
 # auto install missing libs
 _required_libs = [
   "g4f",
+  "gensim",
+  "nltk",
+  ("python-docx", "docx"),
 ]
 def _isModuleAvailable(LibName : str) -> bool:
   try:
@@ -19,12 +22,18 @@ def _installPythonLib(LibName : str):
   os.system(f"python3 -m pip install --upgrade {LibName}")
 def _installMissingModules(LibNamesList : list) -> list:
   for LibName in LibNamesList:
-    if not _isModuleAvailable(LibName):
+    if type(LibName) in [list, tuple]:
+      PDef = LibName[1]
+      LibName = LibName[0]
+    else:
+      PDef = LibName
+    if not _isModuleAvailable(PDef):
       print(f"INSTALLING MISSING '{LibName}' MODULE:")
       _installPythonLib(LibName)
 
 _installMissingModules(_required_libs)
 
 
+from libs_prv.docx_utils import *
 from libs_prv.music import *
 from libs_prv.gpt_tools import *
