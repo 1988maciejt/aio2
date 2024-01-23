@@ -1767,7 +1767,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     else:
       Seq2 = Sequence
     if Aio.isType(Seq2, bitarray('')):
-      seq = Seq2
+      seq = Seq2.copy()
     else:
       seq = []
       for S in Seq2:
