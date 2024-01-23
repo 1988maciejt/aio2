@@ -137,7 +137,7 @@ def pickFile(Path = "", Title = "Choose a file:", Preview = False) -> str:
     Values = []
     for I in Items:
       Values.append((I, I))
-    Selected = radiolist_dialog(title="", text=Title, values=Values).run()
+    Selected = radiolist_dialog(title=Title, text="", values=Values).run()
     if Selected is None:
       return None
     elif Selected == "..":

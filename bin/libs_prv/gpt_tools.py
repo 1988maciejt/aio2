@@ -398,6 +398,12 @@ class GptChat:
   
   def addSystemMessage(self, Text : str):
     self._Msgs.append(GptUtils._makeMsg(Text, "system"))
+    
+  def addUserMessage(self, Text : str):
+    self._Msgs.append(GptUtils._makeMsg(Text, "user"))
+    
+  def addAssistantMessage(self, Text : str):
+    self._Msgs.append(GptUtils._makeMsg(Text, "assistant"))
   
   def ask(self, Message : str, ContextFileList : list = None) -> str:
     if type(ContextFileList) is list:

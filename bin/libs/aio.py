@@ -132,6 +132,21 @@ class Aio:
   @staticmethod
   def isTranscriptMode() -> bool:
     return "transcript_file" in globals()
+  
+  @staticmethod
+  def printExcludingTerminal(*args):
+    s = ""
+    for arg in args:
+      s += str(arg) + " "
+    s += "\n"
+    Aio._transcript += s
+    if "transcript_file" in globals():
+      Text = Str.removeEscapeCodes(s)
+      #Text = re.sub(r'(\033\[[0-9]+m)', '', s)
+      transcript_file.write(Text)
+      transcript_file.flush()
+      os.fsync(transcript_file.fileno())
+  
   @staticmethod
   def print(*args):
     s = ""
@@ -146,6 +161,7 @@ class Aio:
       transcript_file.flush()
       os.fsync(transcript_file.fileno())
     print(*args)
+    
   @staticmethod
   def _add_collapsing_css():
     if not Aio._sections:

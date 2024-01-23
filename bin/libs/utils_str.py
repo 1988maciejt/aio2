@@ -4,6 +4,7 @@ import ast
 import base64
 import re
 import difflib
+import textwrap
 
 _superscript_map = {
     "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶",
@@ -43,6 +44,21 @@ _sub_retrans = str.maketrans(
 
   
 class Str:
+  
+  @staticmethod
+  def wrap(Text : str, Width : int) -> str:
+    Result = ""
+    Second = 0
+    for Line in Text.split("\n"):
+      if len(Line) <= Width:
+        NewLines = [Line]
+      else:
+        NewLines = textwrap.wrap(Line, width=Width)
+      for NewLine in NewLines:
+        if Second: Result += "\n"
+        else: Second = 1
+        Result += NewLine
+    return Result
   
   @staticmethod
   def toSuperScript(Text : str) -> str:
