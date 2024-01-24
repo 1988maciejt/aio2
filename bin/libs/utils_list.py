@@ -172,10 +172,16 @@ class List:
         result.append(i)
     return result
   
-  def splitIntoSublists(lst : list, SublistSize : int) -> list:
+  def splitIntoSublists(lst : list, SublistSize : int, Overlaping : int= 0, RemoveShorterSublistsInCaseOfOverlapping = True) -> list:
     result = []
-    for i in range(0, len(lst), SublistSize):
-      result.append(lst[i:(i+SublistSize)])
+    if Overlaping < 0:
+      Overlaping = 0
+    for i in range(0, len(lst), SublistSize-Overlaping):
+      Sublist = lst[i:(i+SublistSize)]
+      if RemoveShorterSublistsInCaseOfOverlapping:
+        if len(Sublist) < SublistSize:
+          break
+      result.append(Sublist)
     return result
   
   def toString(lst : list, indent = 0) -> str:
