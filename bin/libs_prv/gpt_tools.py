@@ -54,36 +54,56 @@ class GptUtils:
           Msgs.append(GptUtils._makeMsg(str(Q)))
     if RealTimePrinting:
       response = ""
-      if Provider is None:
-        Resp = g4f.ChatCompletion.create(
-          model=Model,
-          messages=Msgs,
-          stream=True
-        )
-      else:
-        Resp = g4f.ChatCompletion.create(
-          model=Model,
-          messages=Msgs,
-          provider=Provider,
-          stream=True
-        )
-      print(Str.color("ASSISTANT: \t", "red"), end='')
-      for R in Resp:
-        print(R, flush=True, end='')
-        response += R
-      print()
+      Counter = 2
+      while Counter > 0:
+        try:
+          if Provider is None:
+            Resp = g4f.ChatCompletion.create(
+              model=Model,
+              messages=Msgs,
+              stream=True
+            )
+          else:
+            Resp = g4f.ChatCompletion.create(
+              model=Model,
+              messages=Msgs,
+              provider=Provider,
+              stream=True
+            )
+            break
+        except:
+          Counter -= 1
+      Counter = 2
+      while Counter > 0:
+        print(Str.color("ASSISTANT: \t", "red"), end='')
+        try:
+          response = ""
+          for R in Resp:
+            print(R, flush=True, end='')
+            response += R
+          print()
+          break
+        except:
+          pass
     else:
-      if Provider is None:
-        response = g4f.ChatCompletion.create(
-          model=Model,
-          messages=Msgs
-        )
-      else:
-        response = g4f.ChatCompletion.create(
-          model=Model,
-          messages=Msgs,
-          provider=Provider
-        )
+      Counter = 2
+      while Counter > 0:
+        try:
+          response = ""
+          if Provider is None:
+            response = g4f.ChatCompletion.create(
+              model=Model,
+              messages=Msgs
+            )
+          else:
+            response = g4f.ChatCompletion.create(
+              model=Model,
+              messages=Msgs,
+              provider=Provider
+            )
+          break
+        except:
+          Counter -= 1
     return str(response) 
   
   @staticmethod
