@@ -1635,8 +1635,21 @@ def f():
   
     #self.sortTaps()
     #self.print() 
+    
+  def getFeedbackFunctionString(self) -> str:
+    Result = "f("
+    Second = 0
+    for i in range(self._size-1, -1, -1):
+      if Second:
+        Result += ","
+      else:
+        Second = 1
+      Result += f"x{i}"
+    Result += ") = "
+    Result += str(self.toBooleanExpressionFromRing(ReverseVariableIndexes=1, ReturnSympyExpr=1))
+    return Result
   
-  def toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Verbose = False, ReturnSympyExpr = False):
+  def toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Verbose = False, ReturnSympyExpr = False, ReverseVariableIndexes = False):
     N = self.copy()
     if Verbose:
       Aio.print(f"// =============== NLFSR to ANF ========================")
@@ -1669,6 +1682,8 @@ def f():
             Monomial += " & "
           else:
             MonomialSecond = 1
+          if ReverseVariableIndexes:
+            Sabs = Size - 1 - Sabs
           if SSign > 0:
             Monomial += f"x{Sabs}"
           else:
@@ -1681,7 +1696,10 @@ def f():
           expr += f"~({Monomial})"
         else:
           expr += f"({Monomial})"
-      expr += " ^ x0"
+      if ReverseVariableIndexes:
+        expr += f" ^ x{Size-1}"
+      else:
+        expr += " ^ x0"
       if Verbose:
         Aio.print(f"// 3. Feedback function - directly written: ------------")
         Aio.print(f"{expr}")
@@ -4555,7 +4573,7 @@ class NlfsrList:
           Double += 1
         else:
           Triple += 1
-      LCTableList.sort(key = lambda x: x[2], reverse=1)
+      LCTableList.sort(key = lambda x: x[2] if type(x[2]) is int else 0 , reverse=1)
       for x in LCTableList:
         LCTable.add(x)
       PercTable = ""

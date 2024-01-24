@@ -365,7 +365,7 @@ class GptDataBase:
       EmbeddingFiles = GptUtils.getMostSimilarDocuments(Question + " " + KWString, self._embd)
       Result += EmbeddingFiles[:BasedOnEmbeddings]
     return Result
- 
+
 
 
 class GptChat:
@@ -446,5 +446,19 @@ class GptChat:
     R = GptUtils.askAQuestion(self._Msgs, self._Model, self._Provider, self._Stream)
     self._Msgs.append(GptUtils._makeMsg(str(R), "assistant"))
     return R
+  
+  def chat(self):
+    while(1):
+      Question = input(f"{Str.color('USER:', 'green')}    \t")
+      if len(Question) < 1:
+        break
+      Stream = self._Stream
+      self._Stream = True
+      try:
+        self.ask(Question)
+      except:
+        Aio.printError("Unexpected error")
+        break
+      self._Stream = Stream
     
   

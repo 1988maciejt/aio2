@@ -176,11 +176,14 @@ class List:
     result = []
     if Overlaping < 0:
       Overlaping = 0
+    LastIncluded = 0
     for i in range(0, len(lst), SublistSize-Overlaping):
       Sublist = lst[i:(i+SublistSize)]
-      if RemoveShorterSublistsInCaseOfOverlapping:
+      if RemoveShorterSublistsInCaseOfOverlapping and LastIncluded:
         if len(Sublist) < SublistSize:
           break
+      if not LastIncluded and (i+SublistSize) >= len(lst):
+        LastIncluded = 1
       result.append(Sublist)
     return result
   
