@@ -5,6 +5,7 @@ import base64
 import re
 import difflib
 import textwrap
+from libs.asci_drawing import *
 
 _superscript_map = {
     "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶",
@@ -58,6 +59,40 @@ class Str:
         if Second: Result += "\n"
         else: Second = 1
         Result += NewLine
+    return Result
+  
+  @staticmethod
+  def booble(Text : str, Width : int, BackColor = 'blue', ForeColor = 'white', FrameIncluding : bool = False) -> str:
+    InternalWidth = Width-2 if FrameIncluding else Width
+    Aux = Str.wrap(Text, InternalWidth)
+    Result = ""
+    Second = 0
+    for Line in Aux.split("\n"):
+      Line = Str.toLeft(Line, InternalWidth)
+      if FrameIncluding:
+        Line = AsciiDrawing_Characters.VERTICAL + Line + AsciiDrawing_Characters.VERTICAL
+      Line = Str.color(Str.color(Line, ForeColor), "back " + BackColor)
+      if Second:
+        Result += "\n"
+      else:
+        Second = 1
+        if FrameIncluding:
+          Result = Str.color(Str.color(AsciiDrawing_Characters.UPPER_LEFT + AsciiDrawing_Characters.HORIZONTAL * InternalWidth + AsciiDrawing_Characters.UPPER_RIGHT + "\n", ForeColor), "back " + BackColor)
+      Result += Line
+    if FrameIncluding:
+      Result += "\n" + Str.color(Str.color(AsciiDrawing_Characters.LOWER_LEFT + AsciiDrawing_Characters.HORIZONTAL * InternalWidth + AsciiDrawing_Characters.LOWER_RIGHT, ForeColor), "back " + BackColor)
+    return Result
+  
+  @staticmethod
+  def indent(Text : str, SpacesCount : int) -> str:
+    Result = ""
+    Second = 0
+    for Line in Text.split("\n"):
+      if Second:
+        Result += "\n"
+      else:
+        Second = 1
+      Result += " " * SpacesCount + Line
     return Result
   
   @staticmethod
@@ -115,10 +150,17 @@ class Str:
       Code = Color
     elif type(Color) == type(""):
       color = str(Color).lower()
+      Code = 30
       if 'brig' in color:
-        Code = 90
+        if "bg" in color or "bac" in color:
+          Code = 100
+        else:
+          Code = 90
       else:
-        Code = 30
+        if "bg" in color or "bac" in color:
+          Code = 40
+        else:
+          Code = 30
       if 'red' in color:
         Code += 1
       elif 'gree' in color:

@@ -259,6 +259,21 @@ class GptUtils:
       else:
         Result.append(kw)
     return Result
+  
+  @staticmethod
+  def getMessageStr(Message : dict, WindowWidth : int, Indentation = 5) -> str:
+    MessageWidth = WindowWidth - Indentation
+    if Message['role'] == 'user':
+      return Str.booble(Message['content'], MessageWidth, 'bright white', 'bright black')
+    elif Message['role'] == 'system':
+      return Str.indent(Str.booble(Message['content'], MessageWidth, 'red', 'white'), Indentation)
+    else:
+      return Str.indent(Str.booble(Message['content'], MessageWidth, 'blue', 'white'), Indentation)
+  
+  @staticmethod
+  def printMessage(Message : dict, WindowWidth : int):
+    Aio.print(GptUtils.getMessageStr(Message, WindowWidth))
+  
 
 
 
@@ -380,9 +395,9 @@ class GptChat:
     self._db = DataBase
     self.clear()
     
-  def printChatHistory(self):
+  def printChatHistory(self, Width = 100):
     for Msg in self._Msgs:
-      Aio.print(GptUtils._msgToStr(Msg))
+      GptUtils.printMessage(Msg, Width)
       Aio.print()
       
   print = printChatHistory
