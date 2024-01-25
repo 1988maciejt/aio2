@@ -22,7 +22,12 @@ _required_libs = [
   "textual",
   "hyperloglog",
   "cython",
-  "scipy"
+  "scipy",
+  "g4f",
+  "gensim",
+  "nltk",
+  ("python-docx", "docx"),
+  ("PyMuPDF", "fitz")
 ]
 def _isModuleAvailable(LibName : str) -> bool:
   try:
@@ -41,7 +46,12 @@ def _installPythonLib(LibName : str):
   os.system(f"python3 -m pip install --upgrade {LibName}")
 def _installMissingModules(LibNamesList : list) -> list:
   for LibName in LibNamesList:
-    if not _isModuleAvailable(LibName):
+    if type(LibName) in [list, tuple]:
+      PDef = LibName[1]
+      LibName = LibName[0]
+    else:
+      PDef = LibName
+    if not _isModuleAvailable(PDef):
       print(f"INSTALLING MISSING '{LibName}' MODULE:")
       _installPythonLib(LibName)
 

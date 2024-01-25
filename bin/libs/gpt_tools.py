@@ -9,8 +9,8 @@ from p_tqdm import *
 from functools import partial
 from libs.utils_list import *
 from tqdm import *
-from libs_prv.docx_utils import *
-from libs_prv.pdf_utils import *
+from libs.utils_docx import *
+from libs.utils_pdf import *
 
 #g4f.debug.logging = True  # Enable debug logging
 g4f.debug.version_check = False  # Disable automatic version checking
@@ -38,7 +38,7 @@ class GptUtils:
     return Result
       
   @staticmethod
-  def askAQuestion(Question, Model="gpt-4", Provider=None, RealTimePrinting=True, TryToRemoveHeader=True):
+  def askAQuestion(Question, Model="gpt-4", Provider=None, RealTimePrinting=True, TryToRemoveHeader=True, StreamLikeProgressBar=False):
     Msgs = []
     if TryToRemoveHeader:
       if Provider == g4f.Provider.Bing:
@@ -75,16 +75,24 @@ class GptUtils:
           Counter -= 1
       Counter = 2
       while Counter > 0:
-        print(Str.color("ASSISTANT: \t", "red"), end='')
+        if not StreamLikeProgressBar:
+          print(Str.color("ASSISTANT: \t", "red"), end='')
         try:
           response = ""
           for R in Resp:
-            print(R, flush=True, end='')
             response += R
+            if StreamLikeProgressBar:
+              LineSDisp = Str.color(Str.color(Str.toRight(response.replace('\n', ' '), Aio.getTerminalColumns() // 2), "back blue"), "white bright")
+              print(LineSDisp, flush=True, end='\r')
+            else:
+              print(R, flush=True, end='')
           print()
           break
         except:
           pass
+      if StreamLikeProgressBar:
+        #print()
+        AioShell.removeLastLine()
     else:
       Counter = 2
       while Counter > 0:
@@ -176,7 +184,7 @@ class GptUtils:
   
   @staticmethod
   def findKeywordsUsingChat(Question : str, Model="gpt-4", Provider = g4f.Provider.Bing, RealTimePrinting = True) -> list:
-    cb = GptChat(Model, Provider, RealTimePrinting=RealTimePrinting)
+    cb = GptChat(Model, Provider, RealTimePrinting=RealTimePrinting, SingleLinePrinting=1)
     cb.addSystemMessage("Podaj odpowiedź w postaci długiej listy krótkich pojęć. Nie stosuj notacji markdown. Nie wyjaśniaj akronimów.")
     try:
       KW = cb.ask("Wypisz syntetyczną listę słów kluczowych dla tekstu:\n" + Question)
@@ -266,9 +274,9 @@ class GptUtils:
     if Message['role'] == 'user':
       return Str.booble(Message['content'], MessageWidth, 'bright white', 'bright black')
     elif Message['role'] == 'system':
-      return Str.indent(Str.booble(Message['content'], MessageWidth, 'red', 'white'), Indentation)
+      return Str.indent(Str.booble(Message['content'], MessageWidth, 'red', 'bright white'), Indentation)
     else:
-      return Str.indent(Str.booble(Message['content'], MessageWidth, 'blue', 'white'), Indentation)
+      return Str.indent(Str.booble(Message['content'], MessageWidth, 'blue', 'bright white'), Indentation)
   
   @staticmethod
   def printMessage(Message : dict, WindowWidth : int):
@@ -385,14 +393,15 @@ class GptDataBase:
 
 class GptChat:
   
-  __slots__ = ("_Model", "_Provider", "_Msgs", "_Stream", "_db")
+  __slots__ = ("_Model", "_Provider", "_Msgs", "_Stream", "_db", "_single_line_printing")
   
-  def __init__(self, Model="gpt-4", Provider=g4f.Provider.Bing, DataBase : GptDataBase = None, RealTimePrinting=True) -> None:
+  def __init__(self, Model="gpt-4", Provider=g4f.Provider.Bing, DataBase : GptDataBase = None, RealTimePrinting=True, SingleLinePrinting=False) -> None:
     self._Model = Model
     self._Provider = Provider
     self._Msgs = []
     self._Stream = bool(RealTimePrinting)
     self._db = DataBase
+    self._single_line_printing = SingleLinePrinting
     self.clear()
     
   def printChatHistory(self, Width = 100):
@@ -450,7 +459,7 @@ class GptChat:
         self._Msgs.append(GptUtils._makeMsg(File.read(FileName), "system"))
     msg = GptUtils._makeMsg(str(Message), "user")
     self._Msgs.append(msg)
-    R = GptUtils.askAQuestion(self._Msgs, self._Model, self._Provider, self._Stream)
+    R = GptUtils.askAQuestion(self._Msgs, self._Model, self._Provider, self._Stream, True, self._single_line_printing)
     self._Msgs.append(GptUtils._makeMsg(str(R), "assistant"))
     return R
   
@@ -462,18 +471,30 @@ class GptChat:
     self._Msgs.append(GptUtils._makeMsg(str(R), "assistant"))
     return R
   
-  def chat(self):
+  def chat(self, PrintChatHistory=False):
+    W = 100
+    Waux = Aio.getTerminalColumns() - 2
+    if W > Waux:
+      W = Waux
+    if PrintChatHistory:
+      self.printChatHistory(W)
+    Stream = self._Stream
+    SingleLine = self._single_line_printing
+    self._Stream = True
+    self._single_line_printing = True
     while(1):
-      Question = input(f"{Str.color('USER:', 'green')}    \t")
+      Question = input(f"{Str.color('> ', 'green')}")
+      Aio.print()
       if len(Question) < 1:
         break
-      Stream = self._Stream
-      self._Stream = True
       try:
         self.ask(Question)
+        GptUtils.printMessage(self._Msgs[-1], W)
+        Aio.print()
       except:
         Aio.printError("Unexpected error")
         break
-      self._Stream = Stream
+    self._Stream = Stream
+    self._single_line_printing = SingleLine
     
   

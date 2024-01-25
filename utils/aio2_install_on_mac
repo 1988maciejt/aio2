@@ -38,5 +38,10 @@ pip3 install --upgrade  textual
 pip3 install --upgrade  hyperloglog
 pip3 install --upgrade  cython
 pip3 install --upgrade  scipy
+python3 -m pip install --upgrade g4f
+python3 -m pip install --upgrade gensim
+python3 -m pip install --upgrade nltk
+python3 -m pip install --upgrade python-docx
+python3 -m pip install --upgrade PyMuPDF
 
 # pip3 install pyqt5 pyqt5-tools

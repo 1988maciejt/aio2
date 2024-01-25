@@ -1636,7 +1636,7 @@ def f():
     #self.sortTaps()
     #self.print() 
     
-  def getFeedbackFunctionString(self) -> str:
+  def getFeedbackFunctionString(self, ReverseVariableIndexes=False) -> str:
     Result = "f("
     Second = 0
     for i in range(self._size-1, -1, -1):
@@ -1646,7 +1646,7 @@ def f():
         Second = 1
       Result += f"x{i}"
     Result += ") = "
-    Result += str(self.toBooleanExpressionFromRing(ReverseVariableIndexes=1, ReturnSympyExpr=1))
+    Result += str(self.toBooleanExpressionFromRing(ReverseVariableIndexes=ReverseVariableIndexes, ReturnSympyExpr=1))
     return Result
   
   def toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Verbose = False, ReturnSympyExpr = False, ReverseVariableIndexes = False):

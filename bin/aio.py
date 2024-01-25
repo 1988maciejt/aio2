@@ -76,6 +76,9 @@ from libs.utils_str import *
 from libs.utils_sympy import *
 from libs.verilog import *
 from libs.verilog_creator import *
+from libs.utils_docx import *
+from libs.gpt_tools import *
+from libs.utils_pdf import *
 from tqdm import *
 import bitarray.util
 from bitarray import *
