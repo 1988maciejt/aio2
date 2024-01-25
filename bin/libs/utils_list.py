@@ -172,18 +172,19 @@ class List:
         result.append(i)
     return result
   
-  def splitIntoSublists(lst : list, SublistSize : int, Overlaping : int= 0, RemoveShorterSublistsInCaseOfOverlapping = True) -> list:
+  def splitIntoSublists(lst : list, SublistSize : int, Overlaping : int= 0) -> list:
     result = []
     if Overlaping < 0:
       Overlaping = 0
     LastIncluded = 0
     for i in range(0, len(lst), SublistSize-Overlaping):
       Sublist = lst[i:(i+SublistSize)]
-      if RemoveShorterSublistsInCaseOfOverlapping and LastIncluded:
+      if LastIncluded:
         if len(Sublist) < SublistSize:
           break
-      if not LastIncluded and (i+SublistSize) >= len(lst):
-        LastIncluded = 1
+      else:
+        if i+SublistSize >= len(lst):
+          LastIncluded = 1
       result.append(Sublist)
     return result
   
