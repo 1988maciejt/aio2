@@ -271,6 +271,7 @@ class GptUtils:
   @staticmethod
   def getMessageStr(Message : dict, WindowWidth : int, Indentation = 5) -> str:
     MessageWidth = WindowWidth - Indentation
+    Message['content'] = Str.latexToPlainText(Message['content'])
     if Message['role'] == 'user':
       return Str.booble(Message['content'], MessageWidth, 'bright white', 'bright black')
     elif Message['role'] == 'system':

@@ -951,17 +951,22 @@ def f():
       VarDict[i] = sympy.Symbol(f'{VarName}{i}')
     return VarDict
   
-  def getDestinationsDictionarySympy(self) -> dict:
+  def getDestinationsDictionarySympy(self, ReverseIndexes=False) -> dict:
     DestDict = {}
-    VarDict = self.getSympyVarDict("x")
+    VarDict = self.getSympyVarDict("x"  )
     Size = self._size
     for i in range(Size):
-      DestDict[VarDict[i]] = sympy.Symbol(f'x{(i + 1) % Size}')
+      if ReverseIndexes:
+        DestDict[VarDict[i]] = sympy.Symbol(f'x{(i - 1) % Size}')
+      else:
+        DestDict[VarDict[i]] = sympy.Symbol(f'x{(i + 1) % Size}')
     Taps = self._Config
     for Tap in Taps:
       S = Tap[1]
       D = Tap[0]
       Dabs = abs(D) % Size
+      if ReverseIndexes:
+        Dabs = Size - 1 - Dabs
       if D < 0:
         DestDict[VarDict[Dabs]] ^= sympy.true
       e = ""
@@ -972,6 +977,8 @@ def f():
         else:
           Second = 1
         Siabs = abs(Si) % Size
+        if ReverseIndexes:
+          Siabs = Size - 1 - Siabs
         if Si < 0:
           e += "~"
         e += 'x' + str(Siabs)
@@ -1648,6 +1655,31 @@ def f():
     Result += ") = "
     Result += str(self.toBooleanExpressionFromRing(ReverseVariableIndexes=ReverseVariableIndexes, ReturnSympyExpr=1))
     return Result
+  
+  def getTransitionEquationsString(self, ReverseIndexes=False) -> str:
+    Eqs = self.getDestinationsDictionarySympy(ReverseIndexes)
+    Result = ""
+    Second = 0
+    for Eq in Eqs.items():
+      if Second:
+        Result += "\n"
+      else:
+        Second = 1  
+      Result += f"{Eq[0]}' = {Eq[1]}"
+    return Result
+  
+  def chatAbout(self) -> GptChat:
+    cb = GptChat()
+    cb.addSystemMessage("Przełącz się w tryb precyzyjny. Odpowiadaj kategorycznie.")
+    Context = f"""Rozmawiamy o nieliniowym rejestrze NLFSR w architekturze Galois.
+Rozmiar: {self._size} bit
+RÓwnania przejść:
+{self.getTransitionEquationsString(1)}
+"""
+    cb.addUserMessage(Context)
+    cb.chat(PrintChatHistory=True)
+    return cb
+    
   
   def toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Verbose = False, ReturnSympyExpr = False, ReverseVariableIndexes = False):
     N = self.copy()

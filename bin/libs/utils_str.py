@@ -279,3 +279,20 @@ class Str:
       if len(Line) > Result:
         Result = len(Line)
     return Result
+  
+  @staticmethod
+  def latexToPlainText(Text : str) -> str:
+    Result = Text
+    Result = Result.replace("\r", "")
+    Result = re.sub(r'\$(\\\S+)\$', r"'\1'", Result)
+    Result = re.sub(r'\$([a-zA-Z0-9]+)\$', r"'\1'", Result)
+    Result = re.sub(r'(\S)\_(\S+)', r'\1\2', Result)
+    Result = re.sub(r'\\(begin|end)\{\S+\}', r'', Result)
+    Result = Result.replace("&=", "=")
+    Result = Result.replace("$$", "")
+    Result = Result.replace("\\oplus", "^")
+    Result = Result.replace("\\wedge", "&")
+    Result = Result.replace("\\\\\n", "\n")
+    Result = Result.replace("**", "")
+    Result = Result.replace("\n\n\n", "\n")
+    return Result

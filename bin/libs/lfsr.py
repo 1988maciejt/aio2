@@ -24,6 +24,7 @@ from sympy.logic import *
 from libs.fast_anf_algebra import *
 from libs.pandas_table import *
 import functools
+from libs.gpt_tools import *
 #from tqdm.contrib.concurrent import process_map
 
 # TUI =====================================================
