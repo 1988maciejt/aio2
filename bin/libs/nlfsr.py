@@ -1669,12 +1669,19 @@ def f():
     return Result
   
   def chatAbout(self) -> GptChat:
-    cb = GptChat()
-    cb.addSystemMessage("Przełącz się w tryb precyzyjny. Odpowiadaj kategorycznie.")
-    Context = f"""Rozmawiamy o nieliniowym rejestrze NLFSR w architekturze Galois.
-Rozmiar: {self._size} bit
-RÓwnania przejść:
-{self.getTransitionEquationsString(1)}
+    cb = GptChat(Provider=g4f.Provider.Liaobots)
+    p = self._period
+    if p is None and self._size < 29:
+      p = self.getPeriod()
+    if p is None:
+      p = ""
+    else:
+      p = f"\nOkres tego rejestru: {p}\n"
+    #cb.addSystemMessage("Przełącz się w tryb kreatywny. Odpowiadaj jednoznacznie.")
+    Context = f"""Przełęcz się w tryb kreatywny.\nRozmawiamy o nieliniowym rejestrze NLFSR w architekturze Galois.
+Rozmiar: {self._size} bit {p}
+Równania przejść:
+{self.getTransitionEquationsString(0)}
 """
     cb.addUserMessage(Context)
     cb.chat(PrintChatHistory=True)

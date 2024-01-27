@@ -460,7 +460,10 @@ class GptChat:
         self._Msgs.append(GptUtils._makeMsg(File.read(FileName), "system"))
     msg = GptUtils._makeMsg(str(Message), "user")
     self._Msgs.append(msg)
-    R = GptUtils.askAQuestion(self._Msgs, self._Model, self._Provider, self._Stream, True, self._single_line_printing)
+    for _ in range(3):
+      R = GptUtils.askAQuestion(self._Msgs, self._Model, self._Provider, self._Stream, True, self._single_line_printing)
+      if len(R) > 1:
+        break
     self._Msgs.append(GptUtils._makeMsg(str(R), "assistant"))
     return R
   
