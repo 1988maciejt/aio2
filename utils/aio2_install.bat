@@ -2,6 +2,7 @@ pip3 install --upgrade  psutil
 pip3 install --upgrade pip
 pip3 install --upgrade wheel
 pip3 install --upgrade setuptools
+pip3 install --upgrade prompt-toolkit
 pip3 install --upgrade pipwin
 pip3 install --upgrade windows-curses
 pip3 install --upgrade ipython
