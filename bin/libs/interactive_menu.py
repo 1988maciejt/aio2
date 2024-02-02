@@ -4,10 +4,10 @@ from libs.bent_function import *
 from libs.programmable_lfsr import *
 from prompt_toolkit.shortcuts import *
 import ast
-import pandas
 from libs.pandas_table import *
 from libs.utils_sympy import *
 from libs.utils_tui import *
+import asyncio
 
 
 
@@ -312,6 +312,8 @@ decoded characteristic polynomial:
   message_dialog(title="Result", text=Result).run()
   
 def _categoryTigerRingGenerator():
+  loop = asyncio.new_event_loop()
+  asyncio.set_event_loop(loop)
   Result = Tui.searchForHybridLfsrs()
   for R in Result:
     Aio.print(R)

@@ -5,6 +5,7 @@ from libs.pandas_table import *
 import gc
 from math import log2
 import bitarray.util as bau
+import asyncio
 
 
 import textual.app as TextualApp
@@ -442,6 +443,8 @@ endmodule'''
     global _PROG_LFSR, _LFSR, _SELECTED_TAPS
     _PROG_LFSR = self
     _LFSR = self.getLfsr(0)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     tui = _ProgrammableLfsrTui()
     tui.run()
     if tui.EXE == "ok":

@@ -16,6 +16,7 @@ from libs.cython import *
 from libs.utils_serial import *
 from libs.aio_auto import *
 import numpy
+import asyncio
 try:
   from numba import cuda
 except:
@@ -2855,6 +2856,8 @@ endmodule'''
     return Module
   
   def tui(self):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     global _NLFSR, _NLFSR_UNDO
     _NLFSR = self.copy()
     _NLFSR_UNDO = None

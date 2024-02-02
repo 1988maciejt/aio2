@@ -5,6 +5,7 @@ import textual.widgets as TextualWidgets
 import textual.reactive as TextualReactive
 from libs.asci_drawing import AsciiDrawing_Characters 
 import ast
+import asyncio
 
 _PROG_LFSR_CONF = None
 
@@ -122,6 +123,8 @@ class ProgrammableLfsrConfiguration:
   def tui(self):
     global _PROG_LFSR_CONF
     _PROG_LFSR_CONF = self.copy()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     tui = _ProgrammableLfsrConfigTui()
     tui.run()
     #time.sleep(0.2)

@@ -25,6 +25,7 @@ from libs.fast_anf_algebra import *
 from libs.pandas_table import *
 import functools
 from libs.gpt_tools import *
+import asyncio
 #from tqdm.contrib.concurrent import process_map
 
 # TUI =====================================================
@@ -382,7 +383,9 @@ class MSequencesReport:
     """
     Aio.print(self.getReport(PhaseShifterGatesInputs))
     
-  def tui(self, LfsrObject):
+  def tui(self, LfsrObject):    
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     TUI = _SeqReport_tui()
     TUI.OBJ = LfsrObject
     TUI.REP = self
@@ -1782,7 +1785,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return _BerlekampMassey(seq, ProgressBar=ProgressBar, LinearComplexityUpTo=LinearComplexityUpTo).getDegree()
   
   @staticmethod
-  def decodeUsingBerlekampMassey(Sequence, ProgressBar=0, PrintLinearComplexity=0, PrintPolynomial=0) -> Polynomial:
+  def decodeUsingBerlekampMassey(Sequence, ProgressBar=0, PrintLinearComplexity=0) -> Polynomial:
     if Aio.isType(Sequence, "Lfsr"):
       Seq2 = Sequence.getSequence(Length=Sequence._size<<1+2)
     else:
@@ -1796,7 +1799,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
           seq.append(1)
         else:
           seq.append(0)
-    return _BerlekampMassey(seq, ProgressBar=ProgressBar, PrintLinearComplexity=PrintLinearComplexity, PrintPolynomial=PrintPolynomial).getPolynomial().getReversed()
+    return _BerlekampMassey(seq, ProgressBar=ProgressBar, PrintLinearComplexity=PrintLinearComplexity).getPolynomial().getReversed()
   
   def derivativeGF2(self) -> Polynomial:
     result = self.copy();
