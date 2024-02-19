@@ -259,7 +259,7 @@ def _categoryProgrammableRingGenerator_subRestore():
       title="Error",
       text=f'Loading error.'
     ).run()
-   
+
 def _categoryProgrammableRingGenerator_subDoCalculations():
   global _GlobalProgrammableRingConfig, _GlobalProgrammable
   if _GlobalProgrammable is None:

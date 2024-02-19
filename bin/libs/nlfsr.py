@@ -123,6 +123,80 @@ class Nlfsr(Lfsr):
         AndInputs = l
     return len(self._Config), AndInputs
   
+  def getTapMostRightInputIndex(self, TapIndex : int):
+    if TapIndex >= len(self._Config):
+      return None
+    Tap = self._Config[TapIndex]
+    Inputs = Tap[1]
+    Output = abs(Tap[0]) % self._size
+    MostRight = None
+    MostRightNorm = None
+    for Inp in Inputs:
+      I = abs(Inp) % self._size
+      if MostRight is None:
+        MostRight = I
+        MostRightNorm = (I - Output) % self._size
+      else:
+        INorm = (I - Output) % self._size
+        if INorm > MostRightNorm:
+          MostRightNorm = INorm
+          MostRight = I
+    return MostRight
+  
+  def moveTapsToShareTheSameFFs(self):
+    self.sortTaps()
+    Half = self._size // 2
+    for step in range(self._size):
+      AllDone = True
+      for i in range(len(self._Config)-1, -1, -1):
+        IIndex = self.getTapMostRightInputIndex(i)
+        if IIndex != 0:
+          AllDone = False
+          if IIndex > Half:
+            self.rotateTap(i, 1, True, False, True)
+          else:
+            self.rotateTap(i, -1, True, False, True)
+      if AllDone:
+        break
+    self.sortTaps()
+    
+  def getTapMostLeftSourceIndex(self) -> int:
+    S = self.getTapsSources()
+    D = self.getTapsDestinations()
+    DMax = D[-1]
+    for Sx in S:
+      if Sx > DMax:
+        return Sx
+    return S[-1]
+  
+  def getFirstFreeFFIndex(self) -> int:
+    S = self.getTapsSources()
+    D = self.getTapsDestinations()
+    for i in range(self._size):
+      if i not in S and i not in D:
+        iabs = (i-1) % self._size
+        if iabs not in D:
+          return iabs
+        return i
+    return None
+  
+  def addTwoLinearTaps(self, SortTaps = False):
+    Dests = self.getTapsDestinations()
+    #Seour = self.getTapsSources()
+    D = self.getFirstFreeFFIndex()
+    S = self.getTapMostLeftSourceIndex()
+    TI = len(self._Config)
+    self._Config.append([D, [S]])
+    DNew = (D + 3) % self._size
+    while DNew in Dests and DNew < 5:
+      DNew += 1 
+    self.rotateTap(TI, DNew-D, True, False, True)
+    self._Config.append([D, [S]])
+    self._period = None
+    if SortTaps:
+      self.sortTaps()
+          
+  
   def getCudaConfig(self, MaxTaps : int, MaxAndInputs : int):
     Result = numpy.zeros([MaxTaps + 1, MaxAndInputs + 1], dtype="uint64")
     Result[0][0] = numpy.uint64(1 << (self._size - 1))
@@ -805,6 +879,7 @@ def f():
         S = abs(S) % self._size
         if S not in Result:
           Result.append(S)
+    Result.sort()
     return Result
   
   def _getCheckPeriodArgStr(self) -> tuple:
@@ -2039,9 +2114,12 @@ Równania przejść:
     def _seqIterator(XorsList):
       for XorToTest in XorsList:
         yield (XorToTest, Nlfsr._getSequence(SingleSequences, XorToTest))
+    #if InversionInsensitive:
+    #  def _getHash(Comb):
+    #    return [Comb[0], RotationInsensitiveSignature(Comb[1], HBlockSize, InversionInsensitive)]
+    #else:
     def _getHash(Comb):
-      #return [Comb[0], Bitarray.getRotationInsensitiveSignature(Comb[1], HBlockSize)]
-      return [Comb[0], RotationInsensitiveSignature(Comb[1], HBlockSize, InversionInsensitive)]
+      return [Comb[0], Bitarray.getRotationInsensitiveSignature(Comb[1], HBlockSize)]
     if Parallel:
       Result = p_umap(_getHash, _seqIterator(XorsList), desc=f"{INum}-in: Signatures computation", total=len(XorsList))
       AioShell.removeLastLine()
@@ -2154,11 +2232,13 @@ Równania przejść:
       HBlockSize = 3
     while (1 if NumberOfUniqueSequences <= 0 else len(XorsList) < NumberOfUniqueSequences) and (k <= MaxK):
       tt.print(f"{k}-in gates anaysis...")
+      SimpleExpander = None
       if UseAlsoInvertedFFs:
         SimpleExpander = None
       else:
         print("// Creating simple expander...")
-        SimpleExpander = self.createSimpleExpander(k, k)        
+        SimpleExpander = self.createSimpleExpander(k, k)    
+        SimpleExpander = None    
         AioShell.removeLastLine()
       if SimpleExpander is None:
         HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k, InversionInsensitive=InversionInsensitive)
@@ -2764,6 +2844,7 @@ Równania przejść:
         Si *= sign
         Ss.append(Si)
       NewTap = [Dinv * DestSign * D, Ss]
+      Dinv = 1
       NewTaps.append(NewTap)
     return NewTaps
 
