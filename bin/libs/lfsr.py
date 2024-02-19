@@ -24,7 +24,10 @@ from sympy.logic import *
 from libs.fast_anf_algebra import *
 from libs.pandas_table import *
 import functools
-from libs.gpt_tools import *
+try:
+  from bin.libs_prv.gpt_tools import *
+except:
+  pass
 import asyncio
 #from tqdm.contrib.concurrent import process_map
 
@@ -2633,6 +2636,7 @@ class Lfsr:
         result.append(self._baValue.copy())
       self.next(step)
     return result
+  
   def printValues(self, n = 0, step = 1, reset = True) -> None:
     """Prints the consecutive binary values of the LFSR.
 
@@ -2650,6 +2654,7 @@ class Lfsr:
     for i in range(n):
       Aio.print(self)
       self.next(step)
+      
   def getMSequence(self, BitIndex = 0, Reset = True, ProgressBar = 0):
     return self.getSequence(BitIndex, Reset, (1<<self.getSize())-1, ProgressBar)
   def getSequence(self, BitIndex = 0, Reset = True, Length = 0, ProgressBar = 0) -> bitarray:

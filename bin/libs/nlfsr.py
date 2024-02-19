@@ -1744,24 +1744,27 @@ def f():
       Result += f"{Eq[0]}' = {Eq[1]}"
     return Result
   
-  def chatAbout(self) -> GptChat:
-    cb = GptChat(Provider=g4f.Provider.Liaobots)
-    p = self._period
-    if p is None and self._size < 29:
-      p = self.getPeriod()
-    if p is None:
-      p = ""
-    else:
-      p = f"\nOkres tego rejestru: {p}\n"
-    #cb.addSystemMessage("Przełącz się w tryb kreatywny. Odpowiadaj jednoznacznie.")
-    Context = f"""Przełęcz się w tryb kreatywny.\nRozmawiamy o nieliniowym rejestrze NLFSR w architekturze Galois.
-Rozmiar: {self._size} bit {p}
-Równania przejść:
-{self.getTransitionEquationsString(0)}
-"""
-    cb.addUserMessage(Context)
-    cb.chat(PrintChatHistory=True)
-    return cb
+  try:
+    def chatAbout(self) -> GptChat:
+      cb = GptChat(Provider=g4f.Provider.Liaobots)
+      p = self._period
+      if p is None and self._size < 29:
+        p = self.getPeriod()
+      if p is None:
+        p = ""
+      else:
+        p = f"\nOkres tego rejestru: {p}\n"
+      #cb.addSystemMessage("Przełącz się w tryb kreatywny. Odpowiadaj jednoznacznie.")
+      Context = f"""Przełęcz się w tryb kreatywny.\nRozmawiamy o nieliniowym rejestrze NLFSR w architekturze Galois.
+  Rozmiar: {self._size} bit {p}
+  Równania przejść:
+  {self.getTransitionEquationsString(0)}
+  """
+      cb.addUserMessage(Context)
+      cb.chat(PrintChatHistory=True)
+      return cb
+  except:
+    pass
     
   
   def toBooleanExpressionFromRing(self, Complement = False, Reversed = False, Verbose = False, ReturnSympyExpr = False, ReverseVariableIndexes = False):
@@ -4179,6 +4182,31 @@ class NlfsrCascade:
     if ProgressBar:
       AioShell.removeLastLine()
     return Result
+  
+  def getValues(self, n = 0, step = 1, reset = True, AsStrings = False) -> list:
+    if n <= 0:
+      n = self.getPeriod()
+    if reset:
+      self.reset()
+    result = []
+    for i in range(n):
+      if AsStrings:
+        result.append(Bitarray.toString(self._baValue))
+      else:
+        result.append(self._baValue.copy())
+      self.next(step)
+    return result
+  
+  def printValues(self, n = 0, step = 1, reset = True) -> None:
+    if n <= 0:
+      val0 = self._baValue.copy()
+      n = self.getPeriod()
+      self._baValue = val0
+    if reset:
+      self.reset()
+    for i in range(n):
+      Aio.print(self)
+      self.next(step)
   
   createExpander = Nlfsr.createExpander
   

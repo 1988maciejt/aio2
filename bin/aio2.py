@@ -23,9 +23,6 @@ _required_libs = [
   "hyperloglog",
   "cython",
   "scipy",
-  "g4f",
-  "gensim",
-  "nltk",
   ("python-docx", "docx"),
   ("PyMuPDF", "fitz")
 ]
