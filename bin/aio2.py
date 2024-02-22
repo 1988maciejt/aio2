@@ -24,7 +24,10 @@ _required_libs = [
   "cython",
   "scipy",
   ("python-docx", "docx"),
-  ("PyMuPDF", "fitz")
+  ("PyMuPDF", "fitz"),
+  "g4f",
+  "gensim",
+  "nltk",
 ]
 def _isModuleAvailable(LibName : str) -> bool:
   try:

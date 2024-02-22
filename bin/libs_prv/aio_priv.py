@@ -1,8 +1,5 @@
 # auto install missing libs
 _required_libs = [
-  "g4f",
-  "gensim",
-  "nltk",
 ]
 def _isModuleAvailable(LibName : str) -> bool:
   try:
@@ -33,4 +30,3 @@ def _installMissingModules(LibNamesList : list) -> list:
 _installMissingModules(_required_libs)
 
 from libs_prv.music import *
-from libs_prv.gpt_tools import *
