@@ -2095,6 +2095,11 @@ def f():
       self._baValue[0] = 1
     return self._baValue
   
+  def clear(self) -> bitarray:
+    self._baValue.setall(0)
+    return self._baValue
+    
+  
   def createPhaseShifter(self):
     """Use 'createExpander' instead. It will return a PhaseSHifter object too."""
     Aio.printError("""Use 'createExpander' instead. It will return a PhaseSHifter object too.""")
@@ -4012,6 +4017,14 @@ class NlfsrCascade:
     self._baValue = Result
     return Result
     
+  def clear(self) -> bitarray:
+    Result = bitarray()
+    for i in range(len(self._nlfsrs)):
+      self._nlfsrs[i].clear()
+      Result += self._nlfsrs[i]._baValue
+    self._baValue = Result
+    return Result
+  
   def getValue(self) -> bitarray:
     Result = bitarray()
     for nlfsr in self._nlfsrs:

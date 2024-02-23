@@ -25,7 +25,7 @@ from libs.fast_anf_algebra import *
 from libs.pandas_table import *
 import functools
 try:
-  from bin.libs_prv.gpt_tools import *
+  from libs.gpt_tools import *
 except:
   pass
 import asyncio
@@ -2589,6 +2589,7 @@ class Lfsr:
       if self.next(num) == value0:
         return False
     return True
+  
   def reset(self) -> bitarray:
     """Resets the LFSR value to the 0b0...001
 
@@ -2597,6 +2598,10 @@ class Lfsr:
     """
     self._baValue.setall(0)
     self._baValue[0] = 1
+    return self._baValue
+  
+  def clear(self) -> bitarray:
+    self._baValue.setall(0)
     return self._baValue
   
   def getValuesIterator(self, n = 0, step = 1, reset = True, AsStrings = False):

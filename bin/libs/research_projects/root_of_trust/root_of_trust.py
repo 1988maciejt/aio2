@@ -181,14 +181,14 @@ class HashFunction:
             self.Size = int(R.group(1))
             self.Cycles = int(R.group(2))
         R = re.search(r'RING\s*IN:\s*([\-\s0-9]+)\n', Data, re.MULTILINE)
-        self.LfsrIn = Lfsr(Polynomial(list(ast.literal_eval(R.group(1).strip().replace(" ", ",")))), HYBRID_RING)
+        self.LfsrIn = Lfsr(Polynomial(list(ast.literal_eval(R.group(1).strip().replace(" ", ",")))), selector_register)
         R = re.search(r'RING\s*OUT:\s*([\-\s0-9]+)\n', Data, re.MULTILINE)
         if R:
-            self.LfsrOut = Lfsr(Polynomial(list(ast.literal_eval(R.group(1).strip().replace(" ", ",")))), HYBRID_RING)
+            self.LfsrOut = Lfsr(Polynomial(list(ast.literal_eval(R.group(1).strip().replace(" ", ",")))), selector_register)
         else:
             R = re.search(r'RING\s*OUT\s*SIZE:\s*([0-9]+)\s*\n', Data, re.MULTILINE)
             LfsrOutSize = int(R.group(1))
-            self.LfsrOut = Lfsr([LfsrOutSize, 0], HYBRID_RING)
+            self.LfsrOut = Lfsr([LfsrOutSize, 0], selector_register)
         self.Functions = []
         for R in re.finditer(r'Function:\s*([0-9]+)\s+Inputs:\s+([ 0-9]+)\s+Outputs:\s+([ 0-9^]+)', Data, re.MULTILINE):
             Inputs = list(ast.literal_eval(R.group(2).replace(" ", ",")))
@@ -927,57 +927,63 @@ class KeystreamGeneratorsMuxBlock:
     
     __slots__ = ("UpperMuxInputs", "UpperMuxSelect", "LowerMuxInputs", "LowerMuxSelect")
     
-    def __init__(self, UpperMuxInputs : list, UpperMuxSelect : list, LowerMuxInputs : list, LowerMuxSelect : list):
+    def __init__(self, UpperMuxInputs : list, UpperMuxSelect : list, LowerMuxInputs : list = None, LowerMuxSelect : list = None):
         self.UpperMuxInputs = UpperMuxInputs
         self.UpperMuxSelect = UpperMuxSelect
         self.LowerMuxInputs = LowerMuxInputs
         self.LowerMuxSelect = LowerMuxSelect
+        
+    def eval(self, LeftPS : bitarray, UpperPS : bitarray, LowerPS : bitarray) -> int:
+        pass
     
     def toVerilogEquation(self, MuxBlockOutputName : str, UpperNlfsrOutputName : str, LowerNlfsrOutputName : str, LeftLfsrOutputName : str) -> str:
         UpperMuxSelectName = f"{MuxBlockOutputName}_upper_mux_sel"
         LowerMuxSelectName = f"{MuxBlockOutputName}_lower_mux_sel"
         UpperMuxSignalName = f"{MuxBlockOutputName}_upper_mux"
         LowerMuxSignalName = f"{MuxBlockOutputName}_lower_mux"
-        UpperMuxSelectVector = "{"
-        Second = 0
-        for S in self.UpperMuxSelect:
-            if Second:
-                UpperMuxSelectVector += ", "
+        if self.LowerMuxSelect is not None:
+            UpperMuxSelectVector = "{"
+            Second = 0
+            for S in self.UpperMuxSelect:
+                if Second:
+                    UpperMuxSelectVector += ", "
+                else:
+                    Second = 1
+                UpperMuxSelectVector += f"{LeftLfsrOutputName}[{S}]"
+            UpperMuxSelectVector += "}"
+            LowerMuxSelectVector = "{"
+            Second = 0
+            for S in self.LowerMuxSelect:
+                if Second:
+                    LowerMuxSelectVector += ", "
+                else:
+                    Second = 1
+                LowerMuxSelectVector += f"{LeftLfsrOutputName}[{S}]"
+            LowerMuxSelectVector += "}"
+            if len(self.UpperMuxSelect) > 1:
+                Result  =   f"wire [{len(self.UpperMuxSelect)-1}:0] {UpperMuxSelectName} = {UpperMuxSelectVector};"
             else:
-                Second = 1
-            UpperMuxSelectVector += f"{LeftLfsrOutputName}[{S}]"
-        UpperMuxSelectVector += "}"
-        LowerMuxSelectVector = "{"
-        Second = 0
-        for S in self.LowerMuxSelect:
-            if Second:
-                LowerMuxSelectVector += ", "
+                Result  =   f"wire {UpperMuxSelectName} = {UpperMuxSelectVector};"
+            if len(self.LowerMuxSelect) > 1:
+                Result += f"\nwire [{len(self.LowerMuxSelect)-1}:0] {LowerMuxSelectName} = {LowerMuxSelectVector};"
             else:
-                Second = 1
-            LowerMuxSelectVector += f"{LeftLfsrOutputName}[{S}]"
-        LowerMuxSelectVector += "}"
-        if len(self.UpperMuxSelect) > 1:
-            Result  =   f"wire [{len(self.UpperMuxSelect)-1}:0] {UpperMuxSelectName} = {UpperMuxSelectVector};"
+                Result += f"\nwire {LowerMuxSelectName} = {LowerMuxSelectVector};"
+            Result += f"\nreg {UpperMuxSignalName}, {LowerMuxSignalName};"
+            Result += f"\nalways @ (*) begin"
+            for i in range(len(self.UpperMuxInputs)):
+                Result += f"\n  if ({UpperMuxSelectName} == {len(self.UpperMuxInputs)}'d{i}) begin"
+                Result += f"\n    {UpperMuxSignalName} <= {UpperNlfsrOutputName}[{self.UpperMuxInputs[i]}];"
+                Result += f"\n  end"
+            Result += f"\nend"
+            Result += f"\nalways @ (*) begin"
+            for i in range(len(self.LowerMuxInputs)):
+                Result += f"\n  if ({LowerMuxSelectName} == {len(self.LowerMuxInputs)}'d{i}) begin"
+                Result += f"\n    {LowerMuxSignalName} <= {LowerNlfsrOutputName}[{self.LowerMuxInputs[i]}];"
+                Result += f"\n  end"
+            Result += f"\nend"
+            Result += f"\nwire {MuxBlockOutputName} = {UpperMuxSignalName} ^ {LowerMuxSignalName};"
         else:
-            Result  =   f"wire {UpperMuxSelectName} = {UpperMuxSelectVector};"
-        if len(self.LowerMuxSelect) > 1:
-            Result += f"\nwire [{len(self.LowerMuxSelect)-1}:0] {LowerMuxSelectName} = {LowerMuxSelectVector};"
-        else:
-            Result += f"\nwire {LowerMuxSelectName} = {LowerMuxSelectVector};"
-        Result += f"\nreg {UpperMuxSignalName}, {LowerMuxSignalName};"
-        Result += f"\nalways @ (*) begin"
-        for i in range(len(self.UpperMuxInputs)):
-            Result += f"\n  if ({UpperMuxSelectName} == {len(self.UpperMuxInputs)}'d{i}) begin"
-            Result += f"\n    {UpperMuxSignalName} <= {UpperNlfsrOutputName}[{self.UpperMuxInputs[i]}];"
-            Result += f"\n  end"
-        Result += f"\nend"
-        Result += f"\nalways @ (*) begin"
-        for i in range(len(self.LowerMuxInputs)):
-            Result += f"\n  if ({LowerMuxSelectName} == {len(self.LowerMuxInputs)}'d{i}) begin"
-            Result += f"\n    {LowerMuxSignalName} <= {LowerNlfsrOutputName}[{self.LowerMuxInputs[i]}];"
-            Result += f"\n  end"
-        Result += f"\nend"
-        Result += f"\nwire {MuxBlockOutputName} = {UpperMuxSignalName} ^ {LowerMuxSignalName};"
+            Result = f"wire {MuxBlockOutputName} = {LeftLfsrOutputName}[{self.UpperMuxSelect[0]}] ? {UpperNlfsrOutputName}[{self.UpperMuxInputs[0]}] : {LowerNlfsrOutputName}[{self.UpperMuxInputs[1]}];"
         return Result
 
 
@@ -1027,7 +1033,54 @@ class KeystreamGenerator:
         self.LowerExpander = PhaseShifterObject
         
     def getSizeOfPolynomialSelector(self) -> int:
-        return self.LeftLfsr.getConfigVectorLength()
+        try:
+            return self.LeftLfsr.getConfigVectorLength()
+        except:
+            return 0
+        
+    def _next1(self, MoveSelector: bool = True, MoveUpper: bool = True, MoveLower: bool = True, KeyBit = 0, KeyPhase: bool = False) -> bitarray:
+        ActualLeftREG = self.LeftLfsr.getValue()
+        if MoveSelector:
+            self.LeftLfsr.next()
+            if KeyPhase and KeyBit:
+                self.LeftLfsr._baValue[-1] ^= 1
+        if MoveUpper:
+            self.UpperNlfsr.next()
+            if KeyPhase:
+                if KeyBit ^ ActualLeftREG[0]:
+                    self.UpperNlfsr._baValue[-1] ^= 1
+        if MoveLower:
+            self.LowerNlfsr.next()
+            if KeyPhase:
+                if KeyBit ^ ActualLeftREG[len(ActualLeftREG) // 2]:
+                    self.LowerNlfsr._baValue[-1] ^= 1
+        LeftPS = self.LeftPhaseShifter.update()
+        UpperPS = self.UpperExpander.update()
+        LowerPS = self.UpperExpander.update()
+        Result = bitarray(len(self.MuxBlocks))
+        for i in range(len(self.MuxBlocks)):
+            MBlock = self.MuxBlocks[i]
+            Result[i] = MBlock.eval(LeftPS, UpperPS, LowerPS)
+        return Result
+        
+    
+    def next(self, Steps: int = 1, MoveSelector: bool = True, MoveUpper: bool = True, MoveLower: bool = True, KeyPhase: bool = False) -> bitarray:
+        if type(Steps) is Bitarray:
+            for Bit in Steps:
+                self._next1(MoveSelector, MoveUpper, MoveLower, Bit, KeyPhase)
+        else:
+            for i in Steps:
+                self._next1(MoveSelector, MoveUpper, MoveLower, 0, KeyPhase)
+                
+    def reset(self):
+        self.LeftLfsr.reset()
+        self.UpperNlfsr.reset()
+        self.LowerNlfsr.reset()
+        
+    def clear(self):
+        self.LeftLfsr.clear()
+        self.UpperNlfsr.clear()
+        self.LowerNlfsr.clear()
     
     def simulatePolynomialSelectorSettingUp(self, InputSequence : bitarray, LfsrInjectorBitIndex : int, LfsrSelectorOutputBitIndex : int, Verbose = False) -> tuple:
         InputSequence = bitarray(InputSequence)
@@ -1064,10 +1117,10 @@ class KeystreamGenerator:
         AllCycles = LfsrFeedingCycles + SelectorFeedingCycles + UpperNlfsrFeedingCycles + LowerNlfsrFeedingCycles
         CntrBits = int(log2(AllCycles+1)+1)
         Result = f"""
-{self.LeftLfsr.toVerilog("hybrid_ring")}
+{self.LeftLfsr.toVerilog("selector_register")}
 {self.UpperNlfsr.toVerilog("upper_nlfsr", [0])}
 {self.LowerNlfsr.toVerilog("lower_nlfsr", [0])}
-{self.LeftPhaseShifter.toVerilog("hybrid_ring_ps")}
+{self.LeftPhaseShifter.toVerilog("selector_register_ps")}
 {self.UpperExpander.toVerilog("upper_ps")}
 {self.LowerExpander.toVerilog("lower_ps")}
         
@@ -1079,15 +1132,15 @@ module {TopModuleName} (
   output wire [{len(self.MuxBlocks)-1}:0] O
 );
 
-wire [{self.LeftLfsr.getSize()-1}:0] hybrid_ring_O;
+wire [{self.LeftLfsr.getSize()-1}:0] selector_register_O;
 wire [{self.UpperNlfsr.getSize()-1}:0] upper_nlfsr_O;
 wire [{self.LowerNlfsr.getSize()-1}:0] lower_nlfsr_O;
-wire [{self.LeftPhaseShifter.getSize()-1}:0] hybrid_ring_ps_O;
+wire [{self.LeftPhaseShifter.getSize()-1}:0] selector_register_ps_O;
 wire [{self.UpperExpander.getSize()-1}:0] upper_nlfsr_exp_O;
 wire [{self.LowerExpander.getSize()-1}:0] lower_nlfsr_exp_O;
-wire hybrid_ring_lfsr_enable;
-wire hybrid_ring_selector_enable;
-wire hybrid_ring_injector;
+wire selector_register_lfsr_enable;
+wire selector_register_selector_enable;
+wire selector_register_injector;
 
 reg [{CntrBits-1}:0] fsm_cntr;
 wire lfsr_en = (fsm_cntr < {CntrBits}'d{LfsrFeedingCycles}) | (fsm_cntr >= {CntrBits}'d{LfsrFeedingCycles+SelectorFeedingCycles});
@@ -1107,13 +1160,13 @@ always @ (posedge clk) begin
   end
 end
 
-hybrid_ring hybrid_ring_inst (
+selector_register selector_register_inst (
   .clk (clk),
   .reset (reset),
   .lfsr_enable (lfsr_en),
   .selector_enable (selector_en),
   .injector (key_int),
-  .O (hybrid_ring_O),
+  .O (selector_register_O),
   .selector ()
 );
 
@@ -1133,9 +1186,9 @@ lower_nlfsr lower_nlfsr_inst (
   .O (lower_nlfsr_O)  
 );
 
-hybrid_ring_ps hybrid_ring_ps_inst (
-  .I (hybrid_ring_O),
-  .O (hybrid_ring_ps_O)  
+selector_register_ps selector_register_ps_inst (
+  .I (selector_register_O),
+  .O (selector_register_ps_O)  
 );
 
 upper_ps upper_ps_inst (
@@ -1152,7 +1205,7 @@ lower_ps lower_ps_inst (
         OAssign = ""
         second = 0
         for i in range(len(self.MuxBlocks)):
-            Result += f"\n// output {i}:\n" + self.MuxBlocks[i].toVerilogEquation(f"O{i}", "upper_nlfsr_exp_O", "lower_nlfsr_exp_O", "hybrid_ring_ps_O") + "\n"
+            Result += f"\n// output {i}:\n" + self.MuxBlocks[i].toVerilogEquation(f"O{i}", "upper_nlfsr_exp_O", "lower_nlfsr_exp_O", "selector_register_ps_O") + "\n"
             if second:
                 OAssign =  ", " + OAssign
             else:
