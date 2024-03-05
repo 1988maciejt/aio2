@@ -60,6 +60,19 @@ class Int:
     while v <= To:
       yield v
       v = Int.nextPrime(v)
+      
+  def areRelativelyPrime(Numbers : list) -> bool:
+    from libs.utils_list import List
+    from math import gcd
+    MaxGcd = 0
+    for Pair in List.getCombinations(Numbers, 2):
+      Gcd = gcd(Pair[0], Pair[1])
+      if Gcd > MaxGcd:
+        MaxGcd = Gcd
+    if MaxGcd > 1:
+      return False
+    return True
+    
   
   def shiftLeft(value : int, bitsize : int, steps=1) -> int:
     if (steps < 0):

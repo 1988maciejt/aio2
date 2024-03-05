@@ -2163,7 +2163,7 @@ def f():
     n2 = self.copy()
     return (not n2.toFibonacci())
   
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False, UseAlsoInvertedFFs = False, InversionInsensitive = False):
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False, UseAlsoInvertedFFs = False, InversionInsensitive = False, SimpleExpanderAllowed = True):
     tt = TempTranscript(f"Nlfsr({self._size}).createExpander()")
     tt.print(repr(self))
     tt.print("Simulating NLFSR...")
@@ -2243,7 +2243,7 @@ def f():
       SimpleExpander = None
       if UseAlsoInvertedFFs:
         SimpleExpander = None
-      else:
+      elif SimpleExpanderAllowed:
         print("// Creating simple expander...")
         SimpleExpander = self.createSimpleExpander(k, k)    
         SimpleExpander = None    
@@ -4619,7 +4619,7 @@ class NlfsrList:
       writeFile(FileName, PT.toString('left'))
       i += 1
       
-  def toXlsDatabase(NlfsrsList, Scheduler = None, CleanBufferedLists = True, LimitedTo64b = True):
+  def toXlsDatabase(NlfsrsList, Scheduler = None, CleanBufferedLists = True, LimitedTo64b = True, SimpleExpanderAllowed = True):
     from libs.remote_aio import RemoteAioScheduler
     if type(Scheduler) is not RemoteAioScheduler:
       Scheduler = None
@@ -4663,17 +4663,22 @@ class NlfsrList:
       tt.print(f"{Cntr}/{len(NlfsrsList)}: {repr(nlfsr)}")
       print(f"{Cntr}/{len(NlfsrsList)}: {Str.toLeft(repr(nlfsr), Aio.getTerminalColumns()-30)}...")
       if Expander is None:
-        Expander, Trajectories = _make_expander(nlfsr, PBar=1, AlwaysCleanFiles=CleanBufferedLists)
+        Expander, Trajectories = _make_expander(nlfsr, PBar=1, AlwaysCleanFiles=CleanBufferedLists, SimpleExpanderAllowed=SimpleExpanderAllowed)
       FileName = "data/" + hashlib.sha256(bytes(repr(nlfsr), "utf-8")).hexdigest() + ".html"
       #TuplesRep = Expander.TuplesRep
       Eq = nlfsr.toBooleanExpressionFromRing(0, 0)
-      EqSymPy = nlfsr.toBooleanExpressionFromRing(0, 0, ReturnSympyExpr=1)
+      try:
+        EqSymPy = nlfsr.toBooleanExpressionFromRing(0, 0, ReturnSympyExpr=1)
+        AnfT = SymPy.getAnfMonomialsCount(EqSymPy)
+        AnfL = SymPy.getAnfLiteralsCount(EqSymPy)
+        AnfD = SymPy.getAnfDegree(EqSymPy)
+      except:
+        AnfT = -1
+        AnfL = -1
+        AnfD = -1
       EqC = nlfsr.toBooleanExpressionFromRing(1, 0)
       EqR = nlfsr.toBooleanExpressionFromRing(0, 1)
       EqCR = nlfsr.toBooleanExpressionFromRing(1, 1)
-      AnfT = SymPy.getAnfMonomialsCount(EqSymPy)
-      AnfL = SymPy.getAnfLiteralsCount(EqSymPy)
-      AnfD = SymPy.getAnfDegree(EqSymPy)
       ArchitectureTaps = nlfsr.getArchitecture()
       Architecture = nlfsr.toArticleString()
       Period = nlfsr.getPeriod()
@@ -4900,18 +4905,18 @@ EXPANDER STATS ---------------------------------------
     
       
 
-def _make_expander(nlfsr, PBar=0, AlwaysCleanFiles = True) -> tuple:
+def _make_expander(nlfsr, PBar=0, AlwaysCleanFiles = True, SimpleExpanderAllowed = True) -> tuple:
   T = None
   if nlfsr.getSize() <= 15:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, ReturnAlsoTuplesReport=False, StoreOnesCountB0=True, AlwaysCleanFiles=AlwaysCleanFiles)
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=1, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, ReturnAlsoTuplesReport=False, StoreOnesCountB0=True, AlwaysCleanFiles=AlwaysCleanFiles, SimpleExpanderAllowed=SimpleExpanderAllowed)
     if not nlfsr.isMaximum():
       T = nlfsr.analyseCycles()
   elif nlfsr.getSize() <= 18:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, ReturnAlsoTuplesReport=False, StoreOnesCountB0=True, AlwaysCleanFiles=AlwaysCleanFiles)
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=0, ReturnAlsoTuplesReport=False, StoreOnesCountB0=True, AlwaysCleanFiles=AlwaysCleanFiles, SimpleExpanderAllowed=SimpleExpanderAllowed)
     if not nlfsr.isMaximum():
       T = nlfsr.analyseCycles()
   else:
-    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1, ReturnAlsoTuplesReport=False, StoreOnesCountB0=True, AlwaysCleanFiles=AlwaysCleanFiles) 
+    E = nlfsr.createExpander(XorInputsLimit=3, StoreLinearComplexityData=0, StoreCardinalityData=1, PBar=PBar, LimitedNTuples=1, ReturnAlsoTuplesReport=False, StoreOnesCountB0=True, AlwaysCleanFiles=AlwaysCleanFiles, SimpleExpanderAllowed=SimpleExpanderAllowed) 
   return E, T
 
 def Nlfsr_makeExpanderForRAio(nlfsr) -> tuple:

@@ -88,6 +88,23 @@ class PhaseShifter:
             self._bavalue[i] = V
         return self._bavalue
     
+    def getXorInputsStatsDict(self) -> dict:
+        Result = {}
+        for Xor in self._xors:
+            InCount = len(Xor)
+            Result[InCount] = Result.get(InCount, 0) + 1
+        return Result 
+    
+    def printXorInputsStatsDict(self):
+        from libs.pandas_table import AioTable
+        Dict = self.getXorInputsStatsDict()
+        t = AioTable(["# XOR inputs", "# Occurences"])
+        Keys = list(Dict.keys())
+        Keys.sort()
+        for k in Keys:
+            t.add([k, Dict[k]])
+        t.print()
+    
     def symbolicValues(self, SourceValues : list) -> list:
         Result = []
         for Xor in self._xors:

@@ -12,6 +12,7 @@ from libs.stats import *
 import numpy
 from libs.aio import AioShell
 import hyperloglog
+import statistics
 
 
 class Bitarray:
@@ -327,6 +328,32 @@ class Bitarray:
     
     def getTuplesReport(Word : bitarray, FromTupleSize : int = 2, ToTupleSize : int = 8, Significance=0.05):
         return TuplesReport(Word, FromTupleSize, ToTupleSize, Significance)
+    
+    
+    
+class BitarrayStats:
+    
+    @staticmethod
+    def probabilityOf1(BitStream : bitarray, SampleSize : int = 1000000) -> tuple:
+        SamplesCount = len(BitStream) // SampleSize
+        Counters = [0 for _ in range(SampleSize)]
+        for i in range(SamplesCount):
+            FromBit = i * SampleSize
+            ToBit = FromBit + SampleSize
+            SubArray = BitStream[FromBit : ToBit]
+            j = 0
+            for b in SubArray:
+                if b:
+                    Counters[j] += 1
+                j += 1
+        for i in range(len(Counters)):
+            Counters[i] /= SamplesCount
+        print(Counters)
+        Pmean = statistics.mean(Counters)
+        Pstdev = statistics.stdev(Counters)
+        Z = sqrt(SamplesCount) * (Pmean - 0.5) / Pstdev
+        return (Pmean, Pstdev, Z)
+        
     
     
 class TuplesReport:
