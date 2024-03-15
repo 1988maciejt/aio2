@@ -111,7 +111,7 @@ class List:
       Results.clear()
     return None
   
-  def randomSelect(List : list, HowMany = 1):
+  def randomSelect(List : list, HowMany = 1) -> list:
     if len(List) < HowMany:
       Aio.printError("List length is < than HowMany")
       return None
@@ -123,8 +123,6 @@ class List:
       Result.append(RList[Index])
       if Index > i:
         RList[Index] = RList[i]
-    if len(Result) == 1:
-      return Result[0]
     return Result
   
   def mathDelta(List : list) -> list:

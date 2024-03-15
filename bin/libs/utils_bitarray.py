@@ -24,6 +24,8 @@ class Bitarray:
         Result.fromfile(File)
         File.close()
         if Length is not None:
+            if len(Result) == 0:
+                return None
             if len(Result) > Length:
                 Result = Result[:Length]
             elif len(Result) < Length:
@@ -35,6 +37,16 @@ class Bitarray:
                         Res2 += Result[:Length - len(Res2)]
                 Result = Res2
         return Result
+    
+    @staticmethod
+    def toFile(FileName : str, Data : bitarray) -> bool:
+        try:
+            File = open(FileName, 'wb')
+            Data.tofile(File)
+            File.close()
+            return True
+        except:
+            return False
     
     @staticmethod
     def rotl(BitArrayValue : bitarray) -> bitarray:
@@ -202,15 +214,22 @@ class Bitarray:
             hll.add(t)
         return len(hll)
     
-    def getCardinality(Word : bitarray, TupleSize : int) -> int:
+    def getCardinality(Word : bitarray, TupleSize : int, PeriodicSequence = True) -> int:
         Res = bau.zeros(1<<TupleSize)
         Mask = (1 << TupleSize) -1
         ResI = 0
-        for i in range(1-TupleSize, 0):
-            ResI = (ResI * 2) + Word[i]
-        for b in Word:
-            ResI = ((ResI * 2) + b) & Mask
-            Res[ResI] = 1 
+        if PeriodicSequence:
+            for i in range(1-TupleSize, 0):
+                ResI = (ResI * 2) + Word[i]
+            for b in Word:
+                ResI = ((ResI * 2) + b) & Mask
+                Res[ResI] = 1 
+        else:
+            for i in range(TupleSize-1):
+                ResI = (ResI * 2) + Word[i]
+            for i in range(TupleSize-1, len(Word)):
+                ResI = ((ResI * 2) + Word[i]) & Mask
+                Res[ResI] = 1 
         return Res.count(1)
     
     def getCardinalityList(List : list, TupleSize : int, Parallel = False) -> list:
@@ -241,11 +260,11 @@ class Bitarray:
         del W
         return Res.count(1)
     
-    def getTuplesHistogram(Word : bitarray, TupleSize : int) -> int:
+    def getTuplesHistogram(Word : bitarray, TupleSize : int, Cyclic = True) -> list:
         Res = [0 for i in range(1<<TupleSize)]
         for i in range(1<<TupleSize):
             Res[i] = 0
-        for t in Bitarray.movingWindowIteratorInt(Word, TupleSize):
+        for t in Bitarray.movingWindowIteratorInt(Word, TupleSize, Cyclic=Cyclic):
             Res[t] += 1
         return Res
     
@@ -348,11 +367,41 @@ class BitarrayStats:
                 j += 1
         for i in range(len(Counters)):
             Counters[i] /= SamplesCount
-        print(Counters)
         Pmean = statistics.mean(Counters)
         Pstdev = statistics.stdev(Counters)
         Z = sqrt(SamplesCount) * (Pmean - 0.5) / Pstdev
-        return (Pmean, Pstdev, Z)
+        return (Pmean, Pstdev, Z) 
+    
+    @staticmethod
+    def correlation(BitStream : bitarray, SampleSize : int = 128) -> tuple:
+        SamplesCount = len(BitStream) // SampleSize
+        def corr(Word : bitarray) -> list:
+            Result = []
+            for i in range(len(Word)):
+                b1 = Word[i]
+                for j in range(i+1, len(Word)):
+                    if b1 == Word[j]:
+                        Result.append(1)
+                    else:
+                        Result.append(-1)
+            return Result
+        Samples = [BitStream[i * SampleSize : i * SampleSize + SampleSize] for i in range(SamplesCount)]
+        iter = p_uimap(corr, Samples)
+        Second = 0
+        for C in iter:
+            if Second:
+                for i in range(len(C)):
+                    Sum[i] += C[i]
+            else:
+                Sum = C
+        AioShell.removeLastLine()
+        for i in range(len(Sum)):
+            Sum[i] /= SamplesCount
+        Cmean = statistics.mean(Sum)
+        Cstdev = statistics.stdev(Sum)
+        Z = sqrt(len(Sum)) * Cmean / Cstdev
+        return (Cmean, Cstdev, Z) 
+        
         
     
     
@@ -360,7 +409,7 @@ class TuplesReport:
     
     __slots__ = ("_histo_dict", "_tmin", "_tmax", "_stats", "_pass")
     
-    def __init__(self, Word : bitarray, FromTupleSize : int = 2, ToTupleSize : int = 8, Significance=0.05):
+    def __init__(self, Word : bitarray, FromTupleSize : int = 2, ToTupleSize : int = 8, Significance=0.05, NonCyclicSampleSize = None, SpeedUpByDecreasingAccuacy : int = 1):
         self._histo_dict = {}
         self._tmin = FromTupleSize
         self._tmax = ToTupleSize
@@ -368,12 +417,30 @@ class TuplesReport:
         self._pass = {}
         from scipy.stats import chisquare
         from scipy.stats import chi2
-        for TSize in tqdm(range(FromTupleSize, ToTupleSize+1), desc="Counting tuples"):
-            H = Bitarray.getTuplesHistogram(Word, TSize)
-            self._histo_dict[TSize] = H
-            self._stats[TSize] = chisquare(H)
-            Critical = chi2.isf(Significance, (1<<TSize)-1)
-            self._pass[TSize] = True if self._stats[TSize].statistic <= Critical else False
+        if NonCyclicSampleSize is None:
+            for TSize in tqdm(range(FromTupleSize, ToTupleSize+1), desc="Counting tuples"):
+                H = Bitarray.getTuplesHistogram(Word, TSize)
+                self._histo_dict[TSize] = H
+                self._stats[TSize] = chisquare(H)
+                Critical = chi2.isf(Significance, (1<<TSize)-1)
+                self._pass[TSize] = True if self._stats[TSize].statistic <= Critical else False
+        else:
+            SamplesCount = len(Word) // NonCyclicSampleSize // SpeedUpByDecreasingAccuacy
+            for TSize in tqdm(range(FromTupleSize, ToTupleSize+1), desc="Counting tuples"):
+                H = [0 for i in range(1<<TSize)]
+                Samples = [Word[i * NonCyclicSampleSize : i * NonCyclicSampleSize + NonCyclicSampleSize] for i in range(SamplesCount)]
+                iter = p_uimap(partial(Bitarray.getTuplesHistogram, TupleSize=TSize, Cyclic=False), Samples)
+                for SubH in iter:
+                    for j in range(len(H)):
+                        H[j] += SubH[j]
+                if SpeedUpByDecreasingAccuacy > 1:
+                    for j in range(len(H)):
+                        H[j] *= SpeedUpByDecreasingAccuacy
+                AioShell.removeLastLine()
+                self._histo_dict[TSize] = H
+                self._stats[TSize] = chisquare(H)
+                Critical = chi2.isf(Significance, (1<<TSize)-1)
+                self._pass[TSize] = True if self._stats[TSize].statistic <= Critical else False
         AioShell.removeLastLine()
             
     def getReport(self, FromTupleSize : int = None, ToTupleSize : int = None, Colored = False, HidePlot = False, HideNumbers = False) -> str:
@@ -403,6 +470,30 @@ class TuplesReport:
             if not HideNumbers:
                 Result += "HistogramValues = " + str(H)
             Result += "\n\n"
+        return Result
+            
+    def getTableRow(self, FromTupleSize : int = None, ToTupleSize : int = None) -> list:
+        if FromTupleSize is None:
+            FromTupleSize = self._tmin
+        elif FromTupleSize < self._tmin:
+            FromTupleSize = self._tmin
+        if ToTupleSize is None:
+            ToTupleSize = self._tmax
+        elif ToTupleSize > self._tmax:
+            ToTupleSize = self._tmax
+        if ToTupleSize < FromTupleSize:
+            Aio.printError("ToTupleSize must be >= FromTupleSize.")
+            return ""
+        # Min, Max, Chi2, Pass, PVal
+        Result = []
+        for TSize in range(FromTupleSize, ToTupleSize+1):
+            H = self._histo_dict[TSize]
+            HValues = H
+            Min = min(HValues)
+            Max = max(HValues)
+            PDiv = self._stats[TSize]
+            Pass = self._pass[TSize]
+            Result += [Min, Max, PDiv.statistic, 'Y' if Pass else 'N', PDiv.pvalue]
         return Result
         
     def toHtmlFile(self, HtmlFileName : str, FromTupleSize : int = None, ToTupleSize : int = None, Colored = False, HidePlot = False):

@@ -934,7 +934,21 @@ class KeystreamGeneratorsMuxBlock:
         self.LowerMuxSelect = LowerMuxSelect
         
     def eval(self, LeftPS : bitarray, UpperPS : bitarray, LowerPS : bitarray) -> int:
-        pass
+        if self.LowerMuxInputs is None:
+            if LeftPS[self.UpperMuxSelect[0]]:
+                return UpperPS[self.UpperMuxInputs[0]]
+            else:
+                return LowerPS[self.UpperMuxInputs[1]]
+        else:
+            UpperSel = 0
+            for b in self.UpperMuxSelect:
+                UpperSel = (UpperSel * 2) + LeftPS[b]
+            LowerSel = 0
+            for b in self.LowerMuxSelect:
+                LowerSel = (LowerSel * 2) + LeftPS[b]
+            UpperOut = UpperPS[self.UpperMuxInputs[UpperSel]]
+            LowerOut = LowerPS[self.LowerMuxInputs[LowerSel]]
+            return LowerPS[LowerOut ^ UpperOut]
     
     def toVerilogEquation(self, MuxBlockOutputName : str, UpperNlfsrOutputName : str, LowerNlfsrOutputName : str, LeftLfsrOutputName : str) -> str:
         UpperMuxSelectName = f"{MuxBlockOutputName}_upper_mux_sel"
@@ -1065,13 +1079,42 @@ class KeystreamGenerator:
         
     
     def next(self, Steps: int = 1, MoveSelector: bool = True, MoveUpper: bool = True, MoveLower: bool = True, KeyPhase: bool = False) -> bitarray:
-        if type(Steps) is Bitarray:
+        if type(Steps) is bitarray:
             for Bit in Steps:
-                self._next1(MoveSelector, MoveUpper, MoveLower, Bit, KeyPhase)
+                Result = self._next1(MoveSelector, MoveUpper, MoveLower, Bit, KeyPhase)
         else:
-            for i in Steps:
-                self._next1(MoveSelector, MoveUpper, MoveLower, 0, KeyPhase)
+            for _ in range(Steps):
+                Result = self._next1(MoveSelector, MoveUpper, MoveLower, 0, KeyPhase)
+        return Result
                 
+    def getSequences(self, Key : bitarray, Length : int, InitialCycles : int = None, ProgressBar=False) -> list:
+        F1 = len(self.LeftLfsr)
+        F2 = len(self.UpperNlfsr)
+        F3 = len(self.LowerNlfsr)
+        if len(Key) < (F1 + F2 + F3):
+            Aio.printError(f"Key length is '{len(Key)}' but should be '{F1+F2+F3}'.")
+            return None
+        self.clear()
+        self.next(Key[0:F1], True, False, False, True)
+        self.next(Key[0:F1], False, True, False, True)
+        self.next(Key[0:F1], False, False, True, True)
+        if InitialCycles is None:
+            InitialCycles = 4 * len(self.LeftLfsr)
+        if InitialCycles > 0:
+            self.next(InitialCycles)
+        Result = [bitarray(Length) for _ in range(self.getSize())]
+        if ProgressBar:
+            Iterator = tqdm(range(Length), desc="Obtaining sequences")
+        else:
+            Iterator = range(Length)
+        for i in Iterator:
+            v = self.next(1)
+            for j, Bit in zip(range(self.getSize()), v):
+                Result[j][i] = Bit
+        if ProgressBar:
+            AioShell.removeLastLine()
+        return Result
+        
     def reset(self):
         self.LeftLfsr.reset()
         self.UpperNlfsr.reset()
@@ -1111,13 +1154,22 @@ class KeystreamGenerator:
     
     def toVerilog(self, TopModuleName : str) -> str:
         LfsrFeedingCycles = self.LeftLfsr.getSize()
-        SelectorFeedingCycles = self.LeftLfsr.getSelectorSize()
+        try:
+            SelectorFeedingCycles = self.LeftLfsr.getSelectorSize()
+        except:
+            SelectorFeedingCycles = 0
         UpperNlfsrFeedingCycles = self.UpperNlfsr.getSize()
         LowerNlfsrFeedingCycles = self.LowerNlfsr.getSize()
         AllCycles = LfsrFeedingCycles + SelectorFeedingCycles + UpperNlfsrFeedingCycles + LowerNlfsrFeedingCycles
         CntrBits = int(log2(AllCycles+1)+1)
-        Result = f"""
-{self.LeftLfsr.toVerilog("selector_register")}
+        Result = ""
+        if type(self.LeftLfsr) in [Lfsr, Nlfsr]:
+            Result += f"""{self.LeftLfsr.toVerilog("selector_register", InjectorIndexesList=[0])}
+"""
+        else:
+            Result += f"""{self.LeftLfsr.toVerilog("selector_register")}
+"""
+        Result += f"""
 {self.UpperNlfsr.toVerilog("upper_nlfsr", [0])}
 {self.LowerNlfsr.toVerilog("lower_nlfsr", [0])}
 {self.LeftPhaseShifter.toVerilog("selector_register_ps")}
@@ -1145,10 +1197,12 @@ wire selector_register_injector;
 reg [{CntrBits-1}:0] fsm_cntr;
 wire lfsr_en = (fsm_cntr < {CntrBits}'d{LfsrFeedingCycles}) | (fsm_cntr >= {CntrBits}'d{LfsrFeedingCycles+SelectorFeedingCycles});
 wire selector_en = (fsm_cntr < {CntrBits}'d{SelectorFeedingCycles});
-wire upper_nlfsr_en = (fsm_cntr >= {CntrBits}'d{LfsrFeedingCycles+SelectorFeedingCycles});
-wire lower_nlfsr_en = upper_nlfsr_en;
+wire upper_nlfsr_en = ((fsm_cntr >= {CntrBits}'d{LfsrFeedingCycles+SelectorFeedingCycles}) & (fsm_cntr >= {CntrBits}'d{LfsrFeedingCycles+SelectorFeedingCycles+UpperNlfsrFeedingCycles})) | (fsm_cntr >= {CntrBits}'d{LfsrFeedingCycles+SelectorFeedingCycles+UpperNlfsrFeedingCycles+LowerNlfsrFeedingCycles}) ;
+wire lower_nlfsr_en = (fsm_cntr >= {CntrBits}'d{LfsrFeedingCycles+SelectorFeedingCycles+UpperNlfsrFeedingCycles});
 assign mission_mode = (fsm_cntr >= {CntrBits}'d{AllCycles});
-wire key_int = mission_mode ? 1'b0 : key;
+wire key_int = (mission_mode & (fsm_cntr > {CntrBits}'d{LfsrFeedingCycles+SelectorFeedingCycles})) ? 1'b0 : key;
+wire key_upper_int = mission_mode ? 1'b0 : key ^ selector_register_O[{0}];
+wire key_lower_int = mission_mode ? 1'b0 : key ^ selector_register_O[{len(self.LeftLfsr) // 2}];
 
 always @ (posedge clk) begin
   if (reset) begin
@@ -1160,6 +1214,20 @@ always @ (posedge clk) begin
   end
 end
 
+"""
+
+        if type(self.LeftLfsr) in [Lfsr, Nlfsr]:
+            Result += f"""
+selector_register selector_register_inst (
+  .clk (clk),
+  .enable (1'b1),
+  .reset (reset),
+  .injector (key_int),
+  .O (selector_register_O)
+);
+"""
+        else:
+            Result += f"""
 selector_register selector_register_inst (
   .clk (clk),
   .reset (reset),
@@ -1169,12 +1237,14 @@ selector_register selector_register_inst (
   .O (selector_register_O),
   .selector ()
 );
+"""
 
+        Result += f"""
 upper_nlfsr upper_nlfsr_inst (
   .clk (clk),
   .enable (upper_nlfsr_en),
   .reset (reset),
-  .injector (key_int),
+  .injector (key_upper_int),
   .O (upper_nlfsr_O)  
 );
 
@@ -1182,7 +1252,7 @@ lower_nlfsr lower_nlfsr_inst (
   .clk (clk),
   .enable (lower_nlfsr_en),
   .reset (reset),
-  .injector (key_int),
+  .injector (key_lower_int),
   .O (lower_nlfsr_O)  
 );
 

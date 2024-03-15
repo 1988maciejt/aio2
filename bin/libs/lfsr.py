@@ -2342,6 +2342,17 @@ class Lfsr:
       Dual._baValue[i] = 1
     Dual.next(DelayedBy)
     return Dual._baValue.search(1)
+  
+  def createRandomPhaseShifter(self, OutputCount : int, MinXorInputs = 1, MaxXorInputs = 3):
+    Xors = []
+    FFs = [i for i in range(len(self))]
+    while len(Xors) < OutputCount:
+      Xor = List.randomSelect(FFs, randint(MinXorInputs, MaxXorInputs))
+      Xor.sort()
+      if Xor not in Xors:
+        Xors.append(Xor)
+    return PhaseShifter(self, Xors)
+  
   def createPhaseShifter(self, OutputCount : int, MinimumSeparation = 100, MaxXorInputs = 3, MinXorInputs = 1, FirstXor = None) -> PhaseShifter:
     if 0 < MinXorInputs <= MaxXorInputs:
       if FirstXor is None:
@@ -3031,6 +3042,8 @@ endmodule'''
       for j, Bit in zip(range(self._size), self._baValue):
         Result[j][i] = Bit
       self._next1()
+    if ProgressBar:
+      AioShell.removeLastLine()
     return Result
   
   

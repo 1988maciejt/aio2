@@ -806,11 +806,12 @@ class Verilog:
   def __repr__(self) -> str:
     return "Verilog(" + str(len(self.Modules)) + ")"
   def __str__(self) -> str:
-    result = self.IndentationString + "VERILOG {\n"
-    self.Modules.IndentationString = self.IndentationString + "  "
-    result += str(self.Modules) + "\n"
-    result += self.IndentationString + "}"
-    return result
+    return self.getContent()
+    #result = self.IndentationString + "VERILOG {\n"
+    #self.Modules.IndentationString = self.IndentationString + "  "
+    #result += str(self.Modules) + "\n"
+    #result += self.IndentationString + "}"
+    #return result
   def addContent(self, Content : str) -> None:
     self.Modules.addFromString(Content)
     NewTop = self.getBestTopModuleName()
