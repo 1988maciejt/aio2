@@ -30,3 +30,4 @@ def _installMissingModules(LibNamesList : list) -> list:
 _installMissingModules(_required_libs)
 
 from libs_prv.music import *
+from libs_prv.pv import *
