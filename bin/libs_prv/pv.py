@@ -22,15 +22,15 @@ class SolarSun:
 
     @staticmethod
     def getPVEfficiencyFactor(PanelTiltDegrees : float, PanelAzimuthDegrees : float, SunAzimuth : float, SunAltitude : float) -> float:
-        from math import cos, radians
+        from math import sin, cos, radians
+        SunFactor = (sin(radians(SunAltitude)) * 0.5) + 0.5
         TiltEfficiency = cos(radians(90-SunAltitude-PanelTiltDegrees))
         AzimuthEfficiency = cos(radians(SunAzimuth-PanelAzimuthDegrees))
         if TiltEfficiency < 0:
             TiltEfficiency = 0.001
         if AzimuthEfficiency < 0:
             AzimuthEfficiency = 0.001
-        #return TiltEfficiency , AzimuthEfficiency
-        return TiltEfficiency * AzimuthEfficiency
+        return TiltEfficiency * AzimuthEfficiency * SunFactor
     
     @staticmethod
     def getPVEfficiencyFactorMorningShadow(AzimuthLimit : float, SunAzimuth : float, ShadowFactor = 0.9) -> float:
@@ -223,7 +223,7 @@ class SolarMPPTSimulator:
         ShadowEff = self._getShadowedFactor(Index, SunAzimuthDegrees)
         return SunEff * ShadowEff
     
-    def getMpptPower(self, Year : int, Month : int, Day : int, Hour : float, Temperature : float = 25, GlobalFactor : float = 0.85) -> float:
+    def getMpptPower(self, Year : int, Month : int, Day : int, Hour : float, Temperature : float = 25, GlobalFactor : float = 0.9) -> float:
         SunAzimuth, SunAltitude = SolarSun.getAzimuthAndAltitudeDegrees(Year, Month, Day, Hour, self._lat, self._long)
         Factors = []
         for i in range(len(self._panels)):
@@ -233,7 +233,7 @@ class SolarMPPTSimulator:
         IV = self._mppt.getIVCharacteristics(Factors, Temperature, 0, self._imax, IStep = 0.1)
         return IV[-1]
     
-    def getDaytimePower(self, Year : int, Month : int, Day : int, Temperature : float = 25, HStep = 1, GlobalFactor : float = 0.85) -> tuple:
+    def getDaytimePower(self, Year : int, Month : int, Day : int, Temperature : float = 25, HStep = 1, GlobalFactor : float = 0.9) -> tuple:
         Hours, Powers, Wh = [], [], 0
         H = (HStep/2)
         while H < 24:
@@ -244,7 +244,7 @@ class SolarMPPTSimulator:
             H += HStep
         return (Hours, Powers, Wh/1000)
     
-    def getMonthEnergy(self, Year : int, Month : int, Temperature : float = 25, GlobalFactor : float = 0.8) -> tuple:
+    def getMonthEnergy(self, Year : int, Month : int, Temperature : float = 25, GlobalFactor : float = 0.9) -> tuple:
         Days, Energies, kWh = [], [], 0
         Day = 1
         from datetime import datetime
@@ -261,7 +261,7 @@ class SolarMPPTSimulator:
                     break
         return (Days, Energies, kWh)
     
-    def getYearEnergy(self, Year : int, Temperature : float = 20, GlobalFactor : float = 0.8) -> tuple:
+    def getYearEnergy(self, Year : int, Temperature : float = 20, GlobalFactor : float = 0.9) -> tuple:
         Months, Energies, kWh = [], [], 0
         def calc(Month) -> float:
             _, _, MkWh = self.getMonthEnergy(Year, Month, Temperature, GlobalFactor)
