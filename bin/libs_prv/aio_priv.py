@@ -1,5 +1,7 @@
 # auto install missing libs
 _required_libs = [
+  "pvlib",
+  "suncalc"
 ]
 def _isModuleAvailable(LibName : str) -> bool:
   try:

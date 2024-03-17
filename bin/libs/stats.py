@@ -133,9 +133,9 @@ class Plot:
     self.Graphical = Graphical
     self.XLabel = XLabel
     self.YLabel = YLabel
-    if "dict" in str(type(Data)):
+    if type(Data) is dict:
       self.importDict(Data)
-    elif "list" in str(type(Data)):
+    elif type(Data) in [list, tuple]:
       if "list" in str(type(Data[0])):
         self.XData = Data[0].copy()
         self.YData = Data[1].copy()
