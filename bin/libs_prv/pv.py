@@ -33,15 +33,21 @@ class SolarSun:
         return TiltEfficiency * AzimuthEfficiency * SunFactor
     
     @staticmethod
-    def getPVEfficiencyFactorMorningShadow(AzimuthLimit : float, SunAzimuth : float, ShadowFactor = 0.9) -> float:
+    def getPVEfficiencyFactorMorningShadow(AzimuthLimit : float, SunAzimuth : float, SunAltitude : float, ShadowFactor = 0.9, NonShadowAltitudeLimit : float = 90) -> float:
+        if SunAltitude >= NonShadowAltitudeLimit:
+            return 1.0
         return (1-ShadowFactor) if SunAzimuth<AzimuthLimit else 1.0
     
     @staticmethod
-    def getPVEfficiencyFactorEveningShadow(AzimuthLimit : float, SunAzimuth : float, ShadowFactor = 0.9) -> float:
+    def getPVEfficiencyFactorEveningShadow(AzimuthLimit : float, SunAzimuth : float, SunAltitude : float, ShadowFactor = 0.9, NonShadowAltitudeLimit : float = 90) -> float:
+        if SunAltitude >= NonShadowAltitudeLimit:
+            return 1.0
         return (1-ShadowFactor) if SunAzimuth>AzimuthLimit else 1.0
     
     @staticmethod
-    def getPVEfficiencyFactorDaytimeShadow(MorningAzimuthLimit : float, EveningAzimuthLimit : float, SunAzimuth : float, ShadowFactor = 0.5) -> float:
+    def getPVEfficiencyFactorDaytimeShadow(MorningAzimuthLimit : float, EveningAzimuthLimit : float, SunAzimuth : float, SunAltitude : float, ShadowFactor = 0.5, NonShadowAltitudeLimit : float = 90) -> float:
+        if SunAltitude >= NonShadowAltitudeLimit:
+            return 1.0
         return (1-ShadowFactor) if EveningAzimuthLimit>SunAzimuth>MorningAzimuthLimit else 1.0
     
 
@@ -195,32 +201,32 @@ class SolarMPPTSimulator:
         self._mppt = None
         
     def addPanel(self, PanelPV : SolarPanel, TiltDegrees : float = 5, AzimuthDegrees : float = 0,
-                MorningShadow : float = 0, MorningShadowAzimuthLimitDegrees : float = 0,
-                EveningShadow : float = 0, EveningShadowAzimuthLimitDegrees : float = 0,
-                DaytimeShadow : float = 0, DaytimeShadowMorningAzimuthLimitDegrees : float = -10, DaytimeShadowEveningAzimuthLimitDegrees = 10):
+                MorningShadow : float = 0, MorningShadowAzimuthLimitDegrees : float = 0, MorningNonShadowAltitudeLimitDegrees : float = 90,
+                EveningShadow : float = 0, EveningShadowAzimuthLimitDegrees : float = 0, EveningNonShadowAltitudeLimitDegrees : float = 90,
+                DaytimeShadow : float = 0, DaytimeShadowMorningAzimuthLimitDegrees : float = -10, DaytimeShadowEveningAzimuthLimitDegrees = 10, DaytimeNonShadowAltitudeLimitDegrees : float = 90):
         self._panels.append(PanelPV)
         self._shadows.append([
-            [MorningShadow, MorningShadowAzimuthLimitDegrees],
-            [EveningShadow, EveningShadowAzimuthLimitDegrees],
-            [DaytimeShadow, DaytimeShadowMorningAzimuthLimitDegrees, DaytimeShadowEveningAzimuthLimitDegrees]
+            [MorningShadow, MorningShadowAzimuthLimitDegrees, MorningNonShadowAltitudeLimitDegrees],
+            [EveningShadow, EveningShadowAzimuthLimitDegrees, EveningNonShadowAltitudeLimitDegrees],
+            [DaytimeShadow, DaytimeShadowMorningAzimuthLimitDegrees, DaytimeShadowEveningAzimuthLimitDegrees, DaytimeNonShadowAltitudeLimitDegrees]
         ])
         self._panelpos.append([TiltDegrees, AzimuthDegrees])
         self._mppt = None
         
-    def _getShadowedFactor(self, Index : int, SunAzimuthDegrees : float) -> float:
+    def _getShadowedFactor(self, Index : int, SunAzimuthDegrees : float, SunAltitudeDegrees : float) -> float:
         Shadows = self._shadows[Index]
         Result = 1.0
         if Shadows[0][0] > 0:
-            Result *= SolarSun.getPVEfficiencyFactorMorningShadow(Shadows[0][1], SunAzimuthDegrees, Shadows[0][0])
+            Result *= SolarSun.getPVEfficiencyFactorMorningShadow(Shadows[0][1], SunAzimuthDegrees, SunAltitudeDegrees, Shadows[0][0], Shadows[0][2])
         if Shadows[1][0] > 0:
-            Result *= SolarSun.getPVEfficiencyFactorEveningShadow(Shadows[1][1], SunAzimuthDegrees, Shadows[1][0])
+            Result *= SolarSun.getPVEfficiencyFactorEveningShadow(Shadows[1][1], SunAzimuthDegrees, SunAltitudeDegrees, Shadows[1][0], Shadows[1][2])
         if Shadows[2][0] > 0:
-            Result *= SolarSun.getPVEfficiencyFactorDaytimeShadow(Shadows[2][1], Shadows[2][2], SunAzimuthDegrees, Shadows[2][0])
+            Result *= SolarSun.getPVEfficiencyFactorDaytimeShadow(Shadows[2][1], Shadows[2][2], SunAzimuthDegrees, SunAltitudeDegrees, Shadows[2][0], Shadows[2][3])
         return Result
     
     def _getEfficiencyFsctor(self, Index : int, SunAzimuthDegrees : float, SunAltitudeDegrees : float) -> float:
         SunEff = SolarSun.getPVEfficiencyFactor(self._panelpos[Index][0], self._panelpos[Index][1], SunAzimuthDegrees, SunAltitudeDegrees)
-        ShadowEff = self._getShadowedFactor(Index, SunAzimuthDegrees)
+        ShadowEff = self._getShadowedFactor(Index, SunAzimuthDegrees, SunAltitudeDegrees)
         return SunEff * ShadowEff
     
     def getMpptPower(self, Year : int, Month : int, Day : int, Hour : float, Temperature : float = 25, GlobalFactor : float = 0.9) -> float:
