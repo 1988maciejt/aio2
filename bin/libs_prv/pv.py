@@ -23,7 +23,7 @@ class SolarSun:
     @staticmethod
     def getPVEfficiencyFactor(PanelTiltDegrees : float, PanelAzimuthDegrees : float, SunAzimuth : float, SunAltitude : float) -> float:
         from math import sin, cos, radians
-        SunFactor = (sin(radians(SunAltitude)) * 0.5) + 0.5
+        SunFactor = (sin((radians(SunAltitude-90))+1) * 0.5) + 0.5
         TiltEfficiency = cos(radians(90-SunAltitude-PanelTiltDegrees))
         AzimuthEfficiency = cos(radians(SunAzimuth-PanelAzimuthDegrees))
         if TiltEfficiency < 0:
@@ -229,8 +229,8 @@ class SolarMPPTSimulator:
         ShadowEff = self._getShadowedFactor(Index, SunAzimuthDegrees, SunAltitudeDegrees)
         return SunEff * ShadowEff
     
-    def getMpptPower(self, Year : int, Month : int, Day : int, Hour : float, Temperature : float = 25, GlobalFactor : float = 0.9) -> float:
-        SunAzimuth, SunAltitude = SolarSun.getAzimuthAndAltitudeDegrees(Year, Month, Day, Hour, self._lat, self._long)
+    def getMpptPower(self, Month : int, Day : int, Hour : float, Temperature : float = 25, GlobalFactor : float = 0.9) -> float:
+        SunAzimuth, SunAltitude = SolarSun.getAzimuthAndAltitudeDegrees(2020, Month, Day, Hour, self._lat, self._long)
         Factors = []
         for i in range(len(self._panels)):
             Factors.append(self._getEfficiencyFsctor(i, SunAzimuth, SunAltitude) * GlobalFactor)
@@ -239,45 +239,47 @@ class SolarMPPTSimulator:
         IV = self._mppt.getIVCharacteristics(Factors, Temperature, 0, self._imax, IStep = 0.1)
         return IV[-1]
     
-    def getDaytimePower(self, Year : int, Month : int, Day : int, Temperature : float = 25, HStep = 1, GlobalFactor : float = 0.9) -> tuple:
+    def getDaytimePower(self, Month : int, Day : int, Temperature : float = 25, HStep = 1, GlobalFactor : float = 0.9) -> tuple:
         Hours, Powers, Wh = [], [], 0
         H = (HStep/2)
         while H < 24:
-            P = self.getMpptPower(Year, Month, Day, H, Temperature, GlobalFactor)
+            P = self.getMpptPower(Month, Day, H, Temperature, GlobalFactor)
             Hours.append(H)
             Powers.append(P)
             Wh += (P * HStep)
             H += HStep
         return (Hours, Powers, Wh/1000)
     
-    def getMonthEnergy(self, Year : int, Month : int, Temperature : float = 25, GlobalFactor : float = 0.9) -> tuple:
+    def getMonthEnergy(self, Month : int, Temperature : float = 25, GlobalFactor : float = 0.9) -> tuple:
         Days, Energies, kWh = [], [], 0
         Day = 1
         from datetime import datetime
         while 1:
-            _, _, DaykWh = self.getDaytimePower(Year, Month, Day, Temperature, 1, GlobalFactor)
+            _, _, DaykWh = self.getDaytimePower(Month, Day, Temperature, 1, GlobalFactor)
             Days.append(Day)
             kWh += DaykWh
             Energies.append(DaykWh)
             Day += 1
             if Day > 28:
                 try:
-                    datetime(Year, Month, Day)
+                    datetime(2020, Month, Day)
                 except:
                     break
         return (Days, Energies, kWh)
     
-    def getYearEnergy(self, Year : int, Temperature : float = 20, GlobalFactor : float = 0.9) -> tuple:
+    def getYearEnergy(self, GlobalFactor : float = 0.9) -> tuple:
         Months, Energies, kWh = [], [], 0
+        Temps = [0, 0, 5, 10, 15, 25, 35, 30, 20, 15, 10, 0]
         def calc(Month) -> float:
-            _, _, MkWh = self.getMonthEnergy(Year, Month, Temperature, GlobalFactor)
+            Temperature = Temps[Month-1]
+            _, _, MkWh = self.getMonthEnergy(Month, Temperature, GlobalFactor)
             return [Month, MkWh]
         for Result in p_imap(calc, range(1, 13)):
             Energies.append(Result[1])
             kWh += Result[1]
             Months.append(Result[0])
         #for Month in tqdm(range(1, 13), desc="Solar system simulating"):
-        #    _, _, MonthkWh = self.getMonthEnergy(Year, Month, Temperature, GlobalFactor)
+        #    _, _, MonthkWh = self.getMonthEnergy(Month, Temperature, GlobalFactor)
         #    Energies.append(MonthkWh)
         #    kWh += MonthkWh
         #    Months.append(Month)
