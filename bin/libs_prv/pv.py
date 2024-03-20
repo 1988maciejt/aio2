@@ -23,7 +23,7 @@ class SolarSun:
     @staticmethod
     def getPVEfficiencyFactor(PanelTiltDegrees : float, PanelAzimuthDegrees : float, SunAzimuth : float, SunAltitude : float) -> float:
         from math import sin, cos, radians
-        SunFactor = (sin((radians(SunAltitude-90))+1) * 0.5) + 0.5
+        SunFactor = (sin((radians(SunAltitude))) * 0.5) + 0.5
         TiltEfficiency = cos(radians(90-SunAltitude-PanelTiltDegrees))
         AzimuthEfficiency = cos(radians(SunAzimuth-PanelAzimuthDegrees))
         if TiltEfficiency < 0:
