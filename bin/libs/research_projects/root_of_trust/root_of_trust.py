@@ -1222,7 +1222,7 @@ selector_register selector_register_inst (
   .clk (clk),
   .enable (1'b1),
   .reset (reset),
-  .injector (key_int),
+  .injectors (key_int),
   .O (selector_register_O)
 );
 """
@@ -1244,7 +1244,7 @@ upper_nlfsr upper_nlfsr_inst (
   .clk (clk),
   .enable (upper_nlfsr_en),
   .reset (reset),
-  .injector (key_upper_int),
+  .injectors (key_upper_int),
   .O (upper_nlfsr_O)  
 );
 
@@ -1252,7 +1252,7 @@ lower_nlfsr lower_nlfsr_inst (
   .clk (clk),
   .enable (lower_nlfsr_en),
   .reset (reset),
-  .injector (key_lower_int),
+  .injectors (key_lower_int),
   .O (lower_nlfsr_O)  
 );
 
