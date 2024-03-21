@@ -3939,21 +3939,11 @@ class NlfsrCascade:
             Aio.print(f"// WARNING: Period of Nlfsr was set to {self._period} but IS INCORRECT!!!")
         else:
           Aio.print(f"// WARNING: Period of Nlfsr was set to {self._period} but IS INCORRECT!!!")
-    if Version == 5:
-      # v1.3
-      self._next1 = self._next1_v5
-    elif Version == 4:
-      # Gollmann
-      self._next1 = self._next1_v4
-    elif Version == 3:
-      # Looped cascade v2
-      self._next1 = self._next1_v3
-    elif Version == 2:
-      # Looped cascade v1
-      self._next1 = self._next1_v2
-    else:
+    if Version == 1:
       # Cascade
       self._next1 = self._next1_v1
+    else:
+      Aio.printError(f"Incorrect version of NlfsrCascade.")
           
   def isTheoreticallyMaximum(self) -> bool:
     if self._version == 1:
@@ -4046,76 +4036,6 @@ class NlfsrCascade:
     os = []
     for i in range(1, len(self._nlfsrs)):
       o = self._nlfsrs[i]._baValue[0]
-      os.append(o)
-    os.append(1)
-    Result = bitarray()
-    for i in range(len(self._nlfsrs)):
-      if os[i]:
-        self._nlfsrs[i]._next1()
-      Result += self._nlfsrs[i]._baValue
-    self._baValue = Result
-    return Result
-    
-  def _next1_v2(self) -> bitarray:
-    os = []
-    Nor = 0
-    for nlfsr in self._nlfsrs:
-      o = nlfsr._baValue[0]
-      Nor |= o
-      os.append(o)
-    os.append(os[0])
-    Nor = 1 - Nor
-    Result = bitarray()
-    for i in range(len(self._nlfsrs)):
-      if Nor or os[i + 1]:
-        self._nlfsrs[i]._next1()
-      Result += self._nlfsrs[i]._baValue
-    self._baValue = Result
-    return Result
-    
-  def _next1_v3(self) -> bitarray:
-    os = []
-    Nor = 0
-    for nlfsr in self._nlfsrs:
-      o = nlfsr._baValue[0]
-      Nor |= o
-      os.append(o)
-    os.append(os[0])
-    Nor = 1 - Nor
-    Result = bitarray()
-    if Nor or os[1]:
-      self._nlfsrs[0]._next1()
-    Result += self._nlfsrs[0]._baValue
-    for i in range(1, len(self._nlfsrs)):
-      if os[i + 1]:
-        self._nlfsrs[i]._next1()
-      Result += self._nlfsrs[i]._baValue
-    self._baValue = Result
-    return Result
-    
-  def _next1_v4(self) -> bitarray:
-    os = [1]
-    j = 0
-    for i in range(len(self._nlfsrs)-2, -1, -1):
-      os.append(self._nlfsrs[i+1]._baValue[0] ^ os[j])
-      j += 1
-    Result = bitarray()
-    j = len(self._nlfsrs)-1
-    for i in range(len(self._nlfsrs)):
-      if os[j]:
-        self._nlfsrs[i]._next1()
-      Result += self._nlfsrs[i]._baValue
-      j -= 1
-    self._baValue = Result
-    return Result
-    
-  def _next1_v5(self) -> bitarray:
-    os = []
-    for i in range(1, len(self._nlfsrs)):
-      if i < (len(self._nlfsrs)-1):
-        o = self._nlfsrs[i]._baValue[0] ^ self._nlfsrs[len(self._nlfsrs)-1]._baValue[i]
-      else:
-        o = self._nlfsrs[i]._baValue[0]
       os.append(o)
     os.append(1)
     Result = bitarray()
@@ -4221,7 +4141,83 @@ class NlfsrCascade:
       Aio.print(self)
       self.next(step)
   
+  def toVerilog(self, ModuleName : str, InjectorIndexesList = []) -> str:
+    Result = ""
+    SubNames = []
+    for i in range(len(self._nlfsrs)):
+      Name = f"{ModuleName}_register_{i}"
+      SubNames.append(Name)
+      n = self._nlfsrs[i]
+      Result += n.toVerilog(Name, [j for j in range(len(n))]) + "\n\n\n"
+    Result += f"""
+module {ModuleName} (
+  input wire clk,
+  input wire enable,
+  input wire reset,"""
+    if len(InjectorIndexesList) > 0:
+      Inj = True
+      Result += f"""
+  input wire [{len(InjectorIndexesList)-1}:0] injectors,"""
+    else:
+      Inj = False
+    Result += f"""
+  output reg [{len(self)-1}:0] O
+);
+"""
+    for i in range(len(self._nlfsrs)):
+      Result += f"""
+  wire [{len(self._nlfsrs[i])-1}:0] {SubNames[i]}_O;"""
+      if Inj:
+        Result += f"""
+  wire [{len(self._nlfsrs[i])-1}:0] {SubNames[i]}_injectors;"""
+      Result += f"""
+  
+  {SubNames[i]} {SubNames[i]}_inst (
+    .clk    (clk),
+    .enable (enable),
+    .reset  (reset),"""
+      if Inj:
+        Result += f"""
+    .injectors ({SubNames[i]}_injectors),"""
+      Result += f"""
+    .O      ({SubNames[i]}_O)
+  );
+"""
+    IIndex = 0
+    for i in range(len(self._nlfsrs)):
+      for j in range(len(self._nlfsrs[i])):
+        if IIndex in InjectorIndexesList:
+          Result += f"""
+  assign {SubNames[i]}_injectors[{j}] = injectors[{InjectorIndexesList.index(IIndex)}];"""
+        else:
+          Result += f"""
+  assign {SubNames[i]}_injectors[{j}] = 1'b0;"""
+        IIndex += 1    
+    From = 0
+    To = 0
+    for i in range(len(self._nlfsrs)):
+      To = From + len(self._nlfsrs[i])
+      Result += f"""
+  assign O[{To-1}:{From}] = {SubNames[i]}_O;"""
+      From += len(self._nlfsrs[i])
+    Result += "\n\nendmodule"
+    return Result
+  
   createExpander = Nlfsr.createExpander
+  
+  def createRandomPhaseShifter(self, OutputCount : int, MinXorInputs = 2, MaxXorInputs = 3):
+    Xors = []
+    LowerFFs = [i for i in range(len(self._nlfsrs[0]))]
+    UpperFFs = [i for i in range(len(self._nlfsrs[0]), self.getSize())]
+    while len(Xors) < OutputCount:
+      XorSize = randint(MinXorInputs, MaxXorInputs)
+      LowerXorSize = randint(1, XorSize-1)
+      UpperXorSize = XorSize - LowerXorSize
+      Xor = List.randomSelect(LowerFFs, LowerXorSize) + List.randomSelect(UpperFFs, UpperXorSize)
+      Xor.sort()
+      if Xor not in Xors:
+        Xors.append(Xor)
+    return PhaseShifter(self, Xors)
   
   def createSimpleExpander(self, MinXorInputs = 1, MaxXorInputs = 3, Verify = False) -> PhaseShifter:
     Offset = 0
