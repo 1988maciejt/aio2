@@ -58,9 +58,16 @@ class SolarPanel:
     __slots__ = ("parameters", "_vscale", "_iscale", "_cache")
     
     def copy(self) -> SolarPanel:
-        return SolarPanel(self.parameters['V_mp_ref'], self.parameters['I_mp_ref'], self.parameters['V_oc_ref'], self.parameters['I_sc_ref'])
+        return SolarPanel(self.parameters['V_mp_ref'], self.parameters['I_mp_ref'], self.parameters['V_oc_ref'], self.parameters['I_sc_ref'],
+                self.parameters['tilt'], self.parameters['azimuth'],
+                self.parameters['morning_shadow'], self.parameters['morning_shadow_azimuth'], self.parameters['morning_nonshadow_altitude'],
+                self.parameters['evening_shadow'], self.parameters['evening_shadow_azimuth'], self.parameters['evening_nonshadow_altitude'],
+                self.parameters['daytime_shadow'], self.parameters['daytime_morning_shadow_azimuth'], self.parameters['daytime_evening_shadow_azimuth'], self.parameters['daytime_nonshadow_altitude'])
     
-    def __init__(self, VMax : float, IMax : float, VOpen : float, IShort : float) -> None:
+    def __init__(self, VMax : float, IMax : float, VOpen : float, IShort : float, TiltDegrees : float = 5, AzimuthDegrees : float = 0,
+                MorningShadow : float = 0, MorningShadowAzimuthLimitDegrees : float = 0, MorningNonShadowAltitudeLimitDegrees : float = 90,
+                EveningShadow : float = 0, EveningShadowAzimuthLimitDegrees : float = 0, EveningNonShadowAltitudeLimitDegrees : float = 90,
+                DaytimeShadow : float = 0, DaytimeShadowMorningAzimuthLimitDegrees : float = -10, DaytimeShadowEveningAzimuthLimitDegrees = 10, DaytimeNonShadowAltitudeLimitDegrees : float = 90) -> None:
         self.parameters = {
             'I_sc_ref': IShort,
             'V_oc_ref': VOpen,
@@ -71,7 +78,19 @@ class SolarPanel:
             'I_L_ref': 5.114,
             'I_o_ref': 8.196e-10,
             'R_s': 1.065,
-            'R_sh_ref': 381.68
+            'R_sh_ref': 381.68,
+            "tilt": TiltDegrees,
+            "azimuth": AzimuthDegrees,
+            "morning_shadow": MorningShadow,
+            "morning_shadow_azimuth": MorningShadowAzimuthLimitDegrees,
+            "morning_nonshadow_altitude": MorningNonShadowAltitudeLimitDegrees,
+            "evening_shadow": EveningShadow,
+            "evening_shadow_azimuth": EveningShadowAzimuthLimitDegrees,
+            "evening_nonshadow_altitude": EveningNonShadowAltitudeLimitDegrees,
+            "daytime_shadow": DaytimeShadow,
+            "daytime_morning_shadow_azimuth": DaytimeShadowMorningAzimuthLimitDegrees,
+            "daytime_evening_shadow_azimuth": DaytimeShadowEveningAzimuthLimitDegrees,
+            "daytime_nonshadow_altitude": DaytimeNonShadowAltitudeLimitDegrees,
         }
         self._cache = {}
         self._vscale = 1
@@ -80,12 +99,25 @@ class SolarPanel:
         self._vscale = VMax / ivp[3]
         self._iscale = IMax / ivp[2]
         
-    def getIVpoints(self, IrradianceFactor : float = 1, Temperature : float = 25, PointsCount = 100) -> tuple:
-        if self._cache.get((IrradianceFactor, Temperature), None) is not None:
-            return self._cache[(IrradianceFactor, Temperature)]
-        Irradiance = IrradianceFactor * 1000
+    def _getShadowedFactor(self, SunAzimuthDegrees : float, SunAltitudeDegrees : float) -> float:
+        Result = 1.0
+        if self.parameters["morning_shadow"] > 0:
+            Result *= SolarSun.getPVEfficiencyFactorMorningShadow(self.parameters["evening_shadow_azimuth"], SunAzimuthDegrees, SunAltitudeDegrees, self.parameters["morning_shadow"], self.parameters["morning_nonshadow_altitude"])
+        if self.parameters["evening_shadow"] > 0:
+            Result *= SolarSun.getPVEfficiencyFactorEveningShadow(self.parameters["evening_shadow_azimuth"], SunAzimuthDegrees, SunAltitudeDegrees, self.parameters["evening_shadow"], self.parameters["evening_nonshadow_altitude"])
+        if self.parameters["daytime_shadow"] > 0:
+            Result *= SolarSun.getPVEfficiencyFactorDaytimeShadow(self.parameters["daytime_morning_shadow_azimuth"], self.parameters["daytime_evening_shadow_azimuth"], SunAzimuthDegrees, SunAltitudeDegrees, self.parameters["daytime_shadow"], self.parameters["daytime_nonshadow_altitude"])
+        return Result
+        
+    def getIVpoints(self, IrradianceFactor : float = 1, Temperature : float = 25, PointsCount = 100, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
+        IrradianceFactor *= self._getShadowedFactor(SunAzimuthDegrees, SunAltitudeDegrees)
+        IrradianceFactor *= SolarSun.getPVEfficiencyFactor(self.parameters["tilt"], self.parameters["azimuth"], SunAzimuthDegrees, SunAltitudeDegrees)
+        Irradiance = int(IrradianceFactor * 1000)
         if Irradiance < 1:
             Irradiance = 1
+        Temperature = int(Temperature)
+        if self._cache.get((Irradiance, Temperature, PointsCount), None) is not None:
+            return self._cache[(Irradiance, Temperature, PointsCount)]
         IL, I0, Rs, Rsh, nNsVth = pvsystem.calcparams_desoto(
             Irradiance,
             Temperature,
@@ -112,15 +144,15 @@ class SolarPanel:
         VList = [x * self._vscale if x*self._vscale<vopenmax else vopenmax for x in curve_info['v']]
         im = curve_info['i_mp']*self._iscale
         vm = curve_info['v_mp']*self._vscale
-        self._cache[(IrradianceFactor, Temperature)] = (IList, VList, im, vm, im*vm)
+        self._cache[(Irradiance, Temperature, PointsCount)] = (IList, VList, im, vm, im*vm)
         return (IList, VList, im, vm, im*vm)
     
-    def getVoltage(self, Current : float, IrradianceFactor : float = 1, Temperature : float = 25) -> float:
-        ivp = self.getIVpoints(IrradianceFactor, Temperature)
+    def getVoltage(self, Current : float, IrradianceFactor : float = 1, Temperature : float = 25, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> float:
+        ivp = self.getIVpoints(IrradianceFactor, Temperature, 100, SunAzimuthDegrees, SunAltitudeDegrees)
         return Stats.predict(Current, ivp[0], ivp[1])
     
-    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1) -> tuple:
-        ivp = self.getIVpoints(IrradianceFactor, Temperature)
+    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
+        ivp = self.getIVpoints(IrradianceFactor, Temperature, 100, SunAzimuthDegrees, SunAltitudeDegrees)
         ilist,vlist = [],[]
         i = IStart
         while i < IStop:
@@ -128,6 +160,72 @@ class SolarPanel:
             vlist.append(Stats.predict(i, ivp[0], ivp[1]))
             i += IStep
         return (ilist,vlist,ivp[2],ivp[3],ivp[2]*ivp[3])
+    
+    
+class SolarPanelSeries:
+    pass
+class SolarPanelSeries:
+    
+    __slots__ = ("_panels")
+    
+    def copy(self) -> SolarPanelSeries:
+        return SolarPanelSeries(self._panels)
+    
+    def __init__(self, Panels : list) -> None:
+        self._panels = Panels.copy()
+    
+    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
+        if len(self._panels) < 1:
+            return None
+        for i in range(len(self._panels)):
+            iv = self._panels[i].getIVCharacteristics(IrradianceFactor, Temperature, IStart, IStop, IStep, SunAzimuthDegrees, SunAltitudeDegrees)
+            if i == 0:
+                IList, VList = Stats.interAndExtrapolate(iv[0], iv[1], IStart, IStop, IStep)
+                Imax = [iv[2]]
+                Vmax = [iv[3]]
+            else:
+                il, vl = Stats.interAndExtrapolate(iv[0], iv[1], IStart, IStop, IStep)
+                for j in range(len(IList)):
+                    VList[j] += vl[j]
+                Imax.append(iv[2])
+                Vmax.append(iv[3])
+        Iavg = sum(Imax) / len(Imax)
+        Vavg = sum(Vmax) / len(Vmax)
+        return (IList, VList, Iavg, Vavg, Iavg*Vavg)
+    
+        
+class SolarPanelParallel:
+    pass
+class SolarPanelParallel:
+    
+    __slots__ = ("_panels")
+    
+    def copy(self) -> SolarPanelParallel:
+        return SolarPanelParallel(self._panels)
+    
+    def __init__(self, Panels : list) -> None:
+        self._panels = Panels.copy()
+    
+    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
+        if len(self._panels) < 1:
+            return None
+        for i in range(len(self._panels)):
+            iv = self._panels[i].getIVCharacteristics(IrradianceFactor, Temperature, IStart, IStop, IStep, SunAzimuthDegrees, SunAltitudeDegrees)
+            if i == 0:
+                VList, IList = Stats.revertFunction(iv[0], iv[1], 0, 1000, 0.5)
+                Imax = [iv[2]]
+                Vmax = [iv[3]]
+            else:
+                vl, il = Stats.revertFunction(iv[0], iv[1], 0, 1000, 0.5)
+                for j in range(len(IList)):
+                    IList[j] += il[j]
+                Imax.append(iv[2])
+                Vmax.append(iv[3])
+        Iavg = sum(Imax) / len(Imax)
+        Vavg = sum(Vmax) / len(Vmax)
+        IRes, VRes = Stats.revertFunction(VList, IList, IStart, IStop, IStep)
+        return (IRes, VRes, Iavg, Vavg, Iavg*Vavg)
+
         
         
 class SolarMPPTModule:
@@ -145,20 +243,18 @@ class SolarMPPTModule:
         self._eff = float(Efficiency)
         self._panels = []
         for sp in SolarPanelsList:
-            if type(sp) is SolarPanel:
+            if type(sp) in [SolarPanel, SolarPanelParallel, SolarPanelSeries]:
                 self._panels.append(sp)
         
     def getSolarPanels(self) -> list:
         return self._panels
     
-    def getIVCharacteristics(self, IrradianceFactors : list = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1) -> tuple:
+    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
         if len(self._panels) < 1:
             return None
-        if type(IrradianceFactors) is not list:
-            IrradianceFactors = [IrradianceFactors for _ in range(len(self._panels))]
         for spi in range(len(self._panels)):
             sp = self._panels[spi]
-            spiv = sp.getIVCharacteristics(IrradianceFactors[spi], Temperature, IStart, IStop, IStep)
+            spiv = sp.getIVCharacteristics(IrradianceFactor, Temperature, IStart, IStop, IStep, SunAzimuthDegrees, SunAltitudeDegrees)
             if spi == 0:
                 IList = spiv[0]
                 VList = spiv[1]
@@ -185,7 +281,7 @@ class SolarMPPTModule:
 
 class SolarMPPTSimulator:
     
-    __slots__ = ("_mppt", "_pmax", "_imax", "_vminmppt", "_vmaxmppt", "_eff", "_panels", "_shadows", "_panelpos", "_lat", "_long")
+    __slots__ = ("_mppt", "_pmax", "_imax", "_vminmppt", "_vmaxmppt", "_eff", "_panels", "_lat", "_long")
     
     def __init__(self, LocationLat : float, LocationLong : float,  MpptVMinMppt : float, MpptVMaxMppt : float, MpptPMax : float, MpptIMax : float, MpptEfficiency : float = 0.85) -> None:
         self._pmax = MpptPMax
@@ -196,33 +292,11 @@ class SolarMPPTSimulator:
         self._lat = LocationLat
         self._long = LocationLong
         self._panels = []
-        self._shadows = []
-        self._panelpos = []
         self._mppt = None
         
-    def addPanel(self, PanelPV : SolarPanel, TiltDegrees : float = 5, AzimuthDegrees : float = 0,
-                MorningShadow : float = 0, MorningShadowAzimuthLimitDegrees : float = 0, MorningNonShadowAltitudeLimitDegrees : float = 90,
-                EveningShadow : float = 0, EveningShadowAzimuthLimitDegrees : float = 0, EveningNonShadowAltitudeLimitDegrees : float = 90,
-                DaytimeShadow : float = 0, DaytimeShadowMorningAzimuthLimitDegrees : float = -10, DaytimeShadowEveningAzimuthLimitDegrees = 10, DaytimeNonShadowAltitudeLimitDegrees : float = 90):
+    def addPanel(self, PanelPV : SolarPanel):
         self._panels.append(PanelPV)
-        self._shadows.append([
-            [MorningShadow, MorningShadowAzimuthLimitDegrees, MorningNonShadowAltitudeLimitDegrees],
-            [EveningShadow, EveningShadowAzimuthLimitDegrees, EveningNonShadowAltitudeLimitDegrees],
-            [DaytimeShadow, DaytimeShadowMorningAzimuthLimitDegrees, DaytimeShadowEveningAzimuthLimitDegrees, DaytimeNonShadowAltitudeLimitDegrees]
-        ])
-        self._panelpos.append([TiltDegrees, AzimuthDegrees])
         self._mppt = None
-        
-    def _getShadowedFactor(self, Index : int, SunAzimuthDegrees : float, SunAltitudeDegrees : float) -> float:
-        Shadows = self._shadows[Index]
-        Result = 1.0
-        if Shadows[0][0] > 0:
-            Result *= SolarSun.getPVEfficiencyFactorMorningShadow(Shadows[0][1], SunAzimuthDegrees, SunAltitudeDegrees, Shadows[0][0], Shadows[0][2])
-        if Shadows[1][0] > 0:
-            Result *= SolarSun.getPVEfficiencyFactorEveningShadow(Shadows[1][1], SunAzimuthDegrees, SunAltitudeDegrees, Shadows[1][0], Shadows[1][2])
-        if Shadows[2][0] > 0:
-            Result *= SolarSun.getPVEfficiencyFactorDaytimeShadow(Shadows[2][1], Shadows[2][2], SunAzimuthDegrees, SunAltitudeDegrees, Shadows[2][0], Shadows[2][3])
-        return Result
     
     def _getEfficiencyFsctor(self, Index : int, SunAzimuthDegrees : float, SunAltitudeDegrees : float) -> float:
         SunEff = SolarSun.getPVEfficiencyFactor(self._panelpos[Index][0], self._panelpos[Index][1], SunAzimuthDegrees, SunAltitudeDegrees)
@@ -231,12 +305,9 @@ class SolarMPPTSimulator:
     
     def getMpptPower(self, Month : int, Day : int, Hour : float, Temperature : float = 25, GlobalFactor : float = 0.9) -> float:
         SunAzimuth, SunAltitude = SolarSun.getAzimuthAndAltitudeDegrees(2020, Month, Day, Hour, self._lat, self._long)
-        Factors = []
-        for i in range(len(self._panels)):
-            Factors.append(self._getEfficiencyFsctor(i, SunAzimuth, SunAltitude) * GlobalFactor)
         if self._mppt is None:
             self._mppt = SolarMPPTModule(self._vminmppt, self._vmaxmppt, self._pmax, self._imax, self._panels, self._eff)
-        IV = self._mppt.getIVCharacteristics(Factors, Temperature, 0, self._imax, IStep = 0.1)
+        IV = self._mppt.getIVCharacteristics(GlobalFactor, Temperature, 0, self._imax, IStep = 0.1, SunAzimuthDegrees=SunAzimuth, SunAltitudeDegrees=SunAltitude)
         return IV[-1]
     
     def getDaytimePower(self, Month : int, Day : int, Temperature : float = 25, HStep = 1, GlobalFactor : float = 0.9) -> tuple:

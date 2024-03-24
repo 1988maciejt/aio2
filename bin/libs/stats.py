@@ -444,9 +444,12 @@ class Stats:
     return Chi2
   
   def predictLinear(x : float, x1 : float, y1 : float, x2 : float, y2 : float) -> float:
+    if x1 == x2:
+      x2 += (y2 - y1)
     a = (y1 - y2) / (x1 - x2)
     b = y1 - a * x1
-    return x * a + b
+    y = x * a + b
+    return y
   
   def predict(x : float, xPoints : list, yPoints : list) -> float:
     Points = [(xp, yp) for xp, yp in zip(xPoints, yPoints)]
@@ -458,7 +461,7 @@ class Stats:
     if len(Points) == 2:
       return Stats.predictLinear(x, Points[0][0], Points[0][1], Points[1][0], Points[1][1])
     if len(Points) == 3:
-      return Stats.predictQuadratic(x, Points[0][0], Points[0][1], Points[1][0], Points[1][1], Points[2][0], Points[2][1])
+      return Stats.predictLinear(x, Points[0][0], Points[0][1], Points[1][0], Points[1][1], Points[2][0], Points[2][1])
     if x <= Points[1][0]:
       return Stats.predictLinear(x, Points[0][0], Points[0][1], Points[1][0], Points[1][1])
     if x >= Points[-1][0]:
@@ -467,3 +470,21 @@ class Stats:
       if Points[i][0] <= x <= Points[i+1][0]:
         return Stats.predictLinear(x, Points[i][0], Points[i][1], Points[i+1][0], Points[i+1][1])
     return None
+  
+  def revertFunction(InXValues : list, InYValues : list, OutXStart : float, OutXStop : float, OutXStep : float) -> tuple:
+    OutXValues, OutYValues = [], []
+    X = OutXStart
+    while X <= OutXStop:
+      OutXValues.append(X)
+      OutYValues.append(Stats.predict(X, InYValues, InXValues))
+      X += OutXStep
+    return (OutXValues, OutYValues)
+  
+  def interAndExtrapolate(XValues : list, YValues : list, XStart : float, XStop : float, XStep : float) -> tuple:
+    OutXValues, OutYValues = [], []
+    X = XStart
+    while X <= XStop:
+      OutXValues.append(X)
+      OutYValues.append(Stats.predict(X, XValues, YValues))
+      X += XStep
+    return (OutXValues, OutYValues)
