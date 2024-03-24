@@ -161,30 +161,49 @@ class Generators:
       while _PAUSE:
         sleep(0.35)
         
-        
-    
-    def divideIntoSubArraysToIterateThroughAllTuples(Word : bitarray, TupleSize : int, MaxTuplesCountPerSubArray : int = 1000000) -> list:
-      global _PAUSE
-      W = Word.copy()
-      W += W[:(TupleSize-1)]
-      BlockSize = MaxTuplesCountPerSubArray + TupleSize - 1
-      Start = 0
-      Stop = BlockSize
-      All = 0
-      while Stop <= len(W):
+  def dayAndMonthOfYear(self, Year : int, ReturnAlsoDayOfYear = False):
+    global _PAUSE
+    from datetime import datetime
+    DOY = 1
+    for Month in range(1, 13):
+      for Day in range(1, 32):
         if not self._enabled:
           return
-        yield W[Start:Stop]
-        if (Stop == len(W)):
-            All = 1
-        Start += MaxTuplesCountPerSubArray
-        Stop += MaxTuplesCountPerSubArray
+        if Day > 28:
+          try:
+            datetime(Year, Month, Day)
+          except:
+            break
+        if ReturnAlsoDayOfYear:
+          yield (Month, Day, DOY)
+          DOY += 1
+        else:
+          yield (Month, Day)
         while _PAUSE:
           sleep(0.35)
-      if not All:
-        if not self._enabled:
-          return
-        yield W[Start:]
-      W.clear()
+    
+  def divideIntoSubArraysToIterateThroughAllTuples(self, Word : bitarray, TupleSize : int, MaxTuplesCountPerSubArray : int = 1000000) -> list:
+    global _PAUSE
+    W = Word.copy()
+    W += W[:(TupleSize-1)]
+    BlockSize = MaxTuplesCountPerSubArray + TupleSize - 1
+    Start = 0
+    Stop = BlockSize
+    All = 0
+    while Stop <= len(W):
+      if not self._enabled:
+        return
+      yield W[Start:Stop]
+      if (Stop == len(W)):
+          All = 1
+      Start += MaxTuplesCountPerSubArray
+      Stop += MaxTuplesCountPerSubArray
+      while _PAUSE:
+        sleep(0.35)
+    if not All:
+      if not self._enabled:
+        return
+      yield W[Start:]
+    W.clear()
     
     

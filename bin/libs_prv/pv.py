@@ -5,6 +5,7 @@ from tqdm import *
 from p_tqdm import *
 from pvlib import pvsystem
 import suncalc
+from libs.generators import *
 
 # azymut liczony od południa zgodnie z ruchem wskazowek zegara
 
@@ -99,6 +100,9 @@ class SolarPanel:
         self._vscale = VMax / ivp[3]
         self._iscale = IMax / ivp[2]
         
+    def getVOC(self):
+        return self.parameters['V_oc_ref']
+        
     def _getShadowedFactor(self, SunAzimuthDegrees : float, SunAltitudeDegrees : float) -> float:
         Result = 1.0
         if self.parameters["morning_shadow"] > 0:
@@ -166,13 +170,19 @@ class SolarPanelSeries:
     pass
 class SolarPanelSeries:
     
-    __slots__ = ("_panels")
+    __slots__ = ("_panels", "_voc")
     
     def copy(self) -> SolarPanelSeries:
         return SolarPanelSeries(self._panels)
     
     def __init__(self, Panels : list) -> None:
         self._panels = Panels.copy()
+        self._voc = 0
+        for Panel in Panels:
+            self._voc += Panel.getVOC()
+        
+    def getVOC(self):
+        return self._voc
     
     def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
         if len(self._panels) < 1:
@@ -198,25 +208,35 @@ class SolarPanelParallel:
     pass
 class SolarPanelParallel:
     
-    __slots__ = ("_panels")
+    __slots__ = ("_panels", "_voc")
     
     def copy(self) -> SolarPanelParallel:
         return SolarPanelParallel(self._panels)
     
     def __init__(self, Panels : list) -> None:
         self._panels = Panels.copy()
+        self._voc = 0
+        for Panel in Panels:
+            pvoc = Panel.getVOC()
+            if pvoc > self._voc:
+                self._voc = pvoc
+        
+    def getVOC(self):
+        return self._voc
     
     def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
         if len(self._panels) < 1:
             return None
+        VStop = self._voc
+        VStep = VStop / 50
         for i in range(len(self._panels)):
             iv = self._panels[i].getIVCharacteristics(IrradianceFactor, Temperature, IStart, IStop, IStep, SunAzimuthDegrees, SunAltitudeDegrees)
             if i == 0:
-                VList, IList = Stats.revertFunction(iv[0], iv[1], 0, 1000, 0.5)
+                VList, IList = Stats.revertFunction(iv[0], iv[1], 0, VStop, VStep)
                 Imax = [iv[2]]
                 Vmax = [iv[3]]
             else:
-                vl, il = Stats.revertFunction(iv[0], iv[1], 0, 1000, 0.5)
+                vl, il = Stats.revertFunction(iv[0], iv[1], 0, VStop, VStep)
                 for j in range(len(IList)):
                     IList[j] += il[j]
                 Imax.append(iv[2])
@@ -305,6 +325,8 @@ class SolarMPPTSimulator:
     
     def getMpptPower(self, Month : int, Day : int, Hour : float, Temperature : float = 25, GlobalFactor : float = 0.9) -> float:
         SunAzimuth, SunAltitude = SolarSun.getAzimuthAndAltitudeDegrees(2020, Month, Day, Hour, self._lat, self._long)
+        if SunAltitude < 0:
+            return 0.0
         if self._mppt is None:
             self._mppt = SolarMPPTModule(self._vminmppt, self._vmaxmppt, self._pmax, self._imax, self._panels, self._eff)
         IV = self._mppt.getIVCharacteristics(GlobalFactor, Temperature, 0, self._imax, IStep = 0.1, SunAzimuthDegrees=SunAzimuth, SunAltitudeDegrees=SunAltitude)
@@ -345,6 +367,11 @@ class SolarMPPTSimulator:
             Temperature = Temps[Month-1]
             _, _, MkWh = self.getMonthEnergy(Month, Temperature, GlobalFactor)
             return [Month, MkWh]
+        #def calc(MDD) -> float:
+        #    Temperature = Temps[MDD[0]]
+        #    _, _, DkWh = self.getDaytimePower(MDD[0], MDD[1], Temperature, 1, GlobalFactor)
+        #    return [MDD[2], DkWh]
+        #for Result in p_imap(calc, Generators().dayAndMonthOfYear(2020, True), total=365):
         for Result in p_imap(calc, range(1, 13)):
             Energies.append(Result[1])
             kWh += Result[1]
