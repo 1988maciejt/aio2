@@ -733,6 +733,10 @@ class ProgrammableNeptunLfsr:
     def getValue(self) -> bitarray:
         return self._Value.copy()
     
+    def singleBitInject(self, Bit : int):
+        if Bit:
+            self._Value[-1] ^= 1
+    
     def getSelector(self) -> bitarray:
         return self._Selector.copy()
     
@@ -1057,17 +1061,17 @@ class KeystreamGenerator:
         if MoveSelector:
             self.LeftLfsr.next()
             if KeyPhase and KeyBit:
-                self.LeftLfsr._baValue[-1] ^= 1
+                self.LeftLfsr.singleBitInject(1)
         if MoveUpper:
             self.UpperNlfsr.next()
             if KeyPhase:
                 if KeyBit ^ ActualLeftREG[0]:
-                    self.UpperNlfsr._baValue[-1] ^= 1
+                    self.UpperNlfsr.singleBitInject(1)
         if MoveLower:
             self.LowerNlfsr.next()
             if KeyPhase:
                 if KeyBit ^ ActualLeftREG[len(ActualLeftREG) // 2]:
-                    self.LowerNlfsr._baValue[-1] ^= 1
+                    self.LowerNlfsr.singleBitInject(1)
         LeftPS = self.LeftPhaseShifter.update()
         UpperPS = self.UpperExpander.update()
         LowerPS = self.UpperExpander.update()
@@ -1166,12 +1170,23 @@ class KeystreamGenerator:
         if type(self.LeftLfsr) in [Lfsr, Nlfsr]:
             Result += f"""{self.LeftLfsr.toVerilog("selector_register", InjectorIndexesList=[0])}
 """
+        elif type(self.LeftLfsr) in [NlfsrCascade]:
+            Result += f"""{self.LeftLfsr.toVerilog("selector_register", InjectorIndexesList=-1)}
+"""
         else:
             Result += f"""{self.LeftLfsr.toVerilog("selector_register")}
 """
+        if type(self.UpperNlfsr) is NlfsrCascade:
+            UpperInjectorIndices = -1
+        else:
+            UpperInjectorIndices = [len(self.UpperNlfsr)-1]
+        if type(self.LowerNlfsr) is NlfsrCascade:
+            LowerInjectorIndices = -1
+        else:
+            LowerInjectorIndices = [len(self.LowerNlfsr)-1]
         Result += f"""
-{self.UpperNlfsr.toVerilog("upper_nlfsr", [0])}
-{self.LowerNlfsr.toVerilog("lower_nlfsr", [0])}
+{self.UpperNlfsr.toVerilog("upper_nlfsr", UpperInjectorIndices)}
+{self.LowerNlfsr.toVerilog("lower_nlfsr", LowerInjectorIndices)}
 {self.LeftPhaseShifter.toVerilog("selector_register_ps")}
 {self.UpperExpander.toVerilog("upper_ps")}
 {self.LowerExpander.toVerilog("lower_ps")}
@@ -1216,7 +1231,7 @@ end
 
 """
 
-        if type(self.LeftLfsr) in [Lfsr, Nlfsr]:
+        if type(self.LeftLfsr) in [Lfsr, Nlfsr, NlfsrCascade]:
             Result += f"""
 selector_register selector_register_inst (
   .clk (clk),

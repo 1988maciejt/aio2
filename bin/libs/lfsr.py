@@ -1948,6 +1948,10 @@ class Lfsr:
     else:
       Aio.printError("Not implemented")
     return DestDict
+  
+  def singleBitInject(self, Bit : int):
+    if Bit:
+      n._baValue[-1] ^= 1
     
   def simulateSymbolically(self, SequenceOfSymbols = 1, InjectionAtBit = 0, StartFrom = None, ReturnAllResults = 0) -> list:
     AllResults = []

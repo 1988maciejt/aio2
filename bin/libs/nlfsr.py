@@ -3944,6 +3944,13 @@ class NlfsrCascade:
       self._next1 = self._next1_v1
     else:
       Aio.printError(f"Incorrect version of NlfsrCascade.")
+      
+  def singleBitInject(self, Bit : int):
+    if Bit:
+      for i in range(len(self._nlfsrs)):
+        n = self._nlfsrs[i]
+        bi = (len(n) - i -1) % len(n)
+        n._baValue[bi] ^= 1
           
   def isTheoreticallyMaximum(self) -> bool:
     if self._version == 1:
@@ -4142,6 +4149,16 @@ class NlfsrCascade:
       self.next(step)
   
   def toVerilog(self, ModuleName : str, InjectorIndexesList = []) -> str:
+    CommonInjector = False
+    if type(InjectorIndexesList) and InjectorIndexesList == -1:
+      CommonInjector = True
+      InjectorIndexesList = []
+      Offset = 0
+      for i in range(len(self._nlfsrs)):
+        n = self._nlfsrs[i]
+        bi = (len(n) - i - 1) % len(n)
+        InjectorIndexesList.append(Offset + bi)
+        Offset += len(n)
     Result = ""
     SubNames = []
     for i in range(len(self._nlfsrs)):
@@ -4156,12 +4173,16 @@ module {ModuleName} (
   input wire reset,"""
     if len(InjectorIndexesList) > 0:
       Inj = True
-      Result += f"""
+      if CommonInjector:
+        Result += f"""
+  input wire injectors,"""
+      else:
+        Result += f"""
   input wire [{len(InjectorIndexesList)-1}:0] injectors,"""
     else:
       Inj = False
     Result += f"""
-  output reg [{len(self)-1}:0] O
+  output wire [{len(self)-1}:0] O
 );
 """
     for i in range(len(self._nlfsrs)):
@@ -4187,7 +4208,11 @@ module {ModuleName} (
     for i in range(len(self._nlfsrs)):
       for j in range(len(self._nlfsrs[i])):
         if IIndex in InjectorIndexesList:
-          Result += f"""
+          if CommonInjector:
+            Result += f"""
+  assign {SubNames[i]}_injectors[{j}] = injectors;"""
+          else:
+            Result += f"""
   assign {SubNames[i]}_injectors[{j}] = injectors[{InjectorIndexesList.index(IIndex)}];"""
         else:
           Result += f"""
