@@ -72,7 +72,8 @@ class SolarPanel:
     def __init__(self, VMax : float, IMax : float, VOpen : float, IShort : float, TiltDegrees : float = 5, AzimuthDegrees : float = 0,
                 MorningShadow : float = 0, MorningShadowAzimuthLimitDegrees : float = 0, MorningNonShadowAltitudeLimitDegrees : float = 90,
                 EveningShadow : float = 0, EveningShadowAzimuthLimitDegrees : float = 0, EveningNonShadowAltitudeLimitDegrees : float = 90,
-                DaytimeShadow : float = 0, DaytimeShadowMorningAzimuthLimitDegrees : float = -10, DaytimeShadowEveningAzimuthLimitDegrees = 10, DaytimeNonShadowAltitudeLimitDegrees : float = 90) -> None:
+                DaytimeShadow : float = 0, DaytimeShadowMorningAzimuthLimitDegrees : float = -10, DaytimeShadowEveningAzimuthLimitDegrees = 10, DaytimeNonShadowAltitudeLimitDegrees : float = 90,
+                BypasDiodesIncluded = True) -> None:
         self.parameters = {
             'I_sc_ref': IShort,
             'V_oc_ref': VOpen,
@@ -94,6 +95,7 @@ class SolarPanel:
             "daytime_morning_shadow_azimuth": DaytimeShadowMorningAzimuthLimitDegrees,
             "daytime_evening_shadow_azimuth": DaytimeShadowEveningAzimuthLimitDegrees,
             "daytime_nonshadow_altitude": DaytimeNonShadowAltitudeLimitDegrees,
+            "bypass_diodes": BypasDiodesIncluded,
         }
         self._vscale = 1
         self._iscale = 1
@@ -161,15 +163,22 @@ class SolarPanel:
     
     def getVoltage(self, Current : float, IrradianceFactor : float = 1, Temperature : float = 25, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> float:
         ivp = self.getIVpoints(IrradianceFactor, Temperature, 100, SunAzimuthDegrees, SunAltitudeDegrees)
-        return Stats.predict(Current, ivp[0], ivp[1])
+        v = Stats.predict(Current, ivp[0], ivp[1])
+        if self.parameters["bypass_diodes"]:
+            if v < -0.7:
+                v = -0.7
     
-    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
+    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90, VMin = 0) -> tuple:
         ivp = self.getIVpoints(IrradianceFactor, Temperature, 100, SunAzimuthDegrees, SunAltitudeDegrees)
         ilist,vlist = [],[]
         i = IStart
         while i < IStop:
             ilist.append(i)
-            vlist.append(Stats.predict(i, ivp[0], ivp[1]))
+            v = Stats.predict(i, ivp[0], ivp[1])
+            if self.parameters["bypass_diodes"]:
+                if v < -0.7:
+                    v = -0.7
+            vlist.append(v)
             i += IStep
         return (ilist,vlist,ivp[2],ivp[3],ivp[2]*ivp[3])
     
@@ -192,24 +201,34 @@ class SolarPanelSeries:
     def getVOC(self):
         return self._voc
     
-    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
+    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90, VMin = 0) -> tuple:
         if len(self._panels) < 1:
             return None
+        Imax, Vmax, Pmax = 0,0,0
         for i in range(len(self._panels)):
-            iv = self._panels[i].getIVCharacteristics(IrradianceFactor, Temperature, IStart, IStop, IStep, SunAzimuthDegrees, SunAltitudeDegrees)
+            iv = self._panels[i].getIVCharacteristics(IrradianceFactor, Temperature, IStart, IStop, IStep, SunAzimuthDegrees, SunAltitudeDegrees, VMin)
             if i == 0:
                 IList, VList = Stats.interAndExtrapolate(iv[0], iv[1], IStart, IStop, IStep)
-                Imax = [iv[2]]
-                Vmax = [iv[3]]
             else:
                 il, vl = Stats.interAndExtrapolate(iv[0], iv[1], IStart, IStop, IStep)
                 for j in range(len(IList)):
                     VList[j] += vl[j]
-                Imax.append(iv[2])
-                Vmax.append(iv[3])
-        Iavg = sum(Imax) / len(Imax)
-        Vavg = sum(Vmax) / len(Vmax)
-        return (IList, VList, Iavg, Vavg, Iavg*Vavg)
+        for ind in range(len(IList)):
+            I = IList[ind]
+            if I <= 0:
+                continue
+            V = VList[ind]
+            if 0 < V < VMin:
+                break
+            P = I * V
+            if Pmax < P:
+                Pmax = P
+                Imax = I
+                Vmax = V
+            else:
+                if Pmax > 0:
+                    break
+        return (IList, VList, Imax, Vmax, Pmax)
     
         
 class SolarPanelParallel:
@@ -232,27 +251,40 @@ class SolarPanelParallel:
     def getVOC(self):
         return self._voc
     
-    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
+    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90, VMin = 0) -> tuple:
         if len(self._panels) < 1:
             return None
         VStop = self._voc
         VStep = VStop / 50
+        Imax, Vmax, Pmax = 0,0,0
         for i in range(len(self._panels)):
-            iv = self._panels[i].getIVCharacteristics(IrradianceFactor, Temperature, IStart, IStop, IStep, SunAzimuthDegrees, SunAltitudeDegrees)
+            iv = self._panels[i].getIVCharacteristics(IrradianceFactor, Temperature, IStart, IStop, IStep, SunAzimuthDegrees, SunAltitudeDegrees, VMin)
             if i == 0:
                 VList, IList = Stats.revertFunction(iv[0], iv[1], 0, VStop, VStep)
-                Imax = [iv[2]]
-                Vmax = [iv[3]]
             else:
                 vl, il = Stats.revertFunction(iv[0], iv[1], 0, VStop, VStep)
                 for j in range(len(IList)):
                     IList[j] += il[j]
-                Imax.append(iv[2])
-                Vmax.append(iv[3])
-        Iavg = sum(Imax) / len(Imax)
-        Vavg = sum(Vmax) / len(Vmax)
+        #Plot([IList, VList]).print()
+        for ind in range(len(IList)):
+            I = IList[len(IList)-ind-1]
+            if I <= 0:
+                continue
+            V = VList[len(VList)-ind-1]
+            if 0 < V < VMin:
+                break
+            P = I * V
+            if Pmax < P:
+                Pmax = P
+                Imax = I
+                Vmax = V
+            else:
+                if Pmax > 0:
+                    break
+        #print(Imax, Vmax, Pmax)
         IRes, VRes = Stats.revertFunction(VList, IList, IStart, IStop, IStep)
-        return (IRes, VRes, Iavg, Vavg, Iavg*Vavg)
+        #print ((IRes, VRes, Imax, Vmax, Pmax))
+        return (IRes, VRes, Imax, Vmax, Pmax)
 
         
         
@@ -277,10 +309,11 @@ class SolarMPPTModule:
     def getSolarPanels(self) -> list:
         return self._panels
     
-    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
+    def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90, VMin = 0) -> tuple:
         if len(self._panels) < 1:
             return None
-        return SolarPanelSeries(self._panels).getIVCharacteristics(IrradianceFactor, Temperature, IStart, IStop, IStep, SunAzimuthDegrees, SunAltitudeDegrees)    
+        return SolarPanelSeries(self._panels).getIVCharacteristics(IrradianceFactor, Temperature, IStart, IStop, IStep, SunAzimuthDegrees, SunAltitudeDegrees, VMin)    
+
 
 class SolarMPPTSimulator:
     
@@ -312,13 +345,18 @@ class SolarMPPTSimulator:
             return 0.0
         if self._mppt is None:
             self._mppt = SolarMPPTModule(self._vminmppt, self._vmaxmppt, self._pmax, self._imax, self._panels, self._eff)
-        IV = self._mppt.getIVCharacteristics(GlobalFactor, Temperature, 0, self._imax, IStep = 0.1, SunAzimuthDegrees=SunAzimuth, SunAltitudeDegrees=SunAltitude)
+        IV = self._mppt.getIVCharacteristics(GlobalFactor, Temperature, 0, self._imax, IStep = 0.1, SunAzimuthDegrees=SunAzimuth, SunAltitudeDegrees=SunAltitude, VMin=self._vminmppt)
+        if (IV[-2]) < self._vminmppt:
+            return 0
+        if (IV[-1]) > self._pmax:
+            return self._pmax
         return IV[-1]
     
     def getDaytimePower(self, Month : int, Day : int, Temperature : float = 25, HStep = 1, GlobalFactor : float = 0.9) -> tuple:
         Hours, Powers, Wh = [], [], 0
         H = (HStep/2)
         while H < 24:
+            #print(H)
             P = self.getMpptPower(Month, Day, H, Temperature, GlobalFactor)
             Hours.append(H)
             Powers.append(P)
