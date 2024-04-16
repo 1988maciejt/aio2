@@ -366,3 +366,29 @@ class SolarMPPTSimulator:
         #    Months.append(Month)
         AioShell.removeLastLine()
         return (Months, Energies, kWh)
+    
+    def findOptimalPanelPosition(self) -> tuple:
+        Azimuths = []
+        Altitudes = []
+        AltitudesEff = []
+        from math import sin, radians
+        for Moy, Dom, Doy in Generators().dayAndMonthOfYear(2020, True):
+            AlMax = 0
+            AzList = []
+            for H in range(0, 24):
+                Az, Al = SolarSun.getAzimuthAndAltitudeDegrees(2020, Moy, Dom, H+0.5, self._lat, self._long)
+                if Al > 0:
+                    AzList.append(Az)
+                    if Al > AlMax:
+                        AlMax = Al
+                        SunFactor = (sin((radians(Al))) * 0.5) + 0.5
+            AltitudesEff.append(SunFactor)
+            Azimuths.append(AzList[len(AzList)//2])
+            Altitudes.append(AlMax)
+            BestAltitude = 0
+            for i in range(len(Altitudes)):
+                BestAltitude += Altitudes[i] * AltitudesEff[i]
+            BestAltitude /= sum(AltitudesEff)
+            BestTilt = 90 - BestAltitude
+            BestAzimuth = sum(Azimuths) / len(Azimuths)
+        return (BestAzimuth, BestTilt)
