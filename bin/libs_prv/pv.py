@@ -28,6 +28,10 @@ class SolarSun:
         TiltEfficiency = cos(radians(90-SunAltitude-PanelTiltDegrees))
         AzimuthEfficiency = cos(radians(SunAzimuth-PanelAzimuthDegrees))
         if TiltEfficiency < 0:
+            TiltEfficiency = 0
+        if AzimuthEfficiency < 0: 
+            AzimuthEfficiency = 0
+        if TiltEfficiency < 0:
             TiltEfficiency = 0.001
         if AzimuthEfficiency < 0:
             AzimuthEfficiency = 0.001
@@ -80,8 +84,6 @@ class SolarPanel:
             'I_o_ref': 8.196e-10,
             'R_s': 1.065,
             'R_sh_ref': 381.68,
-            "tilt": TiltDegrees,
-            "azimuth": AzimuthDegrees,
             "morning_shadow": MorningShadow,
             "morning_shadow_azimuth": MorningShadowAzimuthLimitDegrees,
             "morning_nonshadow_altitude": MorningNonShadowAltitudeLimitDegrees,
@@ -93,12 +95,18 @@ class SolarPanel:
             "daytime_evening_shadow_azimuth": DaytimeShadowEveningAzimuthLimitDegrees,
             "daytime_nonshadow_altitude": DaytimeNonShadowAltitudeLimitDegrees,
         }
-        self._cache = {}
         self._vscale = 1
         self._iscale = 1
+        self._cache = {}
+        self.parameters["tilt"] = 0
+        self.parameters["azimuth"] = 0
         ivp = self.getIVpoints(1, 25, 50)
+        self.parameters["tilt"] = TiltDegrees
+        self.parameters["azimuth"] = AzimuthDegrees
+        self._cache = {}
         self._vscale = VMax / ivp[3]
         self._iscale = IMax / ivp[2]
+        ivp = self.getIVpoints(1, 25, 50)
         
     def getVOC(self):
         return self.parameters['V_oc_ref']
@@ -272,32 +280,7 @@ class SolarMPPTModule:
     def getIVCharacteristics(self, IrradianceFactor : float = 1, Temperature : float = 25, IStart : float = 0, IStop : float = 10, IStep : float = 0.1, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
         if len(self._panels) < 1:
             return None
-        for spi in range(len(self._panels)):
-            sp = self._panels[spi]
-            spiv = sp.getIVCharacteristics(IrradianceFactor, Temperature, IStart, IStop, IStep, SunAzimuthDegrees, SunAltitudeDegrees)
-            if spi == 0:
-                IList = spiv[0]
-                VList = spiv[1]
-            else:
-                for j in range(len(VList)):
-                    VList[j] += spiv[1][j]
-        I,V,P = 0,0,0
-        for i in range(len(IList)):
-            if VList[i] > self._vmaxmppt:
-                continue
-            if VList[i] < self._vminmppt:
-                break
-            if IList[i] > self._imax:
-                break
-            p = IList[i] * VList[i]
-            if p > self._pmax:
-                break
-            if p > P:
-                P = p
-                I = IList[i]
-                V = VList[i]
-        return (IList, VList, I, V, P, P*self._eff)
-    
+        return SolarPanelSeries(self._panels).getIVCharacteristics(IrradianceFactor, Temperature, IStart, IStop, IStep, SunAzimuthDegrees, SunAltitudeDegrees)    
 
 class SolarMPPTSimulator:
     
