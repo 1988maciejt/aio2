@@ -488,3 +488,4 @@ class Stats:
       OutYValues.append(Stats.predict(X, XValues, YValues))
       X += XStep
     return (OutXValues, OutYValues)
+  

@@ -123,7 +123,7 @@ class SolarPanel:
             Result *= SolarSun.getPVEfficiencyFactorDaytimeShadow(self.parameters["daytime_morning_shadow_azimuth"], self.parameters["daytime_evening_shadow_azimuth"], SunAzimuthDegrees, SunAltitudeDegrees, self.parameters["daytime_shadow"], self.parameters["daytime_nonshadow_altitude"])
         return Result
         
-    def getIVpoints(self, IrradianceFactor : float = 1, Temperature : float = 25, PointsCount = 100, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
+    def getIVpoints(self, IrradianceFactor : float = 1, Temperature : float = 25, PointsCount = 20, SunAzimuthDegrees : float = 0, SunAltitudeDegrees : float = 90) -> tuple:
         IrradianceFactor *= self._getShadowedFactor(SunAzimuthDegrees, SunAltitudeDegrees)
         IrradianceFactor *= SolarSun.getPVEfficiencyFactor(self.parameters["tilt"], self.parameters["azimuth"], SunAzimuthDegrees, SunAltitudeDegrees)
         Irradiance = int(IrradianceFactor * 1000)
