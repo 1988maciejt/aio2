@@ -348,6 +348,12 @@ class Bitarray:
     def getTuplesReport(Word : bitarray, FromTupleSize : int = 2, ToTupleSize : int = 8, Significance=0.05):
         return TuplesReport(Word, FromTupleSize, ToTupleSize, Significance)
     
+    def areLeftBitsEqual(A : bitarray, B : bitarray) -> bool:
+        if len(A) != len(B):
+            if len(A) < len(B):
+                return A == B[:len(A)]
+            return A[:len(B)] == B
+        return A == B
     
     
 class BitarrayStats:

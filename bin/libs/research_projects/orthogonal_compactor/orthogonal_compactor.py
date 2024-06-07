@@ -3,6 +3,7 @@ from bitarray import *
 from libs.utils_bitarray import *
 from libs.utils_list import *
 from libs.generators import *
+from libs.simpletree import *
 
 
 class CompactorSimulator:
@@ -46,14 +47,18 @@ class CompactorSimulator:
             return tuple(self._ShiftRegistersPresent)
         return tuple(self._ShiftRegistersNonOverlapPresent)
         
-    def simulate(self, InputData : bitarray) -> tuple:
+    def simulate(self, InputData : bitarray, WordsLimit : int = None, FlushAllBitsFromShiftRegisters : bool = True) -> tuple:
         if self.GlobalSumPresent:
             GlobalSum = bitarray()
         ShiftRegisters = [bau.zeros(self.ScanChainsCount) for _ in range(len(self._ShiftRegistersPresent))]
         ShiftRegistersNonOverlap = [bau.zeros(ceil(self.ScanChainsCount / Item[0])) for Item in self._ShiftRegistersNonOverlapPresent]
         ShiftRegistersResult = [bitarray() for _ in range(len(self._ShiftRegistersPresent))]
         ShiftRegistersNonOverlapResult = [bitarray() for _ in range(len(self._ShiftRegistersPresent))]
+        WordIndex = 0
         for Word in Generators().subLists(InputData, self.ScanChainsCount):
+            if WordsLimit is not None and WordIndex >= WordsLimit:
+                break
+            WordIndex += 1
             if len(Word) < self.ScanChainsCount:
                 Word += bau.zeros(self.ScanChainsCount - len(Word))
             if self.GlobalSumPresent:
@@ -103,16 +108,17 @@ class CompactorSimulator:
                     bi += 1
                 ShiftRegistersNonOverlapResult[i].append(ShiftRegistersNonOverlap[i][-1])
                 i += 1
-        for i in range(self.ScanChainsCount):
-            if self.GlobalSumPresent:
-                GlobalSum.append(0)
-            j = 0
-            for Item in self._ShiftRegistersPresent:
-                N = Item[0]
-                S = Item[1]
-                ShiftRegisters[j] >>= 1
-                ShiftRegistersResult[j].append(ShiftRegisters[j][-1])
-                j += 1
+        if FlushAllBitsFromShiftRegisters:
+            for i in range(self.ScanChainsCount):
+                if self.GlobalSumPresent:
+                    GlobalSum.append(0)
+                j = 0
+                for Item in self._ShiftRegistersPresent:
+                    N = Item[0]
+                    S = Item[1]
+                    ShiftRegisters[j] >>= 1
+                    ShiftRegistersResult[j].append(ShiftRegisters[j][-1])
+                    j += 1
         Result = []
         if self.GlobalSumPresent:
             Result.append( ((0, 0, True), GlobalSum) )
@@ -121,7 +127,7 @@ class CompactorSimulator:
             Result.append( (Item + tuple([True]), ShiftRegistersResult[i]) )
             i += 1
         i = 0
-        for Item in self._ShiftRegistersPresent:
+        for Item in self._ShiftRegistersNonOverlapPresent:
             Result.append( (Item + tuple([True]), ShiftRegistersNonOverlapResult[i]) )
             i += 1
         return tuple(Result)
@@ -135,7 +141,34 @@ class CompactorSimulator:
                     Result.append(Comb)
         return Result
     
+    def _areSimResOK(self, GoldRes, SimRes) -> bool:
+        for i in range(len(SimRes)):
+            if not Bitarray.areLeftBitsEqual(GoldRes[i][1], SimRes[i][1]):
+                return False
+        return True
+    
     def findFaultPatterns(self, FaultFreeInputData : bitarray, OutputData : list, MaxFaultsCount : int = 12, MaxFaultsPerCycle : int = 2, MaxFaultsDistancePerCycle : int = 3) -> list:
         Result = []
         FaultCandidatesPerCycle = self.getFaultCandidatesPerTimeSlot(MaxFaultsPerCycle, MaxFaultsDistancePerCycle)
-        GoldResults = self.simulate(FaultFreeInputData)
+        FaultCandidatesPerCycleMasks = [bau.zeros(self.ScanChainsCount)]
+        FaultCandidatesPerCycleCount = [0]
+        for fc in FaultCandidatesPerCycle:
+            Word = bau.zeros(self.ScanChainsCount)
+            for i in fc:
+                Word[i] = 1
+            FaultCandidatesPerCycleCount.append(len(fc))
+            FaultCandidatesPerCycleMasks.append(Word)        
+        CyclesCount = ceil(len(FaultFreeInputData) / self.ScanChainsCount)
+        FaultFreeInputWords = List.splitIntoSublists(FaultFreeInputData, self.ScanChainsCount)
+        SearchingTree = SimpleTree()
+        for Cycle in range(1, CyclesCount+1):
+            print(f"Cycle {Cycle} ======================================")
+            if (Cycle == 1):
+                for i in range(len(FaultCandidatesPerCycleMasks)):
+                    SimRes = self.simulate(FaultFreeInputWords[0] ^ FaultCandidatesPerCycleMasks[i], 1, False)
+                    if self._areSimResOK(OutputData, SimRes):
+                        print(f"{ FaultCandidatesPerCycleMasks[i]} PASS    {FaultCandidatesPerCycleCount[i]}")
+                        SearchingTree.add(FaultCandidatesPerCycleCount[i], [i])
+                    else:
+                        print(f"{ FaultCandidatesPerCycleMasks[i]} Failed")
+            SearchingTree.print()

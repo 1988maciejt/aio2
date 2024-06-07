@@ -63,6 +63,7 @@ from libs.simplecommandparser import *
 import libs.PolynomialsArithmetic as PolynomialsArithmetic
 from libs.ring_oscillator import *
 from libs.simple_threading import *
+from libs.simpletree import *
 from libs.stats import *
 from libs.temp_transcript import *
 from libs.unitnumber import *
