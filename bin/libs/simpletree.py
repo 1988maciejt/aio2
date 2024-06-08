@@ -21,7 +21,9 @@ class SimpleTree:
         Result = ""
         SB = self.getBranchIdentifiers([])
         for Id in SB:
-            Result += f'{Prefix}{Id} : {self.get([Id])}\n'
+            Item = self.get([Id])
+            if Item is not None:
+                Result += f'{Prefix}{Id} : {Item}\n'
             Sub = self.getSubTree([Id])
             Result += Sub._iterStr(f"{Prefix}{Id}.")
         return Result        
