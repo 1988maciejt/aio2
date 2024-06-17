@@ -2,7 +2,7 @@ import shutil
 import os
 import re
 import pickle
-from libs.files import getAioPath
+from libs.files import getAioPath, readFile
 from ansi2html import *
 import time
 from libs.utils_str import *
@@ -13,6 +13,14 @@ class Aio:
   _sections = False
   _section_opened = False
   _subsection_opened = False
+  
+  @staticmethod
+  def printListing(FileName : str):
+    Data = readFile(FileName)
+    LNum = 1
+    for Line in Data.split("\n"):
+      Aio.print(f"{LNum}\t|{Line}")
+      LNum += 1
   
   @staticmethod
   def getCpuCount() -> int:
@@ -286,6 +294,29 @@ class Aio:
         txt = txt[0:wl-2]
       txt += "\r"
       print(txt,end="")
+      
+  @staticmethod
+  def advancedShellExecute(ShellCommand : str, PrintDynamically : bool = True, ReturnCapturedOutput = True, ReturnExitCode = False):
+    import subprocess
+    process = subprocess.Popen(ShellCommand, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    captured_output = ""
+    while True:
+        output = process.stdout.readline()
+        if output == '' and process.poll() is not None:
+            break
+        if output:
+            if PrintDynamically:
+              Aio.print(output.strip())
+            captured_output += output
+    exit_code = process.poll()
+    if ReturnCapturedOutput and ReturnExitCode:
+      return captured_output, exit_code
+    if ReturnCapturedOutput:
+      return captured_output
+    if ReturnExitCode:
+      return exit_code
+    return None
+
   @staticmethod
   def shellExecute(ShellCommand : str, StdOut = True, StdErr = False) -> str:
     from subprocess import PIPE, Popen
@@ -299,6 +330,7 @@ class Aio:
     if StdErr:
       Result += stderr.decode('utf-8')
     return Result
+  
   @staticmethod
   def numToCompressedString(num : int) -> str:
     result = ""

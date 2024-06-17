@@ -63,9 +63,9 @@ class SimpleTree:
     def get(self, Path):
         Node = self._root
         for PathPosition in Path:
-            if Node[0].get(PathPosition, None) is None:
-                return None
-            Node = Node[0][PathPosition]
+            Node = Node[0].get(PathPosition, None)
+            if Node is None:
+                return False
         return Node[1]
     
     def removeBranch(self, Path : list):
@@ -76,6 +76,30 @@ class SimpleTree:
             Node = Node[0][PathPosition]
         Node[0] = {}
         Node[1] = None
+    
+    def removeBranchBasingOnChildren(self, Path : list):
+        Node = self._root
+        Nodes = [Node]
+        for PathPosition in Path:
+            Node = Node[0].get(PathPosition, None)
+            if Node is None:
+                return False
+            Nodes.append(Node)
+            
+#        BestNode = None
+        BestI = None
+        for i in range(len(Nodes)-1, 2, -1):
+            Node = Nodes[i]
+            if len(Node[0]) <= 1:
+#                BestNode = Node
+                BestI = i
+            else:
+                break
+        if BestI is not None:
+            Nodes[BestI-1][0].pop(Path[BestI-1], None)
+#        if BestNode is not None:
+#            BestNode[0] = {}
+#            BestNode[1] = None
     
     def getBranchIdentifiers(self, Path : list) -> list:
         Node = self._root

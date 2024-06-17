@@ -78,6 +78,7 @@ class CudaCProgram (CppProgram):
     if len(Result) > 5:
       self._comp_error = Result
       self.Compiled = False
+      Aio.printListing(self.PreprocessedSourceFileName)
       Aio.print(Result)
       Aio.print('Command for debugging:\n  ', Cmd)
     else:

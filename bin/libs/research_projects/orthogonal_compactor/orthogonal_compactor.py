@@ -150,19 +150,42 @@ class CompactorSimulator:
                 return False
         return True
     
-    def _mpSim(self, TreeItem, FaultFreeInputWords, FaultCandidatesPerCycleMasks, FaultCandidatesPerCycleCount, MaxFaultsCount, MaxFaultDistanceInCyclesDomain, OutputData, Cycle) -> tuple:
+    def _mpSim(self, TreeItem, FaultFreeInputWords, FaultCandidatesPerCycleMasks, FaultCandidatesPerCycleCount, FaultCandidatesScanChainMinMax, MaxFaultsCount, MaxFaultDistanceInCyclesDomain, MaxFaultsDistancePerCycle, OutputData, Cycle) -> tuple:
         Id = TreeItem[0]
-        FaultCounter = TreeItem[1]
+        FaultCounter = TreeItem[1][0]
+        OldMin = TreeItem[1][1]
+        OldMax = TreeItem[1][2]
         FullWord = bitarray()
         BranchesToRemove = []
         WhatToAdd = []
         for i in range(len(Id)):
             FullWord += (FaultFreeInputWords[i] ^ FaultCandidatesPerCycleMasks[Id[i]])
-        AnyPassed = False
+        #AnyPassed = False
         for i in range(len(FaultCandidatesPerCycleMasks)):
             FaultCounterNew = FaultCounter + FaultCandidatesPerCycleCount[i]
             IdNew = Id + [i]
             if FaultCounterNew > MaxFaultsCount:
+                continue
+            ActMin = FaultCandidatesScanChainMinMax[i][0]
+            ActMax = FaultCandidatesScanChainMinMax[i][1]
+            if ActMin is not None:
+                if OldMin is not None:
+                    if ActMin < OldMin:
+                        NewMin = OldMin
+                    else:
+                        NewMax = ActMin
+                    if ActMax > OldMax:
+                        NewMax = OldMax
+                    else:
+                        NewMin = ActMax
+                else:
+                    NewMin = ActMin
+                    NewMax = ActMax
+            else:
+                NewMin = OldMin
+                NewMax = OldMax
+            if NewMax is not None and NewMin is not None and (NewMax - NewMin) > MaxFaultsDistancePerCycle:
+#                print("OLD", OldMin, OldMax, "  ACT", ActMin, ActMax)
                 continue
             PNum0 = None
             LastPNum = 0
@@ -170,17 +193,26 @@ class CompactorSimulator:
                 PNum = IdNew[j]
                 if PNum > 0:
                     if PNum0 is None:
-                        PNum0 = PNum
+                        PNum0 = j
                     LastPNum = j
             if PNum0 is not None and (LastPNum - PNum0) > MaxFaultDistanceInCyclesDomain:
                 continue
             FullWordNew = FullWord + (FaultFreeInputWords[len(Id)] ^ FaultCandidatesPerCycleMasks[i])
             SimRes = self.simulate(FullWordNew, Cycle, False)
             if self._areSimResOK(OutputData, SimRes):
-                WhatToAdd.append([FaultCounterNew, IdNew])
-                AnyPassed = True
-            if not AnyPassed:
-                BranchesToRemove.append(Id)
+                WhatToAdd.append([IdNew, [FaultCounterNew, NewMin, NewMax]])
+            #    AnyPassed = True
+            #if not AnyPassed:
+            #    BranchesToRemove.append(Id)
+        return (BranchesToRemove, WhatToAdd)
+    
+    def _mpSimSerial(self, TreeItems, FaultFreeInputWords, FaultCandidatesPerCycleMasks, FaultCandidatesPerCycleCount, FaultCandidatesScanChainMinMax, MaxFaultsCount, MaxFaultDistanceInCyclesDomain, MaxFaultsDistancePerCycle, OutputData, Cycle) -> tuple:
+        BranchesToRemove = []
+        WhatToAdd = []
+        for TreeItem in TreeItems:
+            btr, bta = self._mpSim(TreeItem, FaultFreeInputWords, FaultCandidatesPerCycleMasks, FaultCandidatesPerCycleCount, FaultCandidatesScanChainMinMax, MaxFaultsCount, MaxFaultDistanceInCyclesDomain, MaxFaultsDistancePerCycle, OutputData, Cycle)
+            BranchesToRemove += btr
+            WhatToAdd += bta
         return (BranchesToRemove, WhatToAdd)
     
     def findFaultPatterns(self, FaultFreeInputData : bitarray, OutputData : list, MaxFaultsCount : int = 12, MaxFaultsPerCycle : int = 2, MaxFaultsDistancePerCycle : int = 3, MaxFaultDistanceInCyclesDomain : int = 5) -> list:
@@ -188,49 +220,43 @@ class CompactorSimulator:
         FaultCandidatesPerCycle = self.getFaultCandidatesPerTimeSlot(MaxFaultsPerCycle, MaxFaultsDistancePerCycle)
         FaultCandidatesPerCycleMasks = [bau.zeros(self.ScanChainsCount)]
         FaultCandidatesPerCycleCount = [0]
+        FaultCandidatesScanChainMinMax = [[None, None]]
         for fc in FaultCandidatesPerCycle:
             Word = bau.zeros(self.ScanChainsCount)
             for i in fc:
                 Word[i] = 1
             FaultCandidatesPerCycleCount.append(len(fc))
-            FaultCandidatesPerCycleMasks.append(Word)        
+            FaultCandidatesPerCycleMasks.append(Word)   
+            FaultCandidatesScanChainMinMax.append([min(fc), max(fc)])     
         CyclesCount = ceil(len(FaultFreeInputData) / self.ScanChainsCount)
         FaultFreeInputWords = List.splitIntoSublists(FaultFreeInputData, self.ScanChainsCount)
-        SearchingTree = SimpleTree()
+        SearchingTree = [] #SimpleTree()
         for Cycle in tqdm(range(1, CyclesCount+1)):
             #print(f"Cycle {Cycle} ======================================")
             if (Cycle == 1):
                 for i in range(len(FaultCandidatesPerCycleMasks)):
                     SimRes = self.simulate(FaultFreeInputWords[0] ^ FaultCandidatesPerCycleMasks[i], 1, False)
                     if self._areSimResOK(OutputData, SimRes):
-                        #print(f"{ FaultCandidatesPerCycleMasks[i]} PASS    {FaultCandidatesPerCycleCount[i]}")
-                        SearchingTree.add(FaultCandidatesPerCycleCount[i], [i])
-                    #else:
-                        #print(f"{ FaultCandidatesPerCycleMasks[i]} Failed")
+                        SearchingTree.append([[i], [FaultCandidatesPerCycleCount[i], FaultCandidatesScanChainMinMax[i][0], FaultCandidatesScanChainMinMax[i][1]]])
             else:
-                if 0:
-                    for tpl in p_uimap(partial(self._mpSim, FaultFreeInputWords=FaultFreeInputWords, FaultCandidatesPerCycleMasks=FaultCandidatesPerCycleMasks, FaultCandidatesPerCycleCount=FaultCandidatesPerCycleCount, MaxFaultsCount=MaxFaultsCount, MaxFaultDistanceInCyclesDomain=MaxFaultDistanceInCyclesDomain, OutputData=OutputData, Cycle=Cycle), SearchingTree.getLevelItems(Cycle-2)):
-                        BranchesToRemove, WhatToAdd = tpl
-                        for b in BranchesToRemove:
-                            SearchingTree.removeBranch(b)
-                        for Item in WhatToAdd:
-                            SearchingTree.add(Item[0], Item[1])
-                    AioShell.removeLastLine()
+                NewSearchingTree = []
+                #Splitted = List.splitIntoSublists(SearchingTree.getLevelItems(Cycle-2), 1000)
+                Splitted = List.splitIntoSublists(SearchingTree, 1000)
+                if len(Splitted) <= 1:
+                    for TreeItem in tqdm(Splitted[0]):
+                        BranchesToRemove, WhatToAdd = self._mpSim(TreeItem, FaultFreeInputWords, FaultCandidatesPerCycleMasks, FaultCandidatesPerCycleCount, FaultCandidatesScanChainMinMax, MaxFaultsCount, MaxFaultDistanceInCyclesDomain, MaxFaultsDistancePerCycle, OutputData, Cycle)
+                        NewSearchingTree += WhatToAdd
                 else:
-                    for TreeItem in SearchingTree.getLevelItems(Cycle-2):
-                        BranchesToRemove, WhatToAdd = self._mpSim(TreeItem, FaultFreeInputWords, FaultCandidatesPerCycleMasks, FaultCandidatesPerCycleCount, MaxFaultsCount, MaxFaultDistanceInCyclesDomain, OutputData, Cycle)
-                        for b in BranchesToRemove:
-                            SearchingTree.removeBranch(b)
-                        for Item in WhatToAdd:
-                            SearchingTree.add(Item[0], Item[1])
+                    for tpl in p_uimap(partial(self._mpSimSerial, FaultFreeInputWords=FaultFreeInputWords, FaultCandidatesPerCycleMasks=FaultCandidatesPerCycleMasks, FaultCandidatesPerCycleCount=FaultCandidatesPerCycleCount, FaultCandidatesScanChainMinMax=FaultCandidatesScanChainMinMax, MaxFaultsCount=MaxFaultsCount, MaxFaultDistanceInCyclesDomain=MaxFaultDistanceInCyclesDomain, MaxFaultsDistancePerCycle=MaxFaultsDistancePerCycle, OutputData=OutputData, Cycle=Cycle), Splitted):
+                        BranchesToRemove, WhatToAdd = tpl
+                        NewSearchingTree += WhatToAdd     
+                AioShell.removeLastLine()
+                SearchingTree = NewSearchingTree
                     
         AioShell.removeLastLine()
         Result = []
-        for TreeItem in SearchingTree.getLevelItems(CyclesCount-1):
+        for TreeItem in SearchingTree:
             Id = TreeItem[0]
-            FaultCounter = TreeItem[1]
-            if FaultCounter > MaxFaultsCount:
-                continue
             FullWord = bitarray()
             for i in range(len(Id)):
                 FullWord += (FaultFreeInputWords[i] ^ FaultCandidatesPerCycleMasks[Id[i]])

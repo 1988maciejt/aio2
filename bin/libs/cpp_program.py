@@ -13,7 +13,14 @@ class CppProgram:
   _kwargs = {}
   Compiled = False
   HeaderFileNames = []
+  IncludeErrStream = False
+  DynamicPrinting = True
+  ReturnCaptiredOutput = True
+  ReturnExitCode = False
   def __init__(self, CppFileName : str, *args, **kwargs) -> None:
+    self.DynamicPrinting = True
+    self.ReturnCaptiredOutput = True
+    self.ReturnExitCode = False
     self._args = args
     self.HeaderFileNames = []
     self._kwargs = kwargs
@@ -21,6 +28,7 @@ class CppProgram:
     self.CppFileName = os.path.abspath(CppFileName)
     self.ExeFileName = os.path.abspath('/tmp/' + os.path.basename(CppFileName) + f'.{rand}.exe')
     self.PreprocessedSourceFileName = os.path.abspath('/tmp/' + os.path.basename(CppFileName) + f'.{rand}.preprocessed.cpp')
+    self.IncludeErrStream = False
   def __str__(self) -> str:
     return f'{self.ExeFileName}'
   def __repr__(self) -> str:
@@ -63,7 +71,8 @@ class CppProgram:
     Cmd = self.ExeFileName
     for Arg in args:
       Cmd += " " + str(Arg)
-    return Aio.shellExecute(Cmd)
+    #return Aio.shellExecute(Cmd, StdErr=self.IncludeErrStream)
+    return Aio.advancedShellExecute(Cmd, PrintDynamically=self.DynamicPrinting, ReturnCapturedOutput=self.ReturnCaptiredOutput, ReturnExitCode=self.ReturnExitCode)
   def redefinePreprocessingArgs(self, *args, **kwargs):
     self._args = args
     self._kwargs = kwargs
