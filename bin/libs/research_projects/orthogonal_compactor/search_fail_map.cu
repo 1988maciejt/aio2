@@ -184,6 +184,16 @@ TreeItem getCopiedTreeItem(TreeItem* MyTree, int Index) {
     return NewItem;
 }
 __host__ __device__
+TreeItem getCopiedTreeItem(TreeItem* TItem) {
+    TreeItem NewItem;
+    NewItem.ScanMinIndex = TItem->ScanMinIndex;
+    NewItem.ScanMaxIndex = TItem->ScanMaxIndex;
+    for (int i = 0; i < SCAN_LENGTH; i++) {
+        NewItem.FailMap[i] = TItem->FailMap[i];
+    }
+    return NewItem;
+}
+__host__ __device__
 void addFailToTreeBranch(TreeItem* TreeBranch, int FailIndex, int& LutIndex, LUTRow* Lut) {
     TreeBranch->FailMap[FailIndex] = LutIndex;
     if (Lut[LutIndex].FailCount > 0) {
@@ -325,9 +335,11 @@ void kernel(TreeItem* MyTree, int TreeSize, int* NewTreeSize, LUTRow* Lut, int L
 `   endif
 `endfor
     while (BranchIndex < TreeSize) {
+        bool BranchOverwritten = false;
+        TreeItem BaseBranch = getCopiedTreeItem(MyTree, BranchIndex);
         CompactorRegisters MyCompactor = SimulatorCompactor[EnvIndex];
         for (int NewLutPosition = 0; NewLutPosition < LutSize; NewLutPosition++) {
-            TreeItem MyBranch = getCopiedTreeItem(MyTree, BranchIndex);
+            TreeItem MyBranch = getCopiedTreeItem(&BaseBranch);
             if (Cycles <= SCAN_LENGTH)
                 addFailToTreeBranch(&MyBranch, Cycles-1, NewLutPosition, Lut);
             short TotalFails = 0;
@@ -429,13 +441,19 @@ void kernel(TreeItem* MyTree, int TreeSize, int* NewTreeSize, LUTRow* Lut, int L
                 pushCompactorValue(&MyCompactor, OutputValues);
             }
             if (areCompactorsEqual(&MyCompactor, GivenCompactorOutput)) {
+                int AuxIndex;
+                if (BranchOverwritten) {
 `if cpu_debug:
-                int AuxIndex = (*NewTreeSize);
-                (*NewTreeSize)++;
+                    AuxIndex = (*NewTreeSize);
+                    (*NewTreeSize)++;
                 //cout << "CORRECT BRANCH:" << AuxIndex << " " << *NewTreeSize << endl;
 `else:
-                int AuxIndex = atomicAdd(NewTreeSize, 1);
+                    AuxIndex = atomicAdd(NewTreeSize, 1);
 `endif
+                } else {
+                    BranchOverwritten = true;
+                    AuxIndex = BranchIndex;
+                }
                 copyTreeItem(MyTree, &MyBranch, AuxIndex);
             }
 `if cpu_debug:
@@ -447,7 +465,9 @@ void kernel(TreeItem* MyTree, int TreeSize, int* NewTreeSize, LUTRow* Lut, int L
                 break;
             }
         }
-        disableTreeBranch(MyTree, BranchIndex);
+        if (!BranchOverwritten) {
+            disableTreeBranch(MyTree, BranchIndex);
+        }
 `if cpu_debug:
         BranchIndex += 1;
 `else:
@@ -455,7 +475,14 @@ void kernel(TreeItem* MyTree, int TreeSize, int* NewTreeSize, LUTRow* Lut, int L
 `endif
     }
 }
-
+    
+__global__ 
+void kernel_cleanup(TreeItem* MyTree, int* TreeSize) {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    if (tid == 0) {
+        cleanTree(MyTree, TreeSize);
+    }
+}
     
 int main() {
     clock_t global_c_start = clock();
@@ -600,6 +627,8 @@ int main() {
 `if not cpu_debug:
         cudaMemcpy(SearchingTree, SearchingTree_dev, TreeSize * sizeof(TreeItem), cudaMemcpyDeviceToHost);
 `endif
+        //kernel_cleanup<<<1, 1>>>(SearchingTree_dev, NewTreeSize_dev);
+        //cudaMemcpy(&TreeSize, NewTreeSize_dev, sizeof(int), cudaMemcpyDeviceToHost);
         cleanTree(SearchingTree, &TreeSize);
         cout << "Tree branches - final      : " << TreeSize << endl;
         cout << "Tree size - final          : " << TreeSize * sizeof(TreeItem) / (1024*1024) << " MB" << endl;
@@ -608,6 +637,7 @@ int main() {
         else
             Cycle += 1;
     }
+    cudaMemcpy(SearchingTree, SearchingTree_dev, TreeSize * sizeof(TreeItem), cudaMemcpyDeviceToHost);
     
     clock_t global_c_end = clock();
     time_elapsed_ms = 1000.0 * (global_c_end-global_c_start) / CLOCKS_PER_SEC;
