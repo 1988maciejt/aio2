@@ -68,6 +68,7 @@ class CompactorSimulator:
                 GlobalSum.append((Word.count(1) % 2))
             i = 0
             for Item in self._ShiftRegistersPresent:
+                ShiftRegistersResult[i].append(ShiftRegisters[i][-1])
                 N = Item[0]
                 Rev = False
                 if N < 0:
@@ -83,11 +84,11 @@ class CompactorSimulator:
                         else:
                             LocalSum += Word[(j + O + k) % self.ScanChainsCount]
                     ShiftRegisters[i][j] ^= (LocalSum % 2)
-                ShiftRegistersResult[i].append(ShiftRegisters[i][-1])
                 #print(Item, ShiftRegisters[i])
                 i += 1
             i = 0
             for Item in self._ShiftRegistersNonOverlapPresent:
+                ShiftRegistersNonOverlapResult[i].append(ShiftRegistersNonOverlap[i][-1])
                 N = Item[0]
                 Rev = False
                 if N < 0:
@@ -109,7 +110,6 @@ class CompactorSimulator:
                             break
                     ShiftRegistersNonOverlap[bi][j] ^= (LocalSum % 2)
                     bi += 1
-                ShiftRegistersNonOverlapResult[i].append(ShiftRegistersNonOverlap[i][-1])
                 i += 1
         if FlushAllBitsFromShiftRegisters:
             for i in range(self.ScanChainsCount):
@@ -119,8 +119,8 @@ class CompactorSimulator:
                 for Item in self._ShiftRegistersPresent:
                     N = Item[0]
                     S = Item[1]
-                    ShiftRegisters[j] >>= 1
                     ShiftRegistersResult[j].append(ShiftRegisters[j][-1])
+                    ShiftRegisters[j] >>= 1
                     j += 1
         Result = []
         if self.GlobalSumPresent:
@@ -215,7 +215,8 @@ class CompactorSimulator:
             WhatToAdd += bta
         return (BranchesToRemove, WhatToAdd)
     
-    def findFaultPatterns(self, FaultFreeInputData : bitarray, OutputData : list, MaxFaultsCount : int = 12, MaxFaultsPerCycle : int = 2, MaxFaultsDistancePerCycle : int = 3, MaxFaultDistanceInCyclesDomain : int = 5) -> list:
+    def findFaultPatterns(self, FaultFreeInputData : bitarray, OutputData : list, MaxFaultsCount : int = 8, 
+                    MaxFaultsPerCycle : int = 2, MaxFaultsDistancePerCycle : int = 3, MaxFaultDistanceInCyclesDomain : int = 4) -> list:
         Result = []
         FaultCandidatesPerCycle = self.getFaultCandidatesPerTimeSlot(MaxFaultsPerCycle, MaxFaultsDistancePerCycle)
         FaultCandidatesPerCycleMasks = [bau.zeros(self.ScanChainsCount)]
@@ -242,7 +243,9 @@ class CompactorSimulator:
                 NewSearchingTree = []
                 #Splitted = List.splitIntoSublists(SearchingTree.getLevelItems(Cycle-2), 1000)
                 Splitted = List.splitIntoSublists(SearchingTree, 1000)
-                if len(Splitted) <= 1:
+                if len(Splitted) == 0:
+                    break
+                if len(Splitted) == 1:
                     for TreeItem in tqdm(Splitted[0]):
                         BranchesToRemove, WhatToAdd = self._mpSim(TreeItem, FaultFreeInputWords, FaultCandidatesPerCycleMasks, FaultCandidatesPerCycleCount, FaultCandidatesScanChainMinMax, MaxFaultsCount, MaxFaultDistanceInCyclesDomain, MaxFaultsDistancePerCycle, OutputData, Cycle)
                         NewSearchingTree += WhatToAdd
@@ -252,7 +255,6 @@ class CompactorSimulator:
                         NewSearchingTree += WhatToAdd     
                 AioShell.removeLastLine()
                 SearchingTree = NewSearchingTree
-                    
         AioShell.removeLastLine()
         Result = []
         for TreeItem in SearchingTree:
@@ -264,3 +266,39 @@ class CompactorSimulator:
             if self._areSimResOK(OutputData, SimRes):
                 Result.append(FullWord)
         return Result
+    
+    
+    def cudaFindFaultPatterns(self, FaultFreeInputData : bitarray, OutputData : list, MaxFaultsCount : int = 8, 
+                    MaxFaultsPerCycle : int = 2, MaxFaultsDistancePerCycle : int = 3, MaxFaultDistanceInCyclesDomain : int = 4,
+                    CudaBlocks : int = 1024, CudaThreads : int = 1024, MaxSearchingTreeBranches : int = 40000000) -> list:
+        from libs.cuda_utils import CudaCProgram
+        FaultFreeOutputData = self.simulate(FaultFreeInputData)
+        CompRegisters, CompValues = [], []
+        for i in range(len(OutputData)):
+            CReg = OutputData[i][0][:2]
+            CVal = OutputData[i][1] ^ FaultFreeOutputData[i][1]
+            CompRegisters.append(CReg)
+            CompValues.append(CVal)
+        ScanLength = ceil(len(FaultFreeInputData) / self.ScanChainsCount)
+        if 0:
+            print("scan_length", ScanLength)
+            print("scan_count", self.ScanChainsCount)
+            print("compactor_registers", CompRegisters)
+            print("compactor_value", CompValues)
+            print("max_total_fails", MaxFaultsCount)
+            print("max_fails_per_clock_cycle", MaxFaultsPerCycle)
+            print("max_fails_vertical_distance", MaxFaultsDistancePerCycle)
+            print("max_fails_horizontal_distance", MaxFaultDistanceInCyclesDomain)
+            print("max_tree_branches", MaxSearchingTreeBranches)
+        cu = CudaCProgram(Aio.getPath() + 'libs/research_projects/orthogonal_compactor/search_fail_map.cu', 
+                            scan_length=ScanLength, scan_count=self.ScanChainsCount,
+                            compactor_registers=CompRegisters, compactor_value=CompValues,
+                            max_total_fails=MaxFaultsCount, max_fails_per_clock_cycle=MaxFaultsPerCycle,
+                            max_fails_vertical_distance=MaxFaultsDistancePerCycle, max_fails_horizontal_distance=MaxFaultDistanceInCyclesDomain,
+                            max_tree_branches=MaxSearchingTreeBranches,
+                            cuda_blocks=CudaBlocks, cuda_threads=CudaThreads)
+        r = cu.run()
+        try:        
+            return ast.literal_eval(r)
+        except:
+            return r
