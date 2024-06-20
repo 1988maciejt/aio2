@@ -354,6 +354,11 @@ class Bitarray:
                 return A == B[:len(A)]
             return A[:len(B)] == B
         return A == B
+
+    def getFirstAndSecondOnesPosition(Word : bitarray) -> tuple:
+        First = Word.find(1, 0)
+        Second = Word.find(1, First+1)
+        return First, Second
     
     
 class BitarrayStats:
@@ -645,3 +650,252 @@ class RotationInsensitiveSignature:
             return f"SIGN({self._hash}, {self._nhash})"
         else:
             return f"SIGN({self._hash})"
+        
+        
+        
+class BitarrayExtendedMatrix:
+    pass
+class BitarrayExtendedMatrix:
+    
+    __slots__ = ('_rows', '_cols', "_echelon_form", "_recursion_level", "_unambiguous")
+    
+    def __init__(self, Rows : list = None) -> None:
+        self._rows = []
+        self._cols = 0
+        self._echelon_form = 0
+        self._recursion_level = 0
+        self._unambiguous = {}
+        if Rows is not None:
+            for r in Rows:
+                self.addRow(r)
+        
+    def __len__(self) -> int:
+        return len(self._rows)
+    
+    def __getitem__(self, Index : int) -> bitarray:
+        return self._rows[Index]
+    
+    def __repr__(self) -> str:
+        return f"BitarrayExtendedMatrix(ROWS={self._rows}, COLS={self._cols})"
+                
+    def __str__(self) -> str:
+        Result = ""
+        Second, i = 0, 0
+        for Row in self._rows:
+            if Second:
+                Result += "\n"
+            else:
+                Second = 1
+            Result += f"{i} \t: {str(Row)[10:-2]}"
+            if self.isUnambiguous(i):
+                Result += " U"
+            i += 1
+        return Result
+        
+    def addRow(self, Row : bitarray) -> None:
+        if type(Row) in (list, tuple):
+            for R in Row:
+                self.addRow(R)
+            return
+        if type(Row) is not bitarray:
+            try:
+                Row = bitarray(Row)
+            except:
+                Aio.printError('Row must be a bitarray or at least be conversibl;e to bitarray.')
+                return
+        if self._cols == 0:
+            self._cols = len(Row)
+        if len(Row) == self._cols:
+            self._rows.append(Row)
+            self._echelon_form = 0
+        else:
+            Aio.printError(f"Row length ({len(Row)}) must be equal to the previous row length ({self._cols}).")
+            
+    def sortRows(self) -> None:
+        self._unambiguous = {}
+        import itertools, operator
+        def sort_uniq(sequence):
+            return map(
+                operator.itemgetter(0),
+                itertools.groupby(sorted(sequence, reverse=True)))
+        self._rows = list(sort_uniq(self._rows))
+        #self._rows.sort(reverse=True)
+        
+    def toEchelonForm(self, Debug = 0) -> None:
+        self.sortRows()
+        if Debug:
+            print("toEchelonForm ---")
+            print(f"Sorted:\n{self}")
+        BaseRow = bau.zeros(self._cols)
+        RowToSearchFirst = bau.ones(self._cols)
+        BaseRow[0] = 1
+        for ColI in range(self._cols-1):
+            FirstRow = 0
+            MaxRowI = -1
+            for RowI in range(len(self._rows)):
+                if self._rows[RowI] > RowToSearchFirst:
+                    FirstRow = RowI + 1
+            if Debug:
+                print(f"FirstRow: {FirstRow}")
+            for RowI in range(FirstRow, len(self._rows)):
+                if self._rows[RowI] >= BaseRow:
+                    if MaxRowI < 0:
+                        MaxRowI = RowI
+                        if Debug:
+                            print("MaxRowI:", MaxRowI)
+                    else:
+                        if Debug:
+                            print("To eliminate:",RowI)
+                        self._rows[RowI] ^= self._rows[MaxRowI]
+            self.sortRows()
+            BaseRow >>= 1
+            RowToSearchFirst >>= 1
+            if Debug:
+                print(f"After {ColI} iter:\n{self}")
+        self._echelon_form = 1
+    
+    def hasNoSolution(self) -> bool:
+        if not self._echelon_form:
+            self.toEchelonForm()
+        for i in range(len(self._rows)-1):
+            if self._rows[i][:-1] == self._rows[i+1][:-1]:
+                return True
+            if self._rows[i+1][:-1].count(1) == 0:
+                return True
+        return False
+    
+    def solve(self, MaxFailCount : int = 10, Debug=0):
+        if not self._echelon_form:
+            self.toEchelonForm(Debug=0)
+        if Debug:
+            print(f"{' '*self._recursion_level}solve -----------")
+        for RowI in range(len(self)-1):
+            for RfixerI in range(RowI+1, len(self)):
+                Aux = self._rows[RowI] ^ self._rows[RfixerI]
+                if (Aux < self._rows[RowI]):
+                    self._rows[RowI] = Aux
+                    try:
+                        del self._unambiguous[RowI]
+                    except:
+                        pass
+        if Debug:
+            print(f"{' '*self._recursion_level}Resultant:")
+            print(self)
+        if self.hasNoSolution():
+            if Debug:
+                print(f"{' '*self._recursion_level}HAS NO SOLUTION:")
+            return None
+        TheBestAmbiguous = None
+        for i in range(len(self._rows)):
+            if not self.isUnambiguous(i):
+                if TheBestAmbiguous is None:
+                    TheBestAmbiguous = self._rows[i]
+                else:
+                    if not TheBestAmbiguous[-1]:
+                        if self._rows[i][-1]:
+                            TheBestAmbiguous = self._rows[i]
+                        elif TheBestAmbiguous[:-1].count(1) > self._rows[i][:-1].count(1):
+                            TheBestAmbiguous = self._rows[i]
+                    elif self._rows[i][-1]:  
+                        if TheBestAmbiguous[:-1].count(1) > self._rows[i][:-1].count(1):
+                            TheBestAmbiguous = self._rows[i]
+        if TheBestAmbiguous is None:
+            Result = bau.zeros(self._cols)
+            oc = 0
+            for i in range(len(self._rows)):
+                if self._rows[i][-1]:
+                    Result[i] = 1
+                    oc += 1
+                    if oc > MaxFailCount:
+                        return None
+            if Debug:
+                print("FOUND!! ",Result)
+            return [Result]
+        else:
+            if self.isUnambiguousOnesCountGreaterThan(MaxFailCount):
+                return None
+            if Debug:
+                print(f"{' '*self._recursion_level}TheBestAmbiguous: {TheBestAmbiguous}")
+            VarCandidates = TheBestAmbiguous[:-1].search(1)
+            if Debug:
+                print(f"{' '*self._recursion_level}VarCandidates: {VarCandidates}")
+            Combinations = []
+            if TheBestAmbiguous[-1]:
+                Val = 1
+                for i in range(1, len(VarCandidates)+1, 2):
+                    Combinations += List.getCombinations(VarCandidates, i)
+            else:
+                Val = 0
+                for i in range(2, len(VarCandidates)+1, 2):
+                    Combinations += List.getCombinations(VarCandidates, i)
+            if Debug:
+                print(f"{' '*self._recursion_level}- Eq value is {Val}  New trees: {Combinations}")
+            Result = []
+            for Comb in Combinations:
+                R = self._deepSearch(Comb, 1, MaxFailCount, Debug=Debug)
+                if R is not None:
+                    for RI in R:
+                        if RI not in Result:
+                            Result.append(RI)
+                if not Val:
+                    R = self._deepSearch(Comb, 0, MaxFailCount, Debug=Debug)
+                    if R is not None:
+                        for RI in R:
+                            if RI not in Result:
+                                Result.append(RI)
+            return Result
+                    
+                    
+    def _deepSearch(self, EqVars : list, EqVal : int, MaxFailCount : int = 10, Debug = 0):
+        if self._recursion_level > 10:
+            Aio.printError(f"{' '*self._recursion_level}Deep search is too deep.")
+            return None
+        if Debug:
+            print(f"{' '*self._recursion_level}_recursion_level={self._recursion_level}")
+        M = self.copy()
+        M._recursion_level = self._recursion_level + 1
+        for c in EqVars:
+            Eq = bau.zeros(self._cols)
+            Eq[c] = 1
+            if EqVal:
+                Eq[-1] = 1
+            M.addRow(Eq)
+            if Debug:
+                print(f"{' '*self._recursion_level}Deep search Eq: {Eq} --------")
+        return M.solve(MaxFailCount, Debug=Debug)
+            
+    def isUnambiguous(self, RowIndex : int = None) -> bool:
+        if RowIndex is None:
+            Result = True
+            for i in range(len(self._rows)):
+                if not self.isUnambiguous(i):
+                    Result = False
+                    break
+            return Result
+        else:
+            Cached = self._unambiguous.get(RowIndex, None)
+            if Cached is not None:
+                return Cached
+            if RowIndex >= len(self._rows):
+                return False
+            Result = self._rows[RowIndex][:-1].count(1) == 1
+            self._unambiguous[RowIndex] = Result
+            return Result
+        
+    def isUnambiguousOnesCountGreaterThan(self, HowMuch : int) -> bool:
+        C = 0
+        for i in range(len(self._rows)):
+            if self.isUnambiguous(i):
+                if self._rows[i][-1]:
+                    C += 1
+                    if C > HowMuch:
+                        return True
+        return False
+        
+    def copy(self) -> BitarrayExtendedMatrix:
+        Result = BitarrayExtendedMatrix()
+        Result._rows = self._rows.copy()
+        Result._cols = self._cols
+        Result._echelon_form = self._echelon_form
+        Result._unambiguous = self._unambiguous.copy()
+        return Result

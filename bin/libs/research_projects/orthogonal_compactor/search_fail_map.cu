@@ -340,30 +340,31 @@ void kernel(TreeItem* MyTree, int TreeSize, int* NewTreeSize, LUTRow* Lut, int L
         CompactorRegisters MyCompactor = SimulatorCompactor[EnvIndex];
         for (int NewLutPosition = 0; NewLutPosition < LutSize; NewLutPosition++) {
             TreeItem MyBranch = getCopiedTreeItem(&BaseBranch);
-            if (Cycles <= SCAN_LENGTH)
+            if (Cycles <= SCAN_LENGTH) {
                 addFailToTreeBranch(&MyBranch, Cycles-1, NewLutPosition, Lut);
-            short TotalFails = 0;
-            short FirstNonZeroCycle = -1;
-            short LastNonZeroCycle = -1;
-            for (short CycleIndex = 0; CycleIndex < (Cycles>SCAN_LENGTH ? SCAN_LENGTH : Cycles); CycleIndex++) {
-                short fc = Lut[MyBranch.FailMap[CycleIndex]].FailCount;
-                if (fc > 0) {
-                    LastNonZeroCycle = CycleIndex;
-                    if (FirstNonZeroCycle < 0) {
-                        FirstNonZeroCycle = CycleIndex;
+                short TotalFails = 0;
+                short FirstNonZeroCycle = -1;
+                short LastNonZeroCycle = -1;
+                for (short CycleIndex = 0; CycleIndex < (Cycles>SCAN_LENGTH ? SCAN_LENGTH : Cycles); CycleIndex++) {
+                    short fc = Lut[MyBranch.FailMap[CycleIndex]].FailCount;
+                    if (fc > 0) {
+                        LastNonZeroCycle = CycleIndex;
+                        if (FirstNonZeroCycle < 0) {
+                            FirstNonZeroCycle = CycleIndex;
+                        }
                     }
+                    TotalFails += fc;
                 }
-                TotalFails += fc;
-            }
-            if (TotalFails > MAX_TOTAL_FAIL_COUNT) {
-                continue;
-            } 
-            if (MyBranch.ScanMaxIndex - MyBranch.ScanMinIndex > FAILS_VERTICAL_DISTANCE) {
-                continue;
-            }
-            if (LastNonZeroCycle - FirstNonZeroCycle > FAILS_HORIZONTAL_DISTANCE) {
-                continue;
-            }
+                if (TotalFails > MAX_TOTAL_FAIL_COUNT) {
+                    continue;
+                } 
+                if (MyBranch.ScanMaxIndex - MyBranch.ScanMinIndex > FAILS_VERTICAL_DISTANCE) {
+                    continue;
+                }
+                if (LastNonZeroCycle - FirstNonZeroCycle > FAILS_HORIZONTAL_DISTANCE) {
+                    continue;
+                }
+            }     
             for (short i = 0; i < COMPACTOR_REGISTERS_COUNT; i++) {
                 OutputValues[i] = 0;
             }
@@ -477,10 +478,16 @@ void kernel(TreeItem* MyTree, int TreeSize, int* NewTreeSize, LUTRow* Lut, int L
 }
     
 __global__ 
-void kernel_cleanup(TreeItem* MyTree, int* TreeSize) {
-    int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if (tid == 0) {
-        cleanTree(MyTree, TreeSize);
+void kernel_cleanup(TreeItem* MyTree, int* NewTreeSize) {
+    int MyAddress = threadIdx.x + blockIdx.x * blockDim.x;
+    while (MyAddress < (*NewTreeSize)) {
+        if (MyTree[MyAddress].ScanMinIndex < -1) {
+            int SourceAddress = atomicAdd(NewTreeSize, -1) - 1;
+            if (MyAddress < SourceAddress) {
+                copyTreeItem(MyTree, SourceAddress, MyAddress);
+            }
+        }
+        MyAddress += blockDim.x * gridDim.x;
     }
 }
     
@@ -615,30 +622,41 @@ int main() {
 `else:
         kernel<<<`(cuda_blocks`), `(cuda_threads`)>>>(SearchingTree_dev, TreeSize, NewTreeSize_dev, Lut_dev, LutSize,
             GivenCompactorOutput_dev, SimulatorCompactor_dev, Cycle);
+        cudaMemcpy(&TreeSize, NewTreeSize_dev, sizeof(int), cudaMemcpyDeviceToHost);
 `endif
         c_end = clock();
         time_elapsed_ms = 1000.0 * (c_end-c_start) / CLOCKS_PER_SEC;
         cout << "Kernel execution time      : " << time_elapsed_ms << " ms" << endl;
-`if not cpu_debug:
-        cudaMemcpy(&TreeSize, NewTreeSize_dev, sizeof(int), cudaMemcpyDeviceToHost);
-`endif
-        cout << "Tree branches before clean : " << TreeSize << endl;
-        cout << "Tree size before clean     : " << TreeSize * sizeof(TreeItem) / (1024*1024) << " MB" << endl;
-`if not cpu_debug:
-        cudaMemcpy(SearchingTree, SearchingTree_dev, TreeSize * sizeof(TreeItem), cudaMemcpyDeviceToHost);
-`endif
-        //kernel_cleanup<<<1, 1>>>(SearchingTree_dev, NewTreeSize_dev);
-        //cudaMemcpy(&TreeSize, NewTreeSize_dev, sizeof(int), cudaMemcpyDeviceToHost);
+        cout << "Tree size before clean     : " << TreeSize << " (" << TreeSize * sizeof(TreeItem) / (1024*1024) << " MB)" << endl;
+        c_start = clock();
+`if cpu_debug:
         cleanTree(SearchingTree, &TreeSize);
-        cout << "Tree branches - final      : " << TreeSize << endl;
-        cout << "Tree size - final          : " << TreeSize * sizeof(TreeItem) / (1024*1024) << " MB" << endl;
+`else:
+        cudaMemcpy(SearchingTree, SearchingTree_dev, TreeSize * sizeof(TreeItem), cudaMemcpyDeviceToHost);
+        cleanTree(SearchingTree, &TreeSize);
+        /*int OldTreeSize;
+        do {
+            OldTreeSize = TreeSize;
+            kernel_cleanup<<<1024, 1024>>>(SearchingTree_dev, NewTreeSize_dev);
+            cudaMemcpy(&TreeSize, NewTreeSize_dev, sizeof(int), cudaMemcpyDeviceToHost);
+        } while (OldTreeSize != TreeSize);*/
+`endif
+        c_end = clock();
+        time_elapsed_ms = 1000.0 * (c_end-c_start) / CLOCKS_PER_SEC;
+        cout << "Tree size - final          : " << TreeSize << " (" << TreeSize * sizeof(TreeItem) / (1024*1024) << " MB)" << endl;
+        cout << "Tree cleanup time          : " << time_elapsed_ms << " ms" << endl;
         if (Cycle ==  SCAN_LENGTH)
             Cycle = COMPACTOR_REGISTER_SIZE;
         else
             Cycle += 1;
     }
     cudaMemcpy(SearchingTree, SearchingTree_dev, TreeSize * sizeof(TreeItem), cudaMemcpyDeviceToHost);
-    
+    cudaFree(SearchingTree_dev);
+    cudaFree(NewTreeSize_dev);
+    cudaFree(Lut_dev);
+    cudaFree(GivenCompactorOutput_dev);
+    cudaFree(SimulatorCompactor_dev);
+
     clock_t global_c_end = clock();
     time_elapsed_ms = 1000.0 * (global_c_end-global_c_start) / CLOCKS_PER_SEC;
     cout << "SIMULATION END =======================" << endl;
@@ -666,7 +684,7 @@ int main() {
     }
     cout << "]," << endl;
 
-    cout << TreeSize << "," << time_elapsed_ms << "," << endl;
+    cout << TreeSize << "," << time_elapsed_ms/1000 << "," << endl;
 
     cout << "]" << endl;
     return 0;
