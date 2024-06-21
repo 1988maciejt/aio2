@@ -657,7 +657,7 @@ class BitarrayExtendedMatrix:
     pass
 class BitarrayExtendedMatrix:
     
-    __slots__ = ('_rows', '_cols', "_echelon_form", "_recursion_level", "_unambiguous")
+    __slots__ = ('_rows', '_cols', "_echelon_form", "_recursion_level", "_unambiguous", "_tested", "_unambiguous_vars")
     
     def __init__(self, Rows : list = None) -> None:
         self._rows = []
@@ -665,6 +665,8 @@ class BitarrayExtendedMatrix:
         self._echelon_form = 0
         self._recursion_level = 0
         self._unambiguous = {}
+        self._tested = set()
+        self._unambiguous_vars = None
         if Rows is not None:
             for r in Rows:
                 self.addRow(r)
@@ -764,7 +766,9 @@ class BitarrayExtendedMatrix:
                 return True
         return False
     
-    def solve(self, MaxFailCount : int = 10, Debug=0):
+    def solve(self, MaxFailCount : int = 10, MaxRecursionDepth : int = 3, Debug=0):
+        if self._recursion_level == 0:
+            self._tested = set()
         if not self._echelon_form:
             self.toEchelonForm(Debug=0)
         if Debug:
@@ -778,6 +782,7 @@ class BitarrayExtendedMatrix:
                         del self._unambiguous[RowI]
                     except:
                         pass
+        #self._unambiguous = {}
         if Debug:
             print(f"{' '*self._recursion_level}Resultant:")
             print(self)
@@ -785,22 +790,8 @@ class BitarrayExtendedMatrix:
             if Debug:
                 print(f"{' '*self._recursion_level}HAS NO SOLUTION:")
             return None
-        TheBestAmbiguous = None
-        for i in range(len(self._rows)):
-            if not self.isUnambiguous(i):
-                if TheBestAmbiguous is None:
-                    TheBestAmbiguous = self._rows[i]
-                else:
-                    if not TheBestAmbiguous[-1]:
-                        if self._rows[i][-1]:
-                            TheBestAmbiguous = self._rows[i]
-                        elif TheBestAmbiguous[:-1].count(1) > self._rows[i][:-1].count(1):
-                            TheBestAmbiguous = self._rows[i]
-                    elif self._rows[i][-1]:  
-                        if TheBestAmbiguous[:-1].count(1) > self._rows[i][:-1].count(1):
-                            TheBestAmbiguous = self._rows[i]
-        if TheBestAmbiguous is None:
-            Result = bau.zeros(self._cols)
+        if self.isUnambiguous():
+            Result = bau.zeros(self._cols-1)
             oc = 0
             for i in range(len(self._rows)):
                 if self._rows[i][-1]:
@@ -808,61 +799,96 @@ class BitarrayExtendedMatrix:
                     oc += 1
                     if oc > MaxFailCount:
                         return None
-            if Debug:
-                print("FOUND!! ",Result)
+            #if Debug:
+            print("FOUND!! ",Result)
             return [Result]
         else:
             if self.isUnambiguousOnesCountGreaterThan(MaxFailCount):
                 return None
-            if Debug:
-                print(f"{' '*self._recursion_level}TheBestAmbiguous: {TheBestAmbiguous}")
-            VarCandidates = TheBestAmbiguous[:-1].search(1)
-            if Debug:
-                print(f"{' '*self._recursion_level}VarCandidates: {VarCandidates}")
-            Combinations = []
-            if TheBestAmbiguous[-1]:
-                Val = 1
-                for i in range(1, len(VarCandidates)+1, 2):
-                    Combinations += List.getCombinations(VarCandidates, i)
-            else:
-                Val = 0
-                for i in range(2, len(VarCandidates)+1, 2):
-                    Combinations += List.getCombinations(VarCandidates, i)
-            if Debug:
-                print(f"{' '*self._recursion_level}- Eq value is {Val}  New trees: {Combinations}")
+            #if self._unambiguous_vars is None:
+            #    self._unambiguous_vars = bau.zeros(self._cols-1)
             Result = []
-            for Comb in Combinations:
-                R = self._deepSearch(Comb, 1, MaxFailCount, Debug=Debug)
-                if R is not None:
-                    for RI in R:
-                        if RI not in Result:
-                            Result.append(RI)
-                if not Val:
-                    R = self._deepSearch(Comb, 0, MaxFailCount, Debug=Debug)
+            AmbiguousIndices = []
+            for urowi in range(len(self._rows)-1, -1, -1):
+                if not self.isUnambiguous(urowi):
+                    AmbiguousIndices.append(urowi)
+            #    else:
+            #        self._unambiguous_vars[self._rows[urowi].find(1)] = 1
+            AmbiguousIndices.sort(key = lambda x: self._rows[x][:-1].count(1))
+            for urowii in AmbiguousIndices[:1]:
+                TheBestAmbiguous = self._rows[urowii]
+                if Debug:
+                    print(f"{' '*self._recursion_level}TheBestAmbiguous: {TheBestAmbiguous}")
+                VarCandidates = []                
+                for Var in TheBestAmbiguous[:-1].search(1):
+                    VarCandidates.append(Var)
+                if Debug:
+                    print(f"{' '*self._recursion_level}VarCandidates: {VarCandidates}")
+                Combinations = []
+                KnownOnesCount = self.getUnambiguousOnesCount()
+                MaxNewOnes = MaxFailCount - KnownOnesCount
+                if MaxNewOnes < 0:
+                    MaxNewOnes = 0
+                MaxK = len(VarCandidates)
+                if MaxK > MaxNewOnes:
+                    MaxK = MaxNewOnes
+                #print(KnownOnesCount, MaxNewOnes, MaxK)
+                Combinations = []
+                #for i in range(1, MaxK+1, 1):
+                #    Combinations += List.getCombinations(VarCandidates, i)
+                if TheBestAmbiguous[-1]:
+                    for i in range(1, MaxK+1, 2):
+                        Combinations += List.getCombinations(VarCandidates, i)
+                else:
+                    Combinations.append([])
+                    for i in range(2, MaxK+1, 2):
+                        Combinations += List.getCombinations(VarCandidates, i)
+                for Comb in Combinations:
+                    Comb1 = set(Comb)
+                    Comb0 = set(VarCandidates) - Comb1
+                    Comb1t = tuple(Comb1)
+                    Comb0t = tuple(Comb0)
+                    if (Comb0t, Comb1t) in self._tested:
+                        #print("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+                        continue
+                    self._tested.add((Comb0t, Comb1t))
+                    #print(f"{' '*self._recursion_level}-> 0: {set(VarCandidates) - set(Comb)},            1: {Comb}")
+                    R = self._deepSearch(Comb0, Comb1, MaxFailCount, MaxRecursionDepth)
                     if R is not None:
                         for RI in R:
                             if RI not in Result:
                                 Result.append(RI)
+                    #print(f"{' '*self._recursion_level}<-")
+                if self._recursion_level == 0:
+                    if len(Result) > 0:
+                        break
+                else:
+                    break
             return Result
                     
                     
-    def _deepSearch(self, EqVars : list, EqVal : int, MaxFailCount : int = 10, Debug = 0):
-        if self._recursion_level > 10:
-            Aio.printError(f"{' '*self._recursion_level}Deep search is too deep.")
+    def _deepSearch(self, EqVars0 : list, EqVars1 : list, MaxFailCount : int = 10, MaxRecursionDepth : int = 3):
+        if self._recursion_level > MaxRecursionDepth:
+            #Aio.printError(f"{' '*self._recursion_level}Deep search is too deep.")
             return None
-        if Debug:
-            print(f"{' '*self._recursion_level}_recursion_level={self._recursion_level}")
+        print(self._recursion_level,'  '*self._recursion_level,"-> _deepSearch ",EqVars0,EqVars1)
         M = self.copy()
         M._recursion_level = self._recursion_level + 1
-        for c in EqVars:
+        M._tested = self._tested.copy()
+        for c in EqVars0:
             Eq = bau.zeros(self._cols)
             Eq[c] = 1
-            if EqVal:
-                Eq[-1] = 1
             M.addRow(Eq)
-            if Debug:
-                print(f"{' '*self._recursion_level}Deep search Eq: {Eq} --------")
-        return M.solve(MaxFailCount, Debug=Debug)
+            #print(f"{' '*self._recursion_level}Deep search Eq: {Eq} --------")
+        for c in EqVars1:
+            Eq = bau.zeros(self._cols)
+            Eq[c] = 1
+            Eq[-1] = 1
+            M.addRow(Eq)
+            #print(f"{' '*self._recursion_level}Deep search Eq: {Eq} --------")
+        Result = M.solve(MaxFailCount, MaxRecursionDepth=MaxRecursionDepth)
+        #print(self._recursion_level,'  '*self._recursion_level,"<- _deepSearch ")
+        return Result
             
     def isUnambiguous(self, RowIndex : int = None) -> bool:
         if RowIndex is None:
@@ -885,16 +911,26 @@ class BitarrayExtendedMatrix:
     def isUnambiguousOnesCountGreaterThan(self, HowMuch : int) -> bool:
         C = 0
         for i in range(len(self._rows)):
-            if self.isUnambiguous(i):
-                if self._rows[i][-1]:
+            if self._rows[i][-1]:
+                if self.isUnambiguous(i):
                     C += 1
                     if C > HowMuch:
                         return True
         return False
+
+    def getUnambiguousOnesCount(self) -> int:
+        C = 0
+        for i in range(len(self._rows)):
+            if self.isUnambiguous(i):
+                if self._rows[i][-1]:
+                    C += 1
+        return C
+        
         
     def copy(self) -> BitarrayExtendedMatrix:
+        from copy import deepcopy
         Result = BitarrayExtendedMatrix()
-        Result._rows = self._rows.copy()
+        Result._rows = deepcopy(self._rows)
         Result._cols = self._cols
         Result._echelon_form = self._echelon_form
         Result._unambiguous = self._unambiguous.copy()

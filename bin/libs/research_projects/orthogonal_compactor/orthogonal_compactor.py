@@ -49,6 +49,97 @@ class CompactorSimulator:
         if Overlap:
             return tuple(self._ShiftRegistersPresent)
         return tuple(self._ShiftRegistersNonOverlapPresent)
+    
+    def _getLinearEquationMaskaForGlobalXor(self, Signature : bitarray) -> list:
+        Result = []
+        Cycles = len(Signature) - self.ScanChainsCount
+        VarCount = self.ScanChainsCount * Cycles
+        for Cycle in range(Cycles):
+            Eq = bau.zeros(VarCount + 1)
+            for i in range(Cycle * self.ScanChainsCount, (Cycle+1) * self.ScanChainsCount, 1):
+                Eq[i] = 1
+            if Signature[Cycle]:
+                Eq[-1] = 1
+            Result.append(Eq)
+        return Result
+    
+    def _getLinearEquationMaskaForOverlappedRegister(self, Signature : tuple) -> list:
+        Result = []
+        Cycles = len(Signature[1]) - self.ScanChainsCount
+        VarCount = self.ScanChainsCount * Cycles
+        if Signature[0][0] < 0:
+            Up = False
+        else:
+            Up = True
+        EveryN = abs(Signature[0][0])
+        Offset = Signature[0][1]
+        for SIndex in range(1, len(Signature[1])):
+            Eq = bau.zeros(VarCount + 1)
+            for C in range(0, Cycles, 1):
+                if Up:
+                    S = self.ScanChainsCount - SIndex + C
+                    if S >= self.ScanChainsCount:
+                        break
+                    if S < 0: 
+                        continue
+                    for MUL in range(0, EveryN, 1):
+                        Sin = (S + Offset + MUL) % self.ScanChainsCount
+                        #print(SIndex, C, Sin)
+                        Eq[self.cellPositionToEquationMaskIndex(C, Sin)] = 1
+                else:
+                    S = SIndex - C - 1
+                    if S >= self.ScanChainsCount:
+                        continue
+                    if S < 0: 
+                        break
+                    for MUL in range(0, EveryN, 1):
+                        Sin = (S - Offset - MUL) % self.ScanChainsCount
+                        #print(SIndex, C, Sin)
+                        Eq[self.cellPositionToEquationMaskIndex(C, Sin)] = 1
+            if Signature[1][SIndex]:
+                Eq[-1] = 1
+            Result.append(Eq)
+        return Result
+    
+    def getLinearEquationMasks(self, Signatures) -> list:
+        Result = []
+        for Signature in Signatures:
+            if Signature[0][0] == 0:
+                Result += self._getLinearEquationMaskaForGlobalXor(Signature[1])
+            elif Signature[0][2]:
+                Result += self._getLinearEquationMaskaForOverlappedRegister(Signature)
+        return Result
+    
+    def findFaultPatternsSolvingEquations(self, FaultFreeInputData : bitarray, OutputData : list, MaxFaultsCount : int = 18, MaxRecursionDepth = 100) -> list:
+        FaultFreeOutputData = self.simulate(FaultFreeInputData)
+        Signatures = []
+        for i in range(len(OutputData)):
+            Signature = [OutputData[i][0]]
+            Signature.append(OutputData[i][1] ^ FaultFreeOutputData[i][1])
+            Signatures.append(Signature)
+        Eqs = self.getLinearEquationMasks(Signatures)
+        EqSystem = BitarrayExtendedMatrix(Eqs)
+        if 0:
+            print(OutputData)
+            print(Signatures)
+            print("BASE EQUATION SYSTEM:")
+            print(EqSystem)
+            print("STARTING SOLVER:")
+        Solutions = EqSystem.solve(MaxFaultsCount, MaxRecursionDepth=MaxRecursionDepth)
+        Result = []
+        for Sol in Solutions:
+            Res = []
+            for i in range(len(Sol)):
+                if Sol[i]:
+                    Res.append(self.EquationMaskIndexToCellPosition(i))
+            Result.append(Res)
+        return Result
+    
+    def cellPositionToEquationMaskIndex(self, Cycle : int, ScanIndex : int) -> int:
+        return Cycle * self.ScanChainsCount + ScanIndex
+    
+    def EquationMaskIndexToCellPosition(self, Index : int) -> tuple:
+        return (Index // self.ScanChainsCount, Index % self.ScanChainsCount)
         
     def simulate(self, InputData : bitarray, WordsLimit : int = None, FlushAllBitsFromShiftRegisters : bool = True) -> tuple:
         if self.GlobalSumPresent:
