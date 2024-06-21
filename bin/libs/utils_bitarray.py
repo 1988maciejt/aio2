@@ -846,12 +846,12 @@ class BitarrayExtendedMatrix:
                 for Comb in Combinations:
                     Comb1 = set(Comb)
                     Comb0 = set(VarCandidates) - Comb1
-                    Comb1t = tuple(Comb1)
-                    Comb0t = tuple(Comb0)
-                    if (Comb0t, Comb1t) in self._tested:
-                        #print("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-                        continue
-                    self._tested.add((Comb0t, Comb1t))
+                    #Comb1t = tuple(Comb1)
+                    #Comb0t = tuple(Comb0)
+                    #if (Comb0t, Comb1t) in self._tested:
+                        #print("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")   
+                    #    continue
+                    #self._tested.add((Comb0t, Comb1t))
                     #print(f"{' '*self._recursion_level}-> 0: {set(VarCandidates) - set(Comb)},            1: {Comb}")
                     R = self._deepSearch(Comb0, Comb1, MaxFailCount, MaxRecursionDepth)
                     if R is not None:
@@ -874,7 +874,7 @@ class BitarrayExtendedMatrix:
         print(self._recursion_level,'  '*self._recursion_level,"-> _deepSearch ",EqVars0,EqVars1)
         M = self.copy()
         M._recursion_level = self._recursion_level + 1
-        M._tested = self._tested.copy()
+        #M._tested = self._tested.copy()
         for c in EqVars0:
             Eq = bau.zeros(self._cols)
             Eq[c] = 1
