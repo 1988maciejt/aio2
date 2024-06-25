@@ -130,11 +130,9 @@ class BitarrayExtendedMatrix:
                 return True
         return False
     
-    def solve(self, MaxFailCount : int = 10, MaxRecursionDepth : int = 3, Debug=0):
+    def solve(self, MaxFailCount : int = 10, MaxRecursionDepth : int = 3, DoNotReduce=0):
         self.toEchelonForm()
-        if Debug:
-            print(f"{' '*self._recursion_level}solve -----------")
-        for RowI in range(len(self)-1):
+        for RowI in range(len(self)-2, 0, -1):
             for RfixerI in range(RowI+1, len(self)):
                 Aux = self._rows[RowI] ^ self._rows[RfixerI]
                 if (Aux < self._rows[RowI]):
@@ -142,10 +140,21 @@ class BitarrayExtendedMatrix:
                     try:
                         del self._unambiguous[RowI]
                     except:
-                        pass    
+                        pass     
+        for RowI in range(len(self)-1):
+            for RfixerI in range(RowI+1, len(self)):
+                if self.isUnambiguous(RfixerI):
+                    Aux = self._rows[RowI] ^ self._rows[RfixerI]
+                    if (Aux < self._rows[RowI]):
+                        self._rows[RowI] = Aux
+                        try:
+                            del self._unambiguous[RowI]
+                        except:
+                            pass    
         if self.hasNoSolution():
             return None
-        self.reduceEqs()
+        if not DoNotReduce:
+            self.reduceEqs()
         if self.isUnambiguous():
             Result = bau.zeros(self._cols-1)
             Result = self.getUnambiguousVarsEqualTo1()
@@ -162,45 +171,37 @@ class BitarrayExtendedMatrix:
             if MaxNewOnes < 0:
                 MaxNewOnes = 0
             Result = []
-            AmbiguousIndices = []
-            for urowi in range(len(self._rows)):
-                VarCount = self.isUnambiguous(urowi, ReturnNumberOfOnes=True)
-                if VarCount > 1:
-                    AmbiguousIndices.append((urowi, VarCount))
-            #AmbiguousIndices.sort(key = lambda x: x[1])
+            
+            TheBestIndex = len(self._rows)-1
+            TheBestVars = self.isUnambiguous(TheBestIndex, ReturnNumberOfOnes=True)
             VarCandidates = []   
             if MaxNewOnes > 0:
-                TheBestIndex = AmbiguousIndices[0][0]
-                TheBestVars = AmbiguousIndices[0][1]
-                IdealVars = 5
-                if TheBestVars > IdealVars:
-                    for i in range(1, len(AmbiguousIndices)):
-                        if AmbiguousIndices[i][1] <= IdealVars:
-                            TheBestIndex = AmbiguousIndices[i][0]
-                            TheBestVars = AmbiguousIndices[i][1]
+                if TheBestVars > 5:
+                    for urowi in range(TheBestIndex-1, 0, -1):
+                        VarCount = self.isUnambiguous(urowi, ReturnNumberOfOnes=True)
+                        if VarCount < TheBestVars:
+                            TheBestIndex = urowi
+                            TheBestVars = VarCount
+                        if VarCount <= 5:
                             break
-                        elif AmbiguousIndices[i][1] < TheBestVars:
-                            TheBestIndex = AmbiguousIndices[i][0]
-                            TheBestVars = AmbiguousIndices[i][1]
-                TheBestAmbiguous = self._rows[TheBestIndex]
-                for Var in TheBestAmbiguous[:-1].search(1):
+                for Var in self._rows[TheBestIndex][:-1].search(1):
                     VarCandidates.append(Var)
             else:
-                IdealVars = 50
-                TheBestVars = 0
-                for AI in AmbiguousIndices:
-                    TheBestIndex = AI[0]
-                    TheBestVars += AI[1]
-                    TheBestAmbiguous = self._rows[TheBestIndex]
-                    for Var in TheBestAmbiguous[:-1].search(1):
-                        VarCandidates.append(Var)
-                    if TheBestVars > IdealVars:
-                        break
+                SumVars = TheBestVars
+                for Var in self._rows[TheBestIndex][:-1].search(1):
+                    VarCandidates.append(Var)
+                for urowi in range(TheBestIndex-1, 0, -1):
+                    VarCount = self.isUnambiguous(urowi, ReturnNumberOfOnes=True)
+                    SumVars += VarCount
+                    if SumVars <= 50:
+                        for Var in self._rows[urowi][:-1].search(1):
+                            VarCandidates.append(Var)
+
             Combinations = []
             MaxK = len(VarCandidates)
             if MaxK > MaxNewOnes:
                 MaxK = MaxNewOnes
-            if TheBestAmbiguous[-1]:
+            if MaxNewOnes > 0 and self._rows[TheBestIndex][-1]:
                 for i in range(1, MaxK+1, 2):
                     Combinations += List.getCombinations(VarCandidates, i)
             else:
@@ -232,27 +233,13 @@ class BitarrayExtendedMatrix:
                     
     def reduceEqs(self) -> None:
         self.toEchelonForm()
-        ToRemove = []
         for i in range(len(self._rows)-1, -1, -1):
             if self.isUnambiguous(i):
                 if self._rows[i][-1]:
                     self._ambiguous_ones.append(self._rows[i].find(1))
-                ToRemove.append(i)
-            else:
-                break
-        for i in ToRemove:
-            del self._rows[i]
-        ToRemove = []
-        for i in range(len(self._rows)):
-            if self.isUnambiguous(i):
-                if self._rows[i][-1]:
-                    self._ambiguous_ones.append(self._rows[i].find(1))
-                ToRemove.append(i)
-            else:
-                break
-        for i in reversed(ToRemove):
-            del self._rows[i]
+                del self._rows[i]
         self._unambiguous = {}
+        return
     
     def getUnambiguousVarsEqualTo1(self) -> list:
         Result = []
