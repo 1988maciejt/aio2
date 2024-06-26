@@ -1,3 +1,4 @@
+from typing import Any
 from libs.aio import *
 from bitarray import *
 from libs.utils_bitarray import *
@@ -171,7 +172,14 @@ class BitarrayExtendedMatrix:
             if MaxNewOnes < 0:
                 MaxNewOnes = 0
             Result = []
-            
+            if MaxNewOnes <= 1:     
+                for i in range(len(self._rows)-1, 0, -1):
+                    if not self.isUnambiguous(i) and not self._rows[i][-1]:
+                        for vindex in self._rows[i][:-1].search(1):
+                            for j in range(0, i, 1):
+                                self._rows[j][vindex] = 0
+                self.reduceEqs()
+                self._unambiguous = {}
             TheBestIndex = len(self._rows)-1
             TheBestVars = self.isUnambiguous(TheBestIndex, ReturnNumberOfOnes=True)
             VarCandidates = []   
@@ -299,6 +307,340 @@ class BitarrayExtendedMatrix:
         Result._sorted = self._sorted
         return Result
     
+# +++ NEW SOLVER +++++++++++++++++++++++++++++++++++++++++++++++++++    
+
+class CompactorSolverEquation:
+    pass    
+class CompactorSolver:
+    pass
+
+class CompactorSolverEquation:
+    
+    __slots__ = ("_equation", "_value", "_first_one", "_ones_count")
+    
+    def __init__(self, Equation : bitarray, Value : int) -> None:
+        self._equation = Equation.copy()
+        self._value = Value
+        self._first_one = None
+        self._ones_count = None
+        
+    def __len__(self) -> int:
+        return len(self._equation)
+    
+    def __repr__(self) -> str:
+        return f"CompactorSolverEquation({len(self)}, {self._value})"
+    
+    def __str__(self) -> str:
+        Result = f"{str(self._equation)} {self._value}  ({self.getFirstOnePosition()},{self.getOnesCount()})"
+        if self.isUnambigolous():
+            Result += " U"
+        return Result
+    
+    def __eq__(self, Other : CompactorSolverEquation) -> bool:
+        if self._value != Other._value:
+            return False
+        if self._first_one is not None and Other._first_one is not None:
+            if self._first_one != Other._first_one:
+                return False
+        if self._ones_count is not None and Other._ones_count is not None:
+            if self._ones_count != Other._ones_count:
+                return False
+        return self._equation != Other._equation
+    
+    def __ne__(self, Other : CompactorSolverEquation) -> bool:
+        return not self.__eq__(Other)
+        
+    def __lt__(self, Other : CompactorSolverEquation) -> bool:
+        if self._first_one is not None and Other._first_one is not None:
+            if self._first_one < Other._first_one:
+                return True
+            if self._first_one > Other._first_one:
+                return False
+        return self._equation < Other._equation
+    
+    def __le__(self, Other : CompactorSolverEquation) -> bool:
+        if self._first_one is not None and Other._first_one is not None:
+            if self._first_one < Other._first_one:
+                return True
+            if self._first_one > Other._first_one:
+                return False
+        return self._equation <= Other._equation
+        
+    def __gt__(self, Other : CompactorSolverEquation) -> bool:
+        if self._first_one is not None and Other._first_one is not None:
+            if self._first_one > Other._first_one:
+                return True
+            if self._first_one < Other._first_one:
+                return False
+        return self._equation > Other._equation
+    
+    def __ge__(self, Other : CompactorSolverEquation) -> bool:
+        if self._first_one is not None and Other._first_one is not None:
+            if self._first_one > Other._first_one:
+                return True
+            if self._first_one < Other._first_one:
+                return False
+        return self._equation >= Other._equation
+    
+    def getFirstOnePosition(self) -> int:
+        if self._first_one is None:
+            self._first_one = self._equation.find(1)
+        return self._first_one
+    
+    def getOnesCount(self) -> int:
+        if self._ones_count is None:
+            self._ones_count = self._equation.count(1)
+        return self._ones_count
+    
+    def isEmpty(self) -> bool: # 00000... = 0
+        return self.getOnesCount() == 0 and self._value == 0
+    
+    def isUnambigolous(self) -> bool: # tylko jedna zmienna
+        return self.getOnesCount() == 1
+    
+    def isContradictory(self) -> bool: # rownanie sprzeczne (0000... = 1)
+        return self.getOnesCount() == 0 and self._value == 1
+    
+    def xorInPlace(self, Other : CompactorSolverEquation):
+        self._equation ^= Other._equation
+        self._value ^= Other._value
+        self._ones_count = None
+        if Other._first_one is not None and self._first_one is not None:
+            if Other._first_one < self._first_one:
+                self._first_one = Other._first_one
+            if Other._first_one == self._first_one:
+                self._first_one = None
+        else:
+            self._first_one = None
+            
+    def xorInPlaceIfVariableExists(self, Other : CompactorSolverEquation, VarIndex : int):
+        if self._first_one is not None:
+            if VarIndex < self._first_one:
+                return
+            if VarIndex == self._first_one:
+                self.xorInPlace(Other)
+                return
+        if self._equation[VarIndex]:
+            self.xorInPlace(Other)
+                
+            
+                    
+    def getOnesPositions(self) -> list:
+        return self._equation.search(1)
+                
+    def removeVariableWhichIs0(self, VarIndex : int):
+        self._equation[VarIndex] = 0
+        if self._first_one is not None and self._first_one == VarIndex:
+            self._first_one = None
+        self._ones_count = None
+        
+    def removeVariableWhichIs1(self, VarIndex : int):
+        if self._equation[VarIndex]:
+            self._equation[VarIndex] = 0
+            self._value = (1 - self._value)
+            if self._first_one is not None and self._first_one == VarIndex:
+                self._first_one = None
+            self._ones_count = None
+        
+    def getValue(self) -> int:
+        return self._value
+        
+    def copy(self) -> CompactorSolverEquation:
+        Result = CompactorSolverEquation(self._equation, self._value)
+        Result._ones_count = self._ones_count
+        Result._first_one = self._first_one
+        
+        
+class CompactorSolver:
+    
+    __slots__ = ("_equations", "_unambigolous_ones", "_max_ones", "_recursion_level")
+    
+    def __init__(self, MaxOnesCount : int, Equations : list = None) -> None:
+        self._unambigolous_ones = []
+        self._max_ones = MaxOnesCount
+        self._equations = []
+        self._recursion_level = 0
+        if type(Equations) is list:
+            for Eq in Equations:
+                self.addEquation(Eq)
+        
+    def __repr__(self) -> str:
+        return f"CompactorSolver({len(self)})"
+    
+    def __str__(self) -> str:
+        Result = ""
+        Second = 0
+        for i in range(len(self)):
+            if Second:
+                Result += "\n"
+            else:
+                Second = 1
+            Result += "  " * self._recursion_level
+            Result += f"{i}: \t{str(self._equations[i])}"
+        return Result
+    
+    def __len__(self) -> int:
+        return len(self._equations)
+    
+    def removeVarsFor0(self, VarIndex : int):
+        for Eq in self._equations:
+            Eq.removeVariableWhichIs0(VarIndex)
+            
+    def removeVarsFor1(self, VarIndex : int):
+        for Eq in self._equations:
+            Eq.removeVariableWhichIs1(VarIndex)
+        self._unambigolous_ones.append(VarIndex)
+            
+    def addEquation(self, Equation : CompactorSolverEquation):
+        if 0 and Equation.isUnambigolous():
+            VPos = Equation.getFirstOnePosition()
+            if Equation.getValue():
+                for e in self._equations:
+                    e.removeVariableWhichIs1(VPos)
+                self._unambigolous_ones.append(Equation.getFirstOnePosition())
+            else:
+                for e in self._equations:
+                    e.removeVariableWhichIs0(VPos)
+            return
+        self._equations.append(Equation)
+        
+    def cleanEquations(self) -> bool:
+        i = 0
+        while i < len(self._equations):
+            Eq = self._equations[i]
+            if Eq.isContradictory():
+                return False
+            if Eq.isEmpty():
+                del self._equations[i]
+                continue
+            if Eq.isUnambigolous():
+                if Eq.getValue():
+                    for j in range(len(self)):
+                        if i == j:
+                            continue
+                        self._equations[j].removeVariableWhichIs1(Eq.getFirstOnePosition())
+                    self._unambigolous_ones.append(Eq.getFirstOnePosition())
+                    if len(self._unambigolous_ones) > self._max_ones:
+                        return False
+                else:
+                    for j in range(len(self)):
+                        if i == j:
+                            continue
+                        self._equations[j].removeVariableWhichIs0(Eq.getFirstOnePosition())
+                del self._equations[i]
+                continue
+            i += 1
+        return True
+            
+    def getFoundOnes(self) -> list:
+        return self._unambigolous_ones.copy()
+    
+    def howManyNewOnesToFind(self) -> int:
+        Result = self._max_ones - len(self._unambigolous_ones)
+        if Result < 0:
+            Result = 0
+        return Result
+        
+    def solve(self, MaxRecursionDepth : int = 100) -> list:
+        #print(self._recursion_level," :\t", '  '*self._recursion_level,"  ", "MaxOnes:", self._max_ones)
+        #print(self._recursion_level," :\t", '  '*self._recursion_level,"  ", "Given eqs:")
+        #print(self)        
+        if not self.cleanEquations():
+            #print(self._recursion_level," :\t", '  '*self._recursion_level,"  ", "return [] because clear is false:")
+            return []
+        self.gaussRound()
+        #print(self._recursion_level," :\t", '  '*self._recursion_level,"  ", "Gaussed eqs:")
+        #print(self)
+        #print(self._recursion_level," :\t", '  '*self._recursion_level,"  ", "Known ones:", self._unambigolous_ones)
+        if not self.cleanEquations():
+            #print(self._recursion_level," :\t", '  '*self._recursion_level,"  ", "return [] because clear is false:")
+            return []
+        if len(self) == 0:
+            #print(self._recursion_level," :\t", '  '*self._recursion_level,"  ", f"return because of size 0 [{self._unambigolous_ones}]:")
+            return [self._unambigolous_ones]
+        #print(self._recursion_level," :\t", '  '*self._recursion_level,"  ", "Processed eqs:")
+        #print(self)
+        #print(self._recursion_level," :\t", '  '*self._recursion_level,"  ", "Known ones:", self._unambigolous_ones)
+        if self.howManyNewOnesToFind() <= 1:
+            #print("HERE")
+            for i in range(len(self)):
+                if self._equations[i].getValue() == 0:
+                    Vars = self._equations[i].getOnesPositions()
+                    for v in Vars:
+                        for j in range(len(self)):
+                            self._equations[j].removeVariableWhichIs0(v)
+            if not self.cleanEquations():
+                return []
+            if len(self) == 0:
+                #print(self._recursion_level," :\t", '  '*self._recursion_level,"  ", f"return after zeroing[{self._unambigolous_ones}]:")
+                return [self._unambigolous_ones]
+        if self._recursion_level >= MaxRecursionDepth:
+            return []
+        BestIndex = 0
+        BestVars = self._equations[BestIndex].getOnesCount()
+        BestVal = self._equations[BestIndex].getValue()
+        for i in range(len(self)):
+            VarCount = self._equations[i].getOnesCount()
+            Val = self._equations[i].getValue()     
+            if Val and VarCount <= 10:
+                BestVal = Val
+                BestIndex = i
+                BestVars = VarCount
+                break
+            elif not BestVal and VarCount < BestVars:
+                BestVal = Val
+                BestIndex = i
+                BestVars = VarCount
+            elif VarCount < BestVars > 10:
+                BestVal = Val
+                BestIndex = i
+                BestVars = VarCount      
+        #print("  ", "BestIndex:", BestIndex, "BestVars:", BestVars, "BestVal:", BestVal)
+        VarCandidates = self._equations[BestIndex].getOnesPositions()
+        Val = self._equations[BestIndex].getValue()
+        OneCombinations = []
+        MaxK = self.howManyNewOnesToFind()
+        if MaxK > len(VarCandidates):
+            MaxK = len(VarCandidates)
+        if Val == 0:
+            OneCombinations.append([])
+            for k in range(2, MaxK+1, 2):
+                OneCombinations += List.getCombinations(VarCandidates, k)
+        else:
+            for k in range(1, MaxK+1, 2):
+                OneCombinations += List.getCombinations(VarCandidates, k)
+        from copy import deepcopy
+        Results = []
+        for i in range(len(OneCombinations)):
+            print(self._recursion_level," :\t -> ", i+1, "/", len(OneCombinations), " \t", f"EQS: {len(self._equations)}, MaxNewOnes: {self.howManyNewOnesToFind()},  Val: {BestVal}")
+            Comb = OneCombinations[i]
+            NewSolver = CompactorSolver(self.howManyNewOnesToFind())
+            NewSolver._equations = deepcopy(self._equations)
+            NewSolver._recursion_level = self._recursion_level + 1
+            for VarCandid in VarCandidates:
+                if VarCandid in Comb:
+                    NewSolver.removeVarsFor1(VarCandid)
+                else:
+                    NewSolver.removeVarsFor0(VarCandid)
+            ResAux = NewSolver.solve(MaxRecursionDepth)
+            for Res in ResAux:
+                Results.append(self._unambigolous_ones + Res)
+            AioShell.removeLastLine()
+        #print(self._recursion_level," :\t", '  '*self._recursion_level,"  ", f"return {Results}:")
+        return Results
+        
+    def gaussRound(self):
+        if len(self) < 1:
+            return
+        for VarPos in range(len(self._equations[0])):
+            for i in range(len(self)):
+                if self._equations[i].getFirstOnePosition() == VarPos:
+                    for j in range(len(self)):
+                        if i != j:
+                            self._equations[j].xorInPlaceIfVariableExists(self._equations[i], VarPos)
+                    break
+    
+    
 
 class CompactorSimulator:
     pass
@@ -341,7 +683,7 @@ class CompactorSimulator:
             return tuple(self._ShiftRegistersPresent)
         return tuple(self._ShiftRegistersNonOverlapPresent)
     
-    def _getLinearEquationMaskaForGlobalXor(self, Signature : bitarray) -> list:
+    def _getLinearEquationMaskaForGlobalXorOld(self, Signature : bitarray) -> list:
         Result = []
         Cycles = len(Signature) - self.ScanChainsCount
         VarCount = self.ScanChainsCount * Cycles
@@ -354,7 +696,19 @@ class CompactorSimulator:
             Result.append(Eq)
         return Result
     
-    def _getLinearEquationMaskaForOverlappedRegister(self, Signature : tuple) -> list:
+    def _getLinearEquationMaskaForGlobalXor(self, Signature : bitarray) -> list:
+        Result = []
+        Cycles = len(Signature) - self.ScanChainsCount
+        VarCount = self.ScanChainsCount * Cycles
+        for Cycle in range(Cycles):
+            Eq = bau.zeros(VarCount)
+            for i in range(Cycle * self.ScanChainsCount, (Cycle+1) * self.ScanChainsCount, 1):
+                Eq[i] = 1
+            Eq = CompactorSolverEquation(Eq, Signature[Cycle])
+            Result.append(Eq)
+        return Result
+    
+    def _getLinearEquationMaskaForOverlappedRegisterOld(self, Signature : tuple) -> list:
         Result = []
         Cycles = len(Signature[1]) - self.ScanChainsCount
         VarCount = self.ScanChainsCount * Cycles
@@ -392,6 +746,43 @@ class CompactorSimulator:
             Result.append(Eq)
         return Result
     
+    def _getLinearEquationMaskaForOverlappedRegister(self, Signature : tuple) -> list:
+        Result = []
+        Cycles = len(Signature[1]) - self.ScanChainsCount
+        VarCount = self.ScanChainsCount * Cycles
+        if Signature[0][0] < 0:
+            Up = False
+        else:
+            Up = True
+        EveryN = abs(Signature[0][0])
+        Offset = Signature[0][1]
+        for SIndex in range(1, len(Signature[1])):
+            Eq = bau.zeros(VarCount)
+            for C in range(0, Cycles, 1):
+                if Up:
+                    S = self.ScanChainsCount - SIndex + C
+                    if S >= self.ScanChainsCount:
+                        break
+                    if S < 0: 
+                        continue
+                    for MUL in range(0, EveryN, 1):
+                        Sin = (S + Offset + MUL) % self.ScanChainsCount
+                        #print(SIndex, C, Sin)
+                        Eq[self.cellPositionToEquationMaskIndex(C, Sin)] = 1
+                else:
+                    S = SIndex - C - 1
+                    if S >= self.ScanChainsCount:
+                        continue
+                    if S < 0: 
+                        break
+                    for MUL in range(0, EveryN, 1):
+                        Sin = (S - Offset - MUL) % self.ScanChainsCount
+                        #print(SIndex, C, Sin)
+                        Eq[self.cellPositionToEquationMaskIndex(C, Sin)] = 1
+            Eq = CompactorSolverEquation(Eq, Signature[1][SIndex])
+            Result.append(Eq)
+        return Result
+    
     def getLinearEquationMasks(self, Signatures) -> list:
         Result = []
         for Signature in Signatures:
@@ -409,14 +800,16 @@ class CompactorSimulator:
             Signature.append(OutputData[i][1] ^ FaultFreeOutputData[i][1])
             Signatures.append(Signature)
         Eqs = self.getLinearEquationMasks(Signatures)
-        EqSystem = BitarrayExtendedMatrix(Eqs)
+        #EqSystem = BitarrayExtendedMatrix(Eqs)
+        EqSystem = CompactorSolver(MaxFaultsCount, Eqs)
         if 0:
             print(OutputData)
             print(Signatures)
             print("BASE EQUATION SYSTEM:")
             print(EqSystem)
             print("STARTING SOLVER:")
-        Solutions = EqSystem.solve(MaxFaultsCount, MaxRecursionDepth=MaxRecursionDepth)
+        #Solutions = EqSystem.solve(MaxFaultsCount, MaxRecursionDepth=MaxRecursionDepth)
+        Solutions = EqSystem.solve(MaxRecursionDepth)
         Result = []
         for Sol in Solutions:
             Res = []
