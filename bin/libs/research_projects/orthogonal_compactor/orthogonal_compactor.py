@@ -665,6 +665,18 @@ class CompactorSimulator:
             self.GlobalSumPresent = bool(GlobalSumPresent)
             self._ShiftRegistersPresent = set()
             self._ShiftRegistersNonOverlapPresent = set()
+            
+    def setOption(self, Option : int = 1):
+        self._ShiftRegistersPresent = set()
+        self._ShiftRegistersNonOverlapPresent = set()
+        if Option == 2:
+            self.GlobalSumPresent = True
+            self.addShiftRegister(2, -1, False)
+            self.addShiftRegister(-2, 0, False)
+        else:
+            self.GlobalSumPresent = True
+            self.addShiftRegister(1, 0, True)
+            self.addShiftRegister(-1, 0, True)
         
     def addShiftRegister(self, EveryN : int = 1, Offset = 0, Overlap : bool = True):
         if Overlap:
@@ -828,9 +840,9 @@ class CompactorSimulator:
         if self.GlobalSumPresent:
             GlobalSum = bitarray()
         ShiftRegisters = [bau.zeros(self.ScanChainsCount) for _ in range(len(self._ShiftRegistersPresent))]
-        ShiftRegistersNonOverlap = [bau.zeros(ceil(self.ScanChainsCount / Item[0])) for Item in self._ShiftRegistersNonOverlapPresent]
+        ShiftRegistersNonOverlap = [bau.zeros(ceil(self.ScanChainsCount / abs(Item[0]))) for Item in self._ShiftRegistersNonOverlapPresent]
         ShiftRegistersResult = [bitarray() for _ in range(len(self._ShiftRegistersPresent))]
-        ShiftRegistersNonOverlapResult = [bitarray() for _ in range(len(self._ShiftRegistersPresent))]
+        ShiftRegistersNonOverlapResult = [bitarray() for _ in range(len(self._ShiftRegistersNonOverlapPresent))]
         WordIndex = 0
         for Word in Generators().subLists(InputData, self.ScanChainsCount):
             if WordsLimit is not None and WordIndex >= WordsLimit:
@@ -876,13 +888,11 @@ class CompactorSimulator:
                     LocalSum = 0
                     for k in range(N):
                         if Rev:
-                            LocalSum += Word[((self.ScanChainsCount-1) - (j + O)) % self.ScanChainsCount]
+                            LocalSum += Word[((self.ScanChainsCount-1) - (j + O + k)) % self.ScanChainsCount]
                         else:
-                            LocalSum += Word[(j + O) % self.ScanChainsCount]
-                        j += 1
-                        if j >= self.ScanChainsCount:
-                            break
-                    ShiftRegistersNonOverlap[bi][j] ^= (LocalSum % 2)
+                            LocalSum += Word[(j + O + k) % self.ScanChainsCount]
+                    j += N
+                    ShiftRegistersNonOverlap[i][bi] ^= (LocalSum % 2)
                     bi += 1
                 i += 1
         if FlushAllBitsFromShiftRegisters:
@@ -895,6 +905,12 @@ class CompactorSimulator:
                     S = Item[1]
                     ShiftRegistersResult[j].append(ShiftRegisters[j][-1])
                     ShiftRegisters[j] >>= 1
+                    j += 1
+                for Item in self._ShiftRegistersNonOverlapPresent:
+                    N = Item[0]
+                    S = Item[1]
+                    ShiftRegistersNonOverlapResult[j].append(ShiftRegistersNonOverlap[j][-1])
+                    ShiftRegistersNonOverlap[j] >>= 1
                     j += 1
         Result = []
         if self.GlobalSumPresent:
@@ -1077,164 +1093,196 @@ class CompactorSimulator:
         except:
             return r
         
+            
+    #########################################################
+    # SEARCHING FUNCTION
+    #########################################################
+    def _fsIndices(self, SCAN_COUNT : int, auxi : int, xi : int, Option : int = 1) -> tuple:
+        if Option == 2:
+            li = auxi//2 + xi
+            ui = SCAN_COUNT//2 - auxi//2 + xi - 1 - (auxi%2)
+            if ui < xi: 
+                ui += SCAN_COUNT//2
+        else:
+            ui = auxi+xi
+            li = xi+SCAN_COUNT-auxi-1
+        return li, ui
+    
+    def _fsCandidates(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, JustFound : list = [], FailsToSkip = [], SpeedUp : bool = False, Option : int = 1) -> tuple:
+        Candidates = []
+        Found = JustFound.copy()
+        FoundInGroup = 0
+        # searching for 3 1s
+        #print(Indent, "Searching for 3 1s")
+        #print("CANDIDATES")
+        #print("UpperReg:", UpperReg)
+        #print("XorReg:", XorReg)
+        #print("LowerReg:", LowerReg)
+        for xi in XorReg.search(1):
+            for auxi in range(SCAN_COUNT):
+                li, ui = self._fsIndices(SCAN_COUNT, auxi, xi, Option)
+                FF = tuple([xi, auxi])
+                if FF in Found or FF in FailsToSkip:
+                    continue
+                if UpperReg[ui] and LowerReg[li] and XorReg[xi]:
+                    Candidates.append(tuple([li, xi, ui, FF]))
+                    FoundInGroup = 3
+            if SpeedUp:
+                if len(Candidates) > 0:
+                    break
+        if len(Candidates) < 1:
+            # searching for 2 1s
+            #print(Indent, "Searching for 2 1s")
+            for xi in range(len(XorReg)):
+                for auxi in range(SCAN_COUNT):
+                    li, ui = self._fsIndices(SCAN_COUNT, auxi, xi, Option)
+                    FF = tuple([xi, auxi])
+                    if FF in Found or FF in FailsToSkip:
+                        continue
+                    if UpperReg[ui] and LowerReg[li]:
+                        Candidates.append(tuple([li, xi, ui, FF, "x"]))
+                        FoundInGroup = 2
+                    elif UpperReg[ui] and XorReg[xi]:
+                        Candidates.append(tuple([li, xi, ui, FF, "l"]))
+                        FoundInGroup = 2
+                    elif LowerReg[li] and XorReg[xi]:    
+                        Candidates.append(tuple([li, xi, ui, FF, "u"]))
+                        FoundInGroup = 2
+        if len(Candidates) < 1:
+            # searching for 1 1s
+            #print(Indent, "Searching for 1 1s")
+            FoundSOmething = 0
+            for xi in range(len(XorReg)):
+                for auxi in range(SCAN_COUNT):
+                    li, ui = self._fsIndices(SCAN_COUNT, auxi, xi, Option)
+                    FF = tuple([xi, auxi])
+                    if FF in Found or FF in FailsToSkip:
+                        #print(Indent, "FF in Found or FailsToSkip")
+                        continue
+                    if UpperReg[ui] or LowerReg[li] or XorReg[xi]:
+                        Candidates.append(tuple([li, xi, ui, FF]))
+                        FoundInGroup = 1
+                        FoundSOmething = 1
+                if FoundSOmething:
+                    break
+        #print("JustFound:", JustFound)
+        #print("Candidates:", Candidates)
+        #print("FoundInGroup:", FoundInGroup)
+        return Candidates, FoundInGroup, Found
         
-#########################################################
-# SEARCHING FUNCTION
-#########################################################
-def fastSolve(SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, JustFound : list = [], FailsToSkip = [], RecursionLevel : int = 0, Indent = ""):
-    #print(Indent, "searching, justfound:", JustFound)
-    if len(JustFound) > MaxFailCount:   
-        #print(Indent, "return - too much fails")
-        if ReturnAlsoPartialResults:
-            return [JustFound]
-        return []
-    if UpperReg.count(1) == 0 and LowerReg.count(1) == 0 and XorReg.count(1) == 0:
-        #print(Indent, "return - signatures are empty")
-        return [JustFound]
-    if len(JustFound) > 1 and MaxDifferentScanChains is not None:
-        ScanChains = set()
-        for F in JustFound:
-            ScanChains.add(F[1])
-        if len(ScanChains) > MaxDifferentScanChains:
-            #print(Indent, "return - MaxDifferentScanChains exceeded", MaxDifferentScanChains, JustFound)
+
+
+
+    def _fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, JustFound : list = [], FailsToSkip = [], RecursionLevel : int = 0, Indent = "", Option : int = 1):
+        #print(Indent, "searching, justfound:", JustFound)
+        if len(JustFound) > MaxFailCount:   
+            #print(Indent, "return - too much fails")
             if ReturnAlsoPartialResults:
                 return [JustFound]
             return []
-    Results = []
-    Found = JustFound.copy()
-    Candidates = []
-    FoundInGroup = 0
-    
-    # searching for 3 1s
-    #print(Indent, "Searching for 3 1s")
-    for xi in XorReg.search(1):
-        for auxi in range(SCAN_COUNT):
-            ui = auxi+xi
-            li = xi+SCAN_COUNT-auxi-1
-            FF = tuple([xi, auxi])
-            if FF in Found or FF in FailsToSkip:
-                continue
-            if UpperReg[ui] and LowerReg[li] and XorReg[xi]:
-                Candidates.append(tuple([li, xi, ui, FF]))
-                FoundInGroup = 3
+        if UpperReg.count(1) == 0 and LowerReg.count(1) == 0 and XorReg.count(1) == 0:
+            #print(Indent, "return - signatures are empty")
+            return [JustFound]
+        if len(JustFound) > 1 and MaxDifferentScanChains is not None:
+            ScanChains = set()
+            for F in JustFound:
+                ScanChains.add(F[1])
+            if len(ScanChains) > MaxDifferentScanChains:
+                #print(Indent, "return - MaxDifferentScanChains exceeded", MaxDifferentScanChains, JustFound)
+                if ReturnAlsoPartialResults:
+                    return [JustFound]
+                return []
+        Candidates, FoundInGroup, Found = self._fsCandidates(SCAN_COUNT, UpperReg, LowerReg, XorReg, JustFound, FailsToSkip, SpeedUp, Option)
+        Results = []
         if SpeedUp:
             if len(Candidates) > 0:
-                break
-    
-    if len(Candidates) < 1:
-        # searching for 2 1s
-        #print(Indent, "Searching for 2 1s")
-        for xi in range(len(XorReg)):
-            for auxi in range(SCAN_COUNT):
-                ui = auxi+xi
-                li = xi+SCAN_COUNT-auxi-1
-                FF = tuple([xi, auxi])
-                if FF in Found or FF in FailsToSkip:
-                    continue
-                if UpperReg[ui] and LowerReg[li]:
-                    Candidates.append(tuple([li, xi, ui, FF, "x"]))
-                elif UpperReg[ui] and XorReg[xi]:
-                    Candidates.append(tuple([li, xi, ui, FF, "l"]))
-                elif LowerReg[li] and XorReg[xi]:    
-                    Candidates.append(tuple([li, xi, ui, FF, "u"]))
-
-    if len(Candidates) < 1:
-        # searching for 1 1s
-        #print(Indent, "Searching for 1 1s")
-        FoundSOmething = 0
-        for xi in range(len(XorReg)):
-            for auxi in range(SCAN_COUNT):
-                ui = auxi+xi
-                li = xi+SCAN_COUNT-auxi-1
-                FF = tuple([xi, auxi])
-                if FF in Found or FF in FailsToSkip:
-                    #print(Indent, "FF in Found or FailsToSkip")
-                    continue
-                if UpperReg[ui] or LowerReg[li] or XorReg[xi]:
-                    Candidates.append(tuple([li, xi, ui, FF]))
-                    FoundInGroup = 1
-                    FoundSOmething = 1
-            if FoundSOmething:
-                break
-
-    Results = []
-    if SpeedUp:
-        if len(Candidates) > 0:
-            CandidSets = []
-            if len(Candidates) == 1:
-                CandidSets.append([Candidates[0]])
-            else:
-                for i in range(len(Candidates)):
-                    Ci = Candidates[i]
-                    CSet = [Ci]
-                    for j in range(i+1, len(Candidates)):
-                        Cj = Candidates[j]
-                        if Ci[0] != Cj[0] and Ci[1] != Cj[1] and Ci[2] != Cj[2]:
-                            CSet.append(Cj)
-                            break
-                    CandidSets.append(CSet)
-            for Set in CandidSets:
-                NewXorReg = XorReg.copy()
-                NewUpperReg = UpperReg.copy()
-                NewLowerReg = LowerReg.copy()
-                JustFound = Found.copy()
-                for C in Set:
-                    JustFound.append(C[3])
-                    NewUpperReg[C[2]] ^= 1
-                    NewXorReg[C[1]] ^= 1
-                    NewLowerReg[C[0]] ^= 1
-                R = fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ")
-                if Adaptive and len(R) > 0:
-                    for x in R:
-                        if len(x) < MaxFailCount:
-                            MaxFailCount = len(x)
-                Results += R
-        else:
-            print(Indent, "No candidates")
-
-    else:
-        if len(Candidates) > 0:
-            BranchIt = 0
-            if FoundInGroup in [3, 2]:
-                for thisi in range(len(Candidates)):
-                    for otheri in range(thisi+1, len(Candidates)):
-                        if Candidates[thisi][0] == Candidates[otheri][0] or Candidates[thisi][1] == Candidates[otheri][1] or Candidates[thisi][2] == Candidates[otheri][2]:
-                            BranchIt = 1
-                            break
-                    if BranchIt:
-                        break
-            else:
-                BranchIt = 1
-            #print(Indent, "BranchIt: ", BranchIt)
-            if BranchIt: 
-                #print(len(Candidates))
-                for C in Candidates:
-                    JustFound = Found.copy()
-                    JustFound.append(C[3])
-                #    print(Indent, "NEW BRANCH 3 ", C[3])
+                CandidSets = []
+                if len(Candidates) == 1:
+                    CandidSets.append([Candidates[0]])
+                else:
+                    for i in range(len(Candidates)):
+                        Ci = Candidates[i]
+                        CSet = [Ci]
+                        for j in range(i+1, len(Candidates)):
+                            Cj = Candidates[j]
+                            if Ci[0] != Cj[0] and Ci[1] != Cj[1] and Ci[2] != Cj[2]:
+                                CSet.append(Cj)
+                                break
+                        CandidSets.append(CSet)
+                for Set in CandidSets:
                     NewXorReg = XorReg.copy()
                     NewUpperReg = UpperReg.copy()
                     NewLowerReg = LowerReg.copy()
-                    NewUpperReg[C[2]] ^= 1
-                    NewXorReg[C[1]] ^= 1
-                    NewLowerReg[C[0]] ^= 1
-                    R = fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ")    
+                    JustFound = Found.copy()
+                    for C in Set:
+                        JustFound.append(C[3])
+                        NewUpperReg[C[2]] ^= 1
+                        NewXorReg[C[1]] ^= 1
+                        NewLowerReg[C[0]] ^= 1
+                    R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option)
                     if Adaptive and len(R) > 0:
                         for x in R:
                             if len(x) < MaxFailCount:
                                 MaxFailCount = len(x)
                     Results += R
-            if not BranchIt: 
-                for C in Candidates:
-                    Found.append(C[3])
-                    UpperReg[C[2]] ^= 1
-                    XorReg[C[1]] ^= 1
-                    LowerReg[C[0]] ^= 1
-                R = fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Found, [], RecursionLevel+1, Indent+"  ")              
-                if Adaptive and len(R) > 0:
-                    for x in R:
-                        if len(x) < MaxFailCount:
-                            MaxFailCount = len(x)
-                Results += R
-    #print(Indent, "H") 
-    return Results
+            else:
+                print(Indent, "No candidates")
+        else:
+            if len(Candidates) > 0:
+                BranchIt = 0
+                if FoundInGroup in [3, 2]:
+                    for thisi in range(len(Candidates)):
+                        for otheri in range(thisi+1, len(Candidates)):
+                            if Candidates[thisi][0] == Candidates[otheri][0] or Candidates[thisi][1] == Candidates[otheri][1] or Candidates[thisi][2] == Candidates[otheri][2]:
+                                BranchIt = 1
+                                break
+                        if BranchIt:
+                            break
+                else:
+                    BranchIt = 1
+                #print(Indent, "BranchIt: ", BranchIt)
+                if BranchIt: 
+                    #print(len(Candidates))
+                    for C in Candidates:
+                        JustFound = Found.copy()
+                        JustFound.append(C[3])
+                    #    print(Indent, "NEW BRANCH 3 ", C[3])
+                        NewXorReg = XorReg.copy()
+                        NewUpperReg = UpperReg.copy()
+                        NewLowerReg = LowerReg.copy()
+                        NewUpperReg[C[2]] ^= 1
+                        NewXorReg[C[1]] ^= 1
+                        NewLowerReg[C[0]] ^= 1
+                        R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option)    
+                        if Adaptive and len(R) > 0:
+                            for x in R:
+                                if len(x) < MaxFailCount:
+                                    MaxFailCount = len(x)
+                        Results += R
+                if not BranchIt: 
+                    for C in Candidates:
+                        Found.append(C[3])
+                        UpperReg[C[2]] ^= 1
+                        XorReg[C[1]] ^= 1
+                        LowerReg[C[0]] ^= 1
+                    R = self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Found, [], RecursionLevel+1, Indent+"  ", Option=Option)              
+                    if Adaptive and len(R) > 0:
+                        for x in R:
+                            if len(x) < MaxFailCount:
+                                MaxFailCount = len(x)
+                    Results += R
+        #print(Indent, "H") 
+        return Results
+    
+
+    def fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False) -> list:
+        sr = list(self._ShiftRegistersPresent)
+        sn = list(self._ShiftRegistersNonOverlapPresent)
+        if self.GlobalSumPresent and len(sr) == 2 and len(sn) == 0 and sr[0] == (1, 0) and sr[1] == (-1, 0):
+            Option = 1
+        elif self.GlobalSumPresent and len(sn) == 2 and len(sr) == 0 and sn[0] == (-2, 0) and sn[1] == (2, -1):
+            Option = 2
+        else:
+            Aio.printError("Incorrect compactor config")
+            return []
+        return self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Option=Option)
