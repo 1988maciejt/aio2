@@ -1173,7 +1173,13 @@ class CompactorSimulator:
 
 
 
-    def _fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, JustFound : list = [], FailsToSkip = [], RecursionLevel : int = 0, Indent = "", Option : int = 1):
+    def _fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, JustFound : list = [], FailsToSkip = [], RecursionLevel : int = 0, Indent = "", Option : int = 1, TimeOut : int = None):
+        if TimeOut is not None:
+            if TimeOut < 0:
+                if ReturnAlsoPartialResults:
+                    return [JustFound]
+                return []
+            t0 = time.time()
         #print(Indent, "searching, justfound:", JustFound)
         if len(JustFound) > MaxFailCount:   
             #print(Indent, "return - too much fails")
@@ -1219,7 +1225,12 @@ class CompactorSimulator:
                         NewUpperReg[C[2]] ^= 1
                         NewXorReg[C[1]] ^= 1
                         NewLowerReg[C[0]] ^= 1
-                    R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option)
+                    if TimeOut is not None:
+                        t1 = time.time()
+                        TimeOutNow = TimeOut - (t1 - t0)
+                    else:
+                        TimeOutNow = None
+                    R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow)
                     if Adaptive and len(R) > 0:
                         for x in R:
                             if len(x) < MaxFailCount:
@@ -1253,7 +1264,12 @@ class CompactorSimulator:
                         NewUpperReg[C[2]] ^= 1
                         NewXorReg[C[1]] ^= 1
                         NewLowerReg[C[0]] ^= 1
-                        R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option)    
+                        if TimeOut is not None:
+                            t1 = time.time()
+                            TimeOutNow = TimeOut - (t1 - t0)
+                        else:
+                            TimeOutNow = None
+                        R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow)    
                         if Adaptive and len(R) > 0:
                             for x in R:
                                 if len(x) < MaxFailCount:
@@ -1265,7 +1281,12 @@ class CompactorSimulator:
                         UpperReg[C[2]] ^= 1
                         XorReg[C[1]] ^= 1
                         LowerReg[C[0]] ^= 1
-                    R = self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Found, [], RecursionLevel+1, Indent+"  ", Option=Option)              
+                    if TimeOut is not None:
+                        t1 = time.time()
+                        TimeOutNow = TimeOut - (t1 - t0)
+                    else:
+                        TimeOutNow = None
+                    R = self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Found, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow)              
                     if Adaptive and len(R) > 0:
                         for x in R:
                             if len(x) < MaxFailCount:
@@ -1275,7 +1296,7 @@ class CompactorSimulator:
         return Results
     
 
-    def fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False) -> list:
+    def fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, TimeOut : int = None) -> list:
         sr = list(self._ShiftRegistersPresent)
         sn = list(self._ShiftRegistersNonOverlapPresent)
         if self.GlobalSumPresent and len(sr) == 2 and len(sn) == 0 and sr[0] == (1, 0) and sr[1] == (-1, 0):
@@ -1285,4 +1306,70 @@ class CompactorSimulator:
         else:
             Aio.printError("Incorrect compactor config")
             return []
-        return self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Option=Option)
+        return self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Option=Option, TimeOut=TimeOut)
+    
+    
+    
+    
+class OCExperimentalStuff:
+    
+    __slots__ = ("MyCompactor", "ScanChainLength")
+    
+    def __init__(self, MyCompactor : CompactorSimulator, ScanChainLength : int) -> None:
+        self.MyCompactor = MyCompactor
+        self.ScanChainLength = ScanChainLength
+        
+    def _areFailReportsIdentical(self, A : list, B : list) -> bool:
+        if len(A) != len(B):
+            return False
+        for i in range(len(A)):
+            if A[i] not in B:
+                return False
+        return True
+        
+    def _getExpData(self, FailPattern : list) -> tuple:
+        TestVector = bau.zeros(self.ScanChainLength * self.MyCompactor.ScanChainsCount)
+        for Fail in FailPattern:
+            VarIndex = self.MyCompactor.cellPositionToEquationMaskIndex(Fail[0], Fail[1])
+            TestVector[VarIndex] = 1
+        Signatures = []
+        Response = self.MyCompactor.simulate(TestVector)
+        for R in Response:
+            Signatures.append(R[1])
+        return Signatures[2][1:], Signatures[1][1:], Signatures[0][:self.ScanChainLength]
+    
+    def _doMeasurement(self, FailPatternCombo : tuple, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None) -> tuple:
+        FailPattern = FailPatternCombo[1]
+        PatternId = FailPatternCombo[0]
+        S1, S2, S3 = self._getExpData(FailPattern)
+        t0 = time.time()
+        Found = []
+        FC = 1
+        while len(Found) < 1:
+            if MaxFailCount is not None and FC > MaxFailCount:
+                break
+            if TimeOut is not None and time.time() - t0 > TimeOut:
+                break
+            Found = self.MyCompactor.fastSolve(self.MyCompactor.ScanChainsCount, S1, S2, S3, FC, MaxDifferentScanChains, SpeedUp, AdaptiveSearch, TimeOut=TimeOut)
+            FC += 1
+        t1 = time.time()  
+        ok = 0
+        for R in Found:
+            if self._areFailReportsIdentical(FailPattern, R):
+                ok = 1
+                break
+        return PatternId, ok, t1-t0, len(Found), len(FailPattern), FC-1, FailPattern, Found
+
+    def doExperiments(self, FaultPatternsList, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None) -> list:
+        FP = []
+        if type(FaultPatternsList) is dict:
+            for item in FaultPatternsList.items():
+                FP.append(item)
+        elif type(FaultPatternsList) is list:
+            for item in FaultPatternsList:
+                FP.append(tuple([0, item]))
+        Result = []
+        for R in p_uimap(partial(self._doMeasurement, MaxFailCount=MaxFailCount, MaxDifferentScanChains=MaxDifferentScanChains, SpeedUp=SpeedUp, AdaptiveSearch=AdaptiveSearch, TimeOut=TimeOut), FP):
+            Result.append(R)
+        return Result
+        
