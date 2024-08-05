@@ -844,6 +844,7 @@ class CompactorSimulator:
         ShiftRegistersResult = [bitarray() for _ in range(len(self._ShiftRegistersPresent))]
         ShiftRegistersNonOverlapResult = [bitarray() for _ in range(len(self._ShiftRegistersNonOverlapPresent))]
         WordIndex = 0
+        ScanLength = len(InputData) // self.ScanChainsCount
         for Word in Generators().subLists(InputData, self.ScanChainsCount):
             if WordsLimit is not None and WordIndex >= WordsLimit:
                 break
@@ -914,14 +915,14 @@ class CompactorSimulator:
                     j += 1
         Result = []
         if self.GlobalSumPresent:
-            Result.append( ((0, 0, True), GlobalSum) )
+            Result.append( ((0, 0, True), GlobalSum[:ScanLength]) )
         i = 0
         for Item in self._ShiftRegistersPresent:
-            Result.append( (Item + tuple([True]), ShiftRegistersResult[i]) )
+            Result.append( (Item + tuple([True]), ShiftRegistersResult[i][1:self.ScanChainsCount+ScanLength]))
             i += 1
         i = 0
         for Item in self._ShiftRegistersNonOverlapPresent:
-            Result.append( (Item + tuple([True]), ShiftRegistersNonOverlapResult[i]) )
+            Result.append( (Item + tuple([True]), ShiftRegistersNonOverlapResult[i][1:ceil(self.ScanChainsCount/abs(Item[0]))+ScanLength]) )
             i += 1
         return tuple(Result)
 
@@ -1336,7 +1337,7 @@ class OCExperimentalStuff:
         Response = self.MyCompactor.simulate(TestVector)
         for R in Response:
             Signatures.append(R[1])
-        return Signatures[2][1:], Signatures[1][1:], Signatures[0][:self.ScanChainLength]
+        return Signatures[2], Signatures[1], Signatures[0]
     
     def _doMeasurement(self, FailPatternCombo : tuple, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None) -> tuple:
         FailPattern = FailPatternCombo[1]

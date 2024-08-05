@@ -2098,6 +2098,145 @@ def f():
   def clear(self) -> bitarray:
     self._baValue.setall(0)
     return self._baValue
+  
+  def simulateSymbolically(self, SequenceOfSymbols = 1, InjectionAtBit = 0, StartFrom = None, ReturnAllResults = 0) -> list:
+    AllResults = []
+    Dict = self.getDestinationsDictionary()
+    Size = self._size
+    if Aio.isType(SequenceOfSymbols, 0):
+      SequenceOfSymbols = [symbols(f'I{i}') for i in range(SequenceOfSymbols)]
+    if Aio.isType(InjectionAtBit, 0):
+      InjectionAtBit = [InjectionAtBit]
+    if StartFrom is None:
+      Values = [False for i in range(Size)]
+    else:
+      if Aio.isType(StartFrom, []) and len(StartFrom) == Size:
+        Values = StartFrom
+      else:
+        Aio.printError(f"StartFrom must be a list of size {Size}.")
+    for Step in range(len(SequenceOfSymbols)):
+      Injector = SequenceOfSymbols[Step]
+      NewValues = []
+      for i in range(Size):
+        Sources = Dict[i]
+        V = Values[Sources[0]]
+        for Si in range(1, len(Sources)):
+          S = Sources[Si]
+          if type(S) is list:
+            if len(S) == 1:
+              V ^= Values[S[0]]
+            else:
+              if S[1] < 0:
+                AuxV = ~Values[abs(S[1]) % Size]
+              else:
+                AuxV = Values[abs(S[1]) % Size]
+              if S[0] == 'AND':
+                for j in range(2, len(S)):
+                  if S[j] < 0:
+                    AuxV ^= ~Values[abs(S[j]) % Size]
+                  else:
+                    AuxV &= Values[abs(S[j]) % Size]
+              elif S[0] == 'OR':
+                for j in range(2, len(S)):
+                  if S[j] < 0:
+                    AuxV ^= ~Values[abs(S[j]) % Size]
+                  else:
+                    AuxV |= Values[abs(S[j]) % Size]
+              else:
+                Aio.printError(f"Unknown operation '{S[0]}'")
+              #try:
+              #  AuxV = AuxV.to_anf()
+              #except:
+              #  pass
+              V ^= AuxV
+          else:
+            V ^= Values[S]
+        if i in InjectionAtBit:
+          V ^= Injector
+        NewValues.append(V)
+        #print(NewValues)
+      #for i in range(len(NewValues)):
+      #  try:
+      #    NewValues[i] = NewValues[i].to_anf()
+      #  except:
+      #    pass
+      Values = NewValues
+      if ReturnAllResults:
+        AllResults.append(Values)
+    if ReturnAllResults:
+      return AllResults
+    else:
+      return Values
+  
+  def simulateFastANF(self, ANFSpace : FastANFSpace, SequenceOfSymbols = 1, InjectionAtBit = 0, StartFrom = None, ReturnAllResults = 0) -> list:
+    AllResults = []
+    Dict = self.getDestinationsDictionary()
+    Size = self._size
+    if Aio.isType(SequenceOfSymbols, 0):
+      Len = SequenceOfSymbols
+      SequenceOfSymbols = []
+      for i in range(Len):
+        SequenceOfSymbols.append(ANFSpace.getVariableByIndex(i % len(ANFSpace._Variables)))
+    if Aio.isType(InjectionAtBit, 0):
+      InjectionAtBit = [InjectionAtBit]
+    if StartFrom is None:
+      Values = [ANFSpace.createExpression() for i in range(Size)]
+    else:
+      if Aio.isType(StartFrom, []) and len(StartFrom) == Size:
+        Values = []
+        for V in StartFrom:
+          if not Aio.isType(V, "FastANFExpression"):
+            AV = ANFSpace.createExpression()
+            AV.addMonomial(ANFSpace.getMonomial(V))
+            Values.append(AV)
+          else:
+            Values.append(V)
+      else:
+        Aio.printError(f"StartFrom must be a list of size {Size}.")
+    for Step in range(len(SequenceOfSymbols)):
+      Injector = ANFSpace.createExpression()
+      Injector.addMonomial(ANFSpace.getMonomial(SequenceOfSymbols[Step]))
+      NewValues = []
+      for i in range(Size):
+        Sources = Dict[i]
+        V = Values[Sources[0]]
+        for Si in range(1, len(Sources)):
+          S = Sources[Si]
+          if type(S) is list:
+            if len(S) == 1:
+              V ^= Values[S[0]]
+            else:
+              if S[1] < 0:
+                AuxV = ~Values[abs(S[1]) % Size]
+              else:
+                AuxV = Values[abs(S[1]) % Size]
+              if S[0] == 'AND':
+                for j in range(2, len(S)):
+                  if S[j] < 0:
+                    AuxV ^= ~Values[abs(S[j]) % Size]
+                  else:
+                    AuxV &= Values[abs(S[j]) % Size]
+              elif S[0] == 'OR':
+                for j in range(2, len(S)):
+                  if S[j] < 0:
+                    AuxV ^= ~Values[abs(S[j]) % Size]
+                  else:
+                    AuxV |= Values[abs(S[j]) % Size]
+              else:
+                Aio.printError(f"Unknown operation '{S[0]}'")
+            V ^= AuxV
+          else:
+            V ^= Values[S]
+        if i in InjectionAtBit:
+          V ^= Injector
+        NewValues.append(V)
+      Values = NewValues
+      if ReturnAllResults:
+        AllResults.append(Values)
+    if ReturnAllResults:
+      return AllResults
+    else:
+      return Values
     
   
   def createPhaseShifter(self):

@@ -24,7 +24,7 @@ class SymPy:
             return True
         
     @staticmethod
-    def getAnfLiteralsCount(expr) -> int:
+    def getAnfVariablesCount(expr) -> int:
         try:
             Literls = set()
             anf = expr.to_anf()
@@ -35,6 +35,21 @@ class SymPy:
                     for aarg in arg.args:
                         Literls.add(aarg)
             return len(Literls)
+        except:
+            return 0
+        
+    @staticmethod
+    def getAnfLiteralsCount(expr) -> int:
+        try:
+            Counter = 0
+            anf = expr.to_anf()
+            for arg in anf.args:
+                if type(arg) is Symbol:
+                    Counter += 1
+                elif type(arg) is And:
+                    for aarg in arg.args:
+                        Counter += 1
+            return Counter
         except:
             return 0
         
