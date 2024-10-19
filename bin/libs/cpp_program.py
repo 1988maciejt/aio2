@@ -14,11 +14,11 @@ class CppProgram:
   Compiled = False
   HeaderFileNames = []
   IncludeErrStream = False
-  DynamicPrinting = True
+  DynamicPrinting = False
   ReturnCaptiredOutput = True
   ReturnExitCode = False
   def __init__(self, CppFileName : str, *args, **kwargs) -> None:
-    self.DynamicPrinting = True
+    self.DynamicPrinting = False
     self.ReturnCaptiredOutput = True
     self.ReturnExitCode = False
     self._args = args
@@ -71,8 +71,10 @@ class CppProgram:
     Cmd = self.ExeFileName
     for Arg in args:
       Cmd += " " + str(Arg)
-    #return Aio.shellExecute(Cmd, StdErr=self.IncludeErrStream)
-    return Aio.advancedShellExecute(Cmd, PrintDynamically=self.DynamicPrinting, ReturnCapturedOutput=self.ReturnCaptiredOutput, ReturnExitCode=self.ReturnExitCode)
+    if self.DynamicPrinting:
+      return Aio.advancedShellExecute(Cmd, PrintDynamically=self.DynamicPrinting, ReturnCapturedOutput=self.ReturnCaptiredOutput, ReturnExitCode=self.ReturnExitCode)
+    else:
+      return Aio.shellExecute(Cmd, StdErr=self.IncludeErrStream)
   def redefinePreprocessingArgs(self, *args, **kwargs):
     self._args = args
     self._kwargs = kwargs

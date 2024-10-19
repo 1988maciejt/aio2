@@ -196,7 +196,7 @@ class Bitarray:
         Z = bau.zeros(BlockSize)
         Z[0] = 1
         Z[BlockSize-1] = 1
-        Zeros = W.search(Z)
+        Zeros = list(W.search(Z))
         if len(Zeros) == 0:
             RZeros = -1
         elif len(Zeros) == 1:

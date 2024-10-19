@@ -944,7 +944,7 @@ def f():
             Res = CppPrograms.NLSFRPeriodCounter.run(ArgStr)
         except:
           Aio.printError("Cannot run Cpp program to compute Nlfsr's period.")
-          Res = "0"
+          Res = "x"
       #print(Res)
     try:
       self._period = int(Res)
@@ -2302,7 +2302,7 @@ def f():
     n2 = self.copy()
     return (not n2.toFibonacci())
   
-  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False, UseAlsoInvertedFFs = False, InversionInsensitive = False, SimpleExpanderAllowed = True):
+  def createExpander(self, NumberOfUniqueSequences = 0, XorInputsLimit = 0, MinXorInputs = 1, StoreLinearComplexityData = False, StoreCardinalityData = False, Store2bitTuplesHistograms = False, StoreOnesCount = False, PBar = 1, LimitedNTuples = 0, AlwaysCleanFiles = False, ReturnAlsoTuplesReport = False, StoreOnesCountB0 = False, UseAlsoInvertedFFs = False, InversionInsensitive = False, SimpleExpanderAllowed = False):
     tt = TempTranscript(f"Nlfsr({self._size}).createExpander()")
     tt.print(repr(self))
     tt.print("Simulating NLFSR...")
@@ -2385,7 +2385,6 @@ def f():
       elif SimpleExpanderAllowed:
         print("// Creating simple expander...")
         SimpleExpander = self.createSimpleExpander(k, k)    
-        SimpleExpander = None    
         AioShell.removeLastLine()
       if SimpleExpander is None:
         HashTable = Nlfsr._countHashes(SingleSequences, List.getCombinations(MyFlopIndexes, k), HBlockSize, PBar, INum=k, InversionInsensitive=InversionInsensitive)
