@@ -27,7 +27,6 @@ class Serial(serial.Serial):
           ports = glob.glob('/dev/tty.*')
       else:
           raise EnvironmentError('Unsupported platform')
-
       result = []
       for port in ports:
         if pattern in port:

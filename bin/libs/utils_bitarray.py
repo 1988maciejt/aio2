@@ -360,11 +360,46 @@ class Bitarray:
         Second = Word.find(1, First+1)
         return First, Second
     
+class BitarrayStatsManipulation:
+    
+    def FixProbabilityOf1(Word : bitarray, Probability : float) -> bitarray:
+        OC = Word.count(1)
+        ActualProb = OC / len(Word)
+        Result = Word.copy()
+        HowMany1sToFix = int(round(abs(OC - len(Word) * Probability), 0))
+        if ActualProb < Probability:
+            Fail = 0
+            while HowMany1sToFix > 0:
+                b = randint(0, len(Result))
+                if Result[b] == 0:
+                    Result[b] = 1
+                    HowMany1sToFix -= 1
+                    Fail = 0
+                else:
+                    Fail += 1
+                    if Fail > len(Result) / 2:
+                        break
+        elif ActualProb > Probability:
+            Fail = 0
+            while HowMany1sToFix > 0:
+                b = randint(0, len(Result))
+                if Result[b] == 1:
+                    Result[b] = 0
+                    HowMany1sToFix -= 1
+                    Fail = 0
+                else:
+                    Fail += 1
+                    if Fail > len(Result) / 2:
+                        break
+        return Result
+    
     
 class BitarrayStats:
     
     @staticmethod
-    def probabilityOf1(BitStream : bitarray, SampleSize : int = 1000000) -> tuple:
+    def probabilityOf1(BitStream : bitarray, SampleSize : int = None) -> tuple:
+        if SampleSize is None:
+            return BitStream.count(1) / len(BitStream)
         SamplesCount = len(BitStream) // SampleSize
         Counters = [0 for _ in range(SampleSize)]
         for i in range(SamplesCount):
@@ -383,6 +418,19 @@ class BitarrayStats:
         Z = sqrt(SamplesCount) * (Pmean - 0.5) / Pstdev
         return (Pmean, Pstdev, Z) 
     
+    @staticmethod
+    def TwoBitarraysCorrelation(B1 : bitarray, B2 : bitarray) -> float:
+        Sum = 0
+        Len = min(len(B1), len(B2))
+        for i in range(Len):
+            if B1[i] == B2[i]:
+                Sum += 1
+            else:
+                Sum -= 1
+        C = Sum / Len
+        return C
+                
+        
     @staticmethod
     def correlation(BitStream : bitarray, SampleSize : int = 128) -> tuple:
         SamplesCount = len(BitStream) // SampleSize
