@@ -1339,13 +1339,15 @@ class OCExperimentalStuff:
             Signatures.append(R[1])
         return Signatures[2], Signatures[1], Signatures[0]
     
-    def _doMeasurement(self, FailPatternCombo : tuple, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None) -> tuple:
+    def _doMeasurement(self, FailPatternCombo : tuple, MinFailCount : int = 1, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None) -> tuple:
         FailPattern = FailPatternCombo[1]
         PatternId = FailPatternCombo[0]
         S1, S2, S3 = self._getExpData(FailPattern)
         t0 = time.time()
         Found = []
-        FC = 1
+        if MinFailCount is None:
+            MinFailCount = len(FailPattern)
+        FC = MinFailCount
         while len(Found) < 1:
             if MaxFailCount is not None and FC > MaxFailCount:
                 break
@@ -1361,7 +1363,7 @@ class OCExperimentalStuff:
                 break
         return PatternId, ok, t1-t0, len(Found), len(FailPattern), FC-1, FailPattern, Found
 
-    def doExperiments(self, FaultPatternsList, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None) -> list:
+    def doExperiments(self, FaultPatternsList, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None, MinFailCount : int = 1) -> list:
         FP = []
         if type(FaultPatternsList) is dict:
             for item in FaultPatternsList.items():
@@ -1370,7 +1372,19 @@ class OCExperimentalStuff:
             for item in FaultPatternsList:
                 FP.append(tuple([0, item]))
         Result = []
-        for R in p_uimap(partial(self._doMeasurement, MaxFailCount=MaxFailCount, MaxDifferentScanChains=MaxDifferentScanChains, SpeedUp=SpeedUp, AdaptiveSearch=AdaptiveSearch, TimeOut=TimeOut), FP):
+        for R in p_uimap(partial(self._doMeasurement, MinFailCount=MinFailCount, MaxFailCount=MaxFailCount, MaxDifferentScanChains=MaxDifferentScanChains, SpeedUp=SpeedUp, AdaptiveSearch=AdaptiveSearch, TimeOut=TimeOut), FP):
             Result.append(R)
+        AioShell.removeLastLine()
         return Result
+        
+    def doExperimentsIterator(self, FaultPatternsList, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None, MinFailCount : int = 1):
+        FP = []
+        if type(FaultPatternsList) is dict:
+            for item in FaultPatternsList.items():
+                FP.append(item)
+        elif type(FaultPatternsList) is list:
+            for item in FaultPatternsList:
+                FP.append(tuple([0, item]))
+        for R in p_uimap(partial(self._doMeasurement, MinFailCount=MinFailCount, MaxFailCount=MaxFailCount, MaxDifferentScanChains=MaxDifferentScanChains, SpeedUp=SpeedUp, AdaptiveSearch=AdaptiveSearch, TimeOut=TimeOut), FP):
+            yield R
         

@@ -1951,7 +1951,7 @@ class Lfsr:
   
   def singleBitInject(self, Bit : int):
     if Bit:
-      n._baValue[-1] ^= 1
+      self._baValue[-1] ^= 1
     
   def simulateSymbolically(self, SequenceOfSymbols = 1, InjectionAtBit = 0, StartFrom = None, ReturnAllResults = 0) -> list:
     AllResults = []
@@ -3122,6 +3122,103 @@ endmodule'''
         else:
           return [LfsrsCount, list(Results.keys())]
       return Results
+    
+  def calculatePAliasing(self, Perror : float = 0.1, Tries : int = 1000, InjectionAtBit : int = 0) -> tuple:
+    """If InjectionAtBit<0 or is None, then there are as many injectors as FFs."""
+    Pal = []
+    Sum = 0.0
+    if InjectionAtBit is None:
+      InjectionAtBit = -1
+    def _palhelper(Try : int) -> float:
+      self.reset()
+      if InjectionAtBit < 0:
+        self._baValue[0] = 1
+      else:
+        self._baValue[InjectionAtBit] = 1
+      Cycle = 1
+      while self._baValue.count(1) > 0:
+        self.next()
+        Cycle += 1
+        if InjectionAtBit < 0:
+          for j in range(self._size):
+            if random.uniform(0, 1) < Perror:
+              self._baValue[j] ^= 1
+        else:
+          if random.uniform(0, 1) < Perror:
+            self._baValue[InjectionAtBit] ^= 1
+      return 1/Cycle
+    for r in p_uimap(_palhelper, range(Tries), desc="Calculating P(Aliasing)"):
+      Pal.append(r)
+      Sum += r
+    AioShell.removeLastLine()
+    return Sum / Tries
+  
+  
+  def aliasingDynamicMonteCarlo(self, Cycles : int = None, Tries : int = 100, InjectionAtBits : list = None, Perr : float = 0.001):
+    if InjectionAtBits is None:
+      InjectionAtBits = [i for i in range(self._size)]
+    Sums = [0 for _ in range(Cycles)]
+    def SingleTry(args):
+      l = self.copy()
+      l._baValue = bau.zeros(self._size)
+      ib = List.randomSelect(InjectionAtBits)
+      l._baValue[ib] = 1
+      Result = [0 for _ in range(Cycles)]
+      for i in range(Cycles):
+        self.next()
+        for inj in InjectionAtBits:
+          if random.uniform(0, 1) < Perr:
+            l._baValue[inj] ^= 1
+        if l._baValue.count(1) == 0:
+          Result[i] = 1
+      return Result
+    for r in p_uimap(SingleTry, range(Tries), desc="Monte Carlo simulation"):
+      for i in range(Cycles):
+        Sums[i] += r[i]
+    AioShell.removeLastLine()
+    for i in range(Cycles):
+      Sums[i] /= Tries        
+    return Sums
+    
+    
+  def aliasingDynamicMarkowChain(self, Cycles : int = None, InjectionAtBit : int = 0, Perr : float = 0.001, Silent : bool = False):
+    if Cycles is None:
+      Cycles = (1 << self._size) * 32
+    NonZeroNodes = bau.zeros(1 << self._size)
+    P = [0 for _ in range(1 << self._size)]
+    Vertex0 = []
+    Vertex1 = []
+    Result = []
+    for i in range(1 << self._size):
+      self._baValue = bau.int2ba(i, length=self._size)
+      self.next()
+      Vertex0.append(bau.ba2int(self._baValue))
+      self._baValue[InjectionAtBit] ^= 1
+      Vertex1.append(bau.ba2int(self._baValue))
+    self._baValue = bau.zeros(self._size)
+    self._baValue[InjectionAtBit] = 1
+    P[bau.ba2int(self._baValue)] = 1
+    NonZeroNodes[bau.ba2int(self._baValue)] = 1
+    if Silent:
+      Iter = range(Cycles)
+    else:
+      Iter = tqdm(range(Cycles), desc="Markow chain simulation")
+    for i in Iter:
+      P2 = [0 for _ in range(1 << self._size)]
+      NonZeroNodes2 = bau.zeros(1 << self._size)
+      for S in NonZeroNodes.search(1):
+        P2[Vertex0[S]] += P[S] * (1 - Perr)
+        P2[Vertex1[S]] += P[S] * Perr
+        NonZeroNodes2[Vertex0[S]] = 1
+        NonZeroNodes2[Vertex1[S]] = 1
+      NonZeroNodes = NonZeroNodes2
+      P = P2
+      Result.append(P[0])
+      #print(" P0 :",sum(P),P)
+    AioShell.removeLastLine()
+    return Result
+    
+    
   
   @staticmethod
   def tuiCreateRing(Size = 32) -> Lfsr:
@@ -3134,6 +3231,7 @@ endmodule'''
   @staticmethod
   def tuiCreateGalois(Size = 32) -> Lfsr:
     return Lfsr([int(Size), 0], LfsrType.Galois).tui()
+          
         
 def _analyseSequences_helper(lfsr) -> MSequencesReport:
   return lfsr.analyseSequences(Silent=True)
