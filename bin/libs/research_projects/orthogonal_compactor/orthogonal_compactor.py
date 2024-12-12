@@ -1109,7 +1109,7 @@ class CompactorSimulator:
             li = xi+SCAN_COUNT-auxi-1
         return li, ui
     
-    def _fsCandidates(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, JustFound : list = [], FailsToSkip = [], SpeedUp : bool = False, Option : int = 1) -> tuple:
+    def _fsCandidates(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, JustFound : list = [], FailsToSkip = [], SpeedUp : bool = False, Option : int = 1, IgnoreUpperRegister : bool = False) -> tuple:
         Candidates = []
         Found = JustFound.copy()
         FoundInGroup = 0
@@ -1119,18 +1119,19 @@ class CompactorSimulator:
         #print("UpperReg:", UpperReg)
         #print("XorReg:", XorReg)
         #print("LowerReg:", LowerReg)
-        for xi in XorReg.search(1):
-            for auxi in range(SCAN_COUNT):
-                li, ui = self._fsIndices(SCAN_COUNT, auxi, xi, Option)
-                FF = tuple([xi, auxi])
-                if FF in Found or FF in FailsToSkip:
-                    continue
-                if UpperReg[ui] and LowerReg[li] and XorReg[xi]:
-                    Candidates.append(tuple([li, xi, ui, FF]))
-                    FoundInGroup = 3
-            if SpeedUp:
-                if len(Candidates) > 0:
-                    break
+        if not IgnoreUpperRegister:
+            for xi in XorReg.search(1):
+                for auxi in range(SCAN_COUNT):
+                    li, ui = self._fsIndices(SCAN_COUNT, auxi, xi, Option)
+                    FF = tuple([xi, auxi])
+                    if FF in Found or FF in FailsToSkip:
+                        continue
+                    if UpperReg[ui] and LowerReg[li] and XorReg[xi]:
+                        Candidates.append(tuple([li, xi, ui, FF]))
+                        FoundInGroup = 3
+                if SpeedUp:
+                    if len(Candidates) > 0:
+                        break
         if len(Candidates) < 1:
             # searching for 2 1s
             #print(Indent, "Searching for 2 1s")
@@ -1174,7 +1175,7 @@ class CompactorSimulator:
 
 
 
-    def _fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, JustFound : list = [], FailsToSkip = [], RecursionLevel : int = 0, Indent = "", Option : int = 1, TimeOut : int = None):
+    def _fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, JustFound : list = [], FailsToSkip = [], RecursionLevel : int = 0, Indent = "", Option : int = 1, TimeOut : int = None, IgnoreUpperRegister : bool = False):
         if TimeOut is not None:
             if TimeOut < 0:
                 if ReturnAlsoPartialResults:
@@ -1187,9 +1188,14 @@ class CompactorSimulator:
             if ReturnAlsoPartialResults:
                 return [JustFound]
             return []
-        if UpperReg.count(1) == 0 and LowerReg.count(1) == 0 and XorReg.count(1) == 0:
-            #print(Indent, "return - signatures are empty")
-            return [JustFound]
+        if IgnoreUpperRegister:
+            if LowerReg.count(1) == 0 and XorReg.count(1) == 0:
+                #print(Indent, "return - signatures are empty")
+                return [JustFound]
+        else:
+            if UpperReg.count(1) == 0 and LowerReg.count(1) == 0 and XorReg.count(1) == 0:
+                #print(Indent, "return - signatures are empty")
+                return [JustFound]
         if len(JustFound) > 1 and MaxDifferentScanChains is not None:
             ScanChains = set()
             for F in JustFound:
@@ -1199,7 +1205,7 @@ class CompactorSimulator:
                 if ReturnAlsoPartialResults:
                     return [JustFound]
                 return []
-        Candidates, FoundInGroup, Found = self._fsCandidates(SCAN_COUNT, UpperReg, LowerReg, XorReg, JustFound, FailsToSkip, SpeedUp, Option)
+        Candidates, FoundInGroup, Found = self._fsCandidates(SCAN_COUNT, UpperReg, LowerReg, XorReg, JustFound, FailsToSkip, SpeedUp, Option, IgnoreUpperRegister)
         Results = []
         if SpeedUp:
             if len(Candidates) > 0:
@@ -1231,7 +1237,7 @@ class CompactorSimulator:
                         TimeOutNow = TimeOut - (t1 - t0)
                     else:
                         TimeOutNow = None
-                    R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow)
+                    R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow, IgnoreUpperRegister=IgnoreUpperRegister)
                     if Adaptive and len(R) > 0:
                         for x in R:
                             if len(x) < MaxFailCount:
@@ -1270,7 +1276,7 @@ class CompactorSimulator:
                             TimeOutNow = TimeOut - (t1 - t0)
                         else:
                             TimeOutNow = None
-                        R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow)    
+                        R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow, IgnoreUpperRegister=IgnoreUpperRegister)    
                         if Adaptive and len(R) > 0:
                             for x in R:
                                 if len(x) < MaxFailCount:
@@ -1287,7 +1293,7 @@ class CompactorSimulator:
                         TimeOutNow = TimeOut - (t1 - t0)
                     else:
                         TimeOutNow = None
-                    R = self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Found, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow)              
+                    R = self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Found, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow, IgnoreUpperRegister=IgnoreUpperRegister)              
                     if Adaptive and len(R) > 0:
                         for x in R:
                             if len(x) < MaxFailCount:
@@ -1297,7 +1303,7 @@ class CompactorSimulator:
         return Results
     
 
-    def fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, TimeOut : int = None) -> list:
+    def fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, TimeOut : int = None, IgnoreUpperRegister : bool = False) -> list:
         sr = list(self._ShiftRegistersPresent)
         sn = list(self._ShiftRegistersNonOverlapPresent)
         if self.GlobalSumPresent and len(sr) == 2 and len(sn) == 0 and sr[0] == (1, 0) and sr[1] == (-1, 0):
@@ -1307,7 +1313,7 @@ class CompactorSimulator:
         else:
             Aio.printError("Incorrect compactor config")
             return []
-        return self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Option=Option, TimeOut=TimeOut)
+        return self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Option=Option, TimeOut=TimeOut, IgnoreUpperRegister=IgnoreUpperRegister)
     
     
     
@@ -1339,7 +1345,7 @@ class OCExperimentalStuff:
             Signatures.append(R[1])
         return Signatures[2], Signatures[1], Signatures[0]
     
-    def _doMeasurement(self, FailPatternCombo : tuple, MinFailCount : int = 1, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None) -> tuple:
+    def _doMeasurement(self, FailPatternCombo : tuple, MinFailCount : int = 1, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None, IgnoreUpperRegister : bool = False, ReturnAlsoPartialResults : bool = False) -> tuple:
         FailPattern = FailPatternCombo[1]
         PatternId = FailPatternCombo[0]
         S1, S2, S3 = self._getExpData(FailPattern)
@@ -1353,7 +1359,7 @@ class OCExperimentalStuff:
                 break
             if TimeOut is not None and time.time() - t0 > TimeOut:
                 break
-            Found = self.MyCompactor.fastSolve(self.MyCompactor.ScanChainsCount, S1, S2, S3, FC, MaxDifferentScanChains, SpeedUp, AdaptiveSearch, TimeOut=TimeOut)
+            Found = self.MyCompactor.fastSolve(self.MyCompactor.ScanChainsCount, S1, S2, S3, FC, MaxDifferentScanChains, SpeedUp, AdaptiveSearch, TimeOut=TimeOut, IgnoreUpperRegister=IgnoreUpperRegister, ReturnAlsoPartialResults=ReturnAlsoPartialResults)
             FC += 1
         t1 = time.time()  
         ok = 0
@@ -1363,7 +1369,7 @@ class OCExperimentalStuff:
                 break
         return PatternId, ok, t1-t0, len(Found), len(FailPattern), FC-1, FailPattern, Found
 
-    def doExperiments(self, FaultPatternsList, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None, MinFailCount : int = 1) -> list:
+    def doExperiments(self, FaultPatternsList, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None, MinFailCount : int = 1, IgnoreUpperRegister : bool = False, ReturnAlsoPartialResults : bool = False) -> list:
         FP = []
         if type(FaultPatternsList) is dict:
             for item in FaultPatternsList.items():
@@ -1372,12 +1378,12 @@ class OCExperimentalStuff:
             for item in FaultPatternsList:
                 FP.append(tuple([0, item]))
         Result = []
-        for R in p_uimap(partial(self._doMeasurement, MinFailCount=MinFailCount, MaxFailCount=MaxFailCount, MaxDifferentScanChains=MaxDifferentScanChains, SpeedUp=SpeedUp, AdaptiveSearch=AdaptiveSearch, TimeOut=TimeOut), FP):
+        for R in p_uimap(partial(self._doMeasurement, MinFailCount=MinFailCount, MaxFailCount=MaxFailCount, MaxDifferentScanChains=MaxDifferentScanChains, SpeedUp=SpeedUp, AdaptiveSearch=AdaptiveSearch, TimeOut=TimeOut, IgnoreUpperRegister=IgnoreUpperRegister, ReturnAlsoPartialResults=ReturnAlsoPartialResults), FP):
             Result.append(R)
         AioShell.removeLastLine()
         return Result
         
-    def doExperimentsIterator(self, FaultPatternsList, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None, MinFailCount : int = 1):
+    def doExperimentsIterator(self, FaultPatternsList, MaxFailCount : int = None, MaxDifferentScanChains : int = None, SpeedUp : bool = True, AdaptiveSearch : bool = False, TimeOut : int = None, MinFailCount : int = 1, IgnoreUpperRegister : bool = False, ReturnAlsoPartialResults : bool = False):
         FP = []
         if type(FaultPatternsList) is dict:
             for item in FaultPatternsList.items():
@@ -1385,6 +1391,6 @@ class OCExperimentalStuff:
         elif type(FaultPatternsList) is list:
             for item in FaultPatternsList:
                 FP.append(tuple([0, item]))
-        for R in p_uimap(partial(self._doMeasurement, MinFailCount=MinFailCount, MaxFailCount=MaxFailCount, MaxDifferentScanChains=MaxDifferentScanChains, SpeedUp=SpeedUp, AdaptiveSearch=AdaptiveSearch, TimeOut=TimeOut), FP):
+        for R in p_uimap(partial(self._doMeasurement, MinFailCount=MinFailCount, MaxFailCount=MaxFailCount, MaxDifferentScanChains=MaxDifferentScanChains, SpeedUp=SpeedUp, AdaptiveSearch=AdaptiveSearch, TimeOut=TimeOut, IgnoreUpperRegister=IgnoreUpperRegister, ReturnAlsoPartialResults=ReturnAlsoPartialResults), FP):
             yield R
         

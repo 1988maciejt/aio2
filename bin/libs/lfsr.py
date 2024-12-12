@@ -23,6 +23,7 @@ from sympy import *
 from sympy.logic import *
 from libs.fast_anf_algebra import *
 from libs.pandas_table import *
+from libs.simulation import *
 import functools
 try:
   from libs.gpt_tools import *
@@ -1218,7 +1219,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       Aio.print(p.toTigerStr())
       
   @staticmethod
-  def listTigerPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0, ExactBalancing = False) -> list:
+  def listTigerPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0, ExactBalancing = False, SerialExecution : bool = False) -> list:
     Poly0 = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, ExactBalancing)
     if Poly0 is None:
       return []
@@ -1227,13 +1228,16 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     Signs = Poly0._sign_list
     for i in range(len(Signs)-2, 0, -2):
       Signs[i] = -1
-    SerialChunkSize = 20
-    if PolynomialDegree >= 512:
-      SerialChunkSize = 1
-    elif PolynomialDegree >= 256:
-      SerialChunkSize = 5
-    elif PolynomialDegree >= 128:
-      SerialChunkSize = 10 
+    if SerialExecution or StartingPolynomial is not None:
+      SerialChunkSize = 1000000000000
+    else:
+      SerialChunkSize = 20
+      if PolynomialDegree >= 512:
+        SerialChunkSize = 1
+      elif PolynomialDegree >= 256:
+        SerialChunkSize = 5
+      elif PolynomialDegree >= 128:
+        SerialChunkSize = 10 
     aux = 100000 // PolynomialDegree
     if aux < 100:
       aux = 100
@@ -1256,7 +1260,11 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       else:
         SkipAll = 1
     if (n <= 0) or (len(Polys) < n > 0) and not SkipAll:
+      FirstNotSkipped = 1
       for p in Poly0:
+        if FirstNotSkipped and StartingPolynomial is not None:
+          FirstNotSkipped = 0
+          continue
         WasFound = 0
         if SkipFirst:
           SkipFirst = 0
@@ -1329,6 +1337,31 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       P._sign_list = Signs
     return Polys
             
+  @staticmethod
+  def listTigerPrimitivesHavingTheSameTapsAsNonTiger(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0, ExactBalancing = False) -> list:
+    if PolynomialCoefficientsCount % 2 == 0:
+      Aio.printError("Coefficient count must be an odd number.")
+      return []
+    Poly0 = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, ExactBalancing)
+    if Poly0 is None:
+      return []
+    if not Poly0.setStartingPointForIterator(StartingPolynomial):
+      return []
+    Signs = Poly0._sign_list
+    for i in range(len(Signs)-2, 0, -2):
+      Signs[i] = -1
+    Results = []
+    Cntr = 0
+    for Pt in Poly0:
+      print(f"Found so far: {len(Results)}, tested: {Cntr}")
+      if Lfsr(Pt, TIGER_RING).isMaximum():
+        if Lfsr(Polynomial(Pt.getCoefficients())).isMaximum():
+          Results.append(Pt.copy())
+      AioShell.removeLastLine()
+      Cntr += 1
+      if 0 < n <= len(Results):
+        break
+    return Results
 
   @staticmethod
   def printHybridPrimitives(PolynomialDegree : int, PolynomialCoefficientsCount : int, PolynomialBalancing = 0, LayoutFriendly = False, MinDistance = 0, n = 0, NoResultsSkippingIteration = 0, StartingPolynomial = None, MinNotMatchingTapsCount = 0):
@@ -2035,7 +2068,7 @@ class Lfsr:
     else:
       return Values
     
-  def clear(self):
+  def clearFastSimArray(self):
     """Clears the fast-simulation array
     """
     if self._ba_fast_sim_array is not None:
@@ -2065,6 +2098,7 @@ class Lfsr:
         self._my_signs = polynomial._my_signs.copy()
         self._type = polynomial._type
         self._hval = copy.deepcopy(polynomial._hval)
+        self._ba_fast_sim_array = copy.deepcopy(polynomial._ba_fast_sim_array)
         self._size = polynomial._size
         self._baValue = polynomial._baValue.copy()
         self._bamask = polynomial._bamask.copy()
@@ -2239,6 +2273,7 @@ class Lfsr:
     self._ba_fast_sim_array = FSA
     self._baValue = oldVal
   def rotateTap(self, TapIndex : int, FFs : int, FailIfRotationInvalid = False) -> bool:
+    self.clearFastSimArray()
     if FailIfRotationInvalid:
       l2 = self.copy()
       LeaveMaximumShift = 0
@@ -2403,6 +2438,12 @@ class Lfsr:
       return self._baValue
     elif steps == 1:
       return self._next1()
+    elif steps >= (1 << self._size):
+      Max = (1 << self._size) - 1
+      while steps > Max:
+        self.next(Max)
+        steps -= Max
+      return self.next(steps)
     else:
       if self._ba_fast_sim_array is None:
         self._buildFastSimArray()
@@ -3158,23 +3199,64 @@ endmodule'''
     if InjectionAtBits is None:
       InjectionAtBits = [i for i in range(self._size)]
     Sums = [0 for _ in range(Cycles)]
-    def SingleTry(args):
-      l = self.copy()
-      l._baValue = bau.zeros(self._size)
-      ib = List.randomSelect(InjectionAtBits)
-      l._baValue[ib] = 1
-      Result = [0 for _ in range(Cycles)]
-      for i in range(Cycles):
-        self.next()
-        for inj in InjectionAtBits:
-          if random.uniform(0, 1) < Perr:
-            l._baValue[inj] ^= 1
-        if l._baValue.count(1) == 0:
-          Result[i] = 1
-      return Result
+    if type(self) is Lfsr:
+      self._buildFastSimArray()
+      def SingleTry(args):
+        PerrIn = 1 #Perr / len(InjectionAtBits)
+        EventList = SimulationEventList()
+        for Inj in InjectionAtBits:
+          EventList.add(SimulationEvent(int(round(SimulationUtils.randEventTimeBasingOnEventProbability(PerrIn),0)), Inj))
+        #print(EventList)
+        Result = bau.zeros(Cycles)
+        l = self.copy()
+        l._baValue = bau.zeros(self._size)
+        ib = List.randomSelect(InjectionAtBits)
+        l._baValue[ib] = 1
+        Cycle = 0
+        Z = bau.zeros(self._size)
+        while Cycle < Cycles:
+          Events = EventList.popEvents()
+          l.next(Events[0].Time - Cycle)
+          Cycle = Events[0].Time
+          for Event in Events:
+            Inj = Event.Payload
+            l._baValue[Inj] ^= 1
+            EventList.add(SimulationEvent(int(round(SimulationUtils.randEventTimeBasingOnEventProbability(PerrIn),0)+Cycle), Inj))          
+          #print(EventList)
+          if l._baValue == Z:
+            OneUpTo = EventList.getNextEventTime()
+            if OneUpTo > Cycles:
+              OneUpTo = Cycles
+            for i in range(Cycle, OneUpTo):
+              Result[i] = 1
+        return Result
+    else:
+      def SingleTry(args):
+        l = self.copy()
+        l._baValue = bau.zeros(self._size)
+        ib = List.randomSelect(InjectionAtBits)
+        l._baValue[ib] = 1
+        Z = bau.zeros(self._size)
+        Result = bau.zeros(Cycles)
+        Next = 1
+        for i in range(Cycles):
+          if Next:
+            l.next()
+          for inj in InjectionAtBits:
+            if random.uniform(0, 1) < Perr:
+              l._baValue[inj] ^= 1
+          if l._baValue == Z:
+            Next = 0
+            Result[i] = 1
+          else:
+            Next = 1
+        return Result
+    #single thread    rl = [SingleTry(i) for i in range(Tries)]
     for r in p_uimap(SingleTry, range(Tries), desc="Monte Carlo simulation"):
-      for i in range(Cycles):
-        Sums[i] += r[i]
+      i = 0
+      for b in r:
+        Sums[i] += b
+        i += 1
     AioShell.removeLastLine()
     for i in range(Cycles):
       Sums[i] /= Tries        

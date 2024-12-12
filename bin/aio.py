@@ -80,6 +80,7 @@ from libs.verilog import *
 from libs.verilog_creator import *
 from libs.utils_docx import *
 from libs.utils_pdf import *
+from libs.simulation import *
 from tqdm import *
 import bitarray.util
 from bitarray import *
