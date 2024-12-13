@@ -3199,36 +3199,58 @@ endmodule'''
     if InjectionAtBits is None:
       InjectionAtBits = [i for i in range(self._size)]
     Sums = [0 for _ in range(Cycles)]
+    MaximumLen = 0
+    Period = 0
+    xX = ""
+    Mult = 1
     if type(self) is Lfsr:
+      if self.isMaximum():
+        MaximumLen = 1
+        Period = (1 << self._size) - 1
       self._buildFastSimArray()
+      if Tries > 100000:
+        Tries = int(math.ceil(Tries / 1000))
+        xX = " (x1000)"
+        Mult = 1000
+      elif Tries > 10000:
+        Tries = int(math.ceil(Tries / 100))
+        xX = " (x100)"
+        Mult = 100
+      elif Tries > 1000:
+        Tries = int(math.ceil(Tries / 10))
+        xX = " (x10)"
+        Mult = 10
       def SingleTry(args):
-        PerrIn = 1 #Perr / len(InjectionAtBits)
-        EventList = SimulationEventList()
-        for Inj in InjectionAtBits:
-          EventList.add(SimulationEvent(int(round(SimulationUtils.randEventTimeBasingOnEventProbability(PerrIn),0)), Inj))
-        #print(EventList)
-        Result = bau.zeros(Cycles)
+        PerrIn = Perr / len(InjectionAtBits)
+        Result = [0 for _ in range(Cycles)]
         l = self.copy()
-        l._baValue = bau.zeros(self._size)
-        ib = List.randomSelect(InjectionAtBits)
-        l._baValue[ib] = 1
-        Cycle = 0
-        Z = bau.zeros(self._size)
-        while Cycle < Cycles:
-          Events = EventList.popEvents()
-          l.next(Events[0].Time - Cycle)
-          Cycle = Events[0].Time
-          for Event in Events:
-            Inj = Event.Payload
-            l._baValue[Inj] ^= 1
-            EventList.add(SimulationEvent(int(round(SimulationUtils.randEventTimeBasingOnEventProbability(PerrIn),0)+Cycle), Inj))          
-          #print(EventList)
-          if l._baValue == Z:
-            OneUpTo = EventList.getNextEventTime()
-            if OneUpTo > Cycles:
-              OneUpTo = Cycles
-            for i in range(Cycle, OneUpTo):
-              Result[i] = 1
+        for _ in range(Mult):
+          EventList = SimulationEventList()
+          for Inj in InjectionAtBits:
+            EventList.add(SimulationEvent(int(round(SimulationUtils.randTrialsBasingOnEventProbability(PerrIn),0)), Inj))
+          l._baValue = bau.zeros(self._size)
+          ib = List.randomSelect(InjectionAtBits)
+          l._baValue[ib] = 1
+          Cycle = 0
+          Z = bau.zeros(self._size)
+          while Cycle < Cycles:
+            Events = EventList.popEvents()
+            Incrementer = Events[0].Time - Cycle
+            if MaximumLen:
+              Incrementer %= Period
+            l.next(Incrementer)
+            Cycle = Events[0].Time
+            for Event in Events:
+              Inj = Event.Payload
+              l._baValue[Inj] ^= 1
+              EventList.add(SimulationEvent(int(round(SimulationUtils.randTrialsBasingOnEventProbability(PerrIn),0)+Cycle), Inj))          
+            #print(EventList)
+            if l._baValue == Z:
+              OneUpTo = EventList.getNextEventTime()
+              if OneUpTo > Cycles:
+                OneUpTo = Cycles
+              for i in range(Cycle, OneUpTo):
+                Result[i] += 1
         return Result
     else:
       def SingleTry(args):
@@ -3252,14 +3274,14 @@ endmodule'''
             Next = 1
         return Result
     #single thread    rl = [SingleTry(i) for i in range(Tries)]
-    for r in p_uimap(SingleTry, range(Tries), desc="Monte Carlo simulation"):
+    for r in p_uimap(SingleTry, range(Tries), desc="Monte Carlo simulation" + xX):
       i = 0
       for b in r:
         Sums[i] += b
         i += 1
     AioShell.removeLastLine()
     for i in range(Cycles):
-      Sums[i] /= Tries        
+      Sums[i] /= (Tries * Mult)        
     return Sums
     
     

@@ -1,5 +1,6 @@
 from libs.aio import *
 import random
+import math
 
 
 class SimulationEvent:
@@ -99,5 +100,5 @@ class SimulationEventList:
 class SimulationUtils:
     
     @staticmethod
-    def randEventTimeBasingOnEventProbability(Pevent : float) -> bool:
-        return int(random.uniform(0, Pevent * 100)) + 1
+    def randTrialsBasingOnEventProbability(Pevent : float) -> float:
+        return math.log(random.uniform(0, 1)) / math.log(1 - Pevent)
