@@ -1,7 +1,9 @@
 from libs.aio import *
 import random
 import math
+import libs.mersenne_twister as mt
 
+mt.mt_seed(random.randint(0, 0xFFFFFFFF))
 
 class SimulationEvent:
     
@@ -99,6 +101,22 @@ class SimulationEventList:
         
 class SimulationUtils:
     
+    _Lock = 0
+    
     @staticmethod
-    def randTrialsBasingOnEventProbability(Pevent : float) -> float:
-        return math.log(random.uniform(0, 1)) / math.log(1 - Pevent)
+    def randTrialsBasingOnEventProbability(Pevent : float, UseMersenneTwister : bool = False) -> float:
+        if UseMersenneTwister:
+            while(SimulationUtils._Lock):
+                pass
+            SimulationUtils._Lock = 1
+            try:
+                Result = math.log(mt.extract_number() / 0xFFFFFFFF) / math.log(1 - Pevent)
+            except:
+                Result = math.log(mt.extract_number() / 0xFFFFFFFF) / math.log(1 - Pevent)
+            SimulationUtils._Lock = 0
+        else:
+            try:
+                Result = math.log(random.uniform(0, 1)) / math.log(1 - Pevent)
+            except:
+                Result = math.log(random.uniform(0, 1)) / math.log(1 - Pevent)
+        return Result

@@ -3195,10 +3195,10 @@ endmodule'''
     return Sum / Tries
   
   
-  def aliasingDynamicMonteCarlo(self, Cycles : int = None, Tries : int = 100, InjectionAtBits : list = None, Perr : float = 0.001):
+  def aliasingDynamicMonteCarlo(self, Cycles : int = None, Tries : int = 100, InjectionAtBits : list = None, Perr : float = 0.001, LogAliasingHistory : bool = False):
     if InjectionAtBits is None:
       InjectionAtBits = [i for i in range(self._size)]
-    Sums = [0 for _ in range(Cycles)]
+    Sums = [0 for _ in range(Cycles+1)]
     MaximumLen = 0
     Period = 0
     xX = ""
@@ -3208,9 +3208,13 @@ endmodule'''
         MaximumLen = 1
         Period = (1 << self._size) - 1
       self._buildFastSimArray()
-      if Tries > 100000:
+      if Tries > 1000000:
+        Tries = int(math.ceil(Tries / 10000))
+        xX = " (x10k)"
+        Mult = 10000
+      elif Tries > 100000:
         Tries = int(math.ceil(Tries / 1000))
-        xX = " (x1000)"
+        xX = " (x1k)"
         Mult = 1000
       elif Tries > 10000:
         Tries = int(math.ceil(Tries / 100))
@@ -3222,44 +3226,74 @@ endmodule'''
         Mult = 10
       def SingleTry(args):
         PerrIn = Perr / len(InjectionAtBits)
-        Result = [0 for _ in range(Cycles)]
+        Result = [0 for _ in range(Cycles+1)]
         l = self.copy()
+        Z = bau.zeros(self._size)
         for _ in range(Mult):
+          if LogAliasingHistory:
+            AliasingHistory = AioTable(["#Cycle", "Value before", "Injection at", "Value after"])
           EventList = SimulationEventList()
           for Inj in InjectionAtBits:
-            EventList.add(SimulationEvent(int(round(SimulationUtils.randTrialsBasingOnEventProbability(PerrIn),0)), Inj))
-          l._baValue = bau.zeros(self._size)
+            NewTime = int(ceil(SimulationUtils.randTrialsBasingOnEventProbability(PerrIn, UseMersenneTwister=0)))
+            if NewTime < Cycles:
+              EventList.add(SimulationEvent(NewTime, Inj))
+          l._baValue.setall(0)
+          #Aio.print(EventList)
+          if LogAliasingHistory:
+            ValBefore = l._baValue.copy()
+            WasAliasing = False
           ib = List.randomSelect(InjectionAtBits)
           l._baValue[ib] = 1
           Cycle = 0
-          Z = bau.zeros(self._size)
+          if LogAliasingHistory:
+            AliasingHistory.add([Cycle, Bitarray.toString(ValBefore), [ib], Bitarray.toString(l._baValue)])
           while Cycle < Cycles:
             Events = EventList.popEvents()
+            if Events is None:
+              break
+            if Events[0].Time > Cycles:
+              break
             Incrementer = Events[0].Time - Cycle
             if MaximumLen:
               Incrementer %= Period
             l.next(Incrementer)
-            Cycle = Events[0].Time
+            Cycle = Events[0].Time            
+            if LogAliasingHistory:
+              ValBefore = l._baValue.copy()
+              InjectedAt = []
             for Event in Events:
               Inj = Event.Payload
               l._baValue[Inj] ^= 1
-              EventList.add(SimulationEvent(int(round(SimulationUtils.randTrialsBasingOnEventProbability(PerrIn),0)+Cycle), Inj))          
+              if LogAliasingHistory:
+                InjectedAt.append(Inj)
+              NewTime = int(ceil(SimulationUtils.randTrialsBasingOnEventProbability(PerrIn, UseMersenneTwister=0))+Cycle)
+              if NewTime < Cycles:
+                EventList.add(SimulationEvent(NewTime, Inj))        
+            if LogAliasingHistory:
+              AliasingHistory.add([Cycle, Bitarray.toString(ValBefore), InjectedAt, Bitarray.toString(l._baValue)])  
             #print(EventList)
             if l._baValue == Z:
+              WasAliasing = True
               OneUpTo = EventList.getNextEventTime()
+              if OneUpTo is None:
+                OneUpTo = Cycles
               if OneUpTo > Cycles:
                 OneUpTo = Cycles
               for i in range(Cycle, OneUpTo):
                 Result[i] += 1
+          if LogAliasingHistory:
+            if WasAliasing:
+              AliasingHistory.print()
         return Result
     else:
+      # LogAliasingHistory nie działa tutaj, dopisz w razie potrzeby
       def SingleTry(args):
         l = self.copy()
         l._baValue = bau.zeros(self._size)
         ib = List.randomSelect(InjectionAtBits)
         l._baValue[ib] = 1
         Z = bau.zeros(self._size)
-        Result = bau.zeros(Cycles)
+        Result = bau.zeros(Cycles+1)
         Next = 1
         for i in range(Cycles):
           if Next:
@@ -3280,9 +3314,9 @@ endmodule'''
         Sums[i] += b
         i += 1
     AioShell.removeLastLine()
-    for i in range(Cycles):
+    for i in range(Cycles+1):
       Sums[i] /= (Tries * Mult)        
-    return Sums
+    return Sums[1:]
     
     
   def aliasingDynamicMarkowChain(self, Cycles : int = None, InjectionAtBit : int = 0, Perr : float = 0.001, Silent : bool = False):
