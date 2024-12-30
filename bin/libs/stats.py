@@ -14,7 +14,10 @@ class Histogram:
   __slots__ = ("_data", "_bar_width", "_bar_count", "_min", "_max")
   
   def __init__(self, Data = [], BarWidth : float = None, BarCount : Int = 10):
-    self._bar_count = int(BarCount)
+    if type(BarWidth) is float or type(BarWidth) is int:
+      self._bar_width = BarWidth
+    else:
+      self._bar_count = int(BarCount)
     self._bar_width = BarWidth
     self._data = []
     self._min = None
@@ -53,6 +56,8 @@ class Histogram:
     if Max is None:
       Max = self._max
     if type(self._bar_width) is float:
+      BarWidth = self._bar_width
+    elif type(self._bar_width) is int:
       BarWidth = self._bar_width
     else:
       BarWidth = (Max - Min) / float(self._bar_count)

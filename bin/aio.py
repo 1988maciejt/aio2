@@ -102,6 +102,7 @@ import pint
 # research projects - libs
 import libs.research_projects.root_of_trust.root_of_trust as RootOfTrust
 import libs.research_projects.orthogonal_compactor.orthogonal_compactor as OrthogonalCompactor
+import libs.research_projects.testkompress_advisor.testkompress_advisor as TestKompressAdvisor
 import warnings
 
 warnings.simplefilter("ignore")

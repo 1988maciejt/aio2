@@ -3195,10 +3195,10 @@ endmodule'''
     return Sum / Tries
   
   
-  def aliasingDynamicMonteCarlo(self, Cycles : int = None, Tries : int = 100, InjectionAtBits : list = None, Perr : float = 0.001, LogAliasingHistory : bool = False):
+  def aliasingDynamicMonteCarlo(self, Cycles : int = None, Tries : int = 100, InjectionAtBits : list = None, Perr : float = 0.001, LogAliasingHistory : bool = False, CycleMultiplier : int = 1):
     if InjectionAtBits is None:
       InjectionAtBits = [i for i in range(self._size)]
-    Sums = [0 for _ in range(Cycles+1)]
+    Sums = [0 for _ in range((Cycles//CycleMultiplier)+1)]
     MaximumLen = 0
     Period = 0
     xX = ""
@@ -3226,7 +3226,7 @@ endmodule'''
         Mult = 10
       def SingleTry(args):
         PerrIn = Perr / len(InjectionAtBits)
-        Result = [0 for _ in range(Cycles+1)]
+        Result = [0 for _ in range((Cycles // CycleMultiplier)+1)]
         l = self.copy()
         Z = bau.zeros(self._size)
         for _ in range(Mult):
@@ -3243,7 +3243,11 @@ endmodule'''
             ValBefore = l._baValue.copy()
             WasAliasing = False
           ib = List.randomSelect(InjectionAtBits)
-          l._baValue[ib] = 1
+          if type(ib) is int:
+            l._baValue[ib] = 1
+          else:
+            for I in ib:
+              l._baValue[I] = 1
           Cycle = 0
           if LogAliasingHistory:
             AliasingHistory.add([Cycle, Bitarray.toString(ValBefore), [ib], Bitarray.toString(l._baValue)])
@@ -3263,7 +3267,11 @@ endmodule'''
               InjectedAt = []
             for Event in Events:
               Inj = Event.Payload
-              l._baValue[Inj] ^= 1
+              if type(Inj) is int:
+                l._baValue[Inj] ^= 1
+              else:
+                for I in Inj:
+                  l._baValue[I] ^= 1
               if LogAliasingHistory:
                 InjectedAt.append(Inj)
               NewTime = int(ceil(SimulationUtils.randTrialsBasingOnEventProbability(PerrIn, UseMersenneTwister=0))+Cycle)
@@ -3280,20 +3288,23 @@ endmodule'''
               if OneUpTo > Cycles:
                 OneUpTo = Cycles
               for i in range(Cycle, OneUpTo):
-                Result[i] += 1
+                Result[i//CycleMultiplier] += 1
           if LogAliasingHistory:
             if WasAliasing:
               AliasingHistory.print()
+        for i in range(len(Result)):
+          Result[i] /= CycleMultiplier
         return Result
     else:
       # LogAliasingHistory nie działa tutaj, dopisz w razie potrzeby
+      # Poniższy kod nie obsługuje rozwidlonych injectorów
       def SingleTry(args):
         l = self.copy()
         l._baValue = bau.zeros(self._size)
         ib = List.randomSelect(InjectionAtBits)
         l._baValue[ib] = 1
         Z = bau.zeros(self._size)
-        Result = bau.zeros(Cycles+1)
+        Result = bau.zeros((Cycles//CycleMultiplier)+1)
         Next = 1
         for i in range(Cycles):
           if Next:
@@ -3303,9 +3314,11 @@ endmodule'''
               l._baValue[inj] ^= 1
           if l._baValue == Z:
             Next = 0
-            Result[i] = 1
+            Result[i//CycleMultiplier] = 1
           else:
             Next = 1
+        for i in range(len(Result)):
+          Result[i] /= CycleMultiplier
         return Result
     #single thread    rl = [SingleTry(i) for i in range(Tries)]
     for r in p_uimap(SingleTry, range(Tries), desc="Monte Carlo simulation" + xX):
@@ -3314,9 +3327,9 @@ endmodule'''
         Sums[i] += b
         i += 1
     AioShell.removeLastLine()
-    for i in range(Cycles+1):
+    for i in range(len(Sums)):
       Sums[i] /= (Tries * Mult)        
-    return Sums[1:]
+    return Sums[:-1]
     
     
   def aliasingDynamicMarkowChain(self, Cycles : int = None, InjectionAtBit : int = 0, Perr : float = 0.001, Silent : bool = False):
@@ -3762,3 +3775,143 @@ class _SeqReport_tui(TextualApp.App):
     if event.button.id == "btn_ok":
       self.app.exit()
   
+
+
+
+
+# ------ MISR -----------------------------
+
+class MisrUtils:
+  
+  @staticmethod
+  def checkInjectorGodness(lfsr : Lfsr, Injectors : list, CycleCount : int = 1000000, Verbose : bool = False, ExploreCombinationsUpTo : int = 1) -> bool:
+    ValueDict = {}
+    InjDict = {}
+    for Idx in range(len(Injectors)):
+      Inj = Injectors[Idx]
+      V = bau.zeros(len(lfsr))
+      if type(Inj) is int:
+        V[Inj] = 1
+      else:
+        for I in Inj:
+          V[I] = 1
+      ValueDict[Idx] = V
+      if Verbose:
+        InjDict[bytes(V)] = Idx
+    Multi = ExploreCombinationsUpTo
+    if Multi > 1:
+      if Multi > len(Injectors):
+        Multi = len(Injectors)
+      for k in range(1, Multi+1):
+        for IdxComb in List.getCombinations([i for i in range(len(Injectors))], k):
+          V = bau.zeros(len(lfsr))
+          for Idx in IdxComb:
+            Inj = Injectors[Idx]
+            if type(Inj) is int:
+              V[Inj] ^= 1
+            else:
+              for I in Inj:
+                V[I] ^= 1
+            ValueDict[tuple(IdxComb)] = V
+            if Verbose:
+              InjDict[bytes(V)] = tuple(IdxComb)
+    Result = True
+    for Idx0 in range(len(Injectors)):
+      Val0 = ValueDict[Idx0]
+      lfsr.setValue(Val0)
+      OtherValues = []
+      for OV in ValueDict.values():
+        if OV != Val0:
+          OtherValues.append(OV)
+      for Cntr in range(1, CycleCount+1):
+        lfsr.next()
+        if lfsr.getValue() in OtherValues:
+          OtherValues.remove(lfsr.getValue())
+          Result = False
+          if Verbose:
+            print(f"Staring from injector {Injectors[Idx0]} it goes to {Injectors[InjDict[bytes(lfsr.getValue())]]} in {Cntr} cycles")
+          else:
+            break
+          if len(OtherValues) < 1:
+            break
+    if Verbose:
+      if Result:
+        print("Injectors are good")
+      else:
+        print("Injectors are bad")
+    return Result
+  
+  @staticmethod
+  def getNextInjectorProposals(lfsr : Lfsr, Injectors : list, CycleCount : int = 1000000, Verbose : bool = False, MultiThreadingAllowed : bool = True, StopIfProposalCountIs : int = None, ExploreCombinationsUpTo : int = 1) -> list:
+    if len(Injectors) < 1:
+      return [i for i in range(len(lfsr))]
+    Result = []
+    if Verbose:
+      Iterator = range(len(lfsr))
+    else:
+      if MultiThreadingAllowed:
+        Candids = []
+        for NIn in range(len(lfsr)):
+          if NIn not in Injectors:
+            Candids.append(NIn)
+        def SingleTry(Candid : list) -> bool:
+          l = lfsr.copy()
+          if MisrUtils.checkInjectorGodness(l, Injectors + [Candid], CycleCount, False, ExploreCombinationsUpTo):       
+            return Candid
+          return None
+        for R in p_uimap(SingleTry, Candids, desc="Checking injector candidates"):
+          if R is not None:
+            Result.append(R)
+        AioShell.removeLastLine()
+        Result = list(Result)
+        Result.sort()
+        return Result
+      else:
+        Iterator = tqdm(range(len(lfsr)))
+    for NIn in Iterator:
+      if NIn not in Injectors:
+        if Verbose:
+          print(f"Checking injector {NIn} -------")
+        Good = MisrUtils.checkInjectorGodness(lfsr, Injectors + [NIn], CycleCount, Verbose, ExploreCombinationsUpTo)
+        if Good:
+          Result.append(NIn)
+          if (StopIfProposalCountIs is not None) and (len(Result) >= StopIfProposalCountIs):
+            break
+    if not Verbose:
+      AioShell.removeLastLine()
+    return Result
+  
+  @staticmethod
+  def getBestInjectors(lfsr : Lfsr, InjectorCount : int, CycleCountForAnalysis : int = 1000000, KnownInjectors : list = [], Verbose : bool = False, StopIfProposalCountIs : int = 10, ExploreCombinationsUpTo : int = 1) -> list:
+    Injectors = KnownInjectors.copy()
+    if len(Injectors) >= InjectorCount:
+      return Injectors
+    else:
+      Proposals = MisrUtils.getNextInjectorProposals(lfsr, Injectors, CycleCountForAnalysis, False, True, None, ExploreCombinationsUpTo)
+      if Proposals is None:
+        return None
+      if len(Proposals) == 0:
+        return None    
+      Result = []
+      if len(Injectors) == InjectorCount-1:
+        if Verbose:
+          print(f"Last injector to find in {Injectors}")
+        for P in Proposals:
+          NewInjectors = Injectors + [P]
+          Result.append(NewInjectors)
+        if Verbose:
+          AioShell.removeLastLine()
+        return Result
+      else:
+        for P in Proposals:
+          Candidate = Injectors + [P]
+          if Verbose:
+            print(f"Exploring {Candidate}...")
+          Candidates = MisrUtils.getBestInjectors(lfsr, InjectorCount, CycleCountForAnalysis, Candidate, Verbose, StopIfProposalCountIs, ExploreCombinationsUpTo)
+          if Verbose:
+            AioShell.removeLastLine()
+          if Candidates is not None:
+            Result += Candidates
+            if (StopIfProposalCountIs is not None) and (len(Result) >= StopIfProposalCountIs > 0):
+              break
+      return Result
