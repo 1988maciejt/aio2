@@ -41,7 +41,7 @@ class GptUtils:
   def askAQuestion(Question, Model="gpt-4", Provider=None, RealTimePrinting=True, TryToRemoveHeader=True, StreamLikeProgressBar=False):
     Msgs = []
     if TryToRemoveHeader:
-      if Provider == g4f.Provider.Bing:
+      if Provider == g4f.Provider.bing:
         Msgs.append(GptUtils._makeMsg("Witaj"))
         Msgs.append(GptUtils._makeMsg("Witaj, to jest Bing.", "assistant"))
     if type(Question) not in (list, tuple):
@@ -183,7 +183,7 @@ class GptUtils:
     return Result
   
   @staticmethod
-  def findKeywordsUsingChat(Question : str, Model="gpt-4", Provider = g4f.Provider.Bing, RealTimePrinting = True) -> list:
+  def findKeywordsUsingChat(Question : str, Model="gpt-4", Provider = g4f.Provider.bing, RealTimePrinting = True) -> list:
     cb = GptChat(Model, Provider, RealTimePrinting=RealTimePrinting, SingleLinePrinting=1)
     cb.addSystemMessage("Podaj odpowiedź w postaci długiej listy krótkich pojęć. Nie stosuj notacji markdown. Nie wyjaśniaj akronimów.")
     try:
@@ -215,12 +215,12 @@ class GptUtils:
     return list(KWS)
       
   @staticmethod
-  def findKeywoardsForFile(FileName : list, Model="gpt-4", Provider = g4f.Provider.Bing, RealTimePrinting = False) -> tuple:
+  def findKeywoardsForFile(FileName : list, Model="gpt-4", Provider = g4f.Provider.bing, RealTimePrinting = False) -> tuple:
     T = File.read(FileName)
     return FileName, GptUtils.findKeywordsUsingChat(T, Model, Provider, RealTimePrinting)
   
   @staticmethod
-  def findKeywoardsForFiles(FileNamesList : list, Model="gpt-4", Provider = g4f.Provider.Bing, ExtendKeywords=1) -> dict:
+  def findKeywoardsForFiles(FileNamesList : list, Model="gpt-4", Provider = g4f.Provider.bing, ExtendKeywords=1) -> dict:
     ResDict = {}
     if 0:
       for FileName, KeyWords in p_uimap(partial(GptUtils.findKeywoardsForFile, Model=Model, Provider=Provider), FileNamesList):
@@ -355,7 +355,7 @@ class GptDataBase:
           Files += Pdf.splitIntoTextFiles(Doc, 2900, 512)
       self._embd = GptUtils.createDocsEmbeddings(Files)
       self._embd.save(IndexfileName + ".doc2vec")
-      self._dict = GptUtils.findKeywoardsForFiles(Files, Provider=g4f.Provider.Bing)
+      self._dict = GptUtils.findKeywoardsForFiles(Files, Provider=g4f.Provider.bing)
       File.writeObject(IndexfileName + ".dat", [self._dict, HASH])
     if IncludeSynonyms:
       self._synonyms = GptSynonyms(IndexfileName + ".synonyms")
@@ -396,7 +396,7 @@ class GptChat:
   
   __slots__ = ("_Model", "_Provider", "_Msgs", "_Stream", "_db", "_single_line_printing")
   
-  def __init__(self, Model="gpt-4", Provider=g4f.Provider.Bing, DataBase : GptDataBase = None, RealTimePrinting=True, SingleLinePrinting=False) -> None:
+  def __init__(self, Model="gpt-4", Provider=g4f.Provider.bing, DataBase : GptDataBase = None, RealTimePrinting=True, SingleLinePrinting=False) -> None:
     self._Model = Model
     self._Provider = Provider
     self._Msgs = []
