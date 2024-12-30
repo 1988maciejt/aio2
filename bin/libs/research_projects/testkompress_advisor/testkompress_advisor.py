@@ -2,6 +2,7 @@ from libs.aio import *
 from bitarray import *
 import bitarray.util as bau
 from random import *
+from copy import deepcopy
 
 _TEST_CUBE_BITARRAYS = 0
 _TEST_CUBE_IMPLEMENTATION_LOCKED = 0
@@ -57,8 +58,8 @@ class TestCube:
             self._specified_bit_positions = bau.zeros(SpecifiedBits)
             self._specified_bit_values = bau.zeros(SpecifiedBits)
         elif type(SpecifiedBits) is TestCube:
-            self._specified_bit_positions = SpecifiedBits._specified_bit_positions.copy()
-            self._specified_bit_values = SpecifiedBits._specified_bit_values.copy()
+            self._specified_bit_positions = deepcopy(SpecifiedBits._specified_bit_positions)
+            self._specified_bit_values = deepcopy(SpecifiedBits._specified_bit_values)
             self.Age = SpecifiedBits.Age
             
     def __len__(self):
@@ -70,7 +71,7 @@ class TestCube:
     def __str__(self):
         global _TEST_CUBE_BITARRAYS
         if _TEST_CUBE_BITARRAYS:
-            Result = ""
+            Result = f"AGE={self.Age} "
             for i in range(len(self._specified_bit_positions)):
                 if not self._specified_bit_positions[i]:
                     Result += 'X'
@@ -78,7 +79,7 @@ class TestCube:
                     Result += str(int(self._specified_bit_values[i]))
             return Result
         else:
-            return str(self._specified_bit_positions)
+            return f"AGE={self.Age} " + str(self._specified_bit_positions)
     
     def __repr__(self):
         return f"TestCube(\"{str(self)}\")"
@@ -231,6 +232,56 @@ class TestCubeSet:
             Result.addCube(Cube.copy())
         return Result
     
-    def autoMerge(self):
-        pass
+    def resetAge(self):
+        for Cube in self._cubes:
+            Cube.Age = 0
 
+    def sort(self):
+        self._cubes.sort(key = lambda x: x.Age, reverse = True)
+    
+    def autoMerge(self, PreSort : bool = True):
+        if PreSort:
+            self.sort()
+        DidSomething = True
+        while DidSomething:
+            DidSomething = False
+            for i in range(len(self._cubes)):
+                if self._cubes[i].Age < 0:
+                    continue
+                ThisCube = self._cubes[i].copy()
+                for j in range(i + 1, len(self._cubes)):
+                    if self._cubes[j].Age < 0:
+                        continue
+                    ThisCubeAux = ThisCube.copy()
+                    if ThisCubeAux.mergeWithAnother(self._cubes[j]):
+                        # Check if ThisCubeAux is OK
+                        if 1: # if OK
+                            ThisCube = ThisCubeAux
+                            ThisCube.Age = -2       # Mark as merged
+                            self._cubes[j].Age = -1 # Mark as used
+                            DidSomething = True
+                        else:
+                            self._cubes[j].Age += 1 # Age++
+                    else:
+                        self._cubes[j].Age += 1     # Age++
+                self._cubes[i] = ThisCube
+            self.sort()
+
+    def splitMergedAndNotmerged(self) -> tuple:
+        """Returns two TestCubeSet objects: (Merged_cubes, NotMerged_cubes). Cubes used for merging are ignored."""
+        Merged = TestCubeSet()
+        NotMerged = TestCubeSet()
+        for Cube in self._cubes:
+            if Cube.Age == -2:
+                Merged.addCube(Cube)
+            elif Cube.Age >= 0:
+                NotMerged.addCube(Cube)
+        return Merged, NotMerged
+    
+    def splitIntoBufferAndRest(self, BufferLength : int = 100) -> tuple:
+        """Returns two TestCubeSet objects: (Buffer, Rest)."""
+        Buffer = TestCubeSet()
+        Rest = TestCubeSet()
+        Buffer._cubes = self._cubes[:BufferLength]
+        Rest._cubes = self._cubes[BufferLength:]
+        return Buffer, Rest
