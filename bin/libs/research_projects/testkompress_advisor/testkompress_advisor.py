@@ -229,6 +229,12 @@ class TestCubeSet:
     def copy(self) -> TestCubeSet:
         Result = TestCubeSet()
         for Cube in self._cubes:
+            Result.addCube(Cube)
+        return Result
+    
+    def deepCopy(self) -> TestCubeSet:
+        Result = TestCubeSet()
+        for Cube in self._cubes:
             Result.addCube(Cube.copy())
         return Result
     
@@ -238,6 +244,13 @@ class TestCubeSet:
 
     def sort(self):
         self._cubes.sort(key = lambda x: x.Age, reverse = True)
+
+    def removeCube(self, CubeIndex : int) -> bool:
+        try:
+            del self._cubes[CubeIndex]
+            return True
+        except:
+            return False
     
     def autoMerge(self, PreSort : bool = True):
         if PreSort:
@@ -285,3 +298,22 @@ class TestCubeSet:
         Buffer._cubes = self._cubes[:BufferLength]
         Rest._cubes = self._cubes[BufferLength:]
         return Buffer, Rest
+
+
+class TestCubeMerger:
+    pass
+class TestCubeMerger:
+
+    @staticmethod
+    def mergeTestCubes(CubeBuffer : TestCubeSet, ResetAge : bool= False) -> tuple:
+        """Returns two cude sets: (Merged, NotMerged)."""
+        Buffer = CubeBuffer.copy()
+        if ResetAge:
+            Buffer.resetAge
+        else:
+            Buffer.sort()
+        
+        DidSomething = True
+        while DidSomething:
+            for i in range(len(Buffer)):
+                pass
