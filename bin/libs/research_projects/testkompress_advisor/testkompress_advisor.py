@@ -4,6 +4,8 @@ import bitarray.util as bau
 from random import *
 from copy import deepcopy
 from math import ceil
+from functools import partial
+from p_tqdm import *
 
 _TEST_CUBE_BITARRAYS = 0
 _TEST_CUBE_IMPLEMENTATION_LOCKED = 0
@@ -130,6 +132,21 @@ class EdtStructure:
             if not self._decompressors[i].isCompressable(SubCubes[i], MinBatteryCharge):
                 return False
         return True
+    
+    def getLongestLfsrSize(self) -> int:
+        try:
+            return max([Decompressor.LfsrLength for Decompressor in self._decompressors])   
+        except:
+            return 0
+        
+    def getTestTime(self, PatternCount : int = 1) -> int:
+        Init = 0
+        for Decompressor in self._decompressors:
+            ThisInit = int(ceil(Decompressor.LfsrLength / Decompressor.InputCount))
+            if Init <= ThisInit:
+                Init = ThisInit
+        return (Init + self.getScanLength()) * PatternCount
+        
         
     
 
@@ -407,14 +424,13 @@ class TestCubeSet:
     
     def copy(self) -> TestCubeSet:
         Result = TestCubeSet()
-        for Cube in self._cubes:
-            Result.addCube(Cube)
+        Result._cubes = self._cubes.copy()
         return Result
     
     def deepCopy(self) -> TestCubeSet:
         Result = TestCubeSet()
         for Cube in self._cubes:
-            Result.addCube(Cube.copy())
+            Result._cubes.append(Cube.copy())
         return Result
     
     def resetAge(self):
@@ -492,7 +508,8 @@ class TestCubeSet:
             Patterns._cubes += SubPatterns._cubes
             if Verbose:
                 print(f"Last. BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
-        print(f"FINISHED BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
+        if Verbose:
+            print(f"FINISHED BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
         return Patterns
     
     def removeNotCompressable(self, Edt : EdtStructure) -> int:
@@ -504,21 +521,32 @@ class TestCubeSet:
             self.removeCube(i)
         return len(ToBeRemoved)
     
-
-class TestCubeMerger:
-    pass
-class TestCubeMerger:
-
     @staticmethod
-    def mergeTestCubes(CubeBuffer : TestCubeSet, ResetAge : bool= False) -> tuple:
-        """Returns two cude sets: (Merged, NotMerged)."""
-        Buffer = CubeBuffer.copy()
-        if ResetAge:
-            Buffer.resetAge
-        else:
-            Buffer.sort()
+    def doExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, Verbose : bool = False) -> tuple:
+        CubesCopy = Cubes.deepCopy()
+        BeforeRemovalCubesCount = len(CubesCopy)
+        if Verbose:
+            print(f"#Cubes before uncompressable removal: {BeforeRemovalCubesCount}")
+        RemovedCount = CubesCopy.removeNotCompressable(Edt)
+        AfterRemovalCubesCount = len(CubesCopy)
+        if Verbose:
+            print(f"#Cubes removed:                       {RemovedCount}")
+            print(f"#Cubes after uncompressable removal:  {AfterRemovalCubesCount}")
+        Patterns = CubesCopy.merge(Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, Verbose)
+        TestTime = Edt.getTestTime(len(Patterns))
+        if Verbose:
+            print(f"#Patterns:                            {len(Patterns)}")
+            print(f"Test time [cycles]:                   {TestTime}")
+        return AfterRemovalCubesCount, len(Patterns), TestTime
         
-        DidSomething = True
-        while DidSomething:
-            for i in range(len(Buffer)):
-                pass
+    @staticmethod
+    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1) -> list:
+        Result = []
+        def singleTry(Edt : EdtStructure) -> tuple:
+            return TestCubeSet.doExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, False)
+        for R in p_imap(singleTry, EdtList):
+            Result.append(R)
+        AioShell.removeLastLine()
+        return Result
+    
+
