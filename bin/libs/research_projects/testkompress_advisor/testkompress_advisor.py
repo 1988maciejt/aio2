@@ -89,8 +89,13 @@ class EdtStructure:
     
     def __str__(self):
         Result = "["
+        Second = 0
         for Decompressor in self._decompressors:
-            Result += str(Decompressor) + "\n"
+            if Second:
+                Result += ", "
+            else:
+                Second = 1
+            Result += str(Decompressor)
         Result += "]"
         return Result
                 
@@ -168,17 +173,20 @@ class TestCube:
         global _TEST_CUBE_BITARRAYS
         if _TEST_CUBE_BITARRAYS:
             StrVal = ""
-            for i in range(Length):
-                if random() < Pspecified:
-                    StrVal += '1' if random() < P1 else '0'
-                else:
-                    StrVal += 'X'
-            return TestCube(StrVal)
+            Result = TestCube('X')
+            Result._specified_bit_positions = bau.zeros(Length)
+            Result._specified_bit_values = bau.zeros(Length)
+            Count = randint(1, Pspecified*Length*2)
+            for i in range(Count):
+                Pos = randint(0, Length-1)
+                Result._specified_bit_positions[Pos] = 1
+                Result._specified_bit_values[Pos] = 1 if random() < P1 else 0
+            return Result
         else:
             SDict = {}
-            for i in range(Length):
-                if random() < Pspecified:
-                    SDict[i] = 1 if random() < P1 else 0
+            Count = randint(1, Pspecified*Length*2)
+            for i in range(Count):
+                SDict[randint(0, Length-1)] = 1 if random() < P1 else 0
             return TestCube(SDict, Length)
     
     def __init__(self, SpecifiedBits : str = '', LenOfTestCubeIfDictImplementation : int = 0):
@@ -414,6 +422,16 @@ class TestCubeSet:
             return Result
         else:
             return self._cubes[index]
+        
+    @staticmethod
+    def randomCubeSet(CubeCount : int, Length : int, Pspecified : float = 0.1, P1 = 0.5) -> TestCubeSet:
+        Result = TestCubeSet()
+        def single(args):
+            return TestCube.randomCube(Length, Pspecified, P1)
+        for C in p_uimap(single, range(CubeCount), desc="Generating random cubes"):
+            Result.addCube(C)
+        AioShell.removeLastLine()
+        return Result
     
     def addCube(self, Cube : TestCube):
         self._cubes.append(Cube)
@@ -461,50 +479,54 @@ class TestCubeSet:
             Result.append(TestCubeSubset)
         return Result
     
-    def _mergingRound(self, Edt : EdtStructure, PatternCount : int = 64, MinBatteryCharge : float = 0.1, Verbose : bool = False) -> tuple:
+    def _mergingRound(self, Edt : EdtStructure, PatternCount : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False) -> tuple:
         """Returns two TestCubeSet objects: (Patterns, Cubes)."""
         Cubes = self.copy()
         Patterns = TestCubeSet()
         MaximumBitCount = Edt.getMaximumSpecifiedBitPerCycleToBeCompressable()
         while len(Cubes) > 0 and len(Patterns) < PatternCount:
-            Cubes.sort()
+            #Cubes.sort()
             Cube = Cubes.getCube(0)
             ToBeRemovedFromBuffer = [0]
-            timer0 = time.time()
+            CompressionCounter = 0
             for i in range(1, len(Cubes)):
                 CubeAux = Cube.copy()
                 MergingResult = CubeAux.mergeWithAnother(Cubes._cubes[i])
-                if MergingResult and Edt.isCompressable(CubeAux, MinBatteryCharge):
-                    Cube = CubeAux
-                    ToBeRemovedFromBuffer.append(i)
-                    if Cube.getSpecifiedCount()-1 >= MaximumBitCount:
-                        break
-                else:
-                    Cubes._cubes[i].Age += 1
-            timer0 = time.time()
+                if MergingResult: 
+                    if Edt.isCompressable(CubeAux, MinBatteryCharge):
+                        Cube = CubeAux
+                        ToBeRemovedFromBuffer.append(i)
+                        if Cube.getSpecifiedCount()-1 >= MaximumBitCount:
+                            break
+                    else:
+                        CompressionCounter += 1
+                        if CompressionCounter > CompressabilityLimit:
+                            break
+                #else:
+                #    Cubes._cubes[i].Age += 1
             Patterns._cubes.append(Cube)
             for i in reversed(ToBeRemovedFromBuffer):
                 del Cubes._cubes[i]
         return Patterns, Cubes
     
-    def merge(self, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, Verbose : bool = False) -> TestCubeSet:
-        self.resetAge()
+    def merge(self, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False) -> TestCubeSet:
+        #self.resetAge()
         Buffer = TestCubeSet()
         Buffer._cubes = self._cubes[0:BufferLength]
         index = BufferLength
-        Patterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, Verbose)
+        Patterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
         if Verbose:
             print(f"Furst round finished. BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
         while index < len(self):
             HowManyToAdd = BufferLength - len(Buffer)
             Buffer._cubes += self._cubes[index:index+HowManyToAdd]
             index += HowManyToAdd
-            SubPatterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, Verbose)
+            SubPatterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
             Patterns._cubes += SubPatterns._cubes
             if Verbose:
                 print(f"Next round finished. BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
         if len(Buffer) > 0:
-            SubPatterns, Buffer = Buffer._mergingRound(Edt, len(Buffer), MinBatteryCharge, Verbose)
+            SubPatterns, Buffer = Buffer._mergingRound(Edt, len(Buffer), MinBatteryCharge, CompressabilityLimit, Verbose)
             Patterns._cubes += SubPatterns._cubes
             if Verbose:
                 print(f"Last. BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
@@ -522,7 +544,7 @@ class TestCubeSet:
         return len(ToBeRemoved)
     
     @staticmethod
-    def doExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, Verbose : bool = False) -> tuple:
+    def doExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False) -> tuple:
         CubesCopy = Cubes.deepCopy()
         BeforeRemovalCubesCount = len(CubesCopy)
         if Verbose:
@@ -532,7 +554,7 @@ class TestCubeSet:
         if Verbose:
             print(f"#Cubes removed:                       {RemovedCount}")
             print(f"#Cubes after uncompressable removal:  {AfterRemovalCubesCount}")
-        Patterns = CubesCopy.merge(Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, Verbose)
+        Patterns = CubesCopy.merge(Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
         TestTime = Edt.getTestTime(len(Patterns))
         if Verbose:
             print(f"#Patterns:                            {len(Patterns)}")
@@ -540,10 +562,10 @@ class TestCubeSet:
         return AfterRemovalCubesCount, len(Patterns), TestTime
         
     @staticmethod
-    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1) -> list:
+    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3) -> list:
         Result = []
         def singleTry(Edt : EdtStructure) -> tuple:
-            return TestCubeSet.doExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, False)
+            return TestCubeSet.doExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, False)
         for R in p_imap(singleTry, EdtList):
             Result.append(R)
         AioShell.removeLastLine()
