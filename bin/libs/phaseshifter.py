@@ -139,6 +139,19 @@ class PhaseShifter:
     def getSourceObject(self):
         return self._my_source
     
+    def getDestinationsDictionary(self, InputConfig : list = None) -> dict:
+        from libs.lfsr import Lfsr
+        if type(self._my_source) is Lfsr:
+            LDict = self._my_source.getDestinationsDictionary(InputConfig)
+            Result = {}
+            for i in range(self._size):
+                LInputs = []
+                for PInput in self._xors[i]:
+                    LInputs += LDict[PInput]
+                Result[i] = LInputs
+            return Result
+        return None
+    
     def getSequences(self, Length=0) -> list:
         Values = self.getValues(n = Length)
         if len(Values) < 1:

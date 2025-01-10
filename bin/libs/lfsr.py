@@ -1953,7 +1953,18 @@ class Lfsr:
       Result.append(FDict[i] >> PMin)
     return Result
     
-  def getDestinationsDictionary(self) -> dict:
+  def getDestinationsDictionary(self, InputConfig : list = None) -> dict:
+    InputDestDict = {}
+    for i in range(self._size):
+      InputDestDict[i] = []
+    if InputConfig is not None:
+      for i in range(len(InputConfig)):
+        In = InputConfig[i]
+        if type(In) is int:
+          InputDestDict[In].append(tuple([i]))
+        else:
+          for InV in In:
+            InputDestDict[InV].append(tuple([i]))
     DestDict = {}
     Size = self._size
     for i in range(Size):
@@ -1980,6 +1991,8 @@ class Lfsr:
         DestDict[i-1] = Aux
     else:
       Aio.printError("Not implemented")
+    for i in range(Size):
+      DestDict[i] = DestDict[i] + InputDestDict[i]
     return DestDict
   
   def singleBitInject(self, Bit : int):

@@ -38,3 +38,58 @@ class DecompressorSolver:
         
     def getTestTime(self) -> int:
         return self._scan_length + self._initial_phase_len
+    
+    def createEquationBase(self, Verbose : bool = False):
+        if Verbose:
+            print(f"EQUATION BASE Start =========================")
+        VarCount = self.getTestDataVolume()
+        CycleCount = self.getTestTime()
+        LfsrDestDict = self._lfsr.getDestinationsDictionary(self._input_config)
+        FFs = [bau.zeros(VarCount) for _ in range(len(self._lfsr))]
+        InputCount = len(self._input_config)
+        InputAdder = 0
+        ScanChainCells = [[bau.zeros(VarCount) for _ in range(self._scan_length)]  for _ in range(len(self._phase_shifter))]
+        if Verbose:
+            print(f"LfsrDestDict: {LfsrDestDict}")
+        ScanChainCycle = 0
+        for Cycle in range(CycleCount):
+            if Verbose:
+                print(f"Cycle: {Cycle} ----------------------")
+            FFsNew = [bau.zeros(VarCount) for _ in range(len(self._lfsr))]
+            for FFDest in range(len(FFs)):
+                if Verbose:
+                    print(f"  FFDest: {FFDest}")
+                for Val in LfsrDestDict[FFDest]:
+                    if Verbose:
+                        print(f"    Val: {Val}")
+                    if type(Val) is tuple:
+                        if Verbose:
+                            print(f"    {FFsNew[FFDest]} -> ", end="")
+                        FFsNew[FFDest][Val[0] + InputAdder] ^= 1
+                        if Verbose:
+                            print(f"{FFsNew[FFDest]}")
+                    else:
+                        if Verbose:
+                            print(f"    {FFsNew[FFDest]} ^ {FFs[Val]} ->", end="")
+                        FFsNew[FFDest] ^= FFs[Val]
+                        if Verbose:
+                            print(f"{FFsNew[FFDest]}")
+            FFs = FFsNew
+            InputAdder += InputCount
+            if Verbose:
+                print(f"FFs: {FFs}")
+            if Cycle>= self._initial_phase_len:
+                if Verbose:
+                    print(f"  TO_SCAN_CHAINS {ScanChainCycle}")
+                Xors = self._phase_shifter.getXors()
+                for ScanIndex in range(len(self._phase_shifter)):
+                    for XorIn in Xors[ScanIndex]:
+                        ScanChainCells[ScanIndex][ScanChainCycle] ^= FFs[XorIn]
+                if Verbose:
+                    for ScanIndex in range(len(self._phase_shifter)):
+                        print(f"  SCAN {ScanIndex}: {ScanChainCells[ScanIndex]}")
+                ScanChainCycle += 1
+        if Verbose:
+            print(f"EQUATION BASE End =========================")
+        
+        
