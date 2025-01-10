@@ -98,6 +98,12 @@ class BinSolver:
         VarCount = len(self._equations[0])
         for VarIdx in range(VarCount):
             Reference = self.getIndexesOfEquationsHavingSpecifiedFirstOne()
+            for EI in range(len(Reference[-1])):
+                if not self._equations[EI].isInconsistent():
+                    if Verbose:
+                        print(f"INCONSISTENCY FOUND in equation {EI}: {self._equations[EI]}")
+                    self._gauss_done = False
+                    return False
             if Verbose:
                 print(f"Var: {VarIdx} ------------------")
                 print(f"Reference: {Reference}")
@@ -112,6 +118,8 @@ class BinSolver:
                 if self._equations[EqIdx].isEmpty():
                     EqsToBeRemoved.append(EqIdx)
                 if self._equations[EqIdx].isInconsistent():
+                    if Verbose:
+                        print(f"INCONSISTENCY FOUND in equation {EqIdx}: {self._equations[EqIdx]}")
                     self._gauss_done = False
                     return False
             if Verbose:
@@ -132,13 +140,13 @@ class BinSolver:
         GaussResult = True
         if not self._gauss_done:
             GaussResult = self.gauss(Verbose=Verbose)
-        if Verbose:
-            print(f"SOLVE Start =======================")
-            print(self)
         if not GaussResult:
             if Verbose:
                 print(f"GAUSS FAILED!")
             return None
+        if Verbose:
+            print(f"SOLVE Start =======================")
+            print(self)
         VarCount = len(self._equations[0])
         Solution = [None for _ in range(VarCount)]
         Reference = self.getIndexesOfEquationsHavingSpecifiedFirstOne()
@@ -177,6 +185,7 @@ class BinSolver:
                 if Verbose:
                     print("No solution - INCONSISTENCY")
                 return None
+            self._equations[EqI] = Eq
         print(f"SOLVE End =======================")
         for i in range(len(Solution)):
             if Solution[i] is None:

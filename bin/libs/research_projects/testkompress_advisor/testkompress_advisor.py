@@ -55,10 +55,13 @@ class TestDataDecompressor:
         if Cube.getSpecifiedCount() > self.getMaximumSpecifiedBitPerCycleToBeCompressable():
             return False
         # Battery model
-        MinChrg = int(ceil(MinBatteryCharge * self.LfsrLength))
         BatteryChrg = self.LfsrLength
         for i in range(self.ScanLength):
-            BatteryChrg -= SpecifiedBitsPerCycle.get(i, 0)
+            Vars = SpecifiedBitsPerCycle.get(i, 0)
+            if Vars > self.LfsrLength:
+                return False                
+            BatteryChrg -= Vars
+            MinChrg = int(ceil(MinBatteryCharge * BatteryChrg))
             if BatteryChrg < MinChrg:
                 return False
             BatteryChrg += self.InputCount
@@ -205,6 +208,19 @@ class TestCube:
     
     def __setitem__(self, index, value):
         self.setBit(index, value)
+        
+    def getSpecifiedScanCellValues(self, ScanCount : int, ScanLength : int) -> list:
+        Result = []
+        for item in self._specified_bit_dict.items():
+            Index = item[0]
+            Value = item[1]
+            Cycle = Index % ScanLength
+            Scan = Index // ScanLength
+            if Scan < ScanCount:
+                Result.append([Scan, Cycle, Value])
+            else:
+                Aio.printError(f"Scan index {Scan} is out of range.")
+        return Result
     
     def splitIntoSubCubes(self, SubCubesLen : list) -> list:
         Result = []

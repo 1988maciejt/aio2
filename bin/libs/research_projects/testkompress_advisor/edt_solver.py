@@ -1,9 +1,11 @@
 from libs.aio import *
 from libs.lfsr import *
+from libs.bin_solver import *
+from libs.research_projects.testkompress_advisor.testkompress_advisor import *
 
 class DecompressorSolver:
     
-    __slots__ = ('_lfsr', '_phase_shifter', '_scan_length', '_initial_phase_len', '_input_config')
+    __slots__ = ('_lfsr', '_phase_shifter', '_scan_length', '_initial_phase_len', '_input_config', '_scan_cell_equations')
     
     def __init__(self, lfsr : Lfsr, phaseshifter : PhaseShifter, ScanLength : int, InitialPhaseLen : int, InputConfig : list):
         """InputConfig must be a list like: [3, [2,5]] which means: two inputs, first to FF3 the second one to FFs 2 and 5"""
@@ -12,6 +14,7 @@ class DecompressorSolver:
         self._scan_length = ScanLength
         self._initial_phase_len = InitialPhaseLen
         self._input_config = InputConfig
+        self._scan_cell_equations = None
         
     def __str__(self):
         Result = "DecompressorSolver {\n"
@@ -40,6 +43,7 @@ class DecompressorSolver:
         return self._scan_length + self._initial_phase_len
     
     def createEquationBase(self, Verbose : bool = False):
+        self._scan_cell_equations = None
         if Verbose:
             print(f"EQUATION BASE Start =========================")
         VarCount = self.getTestDataVolume()
@@ -89,7 +93,46 @@ class DecompressorSolver:
                     for ScanIndex in range(len(self._phase_shifter)):
                         print(f"  SCAN {ScanIndex}: {ScanChainCells[ScanIndex]}")
                 ScanChainCycle += 1
+        self._scan_cell_equations = ScanChainCells
         if Verbose:
             print(f"EQUATION BASE End =========================")
+            
+    def getPatternLength(self) -> int:
+        return len(self._phase_shifter) * self._scan_length
+    
+    def getScanChainCount(self) -> int:
+        return len(self._phase_shifter)
+    
+    def getScanLength(self) -> int:
+        return self._scan_length
+    
+    def isCompressable(self, Pattern : TestCube, Verbose : bool = False) -> bool:
+        if self._scan_cell_equations is None:
+            self.createEquationBase()
+        if len(Pattern) > self.getPatternLength():
+            Aio.printError(f"Pattern length is greater than the expected {self.getPatternLength()}")
+            return False
+        SpecValues = Pattern.getSpecifiedScanCellValues(self.getScanChainCount(), self.getScanLength())
+        if Verbose:
+            print(f"SpecValues: {SpecValues}")
+        Equations = []
+        for SpecValue in SpecValues:
+            SI = SpecValue[0]
+            CI = SpecValue[1]
+            V = SpecValue[2]
+            Equation = BinSolverEquation(self._scan_cell_equations[SI][CI], V)
+            if Verbose:
+                print(f"SpecValue: {SpecValue}, Equation: {Equation}")
+            Equations.append(Equation)
+        Solver = BinSolver(Equations)
+        Result = Solver.solve(Verbose=Verbose)
+        ResToRet = False if Result is None else True
+        if Verbose:
+            print(f"Result of sloving: {Result}")
+            print(f"Is compressable: {ResToRet} =========================")
+        return ResToRet
+            
+        
+
         
         
