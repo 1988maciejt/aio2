@@ -7,9 +7,6 @@ from math import ceil
 from functools import partial
 from p_tqdm import *
 
-_TEST_CUBE_BITARRAYS = 0
-_TEST_CUBE_IMPLEMENTATION_LOCKED = 0
-
 
 class TestDataDecompressor:
     pass
@@ -151,107 +148,58 @@ class EdtStructure:
             if Init <= ThisInit:
                 Init = ThisInit
         return (Init + self.getScanLength()) * PatternCount
+    
+    def getTestDataVolume(self, PatternCount : int = 1) -> int:
+        return self.getTestTime(PatternCount) * self.getInputCount()
         
         
     
 
 class TestCube:
     
-    __slots__ = ('_specified_bit_positions', '_specified_bit_values', "Age")
-    
-    @staticmethod
-    def seImplementation(UseBitarrays : bool = True) -> bool:
-        global _TEST_CUBE_BITARRAYS, _TEST_CUBE_IMPLEMENTATION_LOCKED
-        if _TEST_CUBE_IMPLEMENTATION_LOCKED:
-            Aio.printError("Cannot change TestCube implementation. You can do that before first TestCube object creation.")
-            return False
-        _TEST_CUBE_BITARRAYS = UseBitarrays
-        return True
-    
+    __slots__ = ('_specified_bit_dict', '_len', "Age")
+        
     @staticmethod
     def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5) -> TestCube:
-        global _TEST_CUBE_BITARRAYS
-        if _TEST_CUBE_BITARRAYS:
-            StrVal = ""
-            Result = TestCube('X')
-            Result._specified_bit_positions = bau.zeros(Length)
-            Result._specified_bit_values = bau.zeros(Length)
-            Count = randint(1, Pspecified*Length*2)
-            for i in range(Count):
-                Pos = randint(0, Length-1)
-                Result._specified_bit_positions[Pos] = 1
-                Result._specified_bit_values[Pos] = 1 if random() < P1 else 0
-            return Result
-        else:
-            SDict = {}
-            Count = randint(1, Pspecified*Length*2)
-            for i in range(Count):
-                SDict[randint(0, Length-1)] = 1 if random() < P1 else 0
-            return TestCube(SDict, Length)
+        SDict = {}
+        Count = randint(1, Pspecified*Length*2)
+        for i in range(Count):
+            SDict[randint(0, Length-1)] = 1 if random() < P1 else 0
+        return TestCube(SDict, Length)
     
-    def __init__(self, SpecifiedBits : str = '', LenOfTestCubeIfDictImplementation : int = 0):
-        global _TEST_CUBE_BITARRAYS, _TEST_CUBE_IMPLEMENTATION_LOCKED
-        _TEST_CUBE_IMPLEMENTATION_LOCKED = 1
-        if _TEST_CUBE_BITARRAYS:
-            self._specified_bit_positions = bitarray()
-            self._specified_bit_values = bitarray()
-        else:
-            self._specified_bit_positions = {}
-            self._specified_bit_values = LenOfTestCubeIfDictImplementation
+    def __init__(self, SpecifiedBits : str = '', TestCubeLen : int = 0):
+        self._specified_bit_dict = {}
+        self._len = TestCubeLen
         self.Age = 0
         if type(SpecifiedBits) is str:
             self.setBits(SpecifiedBits)
         elif type(SpecifiedBits) is dict:
-            self.setBits(SpecifiedBits, LenOfTestCubeIfDictImplementation)
+            self.setBits(SpecifiedBits, TestCubeLen)
         elif type(SpecifiedBits) is int:
-            if _TEST_CUBE_BITARRAYS:
-                self._specified_bit_positions = bau.zeros(SpecifiedBits)
-                self._specified_bit_values = bau.zeros(SpecifiedBits)
-            else:
-                self._specified_bit_values = SpecifiedBits
+            self._len = SpecifiedBits
         elif type(SpecifiedBits) is TestCube:
-            self._specified_bit_positions = deepcopy(SpecifiedBits._specified_bit_positions)
-            self._specified_bit_values = deepcopy(SpecifiedBits._specified_bit_values)
+            self._specified_bit_dict = deepcopy(SpecifiedBits._specified_bit_dict)
+            self._len = deepcopy(SpecifiedBits._len)
             self.Age = SpecifiedBits.Age
             
     def __len__(self):
-        global _TEST_CUBE_BITARRAYS
-        if _TEST_CUBE_BITARRAYS:
-            return len(self._specified_bit_positions)
-        return self._specified_bit_values
+        return self._len
     
     def __str__(self):
-        global _TEST_CUBE_BITARRAYS
-        if _TEST_CUBE_BITARRAYS:
-            Result = f"AGE={self.Age} "
-            for i in range(len(self._specified_bit_positions)):
-                if not self._specified_bit_positions[i]:
-                    Result += 'X'
-                else:
-                    Result += str(int(self._specified_bit_values[i]))
-            return Result
-        else:
-            return f"AGE={self.Age} " + str(self._specified_bit_positions)
+        return f"AGE={self.Age} " + str(self._specified_bit_dict)
     
     def __repr__(self):
         return f"TestCube(\"{str(self)}\")"
     
     def __getitem__(self, index):
-        global _TEST_CUBE_BITARRAYS
         if isinstance(index, slice):
             start, stop, step = index.start, index.stop, index.step
             if step is not None:
                 Aio.printError("Step is not supported.")
                 return None
-            if _TEST_CUBE_BITARRAYS:
-                Result = TestCube()
-                Result._specified_bit_positions = self._specified_bit_positions[start:stop]
-                Result._specified_bit_values = self._specified_bit_values[start:stop]
-                return Result
-            else:
-                Result = TestCube(stop - start - 1)
-                Result._specified_bit_positions = {i-start: self._specified_bit_positions[i] for i in range(start, stop) if i in self._specified_bit_positions}
-                return Result
+            Result = TestCube(stop - start - 1)
+            Result._specified_bit_dict = {i-start: self._specified_bit_dict[i] for i in range(start, stop) if i in self._specified_bit_dict}
+            return Result
         else:
             return self.getBit(index)
     
@@ -268,131 +216,64 @@ class TestCube:
         return Result
     
     def setBits(self, SpecifiedBits : str, TestCubeLenIfDictImplementation : int = 0):
-        global _TEST_CUBE_BITARRAYS
         # 0, 1 - values
         # X - don't care
-        if _TEST_CUBE_BITARRAYS:
-            if type(SpecifiedBits) is dict:
-                self._specified_bit_positions = bau.zeros(TestCubeLenIfDictImplementation)
-                self._specified_bit_values = bau.zeros(TestCubeLenIfDictImplementation)
-                for item in SpecifiedBits.items():
-                    self._specified_bit_positions[item[0]] = 1
-                    self._specified_bit_values[item[0]] = item[1]
-            else:
-                SpecifiedBits = SpecifiedBits.upper()
-                ValuesStr = SpecifiedBits.replace('X', '0')
-                SpecifiedStr = SpecifiedBits.replace('0', '1')
-                SpecifiedStr = SpecifiedStr.replace('X', '0')
-                self._specified_bit_positions = bitarray(SpecifiedStr)
-                self._specified_bit_values = bitarray(ValuesStr)
+        if type(SpecifiedBits) is dict:
+            self._specified_bit_dict = SpecifiedBits
+            self._len = TestCubeLenIfDictImplementation
         else:
-            if type(SpecifiedBits) is dict:
-                self._specified_bit_positions = SpecifiedBits
-                self._specified_bit_values = TestCubeLenIfDictImplementation
-            else:
-                SpecifiedBits = SpecifiedBits.upper()
-                for i in range(len(SpecifiedBits)):
-                    if SpecifiedBits[i] == '0':
-                        self._specified_bit_positions[i] = 0
-                    elif SpecifiedBits[i] == '1':
-                        self._specified_bit_positions[i] = 1
-                self._specified_bit_values = len(SpecifiedBits)
+            SpecifiedBits = SpecifiedBits.upper()
+            for i in range(len(SpecifiedBits)):
+                if SpecifiedBits[i] == '0':
+                    self._specified_bit_dict[i] = 0
+                elif SpecifiedBits[i] == '1':
+                    self._specified_bit_dict[i] = 1
+            self._len = len(SpecifiedBits)
                 
     def getFillRate(self) -> float:
-        global _TEST_CUBE_BITARRAYS
-        if _TEST_CUBE_BITARRAYS:
-            return self._specified_bit_positions.count(1) / len(self)
-        else:
-            return len(self._specified_bit_positions) / len(self)
+        return len(self._specified_bit_dict) / len(self)
         
     def getSpecifiedBitPositions(self) -> list:
-        global _TEST_CUBE_BITARRAYS
-        if _TEST_CUBE_BITARRAYS:
-            return [i for i in self._specified_bit_positions.search(1)]
-        else:
-            return list(self._specified_bit_positions.keys())
+        return list(self._specified_bit_dict.keys())
         
     def copy(self) -> TestCube:
         Result = TestCube(self)
         return Result
         
     def mergeWithAnother(self, AnotherCute : TestCube) -> bool:
-        global _TEST_CUBE_BITARRAYS
         if len(self) != len(AnotherCute):
             return False
-        if _TEST_CUBE_BITARRAYS:
-            ResPos = bau.zeros(len(self))
-            ResVal = bau.zeros(len(self))
-            for i in range(len(self)):
-                if self._specified_bit_positions[i] and AnotherCute._specified_bit_positions[i]:
-                    if self._specified_bit_values[i] != AnotherCute._specified_bit_values[i]:
-                        return False
-                    ResPos[i] = 1
-                    ResVal[i] = self._specified_bit_values[i]
-                elif self._specified_bit_positions[i]:
-                    ResPos[i] = 1
-                    ResVal[i] = self._specified_bit_values[i]
-                elif AnotherCute._specified_bit_positions[i]:
-                    ResPos[i] = 1
-                    ResVal[i] = AnotherCute._specified_bit_values[i]
-            self._specified_bit_positions = ResPos
-            self._specified_bit_values = ResVal
-            return True
-        else:
-            Result = self._specified_bit_positions.copy()
-            for item in AnotherCute._specified_bit_positions.items():
-                if Result.get(item[0], None) is not None:
-                    if Result[item[0]] != item[1]:
-                        return False
-                else:
-                    Result[item[0]] = item[1]
-            self._specified_bit_positions = Result
-            return True
+        Result = self._specified_bit_dict.copy()
+        for item in AnotherCute._specified_bit_dict.items():
+            if Result.get(item[0], None) is not None:
+                if Result[item[0]] != item[1]:
+                    return False
+            else:
+                Result[item[0]] = item[1]
+        self._specified_bit_dict = Result
+        return True
     
     def setBit(self, BitIndex : int, BitValue : str) -> bool:
-        global _TEST_CUBE_BITARRAYS
         if BitIndex >= len(self):
             return False
-        if _TEST_CUBE_BITARRAYS:
-            if BitValue in [0, '0']:
-                self._specified_bit_positions[BitIndex] = 1
-                self._specified_bit_values[BitIndex] = 0
-            elif BitValue in [1, '1']:
-                self._specified_bit_positions[BitIndex] = 1
-                self._specified_bit_values[BitIndex] = 1
-            else:
-                self._specified_bit_positions[BitIndex] = 0
-                self._specified_bit_values[BitIndex] = 0
+        if BitValue in [0, '0']:
+            self._specified_bit_dict[BitIndex] = 0
+        elif BitValue in [1, '1']:
+            self._specified_bit_dict[BitIndex] = 1
         else:
-            if BitValue in [0, '0']:
-                self._specified_bit_positions[BitIndex] = 0
-            elif BitValue in [1, '1']:
-                self._specified_bit_positions[BitIndex] = 1
-            else:
-                del self._specified_bit_positions[BitIndex]
+            del self._specified_bit_dict[BitIndex]
         return True
     
     def getBit(self, BitIndex : int) -> int:
-        global _TEST_CUBE_BITARRAYS
         if BitIndex >= len(self):
             return -1
-        if _TEST_CUBE_BITARRAYS:
-            if self._specified_bit_positions[BitIndex]:
-                return self._specified_bit_values[BitIndex]
-            else:
-                return -1
+        if self._specified_bit_dict.get(BitIndex, None) is not None:
+            return self._specified_bit_dict[BitIndex]
         else:
-            if self._specified_bit_positions.get(BitIndex, None) is not None:
-                return self._specified_bit_positions[BitIndex]
-            else:
-                return -1
+            return -1
             
     def getSpecifiedCount(self) -> int:
-        global _TEST_CUBE_BITARRAYS
-        if _TEST_CUBE_BITARRAYS:
-            return self._specified_bit_positions.count(1)
-        else:
-            return len(self._specified_bit_positions)
+        return len(self._specified_bit_dict)
             
     
 class TestCubeSet:
@@ -512,13 +393,21 @@ class TestCubeSet:
     def merge(self, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False) -> TestCubeSet:
         #self.resetAge()
         Buffer = TestCubeSet()
-        Buffer._cubes = self._cubes[0:BufferLength]
-        index = BufferLength
+        if type(BufferLength) is int:
+            BufferLength = [BufferLength]
+        if len(BufferLength) < 1:
+            BufferLength = [512]
+        Buffer._cubes = self._cubes[0:BufferLength[0]]
+        index = BufferLength[0]
         Patterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
+        BufferLenIndex = 0
         if Verbose:
             print(f"Furst round finished. BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
         while index < len(self):
-            HowManyToAdd = BufferLength - len(Buffer)
+            BufferLenIndex += 1
+            if BufferLenIndex >= len(BufferLength):
+                BufferLenIndex = -1
+            HowManyToAdd = BufferLength[BufferLenIndex] - len(Buffer)
             Buffer._cubes += self._cubes[index:index+HowManyToAdd]
             index += HowManyToAdd
             SubPatterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
@@ -548,18 +437,20 @@ class TestCubeSet:
         CubesCopy = Cubes.deepCopy()
         BeforeRemovalCubesCount = len(CubesCopy)
         if Verbose:
-            print(f"#Cubes before uncompressable removal: {BeforeRemovalCubesCount}")
+            Aio.print(f"#Cubes before uncompressable removal: {BeforeRemovalCubesCount}")
         RemovedCount = CubesCopy.removeNotCompressable(Edt)
         AfterRemovalCubesCount = len(CubesCopy)
         if Verbose:
-            print(f"#Cubes removed:                       {RemovedCount}")
-            print(f"#Cubes after uncompressable removal:  {AfterRemovalCubesCount}")
+            Aio.print(f"#Cubes removed:                       {RemovedCount}")
+            Aio.print(f"#Cubes after uncompressable removal:  {AfterRemovalCubesCount}")
         Patterns = CubesCopy.merge(Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
         TestTime = Edt.getTestTime(len(Patterns))
+        TestDataVolume = Edt.getTestDataVolume(len(Patterns))
         if Verbose:
-            print(f"#Patterns:                            {len(Patterns)}")
-            print(f"Test time [cycles]:                   {TestTime}")
-        return AfterRemovalCubesCount, len(Patterns), TestTime
+            Aio.print(f"#Patterns:                            {len(Patterns)}")
+            Aio.print(f"Test time [cycles]:                   {TestTime}")
+            Aio.print(f"Test data volume [b]:                 {TestDataVolume}")
+        return AfterRemovalCubesCount, len(Patterns), TestTime, TestDataVolume
         
     @staticmethod
     def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3) -> list:

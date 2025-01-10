@@ -2380,7 +2380,7 @@ class Lfsr:
     for i in ListOfXoredOutputs:
       Dual._baValue[i] = 1
     Dual.next(DelayedBy)
-    return Dual._baValue.search(1)
+    return list(Dual._baValue.search(1))
   
   def createRandomPhaseShifter(self, OutputCount : int, MinXorInputs = 1, MaxXorInputs = 3):
     Xors = []
@@ -2403,10 +2403,14 @@ class Lfsr:
         ActualXor = self.getPhaseShiftIndexes(ActualXor, MinimumSeparation)
         while len(ActualXor) < MinXorInputs or len(ActualXor) > MaxXorInputs:
           ActualXor = self.getPhaseShiftIndexes(ActualXor, 1)
+        if ActualXor in XorList:
+          Aio.printError("Cannot create PhaseShifter.")
+          return None
         XorList.append(ActualXor.copy())
       PS = PhaseShifter(self, XorList)
       return PS
     return None
+  
   def getValue(self) -> bitarray:
     """Returns current value of the LFSR
     """

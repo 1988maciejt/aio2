@@ -81,6 +81,7 @@ from libs.verilog_creator import *
 from libs.utils_docx import *
 from libs.utils_pdf import *
 from libs.simulation import *
+from libs.bin_solver import *
 from tqdm import *
 import bitarray.util
 from bitarray import *
@@ -103,6 +104,7 @@ import pint
 import libs.research_projects.root_of_trust.root_of_trust as RootOfTrust
 import libs.research_projects.orthogonal_compactor.orthogonal_compactor as OrthogonalCompactor
 import libs.research_projects.testkompress_advisor.testkompress_advisor as TestKompressAdvisor
+import libs.research_projects.testkompress_advisor.edt_solver as EdtSolver
 import warnings
 
 warnings.simplefilter("ignore")
