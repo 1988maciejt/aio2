@@ -55,16 +55,17 @@ class TestDataDecompressor:
         if Cube.getSpecifiedCount() > self.getMaximumSpecifiedBitPerCycleToBeCompressable():
             return False
         # Battery model
-        BatteryChrg = self.LfsrLength
+        BatteryMax = self.LfsrLength
+        BatteryMin = int(ceil(MinBatteryCharge * BatteryMax))
+        BatteryChrg = BatteryMax
         for i in range(self.ScanLength):
             Vars = SpecifiedBitsPerCycle.get(i, 0)
-            if Vars > self.LfsrLength:
-                return False                
             BatteryChrg -= Vars
-            MinChrg = int(ceil(MinBatteryCharge * BatteryChrg))
-            if BatteryChrg < MinChrg:
+            if BatteryChrg < BatteryMin:
                 return False
             BatteryChrg += self.InputCount
+            if BatteryChrg > BatteryMax:
+                BatteryChrg = BatteryMax
         return True
 
 
@@ -324,10 +325,14 @@ class TestCubeSet:
     def randomCubeSet(CubeCount : int, Length : int, Pspecified : float = 0.1, P1 = 0.5) -> TestCubeSet:
         Result = TestCubeSet()
         def single(args):
-            return TestCube.randomCube(Length, Pspecified, P1)
-        for C in p_uimap(single, range(CubeCount), desc="Generating random cubes"):
-            Result.addCube(C)
+            return [TestCube.randomCube(Length, Pspecified, P1) for _ in range(200)]
+        for C in p_uimap(single, range(CubeCount // 200), desc="Generating random cubes"):
+            Result._cubes += C
         AioShell.removeLastLine()
+        if len(Result._cubes) > CubeCount:
+            Result._cubes = Result._cubes[:CubeCount]
+        elif len(Result._cubes) < CubeCount:
+            Result._cubes += [TestCube.randomCube(Length, Pspecified, P1) for _ in range(CubeCount - len(Result._cubes))]
         return Result
     
     def addCube(self, Cube : TestCube):

@@ -165,9 +165,9 @@ class BinSolver:
                 if len(CandidList) < 1:
                     if Verbose:
                         print(f"NO CANDIDATES!")
-                        VarToEliminate = Eq.getSecondVarIndex(VarToEliminate+1)
-                        continue
-                        #return None
+                    VarToEliminate = Eq.getSecondVarIndex(VarToEliminate+1)
+                    continue
+                    #return None
                 Candidate = CandidList[0]
                 if Verbose:
                     print(f"Eq used to eleiminate this var: {Candidate} {self._equations[Candidate]}")
@@ -186,7 +186,8 @@ class BinSolver:
                     print("No solution - INCONSISTENCY")
                 return None
             self._equations[EqI] = Eq
-        print(f"SOLVE End =======================")
+        if Verbose:
+            print(f"SOLVE End =======================")
         for i in range(len(Solution)):
             if Solution[i] is None:
                 Solution[i] = 0

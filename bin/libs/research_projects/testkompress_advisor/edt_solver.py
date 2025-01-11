@@ -1,7 +1,9 @@
 from libs.aio import *
 from libs.lfsr import *
 from libs.bin_solver import *
-from libs.research_projects.testkompress_advisor.testkompress_advisor import *
+from p_tqdm import *
+from libs.utils_list import *
+import libs.research_projects.testkompress_advisor.testkompress_advisor as TestKompressAdvisor
 
 class DecompressorSolver:
     
@@ -106,7 +108,13 @@ class DecompressorSolver:
     def getScanLength(self) -> int:
         return self._scan_length
     
-    def isCompressable(self, Pattern : TestCube, Verbose : bool = False) -> bool:
+    def getInputCount(self) -> int:
+        return len(self._input_config)
+    
+    def getLfsrLength(self) -> int:
+        return len(self._lfsr)
+    
+    def isCompressable(self, Pattern : TestKompressAdvisor.TestCube, Verbose : bool = False) -> bool:
         if self._scan_cell_equations is None:
             self.createEquationBase()
         if len(Pattern) > self.getPatternLength():
@@ -132,7 +140,64 @@ class DecompressorSolver:
             print(f"Is compressable: {ResToRet} =========================")
         return ResToRet
             
-        
+    def getDecompressorForBatteryModelEstimations(self) -> TestKompressAdvisor.TestDataDecompressor:
+        Result = TestKompressAdvisor.TestDataDecompressor(self.getInputCount(), self.getScanChainCount(), self.getLfsrLength(), self.getScanLength())
+        return Result
 
+    def makeComparisonWithBatteryModel(self, Patterns : TestKompressAdvisor.TestCubeSet, MinBatteryLevel : float = 0.1) -> tuple:
+        """Returns 4 counters: (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot)"""
+        Correct = 0
+        SolverDidBatteryNot = 0
+        BatteryDidSolverNot = 0
+        Compressable = 0
+        if type(MinBatteryLevel) is not float:
+            Correct, SolverDidBatteryNot, BatteryDidSolverNot = [0 for _ in range(len(MinBatteryLevel))], [0 for _ in range(len(MinBatteryLevel))], [0 for _ in range(len(MinBatteryLevel))]
+        self.createEquationBase()
+        BatteryDec = self.getDecompressorForBatteryModelEstimations()
+        def single(Pattern : TestKompressAdvisor.TestCube):
+            SolvRes = self.isCompressable(Pattern)
+            if type(MinBatteryLevel) is float:
+                BatRes = BatteryDec.isCompressable(Pattern, MinBatteryLevel)
+            else:
+                BatRes = []
+                for MBL in MinBatteryLevel:
+                    BatRes.append(BatteryDec.isCompressable(Pattern, MBL))
+            return (SolvRes, BatRes)
+        def serial(Patterns : TestKompressAdvisor.TestCubeSet):
+            C, SnB, BnS, Comp = 0, 0, 0, 0
+            if type(MinBatteryLevel) is not float:
+                C, SnB, BnS = [0 for _ in range(len(MinBatteryLevel))], [0 for _ in range(len(MinBatteryLevel))], [0 for _ in range(len(MinBatteryLevel))]
+            for Pattern in Patterns:
+                S, B = single(Pattern)
+                if S:
+                    Comp += 1
+                if type(MinBatteryLevel) is float:
+                    if S == B:
+                        C += 1
+                    elif S:
+                        SnB += 1
+                    else:
+                        BnS += 1
+                else:
+                    for Bi in range(len(MinBatteryLevel)):
+                        if S == B[Bi]:
+                            C[Bi] += 1
+                        elif S:
+                            SnB[Bi] += 1
+                        else:
+                            BnS[Bi] += 1
+            return (Comp, C, SnB, BnS)
+        for Result in p_uimap(serial, List.splitIntoSublists(Patterns, 100)):
+            Compressable += Result[0]
+            if type(MinBatteryLevel) is float:
+                Correct += Result[1]
+                SolverDidBatteryNot += Result[2]
+                BatteryDidSolverNot += Result[3]
+            else:
+                for i in range(len(MinBatteryLevel)):
+                    Correct[i] += Result[1][i]
+                    SolverDidBatteryNot[i] += Result[2][i]
+                    BatteryDidSolverNot[i] += Result[3][i]
+        return (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot)
         
         
