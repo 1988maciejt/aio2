@@ -161,28 +161,32 @@ class EdtStructure:
 
 class TestCube:
     
-    __slots__ = ('_specified_bit_dict', '_len', "Age")
+    __slots__ = ('_specified_bit_dict', '_len', "Age", '_ones_set', '_zeros_set')
         
     @staticmethod
     def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5) -> TestCube:
         SDict = {}
+        Result = TestCube({}, Length)
         Count = randint(1, Pspecified*Length*2)
         for i in range(Count):
-            SDict[randint(0, Length-1)] = 1 if random() < P1 else 0
-        return TestCube(SDict, Length)
+            Result.setBit(randint(0, Length-1), 1 if random() < P1 else 0)
+        return Result
     
-    def __init__(self, SpecifiedBits : str = '', TestCubeLen : int = 0):
-        self._specified_bit_dict = {}
-        self._len = TestCubeLen
+    def __init__(self, SpecifiedBits : str = '', TestCubeLenIfDictImplementation : int = 0):
+        #self._specified_bit_dict = {}
+        self._ones_set = set()
+        self._zeros_set = set()
+        self._len = TestCubeLenIfDictImplementation
         self.Age = 0
         if type(SpecifiedBits) is str:
             self.setBits(SpecifiedBits)
         elif type(SpecifiedBits) is dict:
-            self.setBits(SpecifiedBits, TestCubeLen)
+            self.setBits(SpecifiedBits, TestCubeLenIfDictImplementation)
         elif type(SpecifiedBits) is int:
             self._len = SpecifiedBits
         elif type(SpecifiedBits) is TestCube:
-            self._specified_bit_dict = deepcopy(SpecifiedBits._specified_bit_dict)
+            self._ones_set = deepcopy(SpecifiedBits._ones_set)
+            self._zeros_set = deepcopy(SpecifiedBits._zeros_set)
             self._len = deepcopy(SpecifiedBits._len)
             self.Age = SpecifiedBits.Age
             
@@ -190,35 +194,31 @@ class TestCube:
         return self._len
     
     def __str__(self):
-        return f"AGE={self.Age} " + str(self._specified_bit_dict)
+        return f"AGE={self.Age} " + "ONES: " + str(self._ones_set) + ", ZEROS: " + str(self._zeros_set)
     
     def __repr__(self):
         return f"TestCube(\"{str(self)}\")"
     
     def __getitem__(self, index):
-        if isinstance(index, slice):
-            start, stop, step = index.start, index.stop, index.step
-            if step is not None:
-                Aio.printError("Step is not supported.")
-                return None
-            Result = TestCube(stop - start - 1)
-            Result._specified_bit_dict = {i-start: self._specified_bit_dict[i] for i in range(start, stop) if i in self._specified_bit_dict}
-            return Result
-        else:
-            return self.getBit(index)
+        return self.getBit(index)
     
     def __setitem__(self, index, value):
         self.setBit(index, value)
         
     def getSpecifiedScanCellValues(self, ScanCount : int, ScanLength : int) -> list:
         Result = []
-        for item in self._specified_bit_dict.items():
-            Index = item[0]
-            Value = item[1]
+        for Index in self._ones_set:
             Cycle = Index % ScanLength
             Scan = Index // ScanLength
             if Scan < ScanCount:
-                Result.append([Scan, Cycle, Value])
+                Result.append([Scan, Cycle, 1])
+            else:
+                Aio.printError(f"Scan index {Scan} is out of range.")
+        for Index in self._zeros_set:
+            Cycle = Index % ScanLength
+            Scan = Index // ScanLength
+            if Scan < ScanCount:
+                Result.append([Scan, Cycle, 0])
             else:
                 Aio.printError(f"Scan index {Scan} is out of range.")
         return Result
@@ -236,22 +236,42 @@ class TestCube:
         # 0, 1 - values
         # X - don't care
         if type(SpecifiedBits) is dict:
-            self._specified_bit_dict = SpecifiedBits
+            for item in SpecifiedBits.items():
+                if item[1]:
+                    self._ones_set.add(item[0])
+                    try:
+                        self._zeros_set.remove(item[0])
+                    except:
+                        pass
+                else:
+                    self._zeros_set.add(item[0])
+                    try:
+                        self._ones_set.remove(item[0])
+                    except:
+                        pass
             self._len = TestCubeLenIfDictImplementation
         else:
             SpecifiedBits = SpecifiedBits.upper()
             for i in range(len(SpecifiedBits)):
                 if SpecifiedBits[i] == '0':
-                    self._specified_bit_dict[i] = 0
+                    self._zeros_set.add(i)
+                    try:
+                        self._ones_set.remove(i)
+                    except:
+                        pass
                 elif SpecifiedBits[i] == '1':
-                    self._specified_bit_dict[i] = 1
+                    self._ones_set.add(i)
+                    try:
+                        self._zeros_set.remove(i)
+                    except:
+                        pass
             self._len = len(SpecifiedBits)
                 
     def getFillRate(self) -> float:
-        return len(self._specified_bit_dict) / len(self)
+        return (len(self._ones_set) + len(self._zeros_set)) / len(self)
         
     def getSpecifiedBitPositions(self) -> list:
-        return list(self._specified_bit_dict.keys())
+        return list(self._ones_set | self._zeros_set)
         
     def copy(self) -> TestCube:
         Result = TestCube(self)
@@ -260,37 +280,49 @@ class TestCube:
     def mergeWithAnother(self, AnotherCute : TestCube) -> bool:
         if len(self) != len(AnotherCute):
             return False
-        Result = self._specified_bit_dict.copy()
-        for item in AnotherCute._specified_bit_dict.items():
-            if Result.get(item[0], None) is not None:
-                if Result[item[0]] != item[1]:
-                    return False
-            else:
-                Result[item[0]] = item[1]
-        self._specified_bit_dict = Result
+        if len(self._ones_set & AnotherCute._zeros_set) > 0 or len(self._zeros_set & AnotherCute._ones_set) > 0:
+            return False
+        self._ones_set |= AnotherCute._ones_set
+        self._zeros_set |= AnotherCute._zeros_set
         return True
     
     def setBit(self, BitIndex : int, BitValue : str) -> bool:
         if BitIndex >= len(self):
             return False
         if BitValue in [0, '0']:
-            self._specified_bit_dict[BitIndex] = 0
+            self._zeros_set.add(BitIndex)
+            try:
+                self._ones_set.remove(BitIndex)
+            except:
+                pass
         elif BitValue in [1, '1']:
-            self._specified_bit_dict[BitIndex] = 1
+            self._ones_set.add(BitIndex)
+            try:
+                self._zeros_set.remove(BitIndex)
+            except:
+                pass
         else:
-            del self._specified_bit_dict[BitIndex]
+            try:
+                self._zeros_set.remove(BitIndex)
+            except:
+                pass
+            try:
+                self._ones_set.remove(BitIndex)
+            except:
+                pass
         return True
     
     def getBit(self, BitIndex : int) -> int:
         if BitIndex >= len(self):
             return -1
-        if self._specified_bit_dict.get(BitIndex, None) is not None:
-            return self._specified_bit_dict[BitIndex]
-        else:
-            return -1
+        if BitIndex in self._ones_set:
+            return 1
+        if BitIndex in self._zeros_set:
+            return 0
+        return -1
             
     def getSpecifiedCount(self) -> int:
-        return len(self._specified_bit_dict)
+        return len(self._zeros_set) + len(self._ones_set)
             
     
 class TestCubeSet:

@@ -198,6 +198,7 @@ class DecompressorSolver:
                     Correct[i] += Result[1][i]
                     SolverDidBatteryNot[i] += Result[2][i]
                     BatteryDidSolverNot[i] += Result[3][i]
+        AioShell.removeLastLine()
         return (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot)
         
         
