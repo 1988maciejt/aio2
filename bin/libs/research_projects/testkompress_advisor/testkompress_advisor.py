@@ -71,11 +71,12 @@ class TestDataDecompressor:
 
 class EdtStructure:
     
-    __slots__ = ('_decompressors', '_scan_len')
+    __slots__ = ('_decompressors', '_scan_len', '_len_sets')
     
     def __init__(self, Decompressors : list = None):
         self._decompressors = []
         self._scan_len = 0
+        self._len_sets = []
         if type(Decompressors) is list:
             for Decompressor in Decompressors:
                 self.addDecompressor(Decompressor)
@@ -128,12 +129,24 @@ class EdtStructure:
             Aio.printError(f"Decompressor ScanLength must be {self._scan_len}.")
             return False
         self._decompressors.append(Decompressor)
+        self._makeLenSets()
         return True
+    
+    def _makeLenSets(self):
+        self._len_sets = []
+        start = 0 
+        for CLen in self.getCubeBitsPerDecompressor():
+            stop = start + CLen
+            self._len_sets.append(set(range(start, stop)))
+            start = stop
     
     def isCompressable(self, Cube : TestCube, MinBatteryCharge : float = 0.1) -> bool:
         if Cube.getSpecifiedCount() > self.getMaximumSpecifiedBitPerCycleToBeCompressable():
             return False
-        SubCubes = Cube.splitIntoSubCubes(self.getCubeBitsPerDecompressor())
+        if len(self._decompressors) == 1:
+            SubCubes = [Cube]
+        else:
+            SubCubes = Cube.splitIntoSubCubesBasingOnSets(self._len_sets)
         for i in range(len(self._decompressors)):
             if not self._decompressors[i].isCompressable(SubCubes[i], MinBatteryCharge):
                 return False
@@ -200,6 +213,15 @@ class TestCube:
         return f"TestCube(\"{str(self)}\")"
     
     def __getitem__(self, index):
+        if type(index) is slice:
+            start, stop, step = index.start, index.stop, index.step
+            if step is None:
+                step = 1
+            Result = TestCube("", self._len)
+            AuxSet = set(range(start, stop, step))
+            Result._ones_set = self._ones_set & AuxSet
+            Result._zeros_set = self._zeros_set & AuxSet
+            return Result
         return self.getBit(index)
     
     def __setitem__(self, index, value):
@@ -230,6 +252,15 @@ class TestCube:
             Stop = Start + SCLen
             Result.append(self[Start:Stop])
             Start = Stop
+        return Result
+    
+    def splitIntoSubCubesBasingOnSets(self, SubCubesLenSets : list) -> list:
+        Result = []
+        for SCLenSet in SubCubesLenSets:
+            TC = TestCube("", len(SCLenSet))
+            TC._ones_set = self._ones_set & SCLenSet
+            TC._zeros_set = self._zeros_set & SCLenSet
+            Result.append(TC)
         return Result
     
     def setBits(self, SpecifiedBits : str, TestCubeLenIfDictImplementation : int = 0):
@@ -510,6 +541,8 @@ class TestCubeSet:
         Result = []
         def singleTry(Edt : EdtStructure) -> tuple:
             return TestCubeSet.doExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, False)
+#        for x in EdtList:
+#            Result.append(singleTry(x))
         for R in p_imap(singleTry, EdtList):
             Result.append(R)
         AioShell.removeLastLine()
