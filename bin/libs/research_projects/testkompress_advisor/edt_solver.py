@@ -145,11 +145,33 @@ class DecompressorSolver:
         return Result
 
     def makeComparisonWithBatteryModel(self, Patterns : TestKompressAdvisor.TestCubeSet, MinBatteryLevel : float = 0.1) -> tuple:
-        """Returns 4 counters: (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot)"""
+        """Patterns may be also a list of random pattern params: [Count, Perr, P1]
+        Returns 4 counters: (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot, EffectivenessPercent, SolverDidPercent, BatteryDidPercent)"""
         Correct = 0
         SolverDidBatteryNot = 0
         BatteryDidSolverNot = 0
         Compressable = 0
+        Iterator = List.splitIntoSublists(Patterns, 100)
+        Random = False
+        PatternCount = len(Patterns)
+        if type(Patterns) in [list, tuple] and 2 >= len(Patterns) <= 3: 
+            if type(Patterns[0]) in [int] and type(Patterns[1]) is float:
+                Iterator = []
+                Cntr = Patterns[0]
+                PatternCount = Cntr
+                while Cntr > 0:
+                    if Cntr >= 100:
+                        Iterator.append(100)
+                        Cntr -= 100
+                    else:
+                        Iterator.append(Cntr)
+                        Cntr = 0
+                Perr = Patterns[1]
+                P1 = 0.5
+                if len(Patterns) == 3 and type(Patterns[2]) is float:
+                    P1 = Patterns[2]
+                Plen = self.getScanChainCount() * self.getScanLength()
+                Random = True
         if type(MinBatteryLevel) is not float:
             Correct, SolverDidBatteryNot, BatteryDidSolverNot = [0 for _ in range(len(MinBatteryLevel))], [0 for _ in range(len(MinBatteryLevel))], [0 for _ in range(len(MinBatteryLevel))]
         self.createEquationBase()
@@ -167,6 +189,11 @@ class DecompressorSolver:
             C, SnB, BnS, Comp = 0, 0, 0, 0
             if type(MinBatteryLevel) is not float:
                 C, SnB, BnS = [0 for _ in range(len(MinBatteryLevel))], [0 for _ in range(len(MinBatteryLevel))], [0 for _ in range(len(MinBatteryLevel))]
+            if Random:
+                Count = Patterns
+                Patterns = TestKompressAdvisor.TestCubeSet()
+                for _ in range(Count):
+                    Patterns.addCube(TestKompressAdvisor.TestCube.randomCube(Plen, Perr, P1))
             for Pattern in Patterns:
                 S, B = single(Pattern)
                 if S:
@@ -187,7 +214,7 @@ class DecompressorSolver:
                         else:
                             BnS[Bi] += 1
             return (Comp, C, SnB, BnS)
-        for Result in p_uimap(serial, List.splitIntoSublists(Patterns, 100)):
+        for Result in p_uimap(serial, Iterator):
             Compressable += Result[0]
             if type(MinBatteryLevel) is float:
                 Correct += Result[1]
@@ -199,6 +226,10 @@ class DecompressorSolver:
                     SolverDidBatteryNot[i] += Result[2][i]
                     BatteryDidSolverNot[i] += Result[3][i]
         AioShell.removeLastLine()
-        return (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot)
+        Uncompressable = PatternCount - Compressable
+        SolverDidPercent = SolverDidBatteryNot * 100 / Compressable
+        BatteryDidPercent = BatteryDidSolverNot * 100 / Uncompressable
+        EffectivenessPercent = ((100-SolverDidPercent) + (100-BatteryDidPercent)) / 2
+        return (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot, round(EffectivenessPercent,3), round(SolverDidPercent,3), round(BatteryDidPercent,3))
         
         

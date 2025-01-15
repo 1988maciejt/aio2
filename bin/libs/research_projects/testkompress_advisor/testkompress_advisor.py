@@ -6,6 +6,8 @@ from copy import deepcopy
 from math import ceil
 from functools import partial
 from p_tqdm import *
+from libs.generators import *
+import re
 
 
 class TestDataDecompressor:
@@ -88,6 +90,40 @@ class EdtStructure:
     
     def __repr__(self) -> str:
         return f"EdtStructure({self._decompressors})"
+    
+    @staticmethod
+    def fromFile(FileName : str) -> EdtStructure:
+        InCount, OutCount, LfsrLen, ScanLen = 0, 0, 0, 0
+        Cntr = 0
+        Gen = Generators()
+        for Line in Generators().readFileLineByLine(FileName):
+            if Cntr >= 4:
+                Gen.disable()
+            if ScanLen == 0:
+                R = re.search(r"scan_length\s+=\s+([0-9]+)", Line)
+                if R:
+                    ScanLen = int(R.group(1))
+                    Cntr += 1
+                    continue
+            if LfsrLen == 0:
+                R = re.search(r"decompressor_size\s+=\s+([0-9]+)", Line)
+                if R:
+                    LfsrLen = int(R.group(1))
+                    Cntr += 1
+                    continue
+            if InCount == 0:
+                R = re.search(r"n_input_channels\s+=\s+([0-9]+)", Line)
+                if R:
+                    InCount = int(R.group(1))
+                    Cntr += 1
+                    continue
+            if OutCount == 0:
+                R = re.search(r"n_scan_chains\s+=\s+([0-9]+)", Line)
+                if R:
+                    OutCount = int(R.group(1))
+                    Cntr += 1
+                    continue
+        return EdtStructure(TestDataDecompressor(InCount, OutCount, LfsrLen, ScanLen))
     
     def __str__(self):
         Result = "["
@@ -174,24 +210,27 @@ class EdtStructure:
 
 class TestCube:
     
-    __slots__ = ('_specified_bit_dict', '_len', "Age", '_ones_set', '_zeros_set')
+    __slots__ = ('_specified_bit_dict', '_len', '_ones_set', '_zeros_set', '_primary_zeros_set', '_primary_ones_set')
         
     @staticmethod
-    def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5) -> TestCube:
+    def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5, PrimaryPSpecified : float = None) -> TestCube:
         SDict = {}
         Result = TestCube({}, Length)
         Count = randint(1, Pspecified*Length*2)
         for i in range(Count):
             Result.setBit(randint(0, Length-1), 1 if random() < P1 else 0)
+        if PrimaryPSpecified is not None:
+            pass
         return Result
     
     def __init__(self, SpecifiedBits : str = '', TestCubeLenIfDictImplementation : int = 0):
         #self._specified_bit_dict = {}
         self._ones_set = set()
         self._zeros_set = set()
+        self._primary_ones_set = set()
+        self._primary_zeros_set = set()
         self._len = TestCubeLenIfDictImplementation
-        self.Age = 0
-        if type(SpecifiedBits) is str:
+        if type(SpecifiedBits) is str and len(SpecifiedBits) > 0:
             self.setBits(SpecifiedBits)
         elif type(SpecifiedBits) is dict:
             self.setBits(SpecifiedBits, TestCubeLenIfDictImplementation)
@@ -200,14 +239,15 @@ class TestCube:
         elif type(SpecifiedBits) is TestCube:
             self._ones_set = deepcopy(SpecifiedBits._ones_set)
             self._zeros_set = deepcopy(SpecifiedBits._zeros_set)
+            self._primary_ones_set = deepcopy(SpecifiedBits._primary_ones_set)
+            self._primary_zeros_set = deepcopy(SpecifiedBits._primary_zeros_set)
             self._len = deepcopy(SpecifiedBits._len)
-            self.Age = SpecifiedBits.Age
             
     def __len__(self):
         return self._len
     
     def __str__(self):
-        return f"AGE={self.Age} " + "ONES: " + str(self._ones_set) + ", ZEROS: " + str(self._zeros_set)
+        return f"ONES: " + str(self._ones_set) + ", ZEROS: " + str(self._zeros_set) + ", PRIMARY ONES: " + str(self._primary_ones_set) + ", PRIMARY ZEROS: " + str(self._primary_zeros_set)
     
     def __repr__(self):
         return f"TestCube(\"{str(self)}\")"
@@ -250,7 +290,10 @@ class TestCube:
         Start = 0
         for SCLen in SubCubesLen:
             Stop = Start + SCLen
-            Result.append(self[Start:Stop])
+            Split = self[Start:Stop]
+            Split._primary_ones_set = self._primary_ones_set
+            Split._primary_zeros_set = self._primary_zeros_set
+            Result.append(Split)
             Start = Stop
         return Result
     
@@ -297,12 +340,60 @@ class TestCube:
                     except:
                         pass
             self._len = len(SpecifiedBits)
+            
+    def setPrimaryBits(self, SpecifiedBits : str):
+        # 0, 1 - values
+        # X - don't care
+        if type(SpecifiedBits) is dict:
+            for item in SpecifiedBits.items():
+                if item[1]:
+                    self._primary_ones_set.add(item[0])
+                    try:
+                        self._primary_zeros_set.remove(item[0])
+                    except:
+                        pass
+                else:
+                    self._primary_zeros_set.add(item[0])
+                    try:
+                        self._primary_ones_set._ones_set.remove(item[0])
+                    except:
+                        pass
+        else:
+            SpecifiedBits = SpecifiedBits.upper()
+            for i in range(len(SpecifiedBits)):
+                if SpecifiedBits[i] == '0':
+                    self._primary_zeros_set.add(i)
+                    try:
+                        self._primary_ones_set.remove(i)
+                    except:
+                        pass
+                elif SpecifiedBits[i] == '1':
+                    self._primary_ones_set.add(i)
+                    try:
+                        self._primary_zeros_set.remove(i)
+                    except:
+                        pass
+                    
+    def clearPrimaryBits(self):
+        self._primary_ones_set.clear()
+        self._primary_zeros_set.clear()
+        
+    def clearScanBits(self):
+        self._ones_set.clear()
+        self._zeros_set.clear()
+        
+    def clear(self):
+        self.clearScanBits()
+        self.clearPrimaryBits()
                 
     def getFillRate(self) -> float:
         return (len(self._ones_set) + len(self._zeros_set)) / len(self)
         
     def getSpecifiedBitPositions(self) -> list:
         return list(self._ones_set | self._zeros_set)
+    
+    def getSpecifiedPrimaryBitPositions(self) -> list:
+        return list(self._primary_ones_set | self._primary_zeros_set)
         
     def copy(self) -> TestCube:
         Result = TestCube(self)
@@ -313,8 +404,36 @@ class TestCube:
             return False
         if len(self._ones_set & AnotherCute._zeros_set) > 0 or len(self._zeros_set & AnotherCute._ones_set) > 0:
             return False
+        if len(self._primary_ones_set & AnotherCute._primary_zeros_set) > 0 or len(self._primary_zeros_set & AnotherCute._primary_ones_set) > 0:
+            return False
         self._ones_set |= AnotherCute._ones_set
         self._zeros_set |= AnotherCute._zeros_set
+        self._primary_ones_set |= AnotherCute._primary_ones_set
+        self._primary_zeros_set |= AnotherCute._primary_zeros_set
+        return True
+    
+    def setPrimaryBit(self, BitIndex : int, BitValue : str) -> bool:
+        if BitValue in [0, '0']:
+            self._primary_zeros_set.add(BitIndex)
+            try:
+                self._primary_ones_set.remove(BitIndex)
+            except:
+                pass
+        elif BitValue in [1, '1']:
+            self._primary_ones_set.add(BitIndex)
+            try:
+                self._primary_zeros_set.remove(BitIndex)
+            except:
+                pass
+        else:
+            try:
+                self._primary_zeros_set.remove(BitIndex)
+            except:
+                pass
+            try:
+                self._primary_ones_set.remove(BitIndex)
+            except:
+                pass
         return True
     
     def setBit(self, BitIndex : int, BitValue : str) -> bool:
@@ -351,9 +470,19 @@ class TestCube:
         if BitIndex in self._zeros_set:
             return 0
         return -1
+    
+    def getPrimaryBit(self, BitIndex : int) -> int:
+        if BitIndex in self._primary_ones_set:
+            return 1
+        if BitIndex in self._primary_zeros_set:
+            return 0
+        return -1
             
     def getSpecifiedCount(self) -> int:
         return len(self._zeros_set) + len(self._ones_set)
+    
+    def getPrimarySpecifiedCount(self) -> int:
+        return len(self._primary_zeros_set) + len(self._primary_ones_set)
             
     
 class TestCubeSet:
@@ -368,8 +497,13 @@ class TestCubeSet:
     
     def __str__(self):
         Result = ""
+        Second = 0
         for Cube in self._cubes:
-            Result += str(Cube) + "\n"
+            if Second:
+                Result += "\n"
+            else:   
+                Second = 1
+            Result += str(Cube)
         return Result
     
     def __repr__(self):
@@ -384,6 +518,32 @@ class TestCubeSet:
         else:
             return self._cubes[index]
         
+    @staticmethod
+    def fromFile(FileName : str, ScanChainCount : int, ScanChainLength : int) -> TestCubeSet:
+        CubeLength = ScanChainLength * ScanChainCount
+        Cube = None
+        Result = TestCubeSet()
+        for Line in Generators().readFileLineByLine(FileName):
+            R = re.search(r"Cube\s*[0-9]", Line)
+            if R:
+                if Cube is not None:
+                    Result.addCube(Cube)
+                Cube = TestCube(CubeLength)
+                continue
+            R = re.search(r"([-0-9]+)\s+([0-9]+)\s([0-9]+)", Line)
+            if R:
+                Chain = int(R.group(1))
+                BitIndex = int(R.group(2))
+                BitVal = int(R.group(3))
+                if Chain < 0: # primary
+                    Cube.setPrimaryBit(BitIndex, BitVal)
+                else:                
+                    CubeBitIndex = Chain * ScanChainLength + BitIndex
+                    Cube.setBit(CubeBitIndex, BitVal)
+        if Cube is not None:
+            Result.addCube(Cube)
+        return Result
+
     @staticmethod
     def randomCubeSet(CubeCount : int, Length : int, Pspecified : float = 0.1, P1 = 0.5) -> TestCubeSet:
         Result = TestCubeSet()
@@ -415,13 +575,6 @@ class TestCubeSet:
         for Cube in self._cubes:
             Result._cubes.append(Cube.copy())
         return Result
-    
-    def resetAge(self):
-        for Cube in self._cubes:
-            Cube.Age = 0
-
-    def sort(self):
-        self._cubes.sort(key = lambda x: x.Age, reverse = True)
 
     def removeCube(self, CubeIndex : int) -> bool:
         try:
@@ -429,9 +582,6 @@ class TestCubeSet:
             return True
         except:
             return False
-    
-    def autoMerge(self, PreSort : bool = True):
-        pass
     
     def getCube(self, index : int) -> TestCube:
         return self._cubes[index]
@@ -467,15 +617,12 @@ class TestCubeSet:
                         CompressionCounter += 1
                         if CompressionCounter > CompressabilityLimit:
                             break
-                #else:
-                #    Cubes._cubes[i].Age += 1
             Patterns._cubes.append(Cube)
             for i in reversed(ToBeRemovedFromBuffer):
                 del Cubes._cubes[i]
         return Patterns, Cubes
     
     def merge(self, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False) -> TestCubeSet:
-        #self.resetAge()
         Buffer = TestCubeSet()
         if type(BufferLength) is int:
             BufferLength = [BufferLength]
