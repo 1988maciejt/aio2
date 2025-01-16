@@ -2405,21 +2405,63 @@ class Lfsr:
         Xors.append(Xor)
     return PhaseShifter(self, Xors)
   
-  def createPhaseShifter(self, OutputCount : int, MinimumSeparation = 100, MaxXorInputs = 3, MinXorInputs = 1, FirstXor = None) -> PhaseShifter:
+  def createPhaseShifter(self, OutputCount : int, MinimumSeparation = 100, MaxXorInputs = 3, MinXorInputs = 2, FirstXor = None, OldMethod : bool = False, Silent : bool = False) -> PhaseShifter:
     if 0 < MinXorInputs <= MaxXorInputs:
       if FirstXor is None:
         FirstXor = [i for i in range(MinXorInputs)]
       XorList = []
-      ActualXor = FirstXor
-      XorList.append(ActualXor.copy())
-      for i in range(OutputCount-1):
-        ActualXor = self.getPhaseShiftIndexes(ActualXor, MinimumSeparation)
-        while len(ActualXor) < MinXorInputs or len(ActualXor) > MaxXorInputs:
-          ActualXor = self.getPhaseShiftIndexes(ActualXor, 1)
-        if ActualXor in XorList:
-          Aio.printError("Cannot create PhaseShifter.")
-          return None
+      if OldMethod:      
+        ActualXor = FirstXor
         XorList.append(ActualXor.copy())
+        for i in range(OutputCount-1):
+          ActualXor = self.getPhaseShiftIndexes(ActualXor, MinimumSeparation)
+          while len(ActualXor) < MinXorInputs or len(ActualXor) > MaxXorInputs:
+            ActualXor = self.getPhaseShiftIndexes(ActualXor, 1)
+          if ActualXor in XorList:
+            Aio.printError("Cannot create PhaseShifter.")
+            return None
+          XorList.append(ActualXor.copy())
+      else:
+        FFs = [i for i in range(len(self))]
+        SelfDual = self.getDual()
+        def check(This, Others : list) -> bool:
+          OList = [bau.zeros(len(self)) for _ in range(len(Others))]
+          for i in range(len(Others)):
+            for x in Others[i]:
+              OList[i][x] = 1
+          SelfDual._baValue.setall(0)
+          for x in This:
+            SelfDual._baValue[x] = 1
+          for _ in range(MinimumSeparation):
+            if SelfDual.next() in OList:
+              return False
+          return True
+        if Silent:
+          Iterator = range(OutputCount)
+        else:
+          Iterator = tqdm(range(OutputCount), desc="Creating PhaseShifter")
+        for i in Iterator:
+          NoSuccessCounter = 1000
+          while NoSuccessCounter > 0:
+            ICount = randint(MinXorInputs, MaxXorInputs)
+            RandomXor = List.randomSelect(FFs, ICount)
+            RandomXor.sort()
+            if RandomXor in XorList:
+              NoSuccessCounter -= 1
+              continue
+            for Xor in XorList:
+              if not check(Xor, [RandomXor]):
+                NoSuccessCounter -= 1
+                continue
+            if not check(RandomXor, XorList):
+              NoSuccessCounter -= 1
+              continue
+            NoSuccessCounter = 1000
+            XorList.append(RandomXor)
+            break
+        AioShell.removeLastLine()
+        if NoSuccessCounter <= 0:
+          return None
       PS = PhaseShifter(self, XorList)
       return PS
     return None

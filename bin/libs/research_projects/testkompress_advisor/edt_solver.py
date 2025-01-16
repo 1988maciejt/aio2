@@ -143,10 +143,25 @@ class DecompressorSolver:
     def getDecompressorForBatteryModelEstimations(self) -> TestKompressAdvisor.TestDataDecompressor:
         Result = TestKompressAdvisor.TestDataDecompressor(self.getInputCount(), self.getScanChainCount(), self.getLfsrLength(), self.getScanLength())
         return Result
+    
+    def getCompressable(self, Patterns : TestKompressAdvisor.TestCubeSet) -> TestKompressAdvisor.TestCubeSet:
+        Result = TestKompressAdvisor.TestCubeSet()
+        self.createEquationBase()
+        def serial(SubPatterns):
+            SubResult = []
+            for Pattern in SubPatterns:
+                if self.isCompressable(Pattern):
+                    SubResult.append(Pattern)
+            return SubResult
+        for RList in p_uimap(serial, List.splitIntoSublists(Patterns, 100), desc="Checking compressability (x100)"):
+            for R in RList:
+                Result.addCube(R)
+        AioShell.removeLastLine()
+        return Result
 
     def makeComparisonWithBatteryModel(self, Patterns : TestKompressAdvisor.TestCubeSet, MinBatteryLevel : float = 0.1) -> tuple:
         """Patterns may be also a list of random pattern params: [Count, Perr, P1]
-        Returns 4 counters: (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot, EffectivenessPercent, SolverDidPercent, BatteryDidPercent)"""
+        Returns 7 counters: (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot, EffectivenessPercent, SolverDidPercent, BatteryDidPercent)"""
         Correct = 0
         SolverDidBatteryNot = 0
         BatteryDidSolverNot = 0
@@ -214,7 +229,7 @@ class DecompressorSolver:
                         else:
                             BnS[Bi] += 1
             return (Comp, C, SnB, BnS)
-        for Result in p_uimap(serial, Iterator):
+        for Result in p_uimap(serial, Iterator, desc="Making comparison to battery model (x100)"):
             Compressable += Result[0]
             if type(MinBatteryLevel) is float:
                 Correct += Result[1]
@@ -227,9 +242,16 @@ class DecompressorSolver:
                     BatteryDidSolverNot[i] += Result[3][i]
         AioShell.removeLastLine()
         Uncompressable = PatternCount - Compressable
-        SolverDidPercent = SolverDidBatteryNot * 100 / Compressable
-        BatteryDidPercent = BatteryDidSolverNot * 100 / Uncompressable
-        EffectivenessPercent = ((100-SolverDidPercent) + (100-BatteryDidPercent)) / 2
-        return (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot, round(EffectivenessPercent,3), round(SolverDidPercent,3), round(BatteryDidPercent,3))
+        if type(MinBatteryLevel) is float:
+            SolverDidPercent = round(SolverDidBatteryNot * 100 / Compressable, 3)
+            BatteryDidPercent = round(BatteryDidSolverNot * 100 / Uncompressable, 3)
+            EffectivenessPercent = round(((100-SolverDidPercent) + (100-BatteryDidPercent)) / 2, 3)
+        else:
+            SolverDidPercent, BatteryDidPercent, EffectivenessPercent = [], [], []
+            for i in range(len(MinBatteryLevel)):
+                SolverDidPercent.append(round(SolverDidBatteryNot[i] * 100 / Compressable, 3))
+                BatteryDidPercent.append(round(BatteryDidSolverNot[i] * 100 / Uncompressable, 3))
+                EffectivenessPercent.append(round(((100-SolverDidPercent[i]) + (100-BatteryDidPercent[i])) / 2, 3))
+        return (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot, EffectivenessPercent, SolverDidPercent, BatteryDidPercent)
         
         

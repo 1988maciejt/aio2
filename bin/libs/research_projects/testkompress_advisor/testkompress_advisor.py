@@ -213,14 +213,12 @@ class TestCube:
     __slots__ = ('_specified_bit_dict', '_len', '_ones_set', '_zeros_set', '_primary_zeros_set', '_primary_ones_set')
         
     @staticmethod
-    def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5, PrimaryPSpecified : float = None) -> TestCube:
-        SDict = {}
-        Result = TestCube({}, Length)
+    def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5) -> TestCube:
+        from random import random, randint
+        Result = TestCube(Length)
         Count = randint(1, Pspecified*Length*2)
         for i in range(Count):
             Result.setBit(randint(0, Length-1), 1 if random() < P1 else 0)
-        if PrimaryPSpecified is not None:
-            pass
         return Result
     
     def __init__(self, SpecifiedBits : str = '', TestCubeLenIfDictImplementation : int = 0):
@@ -549,7 +547,7 @@ class TestCubeSet:
         Result = TestCubeSet()
         def single(args):
             return [TestCube.randomCube(Length, Pspecified, P1) for _ in range(200)]
-        for C in p_uimap(single, range(CubeCount // 200), desc="Generating random cubes"):
+        for C in p_uimap(single, range(CubeCount // 200), desc="Generating random cubes (x200)"):
             Result._cubes += C
         AioShell.removeLastLine()
         if len(Result._cubes) > CubeCount:
@@ -696,3 +694,28 @@ class TestCubeSet:
         return Result
     
 
+
+class DecompressorUtils:
+    
+    @staticmethod
+    def getInputConfigForRingGen(LfsrSize : int, InputCount : int, DoubleInjectors : bool = True) -> list:
+        Result = []
+        from libs.lfsr import Lfsr
+        if type(LfsrSize) is Lfsr:
+            LfsrSize = len(LfsrSize)
+        Adder = LfsrSize / InputCount
+        if DoubleInjectors:
+            Adder /= 2
+        StartPoint = int(round(Adder / 2, 0)) + 1
+        UpperIndex = LfsrSize - StartPoint
+        LowerIndex = StartPoint - 2
+        while LowerIndex < 0:
+            LowerIndex += LfsrSize
+        for i in range(InputCount):
+            if DoubleInjectors:
+                Result.append([int(round(UpperIndex, 0)), int(round(LowerIndex, 0))])
+                LowerIndex += Adder
+            else:
+                Result.append(int(round(UpperIndex, 0)))
+            UpperIndex -= Adder
+        return Result
