@@ -24,6 +24,7 @@ from sympy.logic import *
 from libs.fast_anf_algebra import *
 from libs.pandas_table import *
 from libs.simulation import *
+from libs.inputs import *
 import functools
 try:
   from libs.gpt_tools import *
@@ -2822,9 +2823,10 @@ class Lfsr:
 #      perc = round(cnt * 100 / self._N, 1)
 #      Aio.printTemp("  Lfsr sim ", perc , "%             ")  
     return res
-  def simulateForDataString(self, Sequence, InjectionAtBit = 0, StartValue = 0) -> bitarray:
-    if Aio.isType(Sequence, []):
-      self._IBit = InjectionAtBit
+  
+  def simulateForDataString(self, Sequence, InputConfig = 0, StartValue = 0, Verbose : bool = False) -> bitarray:
+    if type(Sequence) in [list, tuple]:
+      self._IBit = InputConfig
       self._Start = StartValue
       man = multiprocess.Manager()
       self._C = man.list()
@@ -2833,23 +2835,30 @@ class Lfsr:
       Aio.printTemp("                                    ")
       del self._C
       return results
-    if Aio.isType(StartValue, 0):
-      self._baValue = bau.int2ba(StartValue, length=self._size, endian='little')
-    if Aio.isType(StartValue, "bitarray"):
-      self._baValue = StartValue
-    if Aio.isType(Sequence, ""):
+    elif type(Sequence) is str:
       Sequence = bitarray(Sequence)
-    Mask = self._baValue.copy()
-    Mask.setall(0)
-    if Aio.isType(InjectionAtBit, 0):
-      Mask[InjectionAtBit] = 1
-    else:
-      for I in InjectionAtBit:
-        Mask[I] = 1   
-    for Bit in Sequence:
-      self.next()
-      if Bit:
-        self._baValue ^= Mask
+    if type(StartValue) is int:
+      self._baValue = bau.int2ba(StartValue, length=self._size, endian='little')
+    elif type(StartValue) is bitarray:
+      self._baValue = StartValue
+    if type(InputConfig) is not Inputs:
+      InputConfig = Inputs(InputConfig)
+    Adder = len(InputConfig)
+    if Verbose:
+      print(f"Seed: {Bitarray.toString(self._baValue)}")
+      print(f"Inputs: [\n{InputConfig}\n]")
+      Cycle = 0
+    for i in range(0, len(Sequence), Adder):
+        ShiftedValue = self.next()
+        InputSubString = Sequence[i:i+Adder]
+        NewValue = InputConfig.applyByXor(InputSubString, ShiftedValue)
+        if NewValue is None:
+          Aio.printError("InputConfig.applyByXor returned None")
+          return None
+        self._baValue = NewValue
+        if Verbose:
+          Cycle += 1
+          print(f"Cycle: {Cycle}, Lfsr.next: {Bitarray.toString(ShiftedValue)}, Inputs: {Bitarray.toString(InputSubString)}, result: {Bitarray.toString(NewValue)}")
     return self._baValue
   
   def toVerilog(self, ModuleName : str, InjectorIndexesList = []) -> str:

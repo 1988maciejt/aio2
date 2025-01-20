@@ -53,6 +53,7 @@ from libs.gpt_tools import *
 from libs.interactive_menu import *
 from libs.lfsr import *
 from libs.nlfsr import *
+from libs.inputs import *
 from libs.phaseshifter import *
 from libs.pandas_table import *
 from libs.polynomial import *
