@@ -114,7 +114,21 @@ class DecompressorSolver:
     def getLfsrLength(self) -> int:
         return len(self._lfsr)
     
-    def isCompressable(self, Pattern : TestKompressAdvisor.TestCube, Verbose : bool = False) -> bool:
+    def getMaximumCubeBitsPerDecompressor(self) -> int:
+        return int(len(self._phase_shifter) * self._scan_length)
+    
+    def getMaximumSpecifiedBitPerCycleToBeCompressable(self) -> int:
+        return int(1.5 * ((2 + self._initial_phase_len + self._scan_length) * len(self._input_config)))
+    
+    def getSpecifiedBitPerCycleDict(self, Cube : TestKompressAdvisor.TestCube) -> dict:
+        Result = {}
+        TCPos = Cube.getSpecifiedBitPositions()
+        for Pos in TCPos:
+            PosInScan = Pos % self.ScanLength
+            Result[PosInScan] = Result.get(PosInScan, 0) + 1
+        return Result
+    
+    def isCompressable(self, Pattern : TestKompressAdvisor.TestCube, Verbose : bool = False, *args, **kwargs) -> bool:
         if self._scan_cell_equations is None:
             self.createEquationBase()
         if len(Pattern) > self.getPatternLength():
@@ -243,14 +257,38 @@ class DecompressorSolver:
         AioShell.removeLastLine()
         Uncompressable = PatternCount - Compressable
         if type(MinBatteryLevel) is float:
-            SolverDidPercent = round(SolverDidBatteryNot * 100 / Compressable, 3)
-            BatteryDidPercent = round(BatteryDidSolverNot * 100 / Uncompressable, 3)
+            if Compressable <= 0:
+                if SolverDidBatteryNot > 0:    
+                    SolverDidPercent = 100
+                else:
+                    SolverDidPercent = 0
+            else:
+                SolverDidPercent = round(SolverDidBatteryNot * 100 / Compressable, 3)
+            if Uncompressable <= 0:
+                if BatteryDidSolverNot > 0:
+                    BatteryDidPercent = 100
+                else:
+                    BatteryDidPercent = 0
+            else:
+                BatteryDidPercent = round(BatteryDidSolverNot * 100 / Uncompressable, 3)
             EffectivenessPercent = round(((100-SolverDidPercent) + (100-BatteryDidPercent)) / 2, 3)
         else:
             SolverDidPercent, BatteryDidPercent, EffectivenessPercent = [], [], []
             for i in range(len(MinBatteryLevel)):
-                SolverDidPercent.append(round(SolverDidBatteryNot[i] * 100 / Compressable, 3))
-                BatteryDidPercent.append(round(BatteryDidSolverNot[i] * 100 / Uncompressable, 3))
+                if Compressable <= 0:
+                    if SolverDidBatteryNot[i] > 0:    
+                        SolverDidPercent.append(100)
+                    else:
+                        SolverDidPercent.append(0)
+                else:
+                    SolverDidPercent.append(round(SolverDidBatteryNot[i] * 100 / Compressable, 3))
+                if Uncompressable <= 0:
+                    if BatteryDidSolverNot[i] > 0:
+                        BatteryDidPercent.append(100)
+                    else:
+                        BatteryDidPercent.append(0)
+                else:
+                    BatteryDidPercent.append(round(BatteryDidSolverNot[i] * 100 / Uncompressable, 3))
                 EffectivenessPercent.append(round(((100-SolverDidPercent[i]) + (100-BatteryDidPercent[i])) / 2, 3))
         return (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot, EffectivenessPercent, SolverDidPercent, BatteryDidPercent)
         

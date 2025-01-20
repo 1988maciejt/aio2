@@ -90,7 +90,10 @@ class BinSolver:
         return Result     
         
     def gauss(self, Verbose : bool = False) -> bool:
-        if len(self._equations) < 2:
+        if len(self._equations) == 1:
+            self._gauss_done = True
+            return True
+        elif len(self._equations) < 1:
             self._gauss_done = False
             return False
         if Verbose:
@@ -137,6 +140,14 @@ class BinSolver:
         return True
             
     def solve(self, Verbose : bool = False) -> list:
+        if len(self._equations) == 1:
+            Eq = self._equations[0]
+            Solution = [0 for _ in range(len(Eq))]
+            if Eq._value:
+                if Eq._first_one < 0:
+                    return None
+                Solution[Eq._first_one] = 1
+            return Solution                
         GaussResult = True
         if not self._gauss_done:
             GaussResult = self.gauss(Verbose=Verbose)

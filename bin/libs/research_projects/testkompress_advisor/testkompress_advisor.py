@@ -37,7 +37,22 @@ class TestDataDecompressor:
         
     def __str__(self) -> str:
         return f"InputCount={self.InputCount}, OutputCount={self.OutputCount}, LfsrLength={self.LfsrLength}, ScanLength={self.ScanLength}"
-        
+    
+    def getPatternLength(self) -> int:
+        return len(self.OutputCount) * self.ScanLength
+    
+    def getScanChainCount(self) -> int:
+        return self.OutputCount
+    
+    def getScanLength(self) -> int:
+        return self.ScanLength
+    
+    def getInputCount(self) -> int:
+        return self.InputCount
+    
+    def getLfsrLength(self) -> int:
+        return self.LfsrLength
+    
     def getSpecifiedBitPerCycleDict(self, Cube : TestCube) -> dict:
         Result = {}
         TCPos = Cube.getSpecifiedBitPositions()
@@ -79,11 +94,14 @@ class EdtStructure:
         self._decompressors = []
         self._scan_len = 0
         self._len_sets = []
+        from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver
         if type(Decompressors) is list:
             for Decompressor in Decompressors:
                 self.addDecompressor(Decompressor)
-        if type(Decompressors) is TestDataDecompressor:
+        elif type(Decompressors) in [TestDataDecompressor, DecompressorSolver]:
             self.addDecompressor(Decompressors)
+        else:
+            Aio.printError(f"Illegal type of decompressor '{type(Decompressor)}'")
                 
     def __len__(self) -> int:
         return len(self._decompressors)
@@ -144,13 +162,13 @@ class EdtStructure:
         return len(self._decompressors)
     
     def getInputCount(self) -> int:
-        return sum([Decompressor.InputCount for Decompressor in self._decompressors])
+        return sum([Decompressor.getInputCount() for Decompressor in self._decompressors])
     
     def getScanChainCount(self) -> int:
-        return sum([Decompressor.OutputCount for Decompressor in self._decompressors])
+        return sum([Decompressor.getScanChainCount() for Decompressor in self._decompressors])
     
     def getFFCount(self) -> int:
-        return sum([Decompressor.LfsrLength for Decompressor in self._decompressors])
+        return sum([Decompressor.getLfsrLength() for Decompressor in self._decompressors])
     
     def getMaximumSpecifiedBitPerCycleToBeCompressable(self) -> int:
         return max([Decompressor.getMaximumSpecifiedBitPerCycleToBeCompressable() for Decompressor in self._decompressors])
@@ -160,8 +178,8 @@ class EdtStructure:
         
     def addDecompressor(self, Decompressor : TestDataDecompressor) -> bool:
         if self._scan_len == 0:
-            self._scan_len = Decompressor.ScanLength
-        elif Decompressor.ScanLength != self._scan_len:
+            self._scan_len = Decompressor.getScanLength()
+        elif Decompressor.getScanLength() != self._scan_len:
             Aio.printError(f"Decompressor ScanLength must be {self._scan_len}.")
             return False
         self._decompressors.append(Decompressor)
@@ -184,20 +202,20 @@ class EdtStructure:
         else:
             SubCubes = Cube.splitIntoSubCubesBasingOnSets(self._len_sets)
         for i in range(len(self._decompressors)):
-            if not self._decompressors[i].isCompressable(SubCubes[i], MinBatteryCharge):
+            if not self._decompressors[i].isCompressable(SubCubes[i], MinBatteryCharge=MinBatteryCharge):
                 return False
         return True
     
     def getLongestLfsrSize(self) -> int:
         try:
-            return max([Decompressor.LfsrLength for Decompressor in self._decompressors])   
+            return max([Decompressor.getLfsrLength() for Decompressor in self._decompressors])   
         except:
             return 0
         
     def getTestTime(self, PatternCount : int = 1) -> int:
         Init = 0
         for Decompressor in self._decompressors:
-            ThisInit = int(ceil(Decompressor.LfsrLength / Decompressor.InputCount))
+            ThisInit = int(ceil(Decompressor.getLfsrLength() / Decompressor.getInputCount()))
             if Init <= ThisInit:
                 Init = ThisInit
         return (Init + self.getScanLength()) * PatternCount
@@ -652,22 +670,39 @@ class TestCubeSet:
             print(f"FINISHED BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
         return Patterns
     
-    def removeNotCompressable(self, Edt : EdtStructure) -> int:
+    def removeNotCompressable(self, Edt : EdtStructure, MultiThreading = False) -> int:
         ToBeRemoved = []
-        for i in range(len(self)):
-            if not Edt.isCompressable(self.getCube(i)):
-                ToBeRemoved.append(i)
+        if MultiThreading:        
+            def serial(Indices):
+                ToBeRemovedLocal = []
+                for i in Indices:
+                    if not Edt.isCompressable(self.getCube(i)):
+                        ToBeRemovedLocal.append(i)
+                return ToBeRemovedLocal
+            AllIndices = [i for i in range(len(self))]
+            for rl in p_uimap(serial, List.splitIntoSublists(AllIndices, 1000), desc="Removing uncompressable cubes (x1000)"):
+                ToBeRemoved += rl
+            AioShell.removeLastLine()
+            ToBeRemoved.sort()
+        else:
+            for i in range(len(self)):
+                if not Edt.isCompressable(self.getCube(i)):
+                    ToBeRemoved.append(i)
         for i in reversed(ToBeRemoved):
             self.removeCube(i)
         return len(ToBeRemoved)
     
+    removeUnompressable = removeNotCompressable
+    
     @staticmethod
-    def doExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False) -> tuple:
+    def doMergingExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False, MultiThreading = False) -> tuple:
+        """Returns 4-element tuple:
+        AfterRemovalCubesCount, len(Patterns), TestTime, TestDataVolume"""
         CubesCopy = Cubes.deepCopy()
         BeforeRemovalCubesCount = len(CubesCopy)
         if Verbose:
             Aio.print(f"#Cubes before uncompressable removal: {BeforeRemovalCubesCount}")
-        RemovedCount = CubesCopy.removeNotCompressable(Edt)
+        RemovedCount = CubesCopy.removeNotCompressable(Edt, MultiThreading)
         AfterRemovalCubesCount = len(CubesCopy)
         if Verbose:
             Aio.print(f"#Cubes removed:                       {RemovedCount}")
@@ -681,6 +716,8 @@ class TestCubeSet:
             Aio.print(f"Test data volume [b]:                 {TestDataVolume}")
         return AfterRemovalCubesCount, len(Patterns), TestTime, TestDataVolume
         
+    doExperiment = doMergingExperiment
+    
     @staticmethod
     def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3) -> list:
         Result = []
@@ -692,6 +729,7 @@ class TestCubeSet:
             Result.append(R)
         AioShell.removeLastLine()
         return Result
+    
     
 
 
