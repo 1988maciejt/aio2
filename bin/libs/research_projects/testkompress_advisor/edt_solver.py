@@ -172,6 +172,9 @@ class DecompressorSolver:
                 Result.addCube(R)
         AioShell.removeLastLine()
         return Result
+    
+    def getCompressionRatio(self) -> float:
+        return (self._scan_length * len(self._phase_shifter)) / self.getTestDataVolume()
 
     def makeComparisonWithBatteryModel(self, Patterns : TestKompressAdvisor.TestCubeSet, MinBatteryLevel : float = 0.1) -> tuple:
         """Patterns may be also a list of random pattern params: [Count, Perr, P1]
