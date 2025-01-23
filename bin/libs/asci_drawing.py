@@ -41,6 +41,11 @@ class AsciiDrawing_Characters:
   DOWN_RIGHT_ARROW = '\U00002198'
   CIRCLED_PLUS = '\U00002A01'
   MULTIPLY = '\U000000D7'
+  UPPER_HALFBLOCK = '\u2580'
+  LOWER_HALFBLOCK = '\u2584'
+  FULL_BLOCK = '\u2588'
+  CIRCLE = '\u25EF'
+  FILLED_CIRCLE = '\u25C9'
 
 class AsciiDrawing_Direction:
   Left = 8

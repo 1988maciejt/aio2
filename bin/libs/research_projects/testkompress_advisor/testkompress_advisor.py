@@ -301,6 +301,18 @@ class TestCube:
                 Aio.printError(f"Scan index {Scan} is out of range.")
         return Result
     
+    def getScanCycleValues(self, ScanCount : int, ScanLength : int) -> dict:
+        VList = self.getSpecifiedScanCellValues(ScanCount, ScanLength)
+        Result = {}
+        for i in range(ScanLength):
+            Result[i] = {}
+        for V in VList:
+            Scan = V[0]
+            Cycle = V[1]
+            Value = V[2]
+            Result[Cycle][Scan] = Value
+        return Result
+    
     def splitIntoSubCubes(self, SubCubesLen : list) -> list:
         Result = []
         Start = 0
@@ -414,6 +426,21 @@ class TestCube:
     def copy(self) -> TestCube:
         Result = TestCube(self)
         return Result
+    
+    def getScanCellsDraw(self, ScanChainCount : int, ScanChainLength : int):
+        from libs.asci_drawing import AsciiDrawing_Characters as Char
+        D = self.getScanCycleValues(ScanChainCount, ScanChainLength)
+        Lines = [Str.toRight(f"{i} "+Char.VERTICAL_LEFT, 6)  for i in range(ScanChainCount)]
+        for Cycle in range(ScanChainLength-1, -1, -1):
+            for Scan in range(ScanChainCount):
+                Lines[Scan] += str(D[Cycle].get(Scan, '-'))
+        for i in range(len(Lines)):
+            Lines[i] += Char.VERTICAL
+        Result = str.join("\n", reversed(Lines))
+        return Result
+    
+    def printScanCells(self, ScanChainCount : int, ScanChainLength : int):
+        Aio.print(self.getScanCellsDraw(ScanChainCount, ScanChainLength))
         
     def mergeWithAnother(self, AnotherCute : TestCube) -> bool:
         if len(self) != len(AnotherCute):
