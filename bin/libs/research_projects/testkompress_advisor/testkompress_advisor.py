@@ -231,10 +231,15 @@ class TestCube:
     __slots__ = ('_specified_bit_dict', '_len', '_ones_set', '_zeros_set', '_primary_zeros_set', '_primary_ones_set')
         
     @staticmethod
-    def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5) -> TestCube:
+    def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5, ExactFillRate : bool = False) -> TestCube:
         from random import random, randint
         Result = TestCube(Length)
-        Count = randint(1, Pspecified*Length*2)
+        if ExactFillRate:
+            Count = int(Length * Pspecified)
+        else:
+            Count = randint(1, ceil(Pspecified*Length*2))
+            if Count > Length:
+                Count = Length
         for i in range(Count):
             Result.setBit(randint(0, Length-1), 1 if random() < P1 else 0)
         return Result
@@ -588,10 +593,10 @@ class TestCubeSet:
         return Result
 
     @staticmethod
-    def randomCubeSet(CubeCount : int, Length : int, Pspecified : float = 0.1, P1 = 0.5) -> TestCubeSet:
+    def randomCubeSet(CubeCount : int, Length : int, Pspecified : float = 0.1, P1 = 0.5, ExactFillRate : bool = False) -> TestCubeSet:
         Result = TestCubeSet()
         def single(args):
-            return [TestCube.randomCube(Length, Pspecified, P1) for _ in range(200)]
+            return [TestCube.randomCube(Length, Pspecified, P1, ExactFillRate) for _ in range(200)]
         for C in p_uimap(single, range(CubeCount // 200), desc="Generating random cubes (x200)"):
             Result._cubes += C
         AioShell.removeLastLine()
@@ -665,7 +670,75 @@ class TestCubeSet:
                 del Cubes._cubes[i]
         return Patterns, Cubes
     
-    def merge(self, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False) -> TestCubeSet:
+    def _mergingRoundCombined(self, Edt, PatternCount : int = 64, MinBatteryCharge : float = 0.05, CompressabilityLimit : int = 3, Verbose : bool = False) -> tuple:
+        """Returns two TestCubeSet objects: (Patterns, Cubes)."""
+        from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver                       
+        if type(Edt) is not DecompressorSolver:
+            Aio.printError("Edt must be DecompressorSolver object.")
+            return None, None
+        from math import exp
+        MinFillRate = exp(1 - 0.008 * Edt.getCompressionRatio()) / 100
+        EdtBattery = Edt.getDecompressorForBatteryModelEstimations()
+        Cubes = self.copy()
+        Patterns = TestCubeSet()
+        BackTracingCounter = 0
+        SolverCalls = 0
+        while len(Cubes) > 0 and len(Patterns) < PatternCount:
+            #Cubes.sort()
+            Cube = Cubes.getCube(0).copy()
+            ToBeRemovedFromBuffer = [0]
+            CompressionCounter = 0
+            FirstGoodFillrate = 1
+            for i in range(1, len(Cubes)):
+                CubeAux = Cube.copy()
+                MergingResult = CubeAux.mergeWithAnother(Cubes._cubes[i])
+                if MergingResult: 
+                    if CubeAux.getFillRate() >= MinFillRate:
+                        if FirstGoodFillrate:
+                            FirstGoodFillrate = 0
+                            if EdtBattery.isCompressable(CubeAux, MinBatteryCharge):
+                                Cube = CubeAux
+                                ToBeRemovedFromBuffer.append(i)
+                            else:
+                                # do backtrace with solver
+                                BackTracingCounter += 1
+                                BacktraceList = ToBeRemovedFromBuffer.copy()
+                                ToBeRemovedFromBuffer = [0]
+                                Cube = Cubes.getCube(0).copy()
+                                CubeAux = Cube.copy()
+                                for j in range(1, len(BacktraceList)):
+                                    CubeAux.mergeWithAnother(Cubes.getCube(BacktraceList[j]))
+                                    SolverCalls += 1
+                                    if Edt.isCompressable(CubeAux):
+                                        ToBeRemovedFromBuffer.append(BacktraceList[j])
+                                        Cube = CubeAux.copy()
+                                    else:
+                                        break
+                        else:
+                            if EdtBattery.isCompressable(CubeAux):
+                                Cube = CubeAux
+                                ToBeRemovedFromBuffer.append(i)
+                            else:       
+                                CompressionCounter += 1
+                                if CompressionCounter > CompressabilityLimit:
+                                    break
+                    else:
+                        Cube = CubeAux
+                        ToBeRemovedFromBuffer.append(i)
+            Patterns._cubes.append(Cube)
+            for i in reversed(ToBeRemovedFromBuffer):
+                del Cubes._cubes[i]
+        return Patterns, Cubes, BackTracingCounter, SolverCalls
+    
+    def merge(self, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False, CombinedCompressionChecking : bool = False) -> TestCubeSet:
+        from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver     
+        if CombinedCompressionChecking and type(Edt) is not DecompressorSolver:
+            Aio.printError("Edt must be DecompressorSolver object if CombinedCompressionChecking is set.")
+            return None
+        elif type(Edt) is DecompressorSolver:
+            MinBatteryCharge = 0
+        elif type(Edt) is TestDataDecompressor:
+            Edt = EdtStructure(Edt)
         Buffer = TestCubeSet()
         if type(BufferLength) is int:
             BufferLength = [BufferLength]
@@ -673,7 +746,10 @@ class TestCubeSet:
             BufferLength = [512]
         Buffer._cubes = self._cubes[0:BufferLength[0]]
         index = BufferLength[0]
-        Patterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
+        if CombinedCompressionChecking:
+            Patterns, Buffer, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
+        else:
+            Patterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
         BufferLenIndex = 0
         if Verbose:
             print(f"Furst round finished. BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
@@ -684,17 +760,27 @@ class TestCubeSet:
             HowManyToAdd = BufferLength[BufferLenIndex] - len(Buffer)
             Buffer._cubes += self._cubes[index:index+HowManyToAdd]
             index += HowManyToAdd
-            SubPatterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
+            if CombinedCompressionChecking:
+                SubPatterns, Buffer, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
+            else:
+                SubPatterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
             Patterns._cubes += SubPatterns._cubes
             if Verbose:
                 print(f"Next round finished. BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
         if len(Buffer) > 0:
-            SubPatterns, Buffer = Buffer._mergingRound(Edt, len(Buffer), MinBatteryCharge, CompressabilityLimit, Verbose)
+            if CombinedCompressionChecking:
+                SubPatterns, Buffer, BackTracingCounter, SolverCalls = Buffer._mergingRoundCombined(Edt, len(Buffer), MinBatteryCharge, CompressabilityLimit, Verbose)
+                BackTracingCounterSum += BackTracingCounter
+                SolverCallsSum += SolverCalls
+            else:
+                SubPatterns, Buffer = Buffer._mergingRound(Edt, len(Buffer), MinBatteryCharge, CompressabilityLimit, Verbose)
             Patterns._cubes += SubPatterns._cubes
             if Verbose:
                 print(f"Last. BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
         if Verbose:
             print(f"FINISHED BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
+        if CombinedCompressionChecking:
+            return Patterns, BackTracingCounterSum, SolverCallsSum
         return Patterns
     
     def removeNotCompressable(self, Edt : EdtStructure, MultiThreading = False) -> int:
@@ -722,9 +808,15 @@ class TestCubeSet:
     removeUnompressable = removeNotCompressable
     
     @staticmethod
-    def doMergingExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False, MultiThreading = False) -> tuple:
+    def doMergingExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False, MultiThreading = False, CombinedCompressionChecking : bool = False) -> tuple:
         """Returns 4-element tuple:
-        AfterRemovalCubesCount, len(Patterns), TestTime, TestDataVolume"""
+        AfterRemovalCubesCount, len(Patterns), TestTime, TestDataVolume, ExecutionTime
+        In case of combined method it returns also
+        BackTracingCalls, SolverCalls"""
+        from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver     
+        if CombinedCompressionChecking and type(Edt) is not DecompressorSolver:
+            Aio.printError("Edt must be DecompressorSolver object if CombinedCompressionChecking is set.")
+            return None
         CubesCopy = Cubes.deepCopy()
         BeforeRemovalCubesCount = len(CubesCopy)
         if Verbose:
@@ -734,22 +826,31 @@ class TestCubeSet:
         if Verbose:
             Aio.print(f"#Cubes removed:                       {RemovedCount}")
             Aio.print(f"#Cubes after uncompressable removal:  {AfterRemovalCubesCount}")
-        Patterns = CubesCopy.merge(Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
+        t0 = time.time()
+        if CombinedCompressionChecking:
+            Patterns, BackTracingCounterSum, SolverCallsSum = CubesCopy.merge(Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, True)
+        else:
+            Patterns = CubesCopy.merge(Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, False)
+        t1 = time.time()
         TestTime = Edt.getTestTime(len(Patterns))
         TestDataVolume = Edt.getTestDataVolume(len(Patterns))
+        ExeTime = (t1 - t0)
         if Verbose:
             Aio.print(f"#Patterns:                            {len(Patterns)}")
             Aio.print(f"Test time [cycles]:                   {TestTime}")
             Aio.print(f"Test data volume [b]:                 {TestDataVolume}")
-        return AfterRemovalCubesCount, len(Patterns), TestTime, TestDataVolume
+            Aio.print(f"Execution time [s]:                   {ExeTime}")
+        if CombinedCompressionChecking:
+            return AfterRemovalCubesCount, len(Patterns), TestTime, TestDataVolume, ExeTime, BackTracingCounterSum, SolverCallsSum
+        return AfterRemovalCubesCount, len(Patterns), TestTime, TestDataVolume, ExeTime
         
     doExperiment = doMergingExperiment
     
     @staticmethod
-    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3) -> list:
+    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, CombinedCompressionChecking : bool = False) -> list:
         Result = []
         def singleTry(Edt : EdtStructure) -> tuple:
-            return TestCubeSet.doExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, False)
+            return TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, False, False, CombinedCompressionChecking)
 #        for x in EdtList:
 #            Result.append(singleTry(x))
         for R in p_imap(singleTry, EdtList):

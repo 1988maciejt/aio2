@@ -38,11 +38,11 @@ class DecompressorSolver:
         Result += "}"
         return Result
     
-    def getTestDataVolume(self) -> int:
-        return len(self._input_config) * self.getTestTime()
+    def getTestDataVolume(self, PatternsCount : int = 1) -> int:
+        return len(self._input_config) * self.getTestTime(PatternsCount)
         
-    def getTestTime(self) -> int:
-        return self._scan_length + self._initial_phase_len
+    def getTestTime(self, PatternsCount : int = 1) -> int:
+        return (self._scan_length + self._initial_phase_len) * PatternsCount
     
     def createEquationBase(self, Verbose : bool = False):
         self._scan_cell_equations = None
@@ -173,6 +173,21 @@ class DecompressorSolver:
         AioShell.removeLastLine()
         return Result
     
+    def getUncompressable(self, Patterns : TestKompressAdvisor.TestCubeSet) -> TestKompressAdvisor.TestCubeSet:
+        Result = TestKompressAdvisor.TestCubeSet()
+        self.createEquationBase()
+        def serial(SubPatterns):
+            SubResult = []
+            for Pattern in SubPatterns:
+                if not self.isCompressable(Pattern):
+                    SubResult.append(Pattern)
+            return SubResult
+        for RList in p_uimap(serial, List.splitIntoSublists(Patterns, 100), desc="Checking compressability (x100)"):
+            for R in RList:
+                Result.addCube(R)
+        AioShell.removeLastLine()
+        return Result
+    
     def getCompressionRatio(self) -> float:
         return (self._scan_length * len(self._phase_shifter)) / self.getTestDataVolume()
 
@@ -294,5 +309,19 @@ class DecompressorSolver:
                     BatteryDidPercent.append(round(BatteryDidSolverNot[i] * 100 / Uncompressable, 3))
                 EffectivenessPercent.append(round(((100-SolverDidPercent[i]) + (100-BatteryDidPercent[i])) / 2, 3))
         return (Compressable, Correct, SolverDidBatteryNot, BatteryDidSolverNot, EffectivenessPercent, SolverDidPercent, BatteryDidPercent)
+    
+    def calibrateBatteryModelThreshold(self, Patterns : TestKompressAdvisor.TestCubeSet) -> tuple:
+        """Returns (BestThreshold, BestEfficiency) or (-1, -1) if calibration impossible due to no uncompressable patterns."""
+        ThresholdList = [i/100 for i in range(0, 100, 1)]
+        Compressable, _, _, _, ffectivenessList, _, _ = self.makeComparisonWithBatteryModel(Patterns, ThresholdList)
+        if Compressable == len(Patterns):
+            return -1, -1
+        BestThreshold = 0
+        BestEffectiveness = 0
+        for i in range(len(ffectivenessList)):
+            if ffectivenessList[i] > BestEffectiveness:
+                BestEffectiveness = ffectivenessList[i]
+                BestThreshold = ThresholdList[i]
+        return BestThreshold, BestEffectiveness
         
         

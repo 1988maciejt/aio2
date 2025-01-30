@@ -45,6 +45,9 @@ class PandasTable:
         self._main_dict[k].append(Line)
       Index += 1
     self._autoFill()
+  
+  addRow = add
+    
   def toString(self, justify='right'):
     if self._len < 1:
       return "<no data>"
