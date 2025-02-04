@@ -752,13 +752,15 @@ class TestCubeSet:
             Patterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
         BufferLenIndex = 0
         if Verbose:
-            print(f"Furst round finished. BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
+            print(f"Furst round finished. BufferLen: {BufferLength[0]} -> {len(Buffer)}, PatternsLen={len(Patterns)}")
         while index < len(self):
-            BufferLenIndex += 1
+            BufferLenIndex += 1 
             if BufferLenIndex >= len(BufferLength):
-                BufferLenIndex = -1
+                BufferLenIndex = len(BufferLength) - 1
             HowManyToAdd = BufferLength[BufferLenIndex] - len(Buffer)
             Buffer._cubes += self._cubes[index:index+HowManyToAdd]
+            if Verbose:
+                BuffLenAtTheBeginningOfRound = len(Buffer)
             index += HowManyToAdd
             if CombinedCompressionChecking:
                 SubPatterns, Buffer, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
@@ -766,7 +768,7 @@ class TestCubeSet:
                 SubPatterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
             Patterns._cubes += SubPatterns._cubes
             if Verbose:
-                print(f"Next round finished. BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")
+                print(f"Next round finished. BufferLen: {BuffLenAtTheBeginningOfRound} -> {len(Buffer)}, PatternsLen={len(Patterns)}")
         if len(Buffer) > 0:
             if CombinedCompressionChecking:
                 SubPatterns, Buffer, BackTracingCounter, SolverCalls = Buffer._mergingRoundCombined(Edt, len(Buffer), MinBatteryCharge, CompressabilityLimit, Verbose)
@@ -808,7 +810,7 @@ class TestCubeSet:
     removeUnompressable = removeNotCompressable
     
     @staticmethod
-    def doMergingExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False, MultiThreading = False, CombinedCompressionChecking : bool = False) -> tuple:
+    def doMergingExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 10, Verbose : bool = False, MultiThreading = False, CombinedCompressionChecking : bool = False) -> tuple:
         """Returns 4-element tuple:
         AfterRemovalCubesCount, len(Patterns), TestTime, TestDataVolume, ExecutionTime
         In case of combined method it returns also
@@ -847,7 +849,7 @@ class TestCubeSet:
     doExperiment = doMergingExperiment
     
     @staticmethod
-    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, CombinedCompressionChecking : bool = False) -> list:
+    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 10, CombinedCompressionChecking : bool = False) -> list:
         Result = []
         def singleTry(Edt : EdtStructure) -> tuple:
             return TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, False, False, CombinedCompressionChecking)
