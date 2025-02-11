@@ -2,7 +2,7 @@ from libs.aio import *
 from bitarray import *
 import bitarray.util as bau
 from random import *
-from copy import deepcopy
+#from copy import deepcopy
 from math import ceil
 from functools import partial
 from p_tqdm import *
@@ -21,9 +21,10 @@ class EdtStructure:
 
 class TestDataDecompressor:
     
-    __slots__ = ('InputCount', 'OutputCount', 'LfsrLength', 'ScanLength')
+    __slots__ = ('InputCount', 'OutputCount', 'LfsrLength', 'ScanLength', "MinimumBatteryLevel")
     
-    def __init__(self, InputCount : int, OutputCount : int, LfsrLength : int, ScanLength :  int):
+    def __init__(self, InputCount : int, OutputCount : int, LfsrLength : int, ScanLength :  int, MinBatteryLevel : float = None):
+        self.MinimumBatteryLevel = MinBatteryLevel
         self.InputCount = InputCount
         self.OutputCount = OutputCount
         self.LfsrLength = LfsrLength
@@ -39,7 +40,7 @@ class TestDataDecompressor:
         return f"InputCount={self.InputCount}, OutputCount={self.OutputCount}, LfsrLength={self.LfsrLength}, ScanLength={self.ScanLength}"
     
     def getPatternLength(self) -> int:
-        return len(self.OutputCount) * self.ScanLength
+        return self.OutputCount * self.ScanLength
     
     def getScanChainCount(self) -> int:
         return self.OutputCount
@@ -52,6 +53,15 @@ class TestDataDecompressor:
     
     def getLfsrLength(self) -> int:
         return self.LfsrLength
+    
+    def getInitialPhaseLength(self) -> int:
+        return int(ceil(self.LfsrLength / self.InputCount))
+    
+    def getTestDataVolume(self) -> int:
+        return (self.ScanLength + self.getInitialPhaseLength()) * self.getInputCount()
+    
+    def getCompressionRatio(self) -> float:
+        return self.getPatternLength() / self.getTestDataVolume()
     
     def getSpecifiedBitPerCycleDict(self, Cube : TestCube) -> dict:
         Result = {}
@@ -88,9 +98,10 @@ class TestDataDecompressor:
 
 class EdtStructure:
     
-    __slots__ = ('_decompressors', '_scan_len', '_len_sets')
+    __slots__ = ('_decompressors', '_scan_len', '_len_sets', "MinimumBatteryLevel")
     
-    def __init__(self, Decompressors : list = None):
+    def __init__(self, Decompressors : list = None, MinBatteryLevel : float = None):
+        self.MinimumBatteryLevel = None
         self._decompressors = []
         self._scan_len = 0
         self._len_sets = []
@@ -228,7 +239,7 @@ class EdtStructure:
 
 class TestCube:
     
-    __slots__ = ('_specified_bit_dict', '_len', '_ones_set', '_zeros_set', '_primary_zeros_set', '_primary_ones_set')
+    __slots__ = ('_len', '_ones_set', '_zeros_set', '_primary_zeros_set', '_primary_ones_set')
         
     @staticmethod
     def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5, ExactFillRate : bool = False) -> TestCube:
@@ -245,7 +256,6 @@ class TestCube:
         return Result
     
     def __init__(self, SpecifiedBits : str = '', TestCubeLenIfDictImplementation : int = 0):
-        #self._specified_bit_dict = {}
         self._ones_set = set()
         self._zeros_set = set()
         self._primary_ones_set = set()
@@ -258,11 +268,11 @@ class TestCube:
         elif type(SpecifiedBits) is int:
             self._len = SpecifiedBits
         elif type(SpecifiedBits) is TestCube:
-            self._ones_set = deepcopy(SpecifiedBits._ones_set)
-            self._zeros_set = deepcopy(SpecifiedBits._zeros_set)
-            self._primary_ones_set = deepcopy(SpecifiedBits._primary_ones_set)
-            self._primary_zeros_set = deepcopy(SpecifiedBits._primary_zeros_set)
-            self._len = deepcopy(SpecifiedBits._len)
+            self._ones_set = SpecifiedBits._ones_set.copy()
+            self._zeros_set = SpecifiedBits._zeros_set.copy()
+            self._primary_ones_set = SpecifiedBits._primary_ones_set.copy()
+            self._primary_zeros_set = SpecifiedBits._primary_zeros_set.copy()
+            self._len = SpecifiedBits._len
             
     def __len__(self):
         return self._len
@@ -447,18 +457,33 @@ class TestCube:
     def printScanCells(self, ScanChainCount : int, ScanChainLength : int):
         Aio.print(self.getScanCellsDraw(ScanChainCount, ScanChainLength))
         
-    def mergeWithAnother(self, AnotherCute : TestCube) -> bool:
-        if len(self) != len(AnotherCute):
+    def mergeWithAnother(self, AnotherCube : TestCube) -> bool:
+        if len(self) != len(AnotherCube):
             return False
-        if len(self._ones_set & AnotherCute._zeros_set) > 0 or len(self._zeros_set & AnotherCute._ones_set) > 0:
+        if len(self._ones_set & AnotherCube._zeros_set) > 0 or len(self._zeros_set & AnotherCube._ones_set) > 0:
             return False
-        if len(self._primary_ones_set & AnotherCute._primary_zeros_set) > 0 or len(self._primary_zeros_set & AnotherCute._primary_ones_set) > 0:
+        if len(self._primary_ones_set & AnotherCube._primary_zeros_set) > 0 or len(self._primary_zeros_set & AnotherCube._primary_ones_set) > 0:
             return False
-        self._ones_set |= AnotherCute._ones_set
-        self._zeros_set |= AnotherCute._zeros_set
-        self._primary_ones_set |= AnotherCute._primary_ones_set
-        self._primary_zeros_set |= AnotherCute._primary_zeros_set
+        self._ones_set |= AnotherCube._ones_set
+        self._zeros_set |= AnotherCube._zeros_set
+        self._primary_ones_set |= AnotherCube._primary_ones_set
+        self._primary_zeros_set |= AnotherCube._primary_zeros_set
         return True
+    
+    def canBeMergedWithAnother(self, AnotherCube : TestCube) -> bool:
+        if len(self) != len(AnotherCube):
+            return False
+        if len(self._ones_set & AnotherCube._zeros_set) > 0 or len(self._zeros_set & AnotherCube._ones_set) > 0:
+            return False
+        if len(self._primary_ones_set & AnotherCube._primary_zeros_set) > 0 or len(self._primary_zeros_set & AnotherCube._primary_ones_set) > 0:
+            return False
+        return True
+    
+    def _forceMergeWithAnother(self, AnotherCube : TestCube):
+        self._ones_set |= AnotherCube._ones_set
+        self._zeros_set |= AnotherCube._zeros_set
+        self._primary_ones_set |= AnotherCube._primary_ones_set
+        self._primary_zeros_set |= AnotherCube._primary_zeros_set
     
     def setPrimaryBit(self, BitIndex : int, BitValue : str) -> bool:
         if BitValue in [0, '0']:
@@ -567,18 +592,26 @@ class TestCubeSet:
             return self._cubes[index]
         
     @staticmethod
-    def fromFile(FileName : str, ScanChainCount : int, ScanChainLength : int) -> TestCubeSet:
+    def fromFile(FileName : str, ScanChainCount : int, ScanChainLength : int, FilterAfterMerging : bool = False) -> TestCubeSet:
         CubeLength = ScanChainLength * ScanChainCount
         Cube = None
         Result = TestCubeSet()
+        IgnoreThis = False
         for Line in Generators().readFileLineByLine(FileName):
-            R = re.search(r"Cube\s*[0-9]", Line)
+            if FilterAfterMerging:
+                R = re.search(r"After merging", Line)
+                if R:
+                    IgnoreThis = False # True
+                    continue
+            R = re.search(r"TDVE[:]*\s*Cube\s*[0-9]", Line)
             if R:
                 if Cube is not None:
-                    Result.addCube(Cube)
+                    if not IgnoreThis:
+                        Result.addCube(Cube)
+                    IgnoreThis = False
                 Cube = TestCube(CubeLength)
                 continue
-            R = re.search(r"([-0-9]+)\s+([0-9]+)\s([0-9]+)", Line)
+            R = re.search(r"TDVE[:]*\s*([-0-9]+)\s+([0-9]+)\s([0-9]+)", Line)
             if R:
                 Chain = int(R.group(1))
                 BitIndex = int(R.group(2))
@@ -589,7 +622,9 @@ class TestCubeSet:
                     CubeBitIndex = Chain * ScanChainLength + BitIndex
                     Cube.setBit(CubeBitIndex, BitVal)
         if Cube is not None:
-            Result.addCube(Cube)
+            if not IgnoreThis:
+                Result.addCube(Cube)
+            IgnoreThis = False
         return Result
 
     @staticmethod
@@ -644,21 +679,22 @@ class TestCubeSet:
     
     def _mergingRound(self, Edt : EdtStructure, PatternCount : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False) -> tuple:
         """Returns two TestCubeSet objects: (Patterns, Cubes)."""
-        Cubes = self.copy()
+        Cubes = self
         Patterns = TestCubeSet()
         MaximumBitCount = Edt.getMaximumSpecifiedBitPerCycleToBeCompressable()
         while len(Cubes) > 0 and len(Patterns) < PatternCount:
-            #Cubes.sort()
-            Cube = Cubes.getCube(0)
-            ToBeRemovedFromBuffer = [0]
+            Cube = Cubes._cubes[0]
+            del Cubes._cubes[0]
+            ToBeRemovedFromBuffer = []
             CompressionCounter = 0
-            for i in range(1, len(Cubes)):
-                CubeAux = Cube.copy()
-                MergingResult = CubeAux.mergeWithAnother(Cubes._cubes[i])
+            for ANotherCube in Cubes._cubes:
+                MergingResult = Cube.canBeMergedWithAnother(ANotherCube)
                 if MergingResult: 
+                    CubeAux = Cube.copy()
+                    CubeAux._forceMergeWithAnother(ANotherCube)
                     if Edt.isCompressable(CubeAux, MinBatteryCharge):
                         Cube = CubeAux
-                        ToBeRemovedFromBuffer.append(i)
+                        ToBeRemovedFromBuffer.append(ANotherCube)
                         if Cube.getSpecifiedCount()-1 >= MaximumBitCount:
                             break
                     else:
@@ -666,20 +702,20 @@ class TestCubeSet:
                         if CompressionCounter > CompressabilityLimit:
                             break
             Patterns._cubes.append(Cube)
-            for i in reversed(ToBeRemovedFromBuffer):
-                del Cubes._cubes[i]
-        return Patterns, Cubes
+            for i in ToBeRemovedFromBuffer:
+                Cubes._cubes.remove(i)
+        return Patterns
     
     def _mergingRoundCombined(self, Edt, PatternCount : int = 64, MinBatteryCharge : float = 0.05, CompressabilityLimit : int = 3, Verbose : bool = False) -> tuple:
         """Returns two TestCubeSet objects: (Patterns, Cubes)."""
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver                       
         if type(Edt) is not DecompressorSolver:
             Aio.printError("Edt must be DecompressorSolver object.")
-            return None, None
+            return None, None, None, None
         from math import exp
         MinFillRate = exp(1 - 0.008 * Edt.getCompressionRatio()) / 100
         EdtBattery = Edt.getDecompressorForBatteryModelEstimations()
-        Cubes = self.copy()
+        Cubes = self
         Patterns = TestCubeSet()
         BackTracingCounter = 0
         SolverCalls = 0
@@ -728,7 +764,7 @@ class TestCubeSet:
             Patterns._cubes.append(Cube)
             for i in reversed(ToBeRemovedFromBuffer):
                 del Cubes._cubes[i]
-        return Patterns, Cubes, BackTracingCounter, SolverCalls
+        return Patterns, BackTracingCounter, SolverCalls
     
     def merge(self, Edt : EdtStructure, BufferLength : int = 512, PatternCountPerRound : int = 64, MinBatteryCharge : float = 0.1, CompressabilityLimit : int = 3, Verbose : bool = False, CombinedCompressionChecking : bool = False) -> TestCubeSet:
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver     
@@ -739,6 +775,9 @@ class TestCubeSet:
             MinBatteryCharge = 0
         elif type(Edt) is TestDataDecompressor:
             Edt = EdtStructure(Edt)
+        if type(Edt) is EdtStructure:
+            if Edt.MinimumBatteryLevel is not None:
+                MinBatteryCharge = Edt.MinimumBatteryLevel
         Buffer = TestCubeSet()
         if type(BufferLength) is int:
             BufferLength = [BufferLength]
@@ -747,9 +786,9 @@ class TestCubeSet:
         Buffer._cubes = self._cubes[0:BufferLength[0]]
         index = BufferLength[0]
         if CombinedCompressionChecking:
-            Patterns, Buffer, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
+            Patterns, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
         else:
-            Patterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
+            Patterns = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
         BufferLenIndex = 0
         if Verbose:
             print(f"Furst round finished. BufferLen: {BufferLength[0]} -> {len(Buffer)}, PatternsLen={len(Patterns)}")
@@ -763,19 +802,19 @@ class TestCubeSet:
                 BuffLenAtTheBeginningOfRound = len(Buffer)
             index += HowManyToAdd
             if CombinedCompressionChecking:
-                SubPatterns, Buffer, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
+                SubPatterns, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
             else:
-                SubPatterns, Buffer = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
+                SubPatterns = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose)
             Patterns._cubes += SubPatterns._cubes
             if Verbose:
                 print(f"Next round finished. BufferLen: {BuffLenAtTheBeginningOfRound} -> {len(Buffer)}, PatternsLen={len(Patterns)}")
         if len(Buffer) > 0:
             if CombinedCompressionChecking:
-                SubPatterns, Buffer, BackTracingCounter, SolverCalls = Buffer._mergingRoundCombined(Edt, len(Buffer), MinBatteryCharge, CompressabilityLimit, Verbose)
+                SubPatterns, BackTracingCounter, SolverCalls = Buffer._mergingRoundCombined(Edt, len(Buffer), MinBatteryCharge, CompressabilityLimit, Verbose)
                 BackTracingCounterSum += BackTracingCounter
                 SolverCallsSum += SolverCalls
             else:
-                SubPatterns, Buffer = Buffer._mergingRound(Edt, len(Buffer), MinBatteryCharge, CompressabilityLimit, Verbose)
+                SubPatterns = Buffer._mergingRound(Edt, len(Buffer), MinBatteryCharge, CompressabilityLimit, Verbose)
             Patterns._cubes += SubPatterns._cubes
             if Verbose:
                 print(f"Last. BufferLen={len(Buffer)}, PatternsLen={len(Patterns)}")

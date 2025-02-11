@@ -137,6 +137,11 @@ class DecompressorSolver:
         SpecValues = Pattern.getSpecifiedScanCellValues(self.getScanChainCount(), self.getScanLength())
         if Verbose:
             print(f"SpecValues: {SpecValues}")
+        if len(SpecValues) < 1:
+            if Verbose:
+                print(f"Solving not neccessary: {Result}")
+                print(f"Is compressable: {ResToRet} =========================")
+            return True
         Equations = []
         for SpecValue in SpecValues:
             SI = SpecValue[0]
