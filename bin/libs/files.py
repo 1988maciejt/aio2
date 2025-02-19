@@ -186,12 +186,18 @@ class File:
   writeBinary = writeBinary
   writeDict = writeDictionary
   writeObject = writeObjectToFile
+  
+  @staticmethod
   def writeLines(FileName : str, Iterator):
     if type(Iterator) is not list:
       Iterator = [i for i in Iterator]
     writeLinesFromList(FileName, Iterator)
+    
+  @staticmethod
   def list(Pattern : str) -> list:
     return glob.glob(Pattern)
+  
+  @staticmethod
   def replaceText(FileNamePattern : str, OldText : str, NewText : str) -> int:
     FileNames = glob.glob(FileNamePattern)
     Counter = 0
@@ -205,8 +211,61 @@ class File:
         from libs.aio import Aio
         Aio.printError(f"Couldn't write '{FileName}'.")
     return Counter
+  
+  @staticmethod
   def getRandomTempFileName() -> str:
     return f"/tmp/aio_tmp_{int(random.uniform(1000000000, 9999999999))}"
+  
+  @staticmethod
+  def parseValues(FileName : str, RegExpressionDict : dict, ReportLastValueIfMany : bool = False) -> dict:
+    """Reads file line-by-line and uses regular expressions passed by the second argument to extract values from the lines.
+
+    Args:
+        RegExpressionDict (dict): {key1: 'rregex1(group1)', key2: 'rregex2(group1)', ...}
+          Group count is unlimited.
+        ReportLastValueIfMany (bool, optional): If True, then if many lines matches the regex then the last value is stored in the resultant dict. Defaults to False.
+
+    Returns:
+        dict: Dictionary similar to the one provided by the argument, but regexpressions are replaced by the extracted values.
+    """
+    from libs.generators import Generators
+    from re import search
+    ToList = 0
+    if type(RegExpressionDict) is list:
+      ToList = len(RegExpressionDict)
+      AuxDict = {}
+      for i in range(len(RegExpressionDict)):
+        AuxDict[i] = RegExpressionDict[i]
+      RegExpressionDict = AuxDict
+    Gen = Generators()
+    Result = {}
+    RegExpressionDictC = RegExpressionDict.copy()
+    for Line in Gen.readFileLineByLine(FileName):
+      if len(RegExpressionDictC) > 0:
+        KeysToRemove = []
+        for key, value in RegExpressionDictC.items():
+          R = search(value, Line)
+          if R:
+            Val = R.groups()
+            if len(Val) == 1:
+              Val = Val[0]
+            Result[key] = Val
+            KeysToRemove.append(key)
+        if not ReportLastValueIfMany:
+          for key in KeysToRemove:
+            del RegExpressionDictC[key]
+      else:
+        continue
+    for key in RegExpressionDictC:
+      Result[key] = None
+    if ToList > 0:
+      AuxList = []  
+      for i in range(ToList):
+        AuxList.append(Result[i])
+      Result = AuxList
+    return Result
+  
+  
   
 class Dir:
   pick = pickDirectory

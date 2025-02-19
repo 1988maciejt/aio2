@@ -13,7 +13,7 @@ class PandasTable:
     if self._auto_id:
       self._main_dict["Id"] = []
     for S in HeaderList:
-      self._main_dict[S] = []
+      self._main_dict[str(S)] = []
   def __del__(self):
     del self._main_dict
   def __repr__(self) -> str:
@@ -80,7 +80,31 @@ class AioTable(PandasTable):
 
   def __repr__(self) -> str:
     return f'AioTable({list(self._main_dict.keys())})'
-  
+
+  @staticmethod  
+  def fromSetOfFiles(FileNamesList : list, RegexDictionary : dict, ReportLastValueIfMany : bool = False, MultiProcessing : bool = True) -> "AioTable":
+    from libs.files import File
+    from p_tqdm import p_imap
+    Header = ["File"] + list(RegexDictionary.keys())
+    Table = AioTable(Header)
+    if MultiProcessing:
+      def single(FileName):
+        Row = [FileName]
+        Res = File.parseValues(FileName, RegexDictionary, ReportLastValueIfMany)
+        for key in RegexDictionary.keys():
+          Row.append(Res[key])
+        return Row
+      for Row in p_imap(single, FileNamesList):
+        Table.add(Row)
+    else:
+      for FileName in FileNamesList:
+        Row = [FileName]
+        Res = File.parseValues(FileName, RegexDictionary, ReportLastValueIfMany)
+        for key in RegexDictionary.keys():
+          Row.append(Res[key])
+        Table.add(Row)
+    return Table  
+    
   def _getWidths(self) -> list:
     Result = []
     for Col in self._main_dict.keys():

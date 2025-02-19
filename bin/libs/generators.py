@@ -96,20 +96,34 @@ class Generators:
       while _PAUSE:
         sleep(0.35)
         
-  def readFileLineByLine(self, FileName):
+  def readFileLineByLine(self, FileName, OnlyLinesRegex : str = None):
     global _PAUSE
     try:
-      with open(FileName, 'r') as file:
-        for line in file:
-          if not self._enabled:
-            break
-          if len(line) > 0 and line[-1] == "\n":
-            line = line [:-1]
-          yield line
-          while _PAUSE:
-            sleep(0.35)
+      if type(OnlyLinesRegex) is str:
+        with open(FileName, 'r') as file:
+          for line in file:
+            if not self._enabled:
+              break
+            if not re.match(OnlyLinesRegex, line):
+              continue
+            if len(line) > 0 and line[-1] == "\n":
+              line = line [:-1]
+            yield line
+            while _PAUSE:
+              sleep(0.35)
+      else:
+        with open(FileName, 'r') as file:
+          for line in file:
+            if not self._enabled:
+              break
+            if len(line) > 0 and line[-1] == "\n":
+              line = line [:-1]
+            yield line
+            while _PAUSE:
+              sleep(0.35)
     except:
-      Aio.printError(f"File {FileName} not found or can't be opened.")
+      pass
+      #Aio.printError(f"File {FileName} not found or can't be opened.")
     
       
   def subListsFromIterator(self, Iterator, ChunkSize : int):
