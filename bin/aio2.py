@@ -25,6 +25,7 @@ _required_libs = [
   "scipy",
   ("python-docx", "docx"),
   ("PyMuPDF", "fitz"),
+  ("pillow", "PIL"),
   "g4f",
   "gensim",
   "nltk",

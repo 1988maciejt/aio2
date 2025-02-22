@@ -64,12 +64,25 @@ class TestDataDecompressor:
         return self.getPatternLength() / self.getTestDataVolume()
     
     def getSpecifiedBitPerCycleDict(self, Cube : TestCube) -> dict:
-        Result = {}
+        RList = [0 for _ in range(self.ScanLength)]
         TCPos = Cube.getSpecifiedBitPositions()
         for Pos in TCPos:
-            PosInScan = Pos % self.ScanLength
-            Result[PosInScan] = Result.get(PosInScan, 0) + 1
-        return Result
+            RList[Pos % self.ScanLength] += 1
+        Result = {i: RList[i] for i in range(self.ScanLength)}
+        return Result           
+    
+    def getSpecifiedBitPerCycleList(self, Cube : TestCube) -> list:
+        RList = [0 for _ in range(self.ScanLength)]
+        #TCPos = Cube.getSpecifiedBitPositions()
+        Lst1 = [x % self.ScanLength for x in Cube._ones_set]
+        Lst0 = [x % self.ScanLength for x in Cube._zeros_set]
+        #for Pos in TCPos:
+        #    RList[Pos % self.ScanLength] += 1
+        for Pos in Lst1:
+            RList[Pos] += 1
+        for Pos in Lst0:
+            RList[Pos] += 1
+        return RList    
     
     def getMaximumSpecifiedBitPerCycleToBeCompressable(self) -> int:
         return int(self.LfsrLength + ((self.ScanLength - 1) * self.InputCount))
@@ -78,7 +91,7 @@ class TestDataDecompressor:
         return int(self.OutputCount * self.ScanLength)
     
     def isCompressable(self, Cube, MinBatteryCharge : float = 0.1) -> bool:
-        SpecifiedBitsPerCycle = self.getSpecifiedBitPerCycleDict(Cube)
+        SpecifiedBitsPerCycle = self.getSpecifiedBitPerCycleList(Cube)
         if Cube.getSpecifiedCount() > self.getMaximumSpecifiedBitPerCycleToBeCompressable():
             return False
         # Battery model
@@ -86,7 +99,7 @@ class TestDataDecompressor:
         BatteryMin = int(ceil(MinBatteryCharge * BatteryMax))
         BatteryChrg = BatteryMax
         for i in range(self.ScanLength):
-            Vars = SpecifiedBitsPerCycle.get(i, 0)
+            Vars = SpecifiedBitsPerCycle[i]
             BatteryChrg -= Vars
             if BatteryChrg < BatteryMin:
                 return False
@@ -239,7 +252,7 @@ class EdtStructure:
 
 class TestCube:
     
-    __slots__ = ('_len', '_ones_set', '_zeros_set', '_primary_zeros_set', '_primary_ones_set')
+    __slots__ = ('_len', '_ones_set', '_zeros_set', '_primary_zeros_set', '_primary_ones_set', 'Id')
         
     @staticmethod
     def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5, ExactFillRate : bool = False) -> TestCube:
@@ -255,11 +268,12 @@ class TestCube:
             Result.setBit(randint(0, Length-1), 1 if random() < P1 else 0)
         return Result
     
-    def __init__(self, SpecifiedBits : str = '', TestCubeLenIfDictImplementation : int = 0):
+    def __init__(self, SpecifiedBits : str = '', TestCubeLenIfDictImplementation : int = 0, Id : int = -1):
         self._ones_set = set()
         self._zeros_set = set()
         self._primary_ones_set = set()
         self._primary_zeros_set = set()
+        self.Id = int(Id)
         self._len = TestCubeLenIfDictImplementation
         if type(SpecifiedBits) is str and len(SpecifiedBits) > 0:
             self.setBits(SpecifiedBits)
@@ -273,6 +287,7 @@ class TestCube:
             self._primary_ones_set = SpecifiedBits._primary_ones_set.copy()
             self._primary_zeros_set = SpecifiedBits._primary_zeros_set.copy()
             self._len = SpecifiedBits._len
+            self.Id = SpecifiedBits.Id
             
     def __len__(self):
         return self._len
@@ -591,25 +606,80 @@ class TestCubeSet:
         else:
             return self._cubes[index]
         
+    def sortById(self):
+        self._cubes.sort(key=lambda x: x.Id)
+        
+    def visualize(self, PngFileName : str, MaxHeight : int = 1080) -> bool:
+        if self.isEmpty():
+            return False
+        if not self.isIdImplemented():
+            return False
+        Len = self[-1].Id
+        MaxCollSize = MaxHeight
+        Colls = int(ceil(Len / MaxCollSize))
+        if Colls > 1:
+            Rows = MaxCollSize
+        else:
+            Rows = (Len % MaxCollSize)
+        CollWidth = 14
+        CollSpace = 1
+        RowHeight = 1
+        Width = (CollWidth * Colls) + (CollSpace * (Colls-1))
+        Height = Rows * RowHeight
+        from PIL import Image, ImageDraw
+        image = Image.new('RGB', (Width, Height), color='white')
+        draw = ImageDraw.Draw(image)
+        X1 = 0
+        X2 = CollWidth - 1
+        Y1 = 0
+        Idx = 1
+        for C in self._cubes:
+            for i in range(C.Id - Idx + 1):
+                Y2 = Y1 + RowHeight - 1
+                if Idx == C.Id:
+                    color = 'green'
+                else:
+                    color = 'red'
+                #print(X1, Y1, X2, Y2)
+                draw.rectangle((X1, Y1, X2, Y2), fill = color, outline = color)
+                Idx += 1
+                Y1 += RowHeight
+                if Y1 >= Height:
+                    Y1 = 0
+                    X1 += (CollWidth + CollSpace)
+                    X2 += (CollWidth + CollSpace)
+            
+        image.save(PngFileName)
+        return True
+        
     @staticmethod
-    def fromFile(FileName : str, ScanChainCount : int, ScanChainLength : int, FilterAfterMerging : bool = False) -> TestCubeSet:
+    def fromFile(FileName : str, ScanChainCount : int = -1, ScanChainLength : int = -1, FilterAfterMerging : bool = False) -> TestCubeSet:
+        if ScanChainCount <= 0 or ScanChainCount <= 0:
+            edt = EdtStructure.fromFile(FileName)
+            ScanChainCount = edt.getScanChainCount()
+            ScanChainLength = edt.getScanLength()
         CubeLength = ScanChainLength * ScanChainCount
         Cube = None
         Result = TestCubeSet()
         IgnoreThis = False
+        Id = -1
         for Line in Generators().readFileLineByLine(FileName):
             if FilterAfterMerging:
                 R = re.search(r"After merging", Line)
                 if R:
                     IgnoreThis = False # True
                     continue
+            R = re.search(r"TDVE[:]*\s*Cube\s*id\s*=\s*([0-9]+)", Line)
+            if R:
+                Id = int(R.group(1))
+                continue
             R = re.search(r"TDVE[:]*\s*Cube\s*[0-9]", Line)
             if R:
                 if Cube is not None:
                     if not IgnoreThis:
                         Result.addCube(Cube)
                     IgnoreThis = False
-                Cube = TestCube(CubeLength)
+                Cube = TestCube(CubeLength, Id=Id)
                 continue
             R = re.search(r"TDVE[:]*\s*([-0-9]+)\s+([0-9]+)\s([0-9]+)", Line)
             if R:
@@ -625,6 +695,8 @@ class TestCubeSet:
             if not IgnoreThis:
                 Result.addCube(Cube)
             IgnoreThis = False
+        if Id >= 0:
+            Result.sortById()
         return Result
 
     @staticmethod
@@ -640,6 +712,18 @@ class TestCubeSet:
         elif len(Result._cubes) < CubeCount:
             Result._cubes += [TestCube.randomCube(Length, Pspecified, P1) for _ in range(CubeCount - len(Result._cubes))]
         return Result
+    
+    def isIdImplemented(self) -> bool:
+        if len(self._cubes) > 0:
+            if self._cubes[0].Id < 0:
+                return False
+            if self._cubes[-1].Id < 0:
+                return False
+            return True
+        return False
+    
+    def isEmpty(self) -> bool:
+        return False if len(self._cubes) > 0 else True
     
     def addCube(self, Cube : TestCube):
         self._cubes.append(Cube)
@@ -802,7 +886,20 @@ class TestCubeSet:
             BufferLength = [BufferLength]
         if len(BufferLength) < 1:
             BufferLength = [512]
-        Buffer._cubes = self._cubes[0:BufferLength[0]]
+        if self.isIdImplemented():
+            CubeIdImplemented = True
+            SearchFromIdx = 0
+            Len = BufferLength[0]
+            for i in range(len(self._cubes)):
+                if self._cubes[i].Id > Len:
+                    SearchFromIdx = i
+                    break
+            Buffer._cubes = self._cubes[0:SearchFromIdx]
+            CompLimit0 = CompressabilityLimit
+            CompressabilityLimit = CompLimit0 * len(Buffer) // BufferLength[0]
+        else:
+            CubeIdImplemented = False
+            Buffer._cubes = self._cubes[0:BufferLength[0]]
         index = BufferLength[0]
         if CombinedCompressionChecking:
             Patterns, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, OnlyPatternCount)
@@ -810,6 +907,8 @@ class TestCubeSet:
             Patterns = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, OnlyPatternCount)
         BufferLenIndex = 0
         if Verbose:
+            if CubeIdImplemented:
+                print(f"// Using CubeId //")
             if OnlyPatternCount:
                 print(f"Furst round finished. BufferLen: {BufferLength[0]} -> {len(Buffer)}, PatternsLen={Patterns}")
             else:
@@ -818,11 +917,27 @@ class TestCubeSet:
             BufferLenIndex += 1 
             if BufferLenIndex >= len(BufferLength):
                 BufferLenIndex = len(BufferLength) - 1
-            HowManyToAdd = BufferLength[BufferLenIndex] - len(Buffer)
-            Buffer._cubes += self._cubes[index:index+HowManyToAdd]
+            if CubeIdImplemented:
+                try:
+                    LastId = Buffer._cubes[0].Id + BufferLength[BufferLenIndex]
+                except:
+                    LastId = self._cubes[SearchFromIdx].Id + BufferLength[BufferLenIndex]
+                From = SearchFromIdx
+                for k in range(SearchFromIdx, len(self._cubes)):
+                    if self._cubes[k].Id >= LastId:
+                        SearchFromIdx = k
+                        index = SearchFromIdx
+                        break
+                Buffer._cubes += self._cubes[From:SearchFromIdx]
+                CompressabilityLimit = CompLimit0 * len(Buffer) // BufferLength[BufferLenIndex]
+            else:
+                HowManyToAdd = BufferLength[BufferLenIndex] - len(Buffer)
+                Buffer._cubes += self._cubes[index:index+HowManyToAdd]
+                index += HowManyToAdd
+            if len(Buffer) <= 0:
+                break
             if Verbose:
                 BuffLenAtTheBeginningOfRound = len(Buffer)
-            index += HowManyToAdd
             if CombinedCompressionChecking:
                 SubPatterns, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, OnlyPatternCount)
             else:
