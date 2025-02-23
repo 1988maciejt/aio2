@@ -16,7 +16,10 @@ import inspect
 import collections
 import multiprocess
 from p_tqdm import p_map
-import imp
+try:
+    import imp
+except:
+    import importlib as imp
 #import numba
 #from asyncore import ExitNow
 import random
@@ -74,6 +77,11 @@ from sympy import *
 import libs.jt as JT
 import re
 from libs.utils_list import *
+import libs.research_projects.root_of_trust.root_of_trust as RootOfTrust
+import libs.research_projects.orthogonal_compactor.orthogonal_compactor as OrthogonalCompactor
+import libs.research_projects.testkompress_advisor.testkompress_advisor as TestKompressAdvisor
+import libs.research_projects.testkompress_advisor.edt_solver as EdtSolver
+import warnings
 
 
 _NOT_EMPTY_SCHEDULER = "NOT_EMPTY_SCHEDULER"
