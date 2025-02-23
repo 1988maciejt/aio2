@@ -653,7 +653,7 @@ class TestCubeSet:
         return True
         
     @staticmethod
-    def fromFile(FileName : str, ScanChainCount : int = -1, ScanChainLength : int = -1, FilterAfterMerging : bool = False) -> TestCubeSet:
+    def fromFile(FileName : str, ScanChainCount : int = -1, ScanChainLength : int = -1, FilterAfterMerging : bool = False, IgnoreIds : bool = False) -> TestCubeSet:
         if ScanChainCount <= 0 or ScanChainCount <= 0:
             edt = EdtStructure.fromFile(FileName)
             ScanChainCount = edt.getScanChainCount()
@@ -669,10 +669,11 @@ class TestCubeSet:
                 if R:
                     IgnoreThis = False # True
                     continue
-            R = re.search(r"TDVE[:]*\s*Cube\s*id\s*=\s*([0-9]+)", Line)
-            if R:
-                Id = int(R.group(1))
-                continue
+            if not IgnoreIds:
+                R = re.search(r"TDVE[:]*\s*Cube\s*id\s*=\s*([0-9]+)", Line)
+                if R:
+                    Id = int(R.group(1))
+                    continue
             R = re.search(r"TDVE[:]*\s*Cube\s*[0-9]", Line)
             if R:
                 if Cube is not None:
@@ -722,8 +723,38 @@ class TestCubeSet:
             return True
         return False
     
+    def removeIds(self):
+        for Cube in self._cubes:
+            Cube.Id = -1
+    
     def isEmpty(self) -> bool:
         return False if len(self._cubes) > 0 else True
+    
+    def shuffle(self) -> bool:
+        from random import shuffle
+        if self.isIdImplemented():
+            if len(self._cubes) >= 2:
+                return False
+            Aux = []
+            Cube = self._cubes[0]
+            CubeLast = self._cubes[-1]
+            for i in range(1, len(self._cubes)):
+                Cube2 = self._cubes[i]
+                Aux.append((Cube, Cube2.Id - Cube.Id))
+                Cube = Cube2
+            shuffle(Aux)
+            Idx = 1
+            self._cubes = []
+            for CubeComb in Aux:
+                Cube = CubeComb[0]
+                Dist = CubeComb[1]
+                Cube.Id = Idx
+                Idx += Dist
+            CubeLast.Id = Idx
+            self._cubes.append(CubeLast)
+        else:
+            shuffle(self._cubes)
+        return True
     
     def addCube(self, Cube : TestCube):
         self._cubes.append(Cube)

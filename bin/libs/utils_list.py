@@ -134,6 +134,11 @@ class List:
       left = this
     return result
   
+  def shuffle(lst : list) -> list:
+    result = lst.copy()
+    random.shuffle(result)
+    return result
+  
   def onlyUniquesAreIncluded(Lst : list) -> bool:
     sl = set(Lst)
     if len(sl) == len(Lst):
