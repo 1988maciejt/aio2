@@ -8,7 +8,10 @@ import inspect
 import collections
 import multiprocess
 from p_tqdm import p_map
-import imp
+try:
+    import imp
+except:
+    import importlib as imp
 #import numba
 from asyncore import ExitNow
 import random

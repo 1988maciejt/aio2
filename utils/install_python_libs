@@ -29,7 +29,7 @@ python3 -m pip install --upgrade pandas
 python3 -m pip install --upgrade netifaces
 python3 -m pip install --upgrade pint
 python3 -m pip install --upgrade textual
-python3 -m pip install --upgrade hyperloglog pyhll
+python3 -m pip install --upgrade hyperloglog
 python3 -m pip install --upgrade cython
 python3 -m pip install --upgrade scipy
 python3 -m pip install --upgrade tensorflow
