@@ -136,8 +136,7 @@ class EdtStructure:
     @staticmethod
     def fromFile(FileName : str) -> EdtStructure:
         InCount, OutCount, LfsrLen, ScanLen = 0, 0, 0, 0
-        Cntr = 0
-        Gen = Generators()
+        Cntr = 0 
         for Line in Generators().readFileLineByLine(FileName):
             if Cntr >= 4:
                 Gen.disable()
