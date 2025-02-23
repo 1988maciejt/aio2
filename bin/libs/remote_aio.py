@@ -77,11 +77,6 @@ from sympy import *
 import libs.jt as JT
 import re
 from libs.utils_list import *
-import libs.research_projects.root_of_trust.root_of_trust as RootOfTrust
-import libs.research_projects.orthogonal_compactor.orthogonal_compactor as OrthogonalCompactor
-import libs.research_projects.testkompress_advisor.testkompress_advisor as TestKompressAdvisor
-import libs.research_projects.testkompress_advisor.edt_solver as EdtSolver
-import warnings
 
 
 _NOT_EMPTY_SCHEDULER = "NOT_EMPTY_SCHEDULER"
