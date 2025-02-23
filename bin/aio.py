@@ -13,7 +13,10 @@ try:
 except:
     import importlib as imp
 #import numba
-from asyncore import ExitNow
+try:
+    from asyncore import ExitNow
+except:
+    from asyncio import ExitNow
 import random
 import re
 import sys
