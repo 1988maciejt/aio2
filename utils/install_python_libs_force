@@ -29,7 +29,7 @@ python3 -m pip install --upgrade pandas --break-system-packages
 python3 -m pip install --upgrade netifaces --break-system-packages
 python3 -m pip install --upgrade pint --break-system-packages
 python3 -m pip install --upgrade textual --break-system-packages
-python3 -m pip install --upgrade hyperloglog --break-system-packages
+python3 -m pip install --upgrade hyperloglog pyhll --break-system-packages
 python3 -m pip install --upgrade cython --break-system-packages
 python3 -m pip install --upgrade scipy --break-system-packages
 python3 -m pip install --upgrade tensorflow --break-system-packages
