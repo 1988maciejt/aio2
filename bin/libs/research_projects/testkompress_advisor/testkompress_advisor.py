@@ -139,7 +139,7 @@ class EdtStructure:
         Cntr = 0 
         for Line in Generators().readFileLineByLine(FileName):
             if Cntr >= 4:
-                Gen.disable()
+                break
             if ScanLen == 0:
                 R = re.search(r"scan_length\s+=\s+([0-9]+)", Line)
                 if R:
@@ -732,7 +732,7 @@ class TestCubeSet:
     def shuffle(self) -> bool:
         from random import shuffle
         if self.isIdImplemented():
-            if len(self._cubes) >= 2:
+            if len(self._cubes) <= 2:
                 return False
             Aux = []
             Cube = self._cubes[0]
@@ -748,6 +748,7 @@ class TestCubeSet:
                 Cube = CubeComb[0]
                 Dist = CubeComb[1]
                 Cube.Id = Idx
+                self._cubes.append(Cube)
                 Idx += Dist
             CubeLast.Id = Idx
             self._cubes.append(CubeLast)
@@ -949,7 +950,7 @@ class TestCubeSet:
                 BufferLenIndex = len(BufferLength) - 1
             if CubeIdImplemented:
                 try:
-                    LastId = Buffer._cubes[0].Id + BufferLength[BufferLenIndex]
+                    LastId = Buffer._cubes[-1].Id + BufferLength[BufferLenIndex] - len(Buffer._cubes)
                 except:
                     LastId = self._cubes[SearchFromIdx].Id + BufferLength[BufferLenIndex]
                 From = SearchFromIdx
