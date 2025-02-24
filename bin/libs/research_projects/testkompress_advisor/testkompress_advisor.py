@@ -251,7 +251,7 @@ class EdtStructure:
 
 class TestCube:
     
-    __slots__ = ('_len', '_ones_set', '_zeros_set', '_primary_zeros_set', '_primary_ones_set', 'Id')
+    __slots__ = ('_len', '_ones_set', '_zeros_set', '_primary_zeros_set', '_primary_ones_set', 'Id', 'PatternId', 'BufferId')
         
     @staticmethod
     def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5, ExactFillRate : bool = False) -> TestCube:
@@ -267,12 +267,14 @@ class TestCube:
             Result.setBit(randint(0, Length-1), 1 if random() < P1 else 0)
         return Result
     
-    def __init__(self, SpecifiedBits : str = '', TestCubeLenIfDictImplementation : int = 0, Id : int = -1):
+    def __init__(self, SpecifiedBits : str = '', TestCubeLenIfDictImplementation : int = 0, Id : int = -1, PatternId : int = -1, BufferId : int = -1):
         self._ones_set = set()
         self._zeros_set = set()
         self._primary_ones_set = set()
         self._primary_zeros_set = set()
         self.Id = int(Id)
+        self.PatternId = int(PatternId)
+        self.BufferId = int(BufferId)
         self._len = TestCubeLenIfDictImplementation
         if type(SpecifiedBits) is str and len(SpecifiedBits) > 0:
             self.setBits(SpecifiedBits)
@@ -287,6 +289,8 @@ class TestCube:
             self._primary_zeros_set = SpecifiedBits._primary_zeros_set.copy()
             self._len = SpecifiedBits._len
             self.Id = SpecifiedBits.Id
+            self.BufferId = SpecifiedBits.BufferId
+            self.PatternId = SpecifiedBits.PatternId
             
     def __len__(self):
         return self._len
@@ -632,13 +636,18 @@ class TestCubeSet:
         X2 = CollWidth - 1
         Y1 = 0
         Idx = 1
+        Color1 = [i for i in range(63, 255, 64)]
+        from libs.utils_list import List
+        Colors = List.getPermutationsPfManyLists([Color1, Color1, Color1])
+        random.shuffle(Colors)
         for C in self._cubes:
             for i in range(C.Id - Idx + 1):
                 Y2 = Y1 + RowHeight - 1
                 if Idx == C.Id:
-                    color = 'green'
+                    color = tuple(Colors[C.PatternId % len(Colors)])
+                    #color = 'green'
                 else:
-                    color = 'red'
+                    color = 'black'
                 #print(X1, Y1, X2, Y2)
                 draw.rectangle((X1, Y1, X2, Y2), fill = color, outline = color)
                 Idx += 1
@@ -662,6 +671,9 @@ class TestCubeSet:
         Result = TestCubeSet()
         IgnoreThis = False
         Id = -1
+        PatternId = -1
+        BufferId = -1
+        OldMask = 0
         for Line in Generators().readFileLineByLine(FileName):
             if FilterAfterMerging:
                 R = re.search(r"After merging", Line)
@@ -669,6 +681,16 @@ class TestCubeSet:
                     IgnoreThis = False # True
                     continue
             if not IgnoreIds:
+                R = re.search(r"pattern\s*=\s*([0-9]+)\s*mask\s*=\s*([0-9]+)", Line)
+                if R:
+                    #PatternId = int(R.group(1))
+                    Mask = int(R.group(2))
+                    if Mask != OldMask:
+                        PatternId += 1
+                        if Mask == 1:
+                            BufferId += 1
+                    OldMask = Mask
+                    continue
                 R = re.search(r"TDVE[:]*\s*Cube\s*id\s*=\s*([0-9]+)", Line)
                 if R:
                     Id = int(R.group(1))
@@ -679,7 +701,7 @@ class TestCubeSet:
                     if not IgnoreThis:
                         Result.addCube(Cube)
                     IgnoreThis = False
-                Cube = TestCube(CubeLength, Id=Id)
+                Cube = TestCube(CubeLength, Id=Id, PatternId=PatternId, BufferId=BufferId)
                 continue
             R = re.search(r"TDVE[:]*\s*([-0-9]+)\s+([0-9]+)\s([0-9]+)", Line)
             if R:
