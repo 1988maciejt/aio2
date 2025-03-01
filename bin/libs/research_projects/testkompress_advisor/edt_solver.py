@@ -38,6 +38,71 @@ class DecompressorSolver:
         Result += "}"
         return Result
     
+    @staticmethod
+    def fromFile(FileName : str) -> "DecompressorSolver":
+        from libs.generators import Generators
+        State = 0
+        LfsrLen = -1
+        LfsrConnections = []
+        InputChannels = []
+        PhaseShifterXors = []
+        InitialPhaseLen = 0
+        ScanLen = 0
+        for Line in Generators().readFileLineByLine(FileName):
+            if State == 0:
+                
+                R = re.search(r"\/\/\s*Shift\s*cycles\s*:\s*([0-9]+),\s*([0-9]+)", Line)
+                if R:
+                    ShiftCycles = int(R.group(1))
+                    ScanLen = int(R.group(2))
+                    InitialPhaseLen = ShiftCycles - ScanLen
+                    continue
+                R = re.search(r"\/\/\s*Decompressor\s+configuration:", Line)
+                if R:
+                    State = 1
+                    continue
+            elif State == 1:
+                R = re.search(r"\/\/\s*Size\s*:\s*([0-9]+)", Line)
+                if R:
+                    LfsrLen = int(R.group(1))
+                    continue
+                R = re.search(r"\/\/\s*Input\s*taps\s*\(channel\s*([0-9]+)\)\s*:\s*([0-9 ]+)", Line)
+                if R:
+                    Txt = R.group(2)
+                    Txt = Txt.replace("   ", "  ")
+                    Txt = Txt.replace("  ", " ")
+                    InputChannels.append([int(x) for x in Txt.split(" ")])
+                    continue
+                R = re.search(r"\/\/\s*Feedback\s*connections\s*:", Line)
+                if R:
+                    State = 2
+                    continue
+            elif State == 2:
+                R = re.search(r"\/\/\s*Connection\s*[0-9]+\s*:\s*([0-9]+)\s*->\s*([0-9]+)", Line)
+                if R:
+                    LfsrConnections.append([int(R.group(1))-1, int(R.group(2))-2])
+                    continue
+                R = re.search(r"\/\/\s*Phase\s*shifter\s*configuration\s*:", Line)
+                if R:
+                    State = 3
+                    continue
+            elif State == 3:
+                R = re.search(r"\/\/\s*Taps\s*for\s*output\s*[0-9]+\s*\(.*\)\s*:\s*([0-9 ]+)", Line)
+                if R:
+                    Txt = R.group(1)
+                    Txt = Txt.replace("   ", "  ")
+                    Txt = Txt.replace("  ", " ")
+                    PhaseShifterXors.append([int(x)-1 for x in Txt.split(" ")])
+                    continue
+                R = re.search("\/\/\s*Compactors\s*:", Line)
+                if R:
+                    break
+        RG = Lfsr(LfsrLen, RING_WITH_SPECIFIED_TAPS, LfsrConnections)
+        PS = PhaseShifter(RG, PhaseShifterXors)
+        return DecompressorSolver(RG, PS, ScanLen, InitialPhaseLen, InputChannels)
+                
+                
+    
     def getTestDataVolume(self, PatternsCount : int = 1) -> int:
         return len(self._input_config) * self.getTestTime(PatternsCount)
         
