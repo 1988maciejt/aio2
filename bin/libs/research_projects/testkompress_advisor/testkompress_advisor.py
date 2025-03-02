@@ -1106,12 +1106,14 @@ class TestCubeSet:
             Patterns, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, OnlyPatternCount)
         else:
             Patterns = Buffer._mergingRound(Edt, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, OnlyPatternCount)
+        IdxAdder = 0
+        BuffAdder = 0
         if not OnlyPatternCount:
             BuffAdder = 1
             try:
                 IdxAdder = Patterns[-1].Id
             except:
-                IdxAdder = 0
+                pass
         BufferLenIndex = 0
         if Verbose:
             if CubeIdImplemented:
