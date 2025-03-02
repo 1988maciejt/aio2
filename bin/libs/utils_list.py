@@ -17,18 +17,19 @@ class List:
       Result.append(subset)
     return Result
   
-  def getPermutationsPfManyListsCount(lists) -> int:
+  def getPermutationsOfManyListsCount(lists) -> int:
     Result = 1
     for L in lists:
       Result *= len(L)
     return Result
+  getPermutationsPfManyListsCount = getPermutationsOfManyListsCount
   
-  def getPermutationsPfManyLists(lists, MaximumNonBaseElements = 0) -> list:
+  def getPermutationsOfManyLists(lists, MaximumNonBaseElements = 0) -> list:
     """gets some lists and returns a list of lists containing
     all possible permutations of elements of those lists.
     
     Examplecall:
-    List.getPermutationsPfManyLists( [ [1,2], ['a', 'b', 'c'] ] )
+    List.getPermutationsOfManyLists( [ [1,2], ['a', 'b', 'c'] ] )
     
     Result:
     [[1, 'a'], [2, 'a'], [1, 'b'], [2, 'b'], [1, 'c'], [2, 'c']]
@@ -61,14 +62,15 @@ class List:
       if Counter == Zeros:
         break
     return Results
+  getPermutationsPfManyLists = getPermutationsOfManyLists
   
   
-  def getPermutationsPfManyListsGenerator(lists, MaximumNonBaseElements = 0, UseAsGenerator_Chunk = 1) -> list:
+  def getPermutationsOfManyListsGenerator(lists, MaximumNonBaseElements = 0, UseAsGenerator_Chunk = 1) -> list:
     """gets some lists and returns a list of lists containing
     all possible permutations of elements of those lists.
     
     Examplecall:
-    List.getPermutationsPfManyLists( [ [1,2], ['a', 'b', 'c'] ] )
+    List.getPermutationsOfManyListsGenerator( [ [1,2], ['a', 'b', 'c'] ] )
     
     Result:
     [[1, 'a'], [2, 'a'], [1, 'b'], [2, 'b'], [1, 'c'], [2, 'c']]
@@ -110,20 +112,13 @@ class List:
       yield Results
       Results.clear()
     return None
+  getPermutationsPfManyListsGenerator = getPermutationsOfManyListsGenerator
   
   def randomSelect(List : list, HowMany = 1) -> list:
     if len(List) < HowMany:
       Aio.printError("List length is < than HowMany")
       return None
-    RList = List.copy()
-    Result = []
-    Max = len(RList)-1
-    for i in range(HowMany):
-      Index = random.randint(i, Max)
-      Result.append(RList[Index])
-      if Index > i:
-        RList[Index] = RList[i]
-    return Result
+    return random.sample(List, HowMany)
   
   def mathDelta(List : list) -> list:
     left = List[0]
@@ -140,10 +135,7 @@ class List:
     return result
   
   def onlyUniquesAreIncluded(Lst : list) -> bool:
-    sl = set(Lst)
-    if len(sl) == len(Lst):
-      return True
-    return False
+    return len(set(Lst)) == len(Lst)
   
   def join(*lists) -> list:
     """Concatenates two lists without repetitions
@@ -159,21 +151,10 @@ class List:
     return result
   
   def xor(list1 : list, list2 : list) -> list:
-    result = []
-    for i in list1:
-      if (not (i in list2)) and (not (i in result)):
-        result.append(i)
-    for i in list2:
-      if (not (i in list1)) and (not (i in result)):
-        result.append(i)
-    return result
+    return list(set(list1) ^ set(list2))
   
   def removeByString(lst : list, pattern) -> list:
-    result = []
-    for i in lst:
-      if not re.search(pattern, str(i)):
-        result.append(i)
-    return result
+    return list(filter(lambda x: not re.search(pattern, str(x)), lst))
   
   def splitIntoSublists(lst : list, SublistSize : int, Overlaping : int= 0) -> list:
     result = []
@@ -216,22 +197,20 @@ class List:
     return result
     
   def intersection(lst1 : list, lst2 : list) -> list:
-    return [value for value in lst1 if value in lst2]
+    return list(set(lst1) & set(lst2))
   
   def search(lst : list, item) -> list:
-    indices = []
-    for idx, value in enumerate(lst):
-        if value == item:
-            indices.append(idx)
-    return indices
+    return [i for i, x in enumerate(lst) if x == item]
   
   def circularDiff(ListOfNumbers : list, Modulus : int) -> list:
     Result = []
-    for i in range(len(ListOfNumbers)):
-      D = ListOfNumbers[i] - ListOfNumbers[i-1]
+    valim1 = ListOfNumbers[-1]
+    for i, vali in enumerate(ListOfNumbers):
+      D = vali - valim1
       if i == 0:
         D += Modulus
       Result.append(D)
+      valim1 = vali
     return Result
   
   def circularIterator(lst : list, FromIndex : int, ToIndex : int):

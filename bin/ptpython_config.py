@@ -214,3 +214,16 @@ _custom_ui_colorscheme = {
     # Make the status toolbar red.
     "status-toolbar": "bg:#ff0000 #000000",
 }
+
+from prompt_toolkit.enums import EditingMode
+
+__ptpython_config__ = {
+    'vi_mode': False,
+    'completion_menu_style': 'multi_column',
+    'show_signature': True,
+    'show_docstring': True,
+    'wrap_lines': True,
+    'editing_mode': EditingMode.VI,
+    'color_depth': 'DEPTH_24_BIT',
+    'confirm_exit': False,
+}

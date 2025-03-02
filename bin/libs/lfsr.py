@@ -2266,23 +2266,22 @@ class Lfsr:
     oldVal = self._baValue
     size = self._size
     FSA = create2DArray(size, size, None)
-    value0 = bitarray(size)
-    value0.setall(0)
+    value0 = bau.zeros(size)
     value0[0] = 1
     for i in range(size):
       self._baValue = value0.copy()
       self.next()
       FSA[0][i] = self._baValue.copy()
       value0 >>= 1 
-    zeros = bitarray(size)
-    zeros.setall(0)
+    rowm1 = FSA[0]
     for r in range(1,size):
-      rowm1 = FSA[r-1]
+      row = FSA[r]
       for c in range(size):
-        res = zeros.copy()
+        res = bau.zeros(size)
         for index in rowm1[c].search(1):
           res ^= rowm1[index]
-        FSA[r][c] = res
+        row[c] = res
+      rowm1 = row
     self._ba_fast_sim_array = FSA
     self._baValue = oldVal
   def rotateTap(self, TapIndex : int, FFs : int, FailIfRotationInvalid = False) -> bool:
@@ -2508,10 +2507,9 @@ class Lfsr:
         self._buildFastSimArray()
       size = self._size
       RowIndex = 0
-      baresult = bitarray(size)
       while steps > 0: 
         if steps & 1:
-          baresult.setall(0)
+          baresult = bau.zeros(size)
           for index in self._baValue.search(1):
             baresult ^= self._ba_fast_sim_array[RowIndex][index]
           self._baValue = baresult.copy()
@@ -2538,7 +2536,7 @@ class Lfsr:
         nval[tap[1]] ^= self._baValue[tap[0]]
       self._baValue = nval
       return self._baValue
-    return bitarray(self._size).setall(0)
+    return bau.zeros(self._size)
     
     
   def toRingWithManuallySpecifiedTaps(self):
