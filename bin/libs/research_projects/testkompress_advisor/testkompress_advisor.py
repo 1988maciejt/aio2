@@ -480,6 +480,38 @@ class TestCube:
     def printScanCells(self, ScanChainCount : int, ScanChainLength : int):
         Aio.print(self.getScanCellsDraw(ScanChainCount, ScanChainLength))
         
+    def visualize(self, PngFileName : str, ScanChainCount : int, ScanChainLength : int) -> bool:
+        from PIL import Image, ImageDraw
+        Space = 1
+        BitHeight = 4
+        BitWidth = 4
+        Width = ScanChainLength * (BitWidth + Space) + Space
+        Height = ScanChainCount * (BitHeight + Space) + Space
+        OneColor = 'red'
+        ZeroColor = 'blue'
+        XColor = 'black'
+        image = Image.new('RGB', (Width, Height), color=(96, 96, 96))
+        draw = ImageDraw.Draw(image)
+        D = self.getScanCycleValues(ScanChainCount, ScanChainLength)
+        for CycleI in range(ScanChainLength):
+            for ScanI in range(ScanChainCount):
+                CycleX = ScanChainLength - CycleI - 1
+                ScanY = ScanChainCount - ScanI - 1
+                x0 = CycleX * (BitWidth + Space) + Space
+                y0 = ScanY * (BitHeight + Space) + Space
+                x1 = x0 + BitWidth -1
+                y1 = y0 + BitHeight -1
+                Val = D[CycleI].get(ScanI, -1)
+                if Val == 1:
+                    color = OneColor
+                elif Val == 0:
+                    color = ZeroColor
+                else:
+                    color = XColor
+                draw.rectangle((x0, y0, x1, y1), fill = color, outline = color)
+        image.save(PngFileName)
+        return True
+
     def mergeWithAnother(self, AnotherCube : TestCube) -> bool:
         if len(self) != len(AnotherCube):
             return False
@@ -586,8 +618,14 @@ class TestCubeSet:
     
     __slots__ = ('_cubes')
     
-    def __init__(self):
+    def __init__(self, CubeOrList = None):
         self._cubes = []
+        if CubeOrList is not None:
+            if type(CubeOrList) in [list, tuple, set]:
+                for Cube in CubeOrList:
+                    self.addCube(Cube)
+            elif type(CubeOrList) is TestCube:
+                self.addCube(CubeOrList)
         
     def __len__(self):
         return len(self._cubes)
@@ -611,12 +649,35 @@ class TestCubeSet:
             start, stop, step = index.start, index.stop, index.step
             Result = TestCubeSet()
             Result._cubes = self._cubes[start:stop:step]
+            Result.recalculateIndices()
             return Result
         else:
             return self._cubes[index]
         
+    def recalculateIndices(self):
+        if self.isIdImplemented():
+            Bias = self._cubes[0].Id
+            for i in range(len(self)):
+                self._cubes[i].Id -= Bias
+        
     def sortById(self):
         self._cubes.sort(key=lambda x: x.Id)
+
+    def getCommonCube(self) -> TestCube:
+        if len(self) == 0:
+            return TestCube()
+        Result = self._cubes[0].copy()
+        for i in range(1, len(self._cubes)):
+            Result._ones_set &= self._cubes[i]._ones_set
+            Result._zeros_set &= self._cubes[i]._zeros_set
+            Result._primary_ones_set &= self._cubes[i]._primary_ones_set
+            Result._primary_zeros_set &= self._cubes[i]._primary_zeros_set
+        Result.Id = -1
+        Result.BufferId = -1
+        Result.PatternId = -1
+        Result.WeightAdder = 0
+        Result.SubCubes = len(self)
+        return Result
         
     def toTable(self, IncludeUnused : bool = True) -> AioTable:
         Result = AioTable(["CubeId", "PatternId", "BufferId", "SpecifiedBits", "FillRate"])
