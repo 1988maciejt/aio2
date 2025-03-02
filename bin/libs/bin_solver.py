@@ -100,29 +100,45 @@ class BinSolver:
             print(f"GAUSS Start =======================")
         ########## NEW ########
         DidSomething = True
+        IIndices = [i for i in range(len(self._equations))]
         while DidSomething:
             DidSomething = False
-            for i in range(len(self._equations)):
+            NewIIndices = set()
+            #for i in range(len(self._equations)):
+            for i in IIndices:
                 Eq0 = self._equations[i]
                 if Eq0.isNotEmpty():
-                    for j in range(len(self._equations)):
+                    #for j in range(len(self._equations)):
+                    for j, Eq1 in enumerate(self._equations):
                         if i == j:
                             continue
-                        Eq1 = self._equations[j]
+                        #Eq1 = self._equations[j]
                         if Eq1._first_one == Eq0._first_one:
                             self._equations[j] = Eq0 + Eq1
                             DidSomething = True
+                            NewIIndices.add(j)
                             if self._equations[j].isInconsistent():
                                 if Verbose:
                                     print(f"INCONSISTENCY FOUND in equation {j}: {self._equations[j]}")
                                 self._gauss_done = False
                                 return False
+            IIndices = NewIIndices
+        self.removeEmpty()
         if Verbose:
             print(f"Fater elimination: ----------")
             print(self)
             print(f"GAUSS End =======================")
         self._gauss_done = True
         return True
+    
+    def removeEmpty(self):
+        toDelete = []
+        for i in range(len(self._equations)):
+            Eq = self._equations[i]
+            if Eq.isEmpty():
+                toDelete.append(i)
+        for i in reversed(toDelete):
+            del self._equations[i]
             
     def solve(self, Verbose : bool = False) -> list:
         if len(self._equations) == 1:
@@ -146,18 +162,15 @@ class BinSolver:
         VarCount = len(self._equations[0])
         Solution = [None for _ in range(VarCount)]
         VarToEqDict = {}
-        for EqI in range(len(self._equations)):
-            Eq = self._equations[EqI]
-            if Eq.isNotEmpty():
-                VarToEqDict[Eq._first_one] = EqI
+        for EqI, Eq in enumerate(self._equations):
+            VarToEqDict[Eq._first_one] = EqI
         if Verbose:
             print(f"VarToEqDict: {VarToEqDict}")
-        for i in range(len(self._equations)):
-            Eq0 = self._equations[i]
-            Var = Eq0._variables.find(1, Eq0.firstOne()+1)
+        for i, Eq0 in enumerate(self._equations):
+            Var = Eq0._variables.find(1, Eq0._first_one+1)
             if Verbose:
                 print(f"Eq0: {Eq0}")
-                print(f"  FirstOne: {Eq0.firstOne()}")
+                print(f"  FirstOne: {Eq0._first_one}")
             while Var > 0:
                 if Verbose:
                     print(f"    Var: {Var}")
@@ -169,23 +182,23 @@ class BinSolver:
                         if Verbose:
                             print(f"INCONSISTENCY (1) FOUND in equation {i}: {self._equations[i]}")
                         return None
+                else:
+                    Solution[Var] = 0
                 Var = Eq0._variables.find(1, Var+1)
         if Verbose:
             print(f"Equations after solving:\n{self}")
             print(f"Addint first var to solution...")
-        for i in range(len(self._equations)):
-            Eq = self._equations[i]
-            if Eq.isNotEmpty():
-                if Solution[Eq._first_one] is None:   
-                    Solution[Eq._first_one] = Eq._value
-                elif Solution[Eq._first_one] != Eq._value:
-                    if Verbose:
-                        print(f"INCONSISTENCY (2) FOUND in equation {i}: {self._equations[i]}")
-                    return None
+        for i, Eq in enumerate(self._equations):
+            if Solution[Eq._first_one] is None:   
+                Solution[Eq._first_one] = Eq._value
+            elif Solution[Eq._first_one] != Eq._value:
+                if Verbose:
+                    print(f"INCONSISTENCY (2) FOUND in equation {i}: {self._equations[i]}")
+                return None
         if Verbose:
             print(f"ActualSolution: {Solution}")
-        for i in range(len(Solution)):
-            if Solution[i] is None:
+        for i, v in enumerate(Solution):
+            if v is None:
                 Solution[i] = 0
         if Verbose:
             print(f"Final solution: {Solution}")
