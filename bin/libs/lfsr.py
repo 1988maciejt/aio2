@@ -2266,6 +2266,7 @@ class Lfsr:
     oldVal = self._baValue
     size = self._size
     FSA = create2DArray(size, size, None)
+    #FSA = numpy.empty((size, size), dtype=object) # slower
     value0 = bau.zeros(size)
     value0[0] = 1
     for i in range(size):
