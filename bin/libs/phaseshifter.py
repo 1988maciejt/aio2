@@ -144,9 +144,9 @@ class PhaseShifter:
         if type(self._my_source) is Lfsr:
             LDict = self._my_source.getDestinationsDictionary(InputConfig)
             Result = {}
-            for i in range(self._size):
+            for i, XOR in enumerate(self._xors):
                 LInputs = []
-                for PInput in self._xors[i]:
+                for PInput in XOR:
                     LInputs += LDict[PInput]
                 Result[i] = LInputs
             return Result

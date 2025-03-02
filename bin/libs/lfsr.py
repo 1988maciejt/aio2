@@ -2426,8 +2426,8 @@ class Lfsr:
         SelfDual = self.getDual()
         def check(This, Others : list) -> bool:
           OList = [bau.zeros(len(self)) for _ in range(len(Others))]
-          for i in range(len(Others)):
-            for x in Others[i]:
+          for i, OthersI in enumerate(Others):
+            for x in OthersI:
               OList[i][x] = 1
           SelfDual._baValue.setall(0)
           for x in This:
