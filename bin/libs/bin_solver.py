@@ -7,6 +7,11 @@ class BinSolverEquation:
     __slots__ = ('_variables', '_value', '_first_one')
     
     def __init__(self, Equation : bitarray, Value : int = None):
+        if type(Equation) is BinSolverEquation:
+            self._variables = Equation._variables.copy()
+            self._value = Equation._value
+            self._first_one = Equation._first_one
+            return
         if type(Equation) is str:
             Equation = bitarray(Equation) 
         if Value is None:
@@ -16,13 +21,15 @@ class BinSolverEquation:
             self._variables = Equation.copy()
             self._value = Value
         self._lookForFirstOne()
+        
+    def copy(self) -> "BinSolverEquation":
+        return BinSolverEquation(self)
             
     def _lookForFirstOne(self):
         try:
             self._first_one = self._variables.index(1)
         except:
             self._first_one = -1
-        
             
     def __len__(self):
         return len(self._variables)
@@ -31,7 +38,7 @@ class BinSolverEquation:
         return f"{str(self._variables)[10:-2]}={str(self._value)}"
     
     def __repr__(self):
-        return f"BinSolverEquation('{str(self._variables)[10:-2]}{str(self._value)}')"
+        return f"BinSolverEquation('{str(self._variables)[10:-2]}', {str(self._value)})"
             
     def isInconsistent(self) -> bool:
         return True if ((self._first_one == -1) and (self._value)) else False
@@ -47,6 +54,15 @@ class BinSolverEquation:
             Aio.printError("Both equations must have the same number of variables")
             return None
         return BinSolverEquation(self._variables ^ Other._variables, (self._value ^ Other._value))
+    
+    def xorWith(self, Another : "BinSolverEquation"):
+        self._xorWith(Another)
+        
+    def _xorWith(self, Another : "BinSolverEquation", RecalculateFirst : bool = True):
+        self._variables ^= Another._variables
+        self._value ^= Another._value
+        if RecalculateFirst:
+            self._lookForFirstOne()
     
     def firstOne(self) -> int:
         return self._first_one
@@ -67,8 +83,32 @@ class BinSolver:
     
     def __init__(self, Equations : list):
         """Equations must be a list of BinSolverEquation objects, having the same num of variables"""
-        self._equations = Equations.copy()
+        if type(Equations) is list:
+            self._equations = Equations.copy()
+        elif type(Equations) in [set, tuple]:
+            self._equations = list(Equations.copy())
+        elif type(Equations) is BinSolver:
+            self._equations = Equations._equations.copy()
+        else:
+            Aio.printError(f"{type(Equations)} is not a valid type for equations")
         self._gauss_done = False
+        
+    def copy(self) -> "BinSolver":
+        Result = BinSolver([])
+        for Eq in self._equations:
+            Result._equations.append(Eq.copy())
+        Result._gauss_done = self._gauss_done
+        return Result
+        
+    def addEquation(self, Equation : BinSolverEquation):
+        if type(Equation) is BinSolverEquation:
+            self._equations.append(Equation)
+            self._gauss_done = False
+        elif type(Equation) in [list, tuple, set]:
+            for Eq in Equation:
+                self.addEquation(Eq)
+        else:
+            Aio.printError(f"{type(Equation)} is not a valid type for an equation")
         
     def __len__(self):
         return len(self._equations)
@@ -78,6 +118,9 @@ class BinSolver:
     
     def __repr__(self):
         return f"BinSolver({[repr(Eq)+',' for Eq in self._equations]})"
+    
+    def sortEquations(self):
+        self._equations.sort(key=lambda Eq: Eq._first_one)
         
     def getIndexesOfEquationsHavingSpecifiedFirstOne(self) -> list:
         if len(self._equations) < 1:
@@ -98,42 +141,72 @@ class BinSolver:
             return False
         if Verbose:
             print(f"GAUSS Start =======================")
-        ########## NEW ########
+        # NEW
+        if Verbose:
+            print(f"Before elimination: ----------")
+            print(self)
         DidSomething = True
-        IIndices = [i for i in range(len(self._equations))]
         while DidSomething:
+            self.sortEquations()
             DidSomething = False
-            NewIIndices = set()
-            #for i in range(len(self._equations)):
-            for i in IIndices:
-                Eq0 = self._equations[i]
+            NewPivots = set()
+            ToBeRemoved = []
+            if Verbose:
+                print(f"Before iteration: ----------")
+                print(self)
+            for i, Eq0 in enumerate(self._equations):
+                if (i in NewPivots):
+                    continue
                 if Eq0.isNotEmpty():
-                    #for j in range(len(self._equations)):
-                    for j, Eq1 in enumerate(self._equations):
-                        if i == j:
-                            continue
-                        #Eq1 = self._equations[j]
+                    for j in range(i+1, len(self._equations)):
+                        Eq1 = self._equations[j]
                         if Eq1._first_one == Eq0._first_one:
-                            self._equations[j] = Eq0 + Eq1
+                            Eq1._xorWith(Eq0,1)
                             DidSomething = True
-                            NewIIndices.add(j)
+                            NewPivots.add(j)
                             if self._equations[j].isInconsistent():
                                 if Verbose:
                                     print(f"INCONSISTENCY FOUND in equation {j}: {self._equations[j]}")
                                 self._gauss_done = False
                                 return False
-            IIndices = NewIIndices
-        self.removeEmpty()
+                        else:
+                            break
+                else:
+                    ToBeRemoved.append(i)
+            if Verbose:
+                print(f"Before cleaning: ----------")
+                print(self)
+            for i in reversed(ToBeRemoved):
+                del self._equations[i]
+            if Verbose:
+                print(f"After iteration: ----------")
+                print(self)
+        if not self.removeEmptyAndCheckInconsistencies():
+            if Verbose:
+                print(f"INCONSISTENCY FOUND")
+            self._gauss_done = False
+            return False
         if Verbose:
-            print(f"Fater elimination: ----------")
+            print(f"After elimination: ----------")
             print(self)
             print(f"GAUSS End =======================")
         self._gauss_done = True
         return True
     
+    def removeEmptyAndCheckInconsistencies(self) -> bool:
+        toDelete = []
+        for i, Eq in enumerate(self._equations):
+            if Eq._first_one < 0:
+                if Eq._value:
+                    return False
+                toDelete.append(i)
+        for i in reversed(toDelete):
+            del self._equations[i]
+        return True
+            
     def removeEmpty(self):
         toDelete = []
-        for i in range(len(self._equations)):
+        for i, Eq in enumerate(self._equations):
             Eq = self._equations[i]
             if Eq.isEmpty():
                 toDelete.append(i)
@@ -172,12 +245,13 @@ class BinSolver:
                 print(f"Eq0: {Eq0}")
                 print(f"  FirstOne: {Eq0._first_one}")
             while Var > 0:
-                if Verbose:
-                    print(f"    Var: {Var}")
                 RefEqI = VarToEqDict.get(Var, None)
                 if RefEqI is not None:
+                    if Verbose:
+                        print(f"    Var: {Var}")
                     RefEq = self._equations[RefEqI]
-                    self._equations[i] = Eq0 + RefEq
+                    #self._equations[i] = Eq0 + RefEq
+                    Eq0._xorWith(RefEq, 0)
                     if self._equations[i].isInconsistent():
                         if Verbose:
                             print(f"INCONSISTENCY (1) FOUND in equation {i}: {self._equations[i]}")

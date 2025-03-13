@@ -40,5 +40,6 @@ python3 -m pip install --upgrade gensim
 python3 -m pip install --upgrade nltk
 python3 -m pip install --upgrade python-docx
 python3 -m pip install --upgrade PyMuPDF
+python3 -m pip install --upgrade galois
 
 # pip3 install pyqt5 pyqt5-tools

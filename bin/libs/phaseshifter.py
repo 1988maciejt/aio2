@@ -21,6 +21,11 @@ class PhaseShifter:
     _size = 0
     _bavalue = None
     
+    def copy(self) -> PhaseShifter:
+        Result = PhaseShifter(self._my_source, self._xors.copy())
+        Result._bavalue = self._bavalue.copy()
+        return Result
+    
     def createRandom(SourceObject, OutputsCount : int, MinXorInputs : int, MaxXorInputs : int) -> PhaseShifter:
         InputSize = SourceObject.getSize()    
         R = Random()

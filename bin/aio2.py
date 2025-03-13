@@ -29,6 +29,7 @@ _required_libs = [
   "g4f",
   "gensim",
   "nltk",
+  "galois",
 ]
 def _isModuleAvailable(LibName : str) -> bool:
   try:

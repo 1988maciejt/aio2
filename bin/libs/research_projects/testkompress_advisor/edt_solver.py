@@ -18,6 +18,15 @@ class DecompressorSolver:
         self._input_config = InputConfig
         self._scan_cell_equations = None
         
+    def copy(self) -> "DecompressorSolver":
+        NewLfsr = self._lfsr.copy()
+        NewPS = self._phase_shifter.copy()
+        NewPS.setSourceObject(NewLfsr)
+        Result = DecompressorSolver(NewLfsr, NewPS, self._scan_length, self._initial_phase_len, self._input_config.copy())
+        if self._scan_cell_equations is not None:
+            Result._scan_cell_equations = self._scan_cell_equations.copy()
+        return Result
+        
     def __str__(self):
         Result = "DecompressorSolver {\n"
         Result += f"  INPUTS ({len(self._input_config)}):\n"
@@ -50,7 +59,6 @@ class DecompressorSolver:
         ScanLen = 0
         for Line in Generators().readFileLineByLine(FileName):
             if State == 0:
-                
                 R = re.search(r"\/\/\s*Shift\s*cycles\s*:\s*([0-9]+),\s*([0-9]+)", Line)
                 if R:
                     ShiftCycles = int(R.group(1))
@@ -193,6 +201,64 @@ class DecompressorSolver:
             Result[PosInScan] = Result.get(PosInScan, 0) + 1
         return Result
     
+    def getEquations(self, Pattern : TestKompressAdvisor.TestCube) -> list:
+        if self._scan_cell_equations is None:
+            self.createEquationBase()
+        if len(Pattern) > self.getPatternLength():
+            Aio.printError(f"Pattern length is greater than the expected {self.getPatternLength()}")
+            return None
+        SpecValues = Pattern.getSpecifiedScanCellValues(self.getScanChainCount(), self.getScanLength())
+        if len(SpecValues) < 1:
+            return []
+        Equations = []
+        for SpecValue in SpecValues:
+            SI = SpecValue[0]
+            CI = SpecValue[1]
+            V = SpecValue[2]
+            Equation = BinSolverEquation(self._scan_cell_equations[SI][CI], V)
+            Equations.append(Equation)
+        return Equations
+    
+    def getEquationSystemForPattern(self, Pattern : TestKompressAdvisor.TestCube) -> BinSolver:
+        if self._scan_cell_equations is None:
+            self.createEquationBase()
+        if len(Pattern) > self.getPatternLength():
+            Aio.printError(f"Pattern length is greater than the expected {self.getPatternLength()}")
+            return None
+        SpecValues = Pattern.getSpecifiedScanCellValues(self.getScanChainCount(), self.getScanLength())
+        Equations = []
+        for SpecValue in SpecValues:
+            SI = SpecValue[0]
+            CI = SpecValue[1]
+            V = SpecValue[2]
+            Equation = BinSolverEquation(self._scan_cell_equations[SI][CI], V)
+            Equations.append(Equation)
+        return BinSolver(Equations)
+    
+    def addEquationsDueToCubeMerging(self, Solver : BinSolver, Pattern : TestKompressAdvisor.TestCube) -> BinSolver:
+        if self._scan_cell_equations is None:
+            self.createEquationBase()
+        if len(Pattern) > self.getPatternLength():
+            Aio.printError(f"Pattern length is greater than the expected {self.getPatternLength()}")
+            return None
+        Result = Solver.copy()
+        SpecValues = Pattern.getSpecifiedScanCellValues(self.getScanChainCount(), self.getScanLength())
+        for SpecValue in SpecValues:
+            SI = SpecValue[0]
+            CI = SpecValue[1]
+            V = SpecValue[2]
+            Equation = BinSolverEquation(self._scan_cell_equations[SI][CI], V)
+            Result.addEquation(Equation)
+        return Result
+        
+    def isCompressableBasingOnEqSystem(self, Solver : BinSolver, Verbose : bool = False) -> bool:
+        Result = Solver.solve(Verbose=Verbose)
+        ResToRet = False if Result is None else True
+        if Verbose:
+            print(f"Result of sloving: {Result}")
+            print(f"Is compressable: {ResToRet} =========================")
+        return ResToRet
+    
     def isCompressable(self, Pattern : TestKompressAdvisor.TestCube, Verbose : bool = False, *args, **kwargs) -> bool:
         if self._scan_cell_equations is None:
             self.createEquationBase()
@@ -225,7 +291,7 @@ class DecompressorSolver:
         return ResToRet
             
     def getDecompressorForBatteryModelEstimations(self) -> TestKompressAdvisor.TestDataDecompressor:
-        Result = TestKompressAdvisor.TestDataDecompressor(self.getInputCount(), self.getScanChainCount(), self.getLfsrLength(), self.getScanLength())
+        Result = TestKompressAdvisor.TestDataDecompressor(self.getInputCount(), self.getScanChainCount(), self.getLfsrLength(), self.getScanLength(), 0.25)
         return Result
     
     def getCompressable(self, Patterns : TestKompressAdvisor.TestCubeSet) -> TestKompressAdvisor.TestCubeSet:

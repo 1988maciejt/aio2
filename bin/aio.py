@@ -2,6 +2,7 @@ import ast
 import shutil
 import copy
 import cython
+import galois
 import gc
 import os
 import inspect
