@@ -29,7 +29,7 @@ class TestDataDecompressor:
         self.InputCount = InputCount
         self.OutputCount = OutputCount
         self.LfsrLength = LfsrLength
-        self _MaximumSpecifiedBitPerCycleToBeCompressable = None
+        self._MaximumSpecifiedBitPerCycleToBeCompressable = None
         if type(ScanLength) is int:
             self.ScanLength = ScanLength
         elif type(ScanLength) is TestCube:
@@ -65,9 +65,7 @@ class TestDataDecompressor:
         return int(ceil(self.LfsrLength / self.InputCount))
     
     def getTestDataVolume(self, PatternCount : int = 1) -> int:
-        if self._MaximumSpecifiedBitPerCycleToBeCompressable is None:
-            self._MaximumSpecifiedBitPerCycleToBeCompressable =  self.getTestTime() * self.getInputCount() * PatternCount
-        return self._MaximumSpecifiedBitPerCycleToBeCompressable
+        return self.getTestTime() * self.getInputCount() * PatternCount
     
     def getTestTime(self, PatternCount : int = 1) -> int:
         return (self.getInitialPhaseLength() + self.getScanLength()) * PatternCount
@@ -94,7 +92,9 @@ class TestDataDecompressor:
         return RList    
     
     def getMaximumSpecifiedBitPerCycleToBeCompressable(self) -> int:
-        return int(self.LfsrLength + ((self.ScanLength - 1) * self.InputCount))
+        if self._MaximumSpecifiedBitPerCycleToBeCompressable is None:
+            self._MaximumSpecifiedBitPerCycleToBeCompressable = int(self.LfsrLength + ((self.ScanLength - 1) * self.InputCount))
+        return self._MaximumSpecifiedBitPerCycleToBeCompressable
     
     def getMaximumCubeBitsPerDecompressor(self) -> int:
         return int(self.OutputCount * self.ScanLength)
