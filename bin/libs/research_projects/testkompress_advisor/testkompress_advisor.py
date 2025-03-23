@@ -22,13 +22,14 @@ class EdtStructure:
 
 class TestDataDecompressor:
     
-    __slots__ = ('InputCount', 'OutputCount', 'LfsrLength', 'ScanLength', "MinimumBatteryLevel")
+    __slots__ = ('InputCount', 'OutputCount', 'LfsrLength', 'ScanLength', "MinimumBatteryLevel", "_MaximumSpecifiedBitPerCycleToBeCompressable")
     
     def __init__(self, InputCount : int, OutputCount : int, LfsrLength : int, ScanLength :  int, MinimumBatteryLevel : float = None):
         self.MinimumBatteryLevel = MinimumBatteryLevel
         self.InputCount = InputCount
         self.OutputCount = OutputCount
         self.LfsrLength = LfsrLength
+        self _MaximumSpecifiedBitPerCycleToBeCompressable = None
         if type(ScanLength) is int:
             self.ScanLength = ScanLength
         elif type(ScanLength) is TestCube:
@@ -64,7 +65,9 @@ class TestDataDecompressor:
         return int(ceil(self.LfsrLength / self.InputCount))
     
     def getTestDataVolume(self, PatternCount : int = 1) -> int:
-        return self.getTestTime() * self.getInputCount() * PatternCount
+        if self._MaximumSpecifiedBitPerCycleToBeCompressable is None:
+            self._MaximumSpecifiedBitPerCycleToBeCompressable =  self.getTestTime() * self.getInputCount() * PatternCount
+        return self._MaximumSpecifiedBitPerCycleToBeCompressable
     
     def getTestTime(self, PatternCount : int = 1) -> int:
         return (self.getInitialPhaseLength() + self.getScanLength()) * PatternCount
@@ -73,7 +76,7 @@ class TestDataDecompressor:
         return self.getPatternLength() / self.getTestDataVolume()
     
     def getSpecifiedBitPerCycleDict(self, Cube : TestCube) -> dict:
-        RList = [0 for _ in range(self.ScanLength)]
+        RList = [0] * self.ScanLength
         TCPos = Cube.getSpecifiedBitPositions()
         for Pos in TCPos:
             RList[Pos % self.ScanLength] += 1
@@ -81,15 +84,12 @@ class TestDataDecompressor:
         return Result           
     
     def getSpecifiedBitPerCycleList(self, Cube : TestCube) -> list:
-        RList = [0 for _ in range(self.ScanLength)]
-        #TCPos = Cube.getSpecifiedBitPositions()
-        Lst1 = [x % self.ScanLength for x in Cube._ones_set]
-        Lst0 = [x % self.ScanLength for x in Cube._zeros_set]
-        #for Pos in TCPos:
-        #    RList[Pos % self.ScanLength] += 1
-        for Pos in Lst1:
+        RList = [0] * self.ScanLength
+        lstpos = [x % self.ScanLength for x in Cube._zeros_set]
+        for Pos in lstpos:
             RList[Pos] += 1
-        for Pos in Lst0:
+        lstpos = [x % self.ScanLength for x in Cube._ones_set]
+        for Pos in lstpos:
             RList[Pos] += 1
         return RList    
     
