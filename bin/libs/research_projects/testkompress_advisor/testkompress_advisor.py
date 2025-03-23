@@ -63,8 +63,11 @@ class TestDataDecompressor:
     def getInitialPhaseLength(self) -> int:
         return int(ceil(self.LfsrLength / self.InputCount))
     
-    def getTestDataVolume(self) -> int:
-        return (self.ScanLength + self.getInitialPhaseLength()) * self.getInputCount()
+    def getTestDataVolume(self, PatternCount : int = 1) -> int:
+        return self.getTestTime() * self.getInputCount() * PatternCount
+    
+    def getTestTime(self, PatternCount : int = 1) -> int:
+        return (self.getInitialPhaseLength() + self.getScanLength()) * PatternCount
     
     def getCompressionRatio(self) -> float:
         return self.getPatternLength() / self.getTestDataVolume()
