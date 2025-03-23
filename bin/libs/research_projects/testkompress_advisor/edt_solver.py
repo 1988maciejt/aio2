@@ -79,7 +79,7 @@ class DecompressorSolver:
                     Txt = R.group(2)
                     Txt = Txt.replace("   ", "  ")
                     Txt = Txt.replace("  ", " ")
-                    InputChannels.append([int(x) for x in Txt.split(" ")])
+                    InputChannels.append([((int(x)-2) % LfsrLen) for x in Txt.split(" ")])
                     continue
                 R = re.search(r"\/\/\s*Feedback\s*connections\s*:", Line)
                 if R:
@@ -124,52 +124,44 @@ class DecompressorSolver:
         VarCount = self.getTestDataVolume()
         CycleCount = self.getTestTime()
         LfsrDestDict = self._lfsr.getDestinationsDictionary(self._input_config)
-        FFs = [bau.zeros(VarCount) for _ in range(len(self._lfsr))]
-        InputCount = len(self._input_config)
-        InputAdder = 0
-        ScanChainCells = [[bau.zeros(VarCount) for _ in range(self._scan_length)]  for _ in range(len(self._phase_shifter))]
         if Verbose:
             print(f"LfsrDestDict: {LfsrDestDict}")
+        FFs = [bau.zeros(VarCount) for _ in range(len(self._lfsr))]
+        InputCount = len(self._input_config)
+        Xors = self._phase_shifter.getXors()
+        ScanChainCells = [[bau.zeros(VarCount) for _ in range(self._scan_length)]  for _ in range(len(self._phase_shifter))]
         ScanChainCycle = 0
-        for Cycle in range(CycleCount):
+        for Cycle in range(CycleCount-1):
             if Verbose:
                 print(f"Cycle: {Cycle} ----------------------")
             FFsNew = [bau.zeros(VarCount) for _ in range(len(self._lfsr))]
             for FFDest in range(len(FFs)):
-                if Verbose:
-                    print(f"  FFDest: {FFDest}")
-                for Val in LfsrDestDict[FFDest]:
-                    if Verbose:
-                        print(f"    Val: {Val}")
-                    if type(Val) is tuple:
-                        if Verbose:
-                            print(f"    {FFsNew[FFDest]} -> ", end="")
-                        FFsNew[FFDest][Val[0] + InputAdder] ^= 1
-                        if Verbose:
-                            print(f"{FFsNew[FFDest]}")
+                for LIndex in LfsrDestDict[FFDest]:
+                    if type(LIndex) is tuple:
+                        FFsNew[FFDest][(Cycle * InputCount) + LIndex[0]] ^= 1
                     else:
-                        if Verbose:
-                            print(f"    {FFsNew[FFDest]} ^ {FFs[Val]} ->", end="")
-                        FFsNew[FFDest] ^= FFs[Val]
-                        if Verbose:
-                            print(f"{FFsNew[FFDest]}")
+                        FFsNew[FFDest] ^= FFs[LIndex]
             FFs = FFsNew
-            InputAdder += InputCount
+            PS = [bau.zeros(VarCount) for _ in range(len(Xors))]
+            for PSi, Xor in enumerate(Xors):
+                for Xori in Xor:
+                    PS[PSi] ^= FFs[Xori]
             if Verbose:
                 print(f"FFs: {FFs}")
-            if Cycle>= self._initial_phase_len:
+                print(f"PS: {PS}")
+            if Cycle >= (self._initial_phase_len-1):
                 if Verbose:
-                    print(f"  TO_SCAN_CHAINS {ScanChainCycle}")
-                Xors = self._phase_shifter.getXors()
-                for ScanIndex in range(len(self._phase_shifter)):
-                    for XorIn in Xors[ScanIndex]:
-                        ScanChainCells[ScanIndex][ScanChainCycle] ^= FFs[XorIn]
-                if Verbose:
-                    for ScanIndex in range(len(self._phase_shifter)):
-                        print(f"  SCAN {ScanIndex}: {ScanChainCells[ScanIndex]}")
+                    print(f"ScanChainCycle: {ScanChainCycle}")
+                for ScanChainIndex, CellVal in enumerate(PS):
+                    ScanChainCells[ScanChainIndex][ScanChainCycle] = CellVal.copy()
                 ScanChainCycle += 1
+            else:
+                if Verbose:
+                    print(f"// initial cycle (-1)")
         self._scan_cell_equations = ScanChainCells
         if Verbose:
+            print("Resultant equations [chain][cycle]")
+            print(self._scan_cell_equations)
             print(f"EQUATION BASE End =========================")
             
     def getPatternLength(self) -> int:

@@ -281,7 +281,7 @@ Decompressors: [
 
 class TestCube:
     
-    __slots__ = ('_len', '_ones_set', '_zeros_set', '_primary_zeros_set', '_primary_ones_set', 'Id', 'PatternId', 'BufferId', "WeightAdder", "SubCubes")
+    __slots__ = ('_len', '_ones_set', '_zeros_set', '_primary_zeros_set', '_primary_ones_set', 'Id', 'PatternId', 'BufferId', "WeightAdder", "SubCubes", "BufferSize")
         
     @staticmethod
     def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5, ExactFillRate : bool = False) -> TestCube:
@@ -297,7 +297,7 @@ class TestCube:
             Result.setBit(randint(0, Length-1), 1 if random() < P1 else 0)
         return Result
     
-    def __init__(self, SpecifiedBits : str = '', TestCubeLenIfDictImplementation : int = 0, Id : int = -1, PatternId : int = -1, BufferId : int = -1):
+    def __init__(self, SpecifiedBits : str = '', TestCubeLenIfDictImplementation : int = 0, Id : int = -1, PatternId : int = -1, BufferId : int = -1, BufferSize : int = -1):
         self._ones_set = set()
         self._zeros_set = set()
         self._primary_ones_set = set()
@@ -307,6 +307,7 @@ class TestCube:
         self.BufferId = int(BufferId)
         self.WeightAdder = 0
         self.SubCubes = 0
+        self.BufferSize = BufferSize
         self._len = TestCubeLenIfDictImplementation
         if type(SpecifiedBits) is str and len(SpecifiedBits) > 0:
             self.setBits(SpecifiedBits)
@@ -325,6 +326,7 @@ class TestCube:
             self.PatternId = SpecifiedBits.PatternId
             self.WeightAdder = SpecifiedBits.WeightAdder
             self.SubCubes = SpecifiedBits.SubCubes
+            self.BufferSize = SpecifiedBits.BufferSize
             
     def __len__(self):
         return self._len
@@ -483,6 +485,9 @@ class TestCube:
                 
     def getFillRate(self) -> float:
         return (len(self._ones_set) + len(self._zeros_set)) / len(self)
+    
+    def getSpecifiedBitCount(self) -> int:
+        return (len(self._ones_set) + len(self._zeros_set))
         
     def getSpecifiedBitPositions(self) -> list:
         return list(self._ones_set | self._zeros_set)
@@ -687,6 +692,72 @@ class TestCubeSet:
         else:
             return self._cubes[index]
         
+    def splitIntoSubSetsBasingOnSpecifiedBitCount(self) -> dict:
+        Result = {}
+        for Cube in set(self._cubes):
+            Count = Cube.getSpecifiedCount()
+            Set = Result.get(Count, TestCubeSet())
+            Set.addCube(Cube)
+            Result[Count] = Set
+        return Result
+    
+    def calibrateBatteryLevelAssumingAllCompressible(self, edt : EdtStructure, PerFillRate : bool = False, Resolution : float = 0.001):
+        if PerFillRate:
+            MaxLevels = self.getMaximumBatteryLevelAssumingAllCompressible(edt, PerFillRate=True, Resolution=Resolution)
+            Result = {}
+            LastMax = 1
+            for Key in sorted(MaxLevels.keys()):
+                MaxVal = MaxLevels[Key]
+                if MaxVal < LastMax:
+                    Result[Key] = MaxVal
+                    LastMax = MaxVal
+            return Result
+        else:
+            from math import floor
+            return floor(0.99 * self.getMaximumBatteryLevelAssumingAllCompressible(edt, Resolution=Resolution) / Resolution) * Resolution
+    
+    def getMaximumBatteryLevelAssumingAllCompressible(self, edt : EdtStructure, PerFillRate : bool = False, Resolution : float = 0.001):
+        if PerFillRate:
+            Dict = self.splitIntoSubSetsBasingOnSpecifiedBitCount()
+            Result = {}
+            from tqdm import tqdm
+            for key in tqdm(list(sorted(Dict.keys()))):
+                if key == 0:
+                    continue
+                Tc = Dict[key]
+                Level = Tc.getMaximumBatteryLevelAssumingAllCompressible(edt, Resolution=Resolution)
+                Result[key] = Level
+            AioShell.removeLastLine()
+            return Result
+        else:
+            Level = 0.0
+            Tc = self.softCopy()
+            Edt = edt.copy()
+            Diff = 0.5
+            Level = 0.5
+            TooRestrictive = True
+            while Diff >= Resolution:
+                Diff /= 2
+                Edt.MinimumBatteryLevel = Level
+                Tc = self.softCopy()
+                Tc.removeNotCompressable(Edt)
+                if len(Tc) < len(self):
+                    TooRestrictive = True
+                    Level -= Diff
+                else:
+                    TooRestrictive = False
+                    Level += Diff
+            while TooRestrictive and Level > 0:
+                Level -= Resolution
+                Edt.MinimumBatteryLevel = Level
+                Tc = self.softCopy()
+                TooRestrictive = False
+                if len(Tc) < len(self):
+                    TooRestrictive = True
+            from math import floor
+            return floor(Level / Resolution) * Resolution
+                
+        
     def recalculateIndices(self):
         if self.isIdImplemented():
             Bias = self._cubes[0].Id - 1
@@ -819,7 +890,7 @@ class TestCubeSet:
         PatternId = -1
         BufferId = -1
         OldMask = 0
-        BuffSizePerPattern = None
+        BuffSizePerPattern = 0
         def checkResult():        
             if Cube is not None:
                 Result.addCube(Cube)
@@ -841,19 +912,23 @@ class TestCubeSet:
             if RecalculateIndices:
                 Result.recalculateIndices()
         for Line in Generators().readFileLineByLine(FileName):
-            R = re.search(r"num_test_cubes\s*[:=]\s*([0-9]+)", Line)
+            R = re.search(r"num_test_cubes\s*[:=]\s*([0-9]+)\s*\(always\)", Line)
             if R:
-                BuffSizePerPattern = int(R.group(1))
+                BuffSizePerPatternThis = int(R.group(1))
+                if BuffSizePerPatternThis > BuffSizePerPattern:
+                    BuffSizePerPattern = BuffSizePerPatternThis
+                Result.BufferSize.append(BuffSizePerPattern)
                 continue
-            R = re.search(r"cube\s*pool\s*size\s*[=:]*\s*([0-9]+)", Line)
+            R = re.search(r"[:]\s*test\s*cube\s*pool\s*size\s*[=:]*\s*([0-9]+)", Line)
             if R:
-                checkResult()
-                Cube = None
-                if len(Result) > 0:
-                    ResultList.append(Result)
-                Result = TestCubeSet()
-                #Result.BufferSize = int(R.group(1))
-                Result.BufferSize = []
+            #    checkResult()
+            #    Cube = None
+            #    if len(Result) > 0:
+            #        ResultList.append(Result)
+            #    Result = TestCubeSet()
+            #    for _ in range(64):
+            #        Result.BufferSize.append(int(R.group(1)))
+            #    Result.BufferSize = []
                 continue
             R = re.search(r"EDT\s*abort\s*limit\s*[=:]*\s*([0-9]+)", Line)
             if R:
@@ -863,7 +938,7 @@ class TestCubeSet:
             if R:
                 Mask = int(R.group(2))
                 if Mask != OldMask:
-                    Result.BufferSize.append(BuffSizePerPattern)
+                    #Result.BufferSize.append(BuffSizePerPattern)
                     PatternId += 1
                     if Mask == 1:
                         BufferId += 1
@@ -877,7 +952,7 @@ class TestCubeSet:
             if R:
                 if Cube is not None:
                     Result.addCube(Cube)
-                Cube = TestCube(CubeLength, Id=Id, PatternId=PatternId, BufferId=BufferId)
+                Cube = TestCube(CubeLength, Id=Id, PatternId=PatternId, BufferId=BufferId, BufferSize=BuffSizePerPattern)
                 continue
             R = re.search(r"TDVE[:]*\s*([-0-9]+)\s+([0-9]+)\s([0-9]+)", Line)
             if R:
@@ -980,7 +1055,7 @@ class TestCubeSet:
         Result = TestCubeSet()
         Result.BufferSize = self.BufferSize
         Result.CompressionFailLimit = self.CompressionFailLimit
-        Result._cubes = self._cubes
+        Result._cubes = self._cubes.copy()
         return Result
 
     def getWeightedLen(self) -> int:
@@ -1194,6 +1269,8 @@ class TestCubeSet:
             CubeIdImplemented = False
             Buffer._cubes = self._cubes[0:BufferLength[0]]
         index = BufferLength[0]
+        if Verbose:
+            BuffLenAtTheBeginningOfRound = Buffer.getWeightedLen()
         if CombinedCompressionChecking:
             Patterns, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, CompressabilityLimit, Verbose, OnlyPatternCount)
         else:
@@ -1211,18 +1288,23 @@ class TestCubeSet:
             if CubeIdImplemented:
                 print(f"// Using CubeId //")
             if OnlyPatternCount:
-                print(f"Furst round finished. BufferLen: {BufferLength[0]} -> {Buffer.getWeightedLen()} ({len(Buffer)} items), PatternsLen={Patterns}")
+                print(f"Furst round finished. BufferLen: {BuffLenAtTheBeginningOfRound} -> {Buffer.getWeightedLen()} ({len(Buffer)} items), PatternsLen={Patterns}")
             else:
-                print(f"Furst round finished. BufferLen: {BufferLength[0]} -> {Buffer.getWeightedLen()} ({len(Buffer)} items), PatternsLen={len(Patterns)}")
+                print(f"Furst round finished. BufferLen: {BuffLenAtTheBeginningOfRound} -> {Buffer.getWeightedLen()} ({len(Buffer)} items), PatternsLen={len(Patterns)}")
         while index < len(self):
             BufferLenIndex += 1 
             if BufferLenIndex >= len(BufferLength):
                 BufferLenIndex = len(BufferLength) - 1
             if CubeIdImplemented:
+                NewBufferLen = BufferLength[BufferLenIndex]
                 try:
-                    LastId = Buffer._cubes[-1].Id + BufferLength[BufferLenIndex] - Buffer.getWeightedLen()  #- len(Buffer._cubes)  
+                    #if Buffer._cubes[0].BufferSize > 0:
+                    #    NewBufferLen = Buffer._cubes[0].BufferSize
+                    LastId = Buffer._cubes[-1].Id + NewBufferLen - Buffer.getWeightedLen()  #- len(Buffer._cubes)  
                 except:
-                    LastId = self._cubes[SearchFromIdx].Id + BufferLength[BufferLenIndex]
+                    #if self._cubes[SearchFromIdx].BufferSize > 0:
+                    #    NewBufferLen = self._cubes[SearchFromIdx].BufferSize
+                    LastId = self._cubes[SearchFromIdx].Id + NewBufferLen
                 From = SearchFromIdx
                 for k in range(SearchFromIdx, len(self._cubes)):
                     if self._cubes[k].Id >= LastId:
@@ -1230,9 +1312,18 @@ class TestCubeSet:
                         index = SearchFromIdx
                         break
                 Buffer._cubes += self._cubes[From:SearchFromIdx]
-                CompressabilityLimit = CompLimit0 * len(Buffer) // BufferLength[BufferLenIndex]
+                CompressabilityLimit = CompLimit0 * len(Buffer) // NewBufferLen
             else:
-                HowManyToAdd = BufferLength[BufferLenIndex] - len(Buffer)
+                #NewBufferLen = BufferLength[BufferLenIndex]
+                #if len(Buffer) > 0:
+                #    if Buffer._cubes[0].BufferSize > 0:
+                #        NewBufferLen = Buffer._cubes[0].BufferSize
+                #else:
+                #    try:
+                #        if self._cubes[index].BufferSize > 0:
+                #            NewBufferLen = self._cubes[index].BufferSize
+                #    except: pass
+                HowManyToAdd = NewBufferLen - len(Buffer)
                 Buffer._cubes += self._cubes[index:index+HowManyToAdd]
                 index += HowManyToAdd
             if len(Buffer) <= 0:
