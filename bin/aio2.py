@@ -72,9 +72,17 @@ if len(sys.argv) > 1:
 def _tc(filename="driver.py"):
   SFile = filename
   if "driver.py" in SFile:
-    shutil.rmtree("results", ignore_errors=True)
-    os.makedirs("results")
-    Aio.shellExecute("mkdir -p references")
+    try:
+      shutil.rmtree("results", ignore_errors=True)
+    except:
+      Aio.printError("Error removing 'results' directory.")
+      exit()
+    try:
+      os.makedirs("results")
+    except:
+      Aio.printError("Error creating 'results' directory.")
+      exit()
+#    Aio.shellExecute("mkdir -p references")
     os.chdir("results")
     SFile = "../" + SFile
     sys.path.append("../data")

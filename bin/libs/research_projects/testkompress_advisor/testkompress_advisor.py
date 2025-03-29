@@ -552,9 +552,9 @@ class TestCube:
     def mergeWithAnother(self, AnotherCube : TestCube) -> bool:
         if len(self) != len(AnotherCube):
             return False
-        if len(self._ones_set & AnotherCube._zeros_set) > 0 or len(self._zeros_set & AnotherCube._ones_set) > 0:
-            return False
         if len(self._primary_ones_set & AnotherCube._primary_zeros_set) > 0 or len(self._primary_zeros_set & AnotherCube._primary_ones_set) > 0:
+            return False
+        if len(self._ones_set & AnotherCube._zeros_set) > 0 or len(self._zeros_set & AnotherCube._ones_set) > 0:
             return False
         self._ones_set |= AnotherCube._ones_set
         self._zeros_set |= AnotherCube._zeros_set
@@ -565,9 +565,9 @@ class TestCube:
     def canBeMergedWithAnother(self, AnotherCube : TestCube) -> bool:
         if len(self) != len(AnotherCube):
             return False
-        if len(self._ones_set & AnotherCube._zeros_set) > 0 or len(self._zeros_set & AnotherCube._ones_set) > 0:
-            return False
         if len(self._primary_ones_set & AnotherCube._primary_zeros_set) > 0 or len(self._primary_zeros_set & AnotherCube._primary_ones_set) > 0:
+            return False
+        if len(self._ones_set & AnotherCube._zeros_set) > 0 or len(self._zeros_set & AnotherCube._ones_set) > 0:
             return False
         return True
     
@@ -1544,16 +1544,61 @@ class DecompressorUtils:
         return Result
     
     @staticmethod
-    def getEdtInfoFromFile(FileName : str) -> dict:
+    def getDesignInfoFromFIle(FileName : str) -> dict:
         Result = {}
         for Line in Generators().readFileLineByLine(FileName):
+            R = re.search(r"FU\s*\(full\)\s*([0-9]+)", Line)
+            if R:
+                Result["TotalFaults"] = int(R.group(1))
+                continue
+            R = re.search(r'simulated_patterns\s+([0-9]+)', Line)
+            if R:
+                Result["SimulatedPatterns"] = int(R.group(1))
+                continue
+            R = re.search(r"scan_chains\s*[=:]\s*([0-9]+)", Line)
+            if R:
+                Result["ScanChains"] = int(R.group(1))
+                continue
             R = re.search(r"scan_length\s*[=:]\s*([0-9]+)", Line)
             if R:
                 Result["ScanLength"] = int(R.group(1))
                 continue
+        try:
+            Result["ScanCells"] = Result["ScanChains"] * Result["ScanLength"]
+        except: pass
+        return Result
+    
+    @staticmethod
+    def getTableOfDesignInfoFromFiles(FileNames : list, RowTitles : list = None) -> AioTable:
+        return AioTable.fromSetOfFiles(FileNames, {
+                                    "TotalFaults": r"FU\s*\(full\)\s*([0-9]+)",
+                                    "SimulatedPatterns": r'simulated_patterns\s+([0-9]+)',
+                                    "ScanChains": r"scan_chains\s*[=:]\s*([0-9]+)",
+                                    "ScanLength": r"scan_length\s*[=:]\s*([0-9]+)"
+                                }, RowTitles)
+        
+    @staticmethod
+    def getTableOfEdtInfoFromFiles(FileNames : list, RowTitles : list = None) -> AioTable:
+        return AioTable.fromSetOfFiles(FileNames, {
+                                    "InputChannels": r"input_channels\s*[=:]\s*([0-9]+)",
+                                    "lfsr": r"decompressor_size\s*[=:]\s*([0-9]+)",
+                                    "ScanChains": r"scan_chains\s*[=:]\s*([0-9]+)",
+                                    "ScanLength": r"scan_length\s*[=:]\s*([0-9]+)",
+                                    "BufferSize": r"cube\s*pool\s*size\s*[=:]\s*([0-9]+)",
+                                    "CompressionFailLimit": r"EDT\s*abort\s*limit\s*[=:]\s*([0-9]+)"
+                                }, RowTitles)
+    
+    @staticmethod
+    def getEdtInfoFromFile(FileName : str) -> dict:
+        Result = {}
+        for Line in Generators().readFileLineByLine(FileName):
             R = re.search(r"input_channels\s*[=:]\s*([0-9]+)", Line)
             if R:
                 Result["InputChannels"] = int(R.group(1))
+                continue
+            R = re.search(r"scan_length\s*[=:]\s*([0-9]+)", Line)
+            if R:
+                Result["ScanLength"] = int(R.group(1))
                 continue
             R = re.search(r"scan_chains\s*[=:]\s*([0-9]+)", Line)
             if R:
@@ -1579,7 +1624,40 @@ class DecompressorUtils:
         except: pass
         return Result
     
+    @staticmethod
+    def preparseLogs(FileNames : list):
+        """for each log file writes object, gzipped file <Filename>.preparsed_rs contaning a dictionary:
+        {
+            "tc": TestCUbeSet,
+            "edt": EdtStructure,
+            "sol": DecompressorSolver,
+            "faults": TotalFaultCount,
+            "patterns": PatternCount,
+        )"""
+        from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver
+        from libs.files import File
+        def single(FileName):
+            try:
+                di = DecompressorUtils.getDesignInfoFromFIle(FileName)
+                Result = {
+                    "tc": TestCubeSet.fromFile(FileName),
+                    "edt": EdtStructure.fromFile(FileName),
+                    "sol": DecompressorSolver.fromFile(FileName),
+                    "faults": di["TotalFaults"],
+                    "patterns": di["SimulatedPatterns"]
+                }
+                File.writeObject(FileName + ".preparsed_rs", Result, True)
+                return None
+            except Exception as e:
+                return FileName + " " + str(e)
+        for i in p_uimap(single, FileNames):
+            if i is not None:
+                Aio.printError(i)
+        AioShell.removeLastLine()
+
 class TestCubeSetUtils:
+    
+    preparseLogs = DecompressorUtils.preparseLogs
     
     @staticmethod
     def getBufferSizeListFromFile(FileName : str) -> list:

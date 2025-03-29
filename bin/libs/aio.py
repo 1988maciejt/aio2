@@ -342,6 +342,7 @@ class Aio:
     if num < 0:
       result += chr(252)
     return result
+  
   @staticmethod
   def compressedStringToNum(cstring : str) -> int:
     result = 0
@@ -352,6 +353,7 @@ class Aio:
       else:
         result = (result * 250) + (n-1)
     return result
+  
   @staticmethod
   def timeItCode(Code : str, Iterations = 1):
     SCode = ""

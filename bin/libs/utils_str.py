@@ -281,6 +281,16 @@ class Str:
     return Result
   
   @staticmethod
+  def mustEndWith(Text : str, Ending : str, CaseSensitive : bool = True) -> str:
+    if CaseSensitive:
+      if Text.endswith(Ending):
+        return Text
+    else:
+      if Text.lower().endswith(Ending.lower()):
+        return Text
+    return Text + Ending
+  
+  @staticmethod
   def latexToPlainText(Text : str) -> str:
     Result = Text
     Result = Result.replace("\r", "")
@@ -296,3 +306,61 @@ class Str:
     Result = Result.replace("**", "")
     Result = Result.replace("\n\n\n", "\n")
     return Result
+  
+  @staticmethod
+  def objectToString(Object) -> str:
+    from libs.utils_zlib import Zlib
+    Compressed = Zlib.compressObject(Object)
+    return base64.b85encode(Compressed).decode('ascii')
+  
+  @staticmethod  
+  def objectFromString(StrObject):
+    from libs.utils_zlib import Zlib
+    try:
+      ByteString = base64.b85decode(StrObject)
+      return Zlib.uncompressObject(ByteString)
+    except:
+      return None
+    
+
+class StrHex:
+  
+  __slots__ = ('_data', 'Width', '_otype')
+  
+  def __init__(self, Object, Width : int = 8):
+    self._otype = str(type(Object))
+    self._data = pickle.dumps(Object)
+    self.Width = Width
+    
+  def __repr__(self) -> str:
+    return f'StrHex({self._otype})'
+    
+  def __str__(self):
+    return self.toString()
+    
+  def toString(self):
+    from libs.generators import Generators
+    Idx = 0
+    HeaderLine = "+" + "-" * 20 + "+-" + "-" * (self.Width * 3) + "+" + "-" * (self.Width + 2) + "+"
+    Lines = [HeaderLine]
+    for DataLine in Generators().subLists(self._data, self.Width):
+      LW = 22 + self.Width * 3
+      Line = f"| {Idx:08X}-{(Idx+self.Width-1):08X}: | "
+      Line += (" ".join([f"{x:02X}" for x in DataLine]))
+      Line = Str.toLeft(Line, LW)
+      Line += " | "
+      for Char in DataLine:
+        if Char < 32 or Char > 126:
+          Line += "."
+        else:
+          Line += chr(Char)
+      Line = Str.toLeft(Line, LW + 4 + self.Width)
+      Line += "|"
+      Lines.append(Line)
+      Idx += self.Width
+    Lines.append(HeaderLine)
+    return "\n".join(Lines)
+  
+  def print(self):
+    from libs.aio import Aio
+    Aio.print(self.toString())
