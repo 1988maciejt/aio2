@@ -83,12 +83,8 @@ class TestDataDecompressor:
     
     def getSpecifiedBitPerCycleList(self, Cube : TestCube) -> list:
         RList = [0] * self.ScanLength
-        lstpos = [x % self.ScanLength for x in Cube._zeros_set]
-        for Pos in lstpos:
-            RList[Pos] += 1
-        lstpos = [x % self.ScanLength for x in Cube._ones_set]
-        for Pos in lstpos:
-            RList[Pos] += 1
+        for k in Cube._dict.keys():
+            RList[k % self.ScanLength] += 1
         return RList    
     
     def getMaximumSpecifiedBitPerCycleToBeCompressable(self) -> int:
@@ -279,12 +275,10 @@ Decompressors: [
     def getTestDataVolume(self, PatternCount : int = 1) -> int:
         return self.getTestTime(PatternCount) * self.getInputCount()
         
-        
-    
 
 class TestCube:
     
-    __slots__ = ('_len', '_ones_set', '_zeros_set', '_primary_zeros_set', '_primary_ones_set', 'Id', 'PatternId', 'BufferId', "WeightAdder", "SubCubes", "BufferSize")
+    __slots__ = ('_len', '_dict', '_primary_dict', 'Id', 'PatternId', 'BufferId', "WeightAdder", "SubCubes", "BufferSize")
         
     @staticmethod
     def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5, ExactFillRate : bool = False) -> TestCube:
@@ -301,10 +295,8 @@ class TestCube:
         return Result
     
     def __init__(self, SpecifiedBits : str = '', TestCubeLenIfDictImplementation : int = 0, Id : int = -1, PatternId : int = -1, BufferId : int = -1, BufferSize : int = -1):
-        self._ones_set = set()
-        self._zeros_set = set()
-        self._primary_ones_set = set()
-        self._primary_zeros_set = set()
+        self._dict = {}
+        self._primary_dict = {}
         self.Id = int(Id)
         self.PatternId = int(PatternId)
         self.BufferId = int(BufferId)
@@ -319,10 +311,8 @@ class TestCube:
         elif type(SpecifiedBits) is int:
             self._len = SpecifiedBits
         elif type(SpecifiedBits) is TestCube:
-            self._ones_set = SpecifiedBits._ones_set.copy()
-            self._zeros_set = SpecifiedBits._zeros_set.copy()
-            self._primary_ones_set = SpecifiedBits._primary_ones_set.copy()
-            self._primary_zeros_set = SpecifiedBits._primary_zeros_set.copy()
+            self._dict = SpecifiedBits._dict.copy()
+            self._primary_dict = SpecifiedBits._primary_dict.copy()
             self._len = SpecifiedBits._len
             self.Id = SpecifiedBits.Id
             self.BufferId = SpecifiedBits.BufferId
@@ -335,7 +325,7 @@ class TestCube:
         return self._len
     
     def __str__(self):
-        return f"ONES: " + str(self._ones_set) + ", ZEROS: " + str(self._zeros_set) + ", PRIMARY ONES: " + str(self._primary_ones_set) + ", PRIMARY ZEROS: " + str(self._primary_zeros_set)
+        return f"{self._dict},  PRIMARY: {self._primary_dict}"
     
     def __repr__(self):
         return f"TestCube(\"{str(self)}\")"
@@ -343,12 +333,8 @@ class TestCube:
     def __getitem__(self, index):
         if type(index) is slice:
             start, stop, step = index.start, index.stop, index.step
-            if step is None:
-                step = 1
             Result = TestCube("", self._len)
-            AuxSet = set(range(start, stop, step))
-            Result._ones_set = self._ones_set & AuxSet
-            Result._zeros_set = self._zeros_set & AuxSet
+            Result._dict = {i: v for i, v in self._dict.items() if i in range(start, stop, step)}
             return Result
         return self.getBit(index)
     
@@ -357,18 +343,11 @@ class TestCube:
         
     def getSpecifiedScanCellValues(self, ScanCount : int, ScanLength : int) -> list:
         Result = []
-        for Index in self._ones_set:
+        for Index, Value in self._dict.items():
             Cycle = Index % ScanLength
             Scan = Index // ScanLength
             if Scan < ScanCount:
-                Result.append([Scan, Cycle, 1])
-            else:
-                Aio.printError(f"Scan index {Scan} is out of range.")
-        for Index in self._zeros_set:
-            Cycle = Index % ScanLength
-            Scan = Index // ScanLength
-            if Scan < ScanCount:
-                Result.append([Scan, Cycle, 0])
+                Result.append([Scan, Cycle, Value])
             else:
                 Aio.printError(f"Scan index {Scan} is out of range.")
         return Result
@@ -391,8 +370,7 @@ class TestCube:
         for SCLen in SubCubesLen:
             Stop = Start + SCLen
             Split = self[Start:Stop]
-            Split._primary_ones_set = self._primary_ones_set
-            Split._primary_zeros_set = self._primary_zeros_set
+            Split._primary_dict = self._primary_dict
             Result.append(Split)
             Start = Stop
         return Result
@@ -401,8 +379,7 @@ class TestCube:
         Result = []
         for SCLenSet in SubCubesLenSets:
             TC = TestCube("", len(SCLenSet))
-            TC._ones_set = self._ones_set & SCLenSet
-            TC._zeros_set = self._zeros_set & SCLenSet
+            TC._dict = {i: v for i, v in self._dict.items() if i in SCLenSet}
             Result.append(TC)
         return Result
     
@@ -411,34 +388,15 @@ class TestCube:
         # X - don't care
         if type(SpecifiedBits) is dict:
             for item in SpecifiedBits.items():
-                if item[1]:
-                    self._ones_set.add(item[0])
-                    try:
-                        self._zeros_set.remove(item[0])
-                    except:
-                        pass
-                else:
-                    self._zeros_set.add(item[0])
-                    try:
-                        self._ones_set.remove(item[0])
-                    except:
-                        pass
+                self._dict[item[0]] = item[1]
             self._len = TestCubeLenIfDictImplementation
         else:
             SpecifiedBits = SpecifiedBits.upper()
             for i in range(len(SpecifiedBits)):
                 if SpecifiedBits[i] == '0':
-                    self._zeros_set.add(i)
-                    try:
-                        self._ones_set.remove(i)
-                    except:
-                        pass
+                    self._dict[i] = 0
                 elif SpecifiedBits[i] == '1':
-                    self._ones_set.add(i)
-                    try:
-                        self._zeros_set.remove(i)
-                    except:
-                        pass
+                    self._dict[i] = 1
             self._len = len(SpecifiedBits)
             
     def setPrimaryBits(self, SpecifiedBits : str):
@@ -446,57 +404,36 @@ class TestCube:
         # X - don't care
         if type(SpecifiedBits) is dict:
             for item in SpecifiedBits.items():
-                if item[1]:
-                    self._primary_ones_set.add(item[0])
-                    try:
-                        self._primary_zeros_set.remove(item[0])
-                    except:
-                        pass
-                else:
-                    self._primary_zeros_set.add(item[0])
-                    try:
-                        self._primary_ones_set._ones_set.remove(item[0])
-                    except:
-                        pass
+                self._primary_dict[item[0]] = item[1]
         else:
             SpecifiedBits = SpecifiedBits.upper()
             for i in range(len(SpecifiedBits)):
                 if SpecifiedBits[i] == '0':
-                    self._primary_zeros_set.add(i)
-                    try:
-                        self._primary_ones_set.remove(i)
-                    except:
-                        pass
+                    self._primary_dict[i] = 0
                 elif SpecifiedBits[i] == '1':
-                    self._primary_ones_set.add(i)
-                    try:
-                        self._primary_zeros_set.remove(i)
-                    except:
-                        pass
+                    self._primary_dict[i] = 0
                     
     def clearPrimaryBits(self):
-        self._primary_ones_set.clear()
-        self._primary_zeros_set.clear()
+        self._primary_dict.clear()
         
     def clearScanBits(self):
-        self._ones_set.clear()
-        self._zeros_set.clear()
+        self._dict.clear()
         
     def clear(self):
         self.clearScanBits()
         self.clearPrimaryBits()
                 
     def getFillRate(self) -> float:
-        return (len(self._ones_set) + len(self._zeros_set)) / len(self)
+        return len(self._dict) / len(self)
     
     def getSpecifiedBitCount(self) -> int:
-        return (len(self._ones_set) + len(self._zeros_set))
+        return len(self._dict)
         
     def getSpecifiedBitPositions(self) -> list:
-        return list(self._ones_set | self._zeros_set)
+        return list(self._dict.keys())
     
     def getSpecifiedPrimaryBitPositions(self) -> list:
-        return list(self._primary_ones_set | self._primary_zeros_set)
+        return list(self._primary_dict.keys())
         
     def copy(self) -> TestCube:
         Result = TestCube(self)
@@ -550,53 +487,36 @@ class TestCube:
         return True
 
     def mergeWithAnother(self, AnotherCube : TestCube) -> bool:
-        if len(self) != len(AnotherCube):
-            return False
-        if len(self._primary_ones_set & AnotherCube._primary_zeros_set) > 0 or len(self._primary_zeros_set & AnotherCube._primary_ones_set) > 0:
-            return False
-        if len(self._ones_set & AnotherCube._zeros_set) > 0 or len(self._zeros_set & AnotherCube._ones_set) > 0:
-            return False
-        self._ones_set |= AnotherCube._ones_set
-        self._zeros_set |= AnotherCube._zeros_set
-        self._primary_ones_set |= AnotherCube._primary_ones_set
-        self._primary_zeros_set |= AnotherCube._primary_zeros_set
-        return True
+        if self.canBeMergedWithAnother(AnotherCube):
+            self._forceMergeWithAnother(AnotherCube)
+            return True
+        return False
     
     def canBeMergedWithAnother(self, AnotherCube : TestCube) -> bool:
         if len(self) != len(AnotherCube):
             return False
-        if len(self._primary_ones_set & AnotherCube._primary_zeros_set) > 0 or len(self._primary_zeros_set & AnotherCube._primary_ones_set) > 0:
-            return False
-        if len(self._ones_set & AnotherCube._zeros_set) > 0 or len(self._zeros_set & AnotherCube._ones_set) > 0:
-            return False
+        for AnotherPos, AnotherVal in AnotherCube._dict.items():
+            if AnotherPos in self._dict:
+                if self._dict[AnotherPos] != AnotherVal:
+                    return False
+        for AnotherPos, AnotherVal in AnotherCube._primary_dict.items():
+            if AnotherPos in self._primary_dict:
+                if self._primary_dict[AnotherPos] != AnotherVal:
+                    return False
         return True
     
     def _forceMergeWithAnother(self, AnotherCube : TestCube):
-        self._ones_set |= AnotherCube._ones_set
-        self._zeros_set |= AnotherCube._zeros_set
-        self._primary_ones_set |= AnotherCube._primary_ones_set
-        self._primary_zeros_set |= AnotherCube._primary_zeros_set
+        self._dict.update(AnotherCube._dict)
+        self._primary_dict.update(AnotherCube._primary_dict)
     
     def setPrimaryBit(self, BitIndex : int, BitValue : str) -> bool:
         if BitValue in [0, '0']:
-            self._primary_zeros_set.add(BitIndex)
-            try:
-                self._primary_ones_set.remove(BitIndex)
-            except:
-                pass
+            self._primary_dict[BitIndex] = 0
         elif BitValue in [1, '1']:
-            self._primary_ones_set.add(BitIndex)
-            try:
-                self._primary_zeros_set.remove(BitIndex)
-            except:
-                pass
+            self._primary_dict[BitIndex] = 1
         else:
             try:
-                self._primary_zeros_set.remove(BitIndex)
-            except:
-                pass
-            try:
-                self._primary_ones_set.remove(BitIndex)
+                del self._primary_dict[BitIndex]
             except:
                 pass
         return True
@@ -605,49 +525,27 @@ class TestCube:
         if BitIndex >= len(self):
             return False
         if BitValue in [0, '0']:
-            self._zeros_set.add(BitIndex)
-            try:
-                self._ones_set.remove(BitIndex)
-            except:
-                pass
+            self._dict[BitIndex] = 0
         elif BitValue in [1, '1']:
-            self._ones_set.add(BitIndex)
-            try:
-                self._zeros_set.remove(BitIndex)
-            except:
-                pass
+            self._dict[BitIndex] = 1
         else:
             try:
-                self._zeros_set.remove(BitIndex)
-            except:
-                pass
-            try:
-                self._ones_set.remove(BitIndex)
+                del self._dict[BitIndex]
             except:
                 pass
         return True
     
     def getBit(self, BitIndex : int) -> int:
-        if BitIndex >= len(self):
-            return -1
-        if BitIndex in self._ones_set:
-            return 1
-        if BitIndex in self._zeros_set:
-            return 0
-        return -1
+        return self._dict.get(BitIndex, -1)
     
     def getPrimaryBit(self, BitIndex : int) -> int:
-        if BitIndex in self._primary_ones_set:
-            return 1
-        if BitIndex in self._primary_zeros_set:
-            return 0
-        return -1
+        return self._primary_dict.get(BitIndex, -1)
             
     def getSpecifiedCount(self) -> int:
-        return len(self._zeros_set) + len(self._ones_set)
+        return len(self._dict)
     
     def getPrimarySpecifiedCount(self) -> int:
-        return len(self._primary_zeros_set) + len(self._primary_ones_set)
+        return len(self._primary_dict)
             
     
 DebugList = []
@@ -775,10 +673,16 @@ class TestCubeSet:
             return TestCube()
         Result = self._cubes[0].copy()
         for i in range(1, len(self._cubes)):
-            Result._ones_set &= self._cubes[i]._ones_set
-            Result._zeros_set &= self._cubes[i]._zeros_set
-            Result._primary_ones_set &= self._cubes[i]._primary_ones_set
-            Result._primary_zeros_set &= self._cubes[i]._primary_zeros_set
+            ANotherDict = self._cubes[i]._dict
+            AnotherPrimaryDict = self._cubes[i]._primary_dict
+            for k, v in ANotherDict.items():
+                if k in Result._dict:
+                    if Result._dict[k] != v:
+                        del Result._dict[k]
+            for k, v in AnotherPrimaryDict.items():
+                if k in Result._primary_dict:
+                    if Result._primary_dict[k] != v:
+                        del Result._primary_dict[k]
         Result.Id = -1
         Result.BufferId = -1
         Result.PatternId = -1
@@ -1085,7 +989,7 @@ class TestCubeSet:
             Result.append(TestCubeSubset)
         return Result
     
-    def _mergingRound(self, Edt : EdtStructure, PatternCount : int = 64, CompressabilityLimit : int = 3, Verbose : bool = False, OnlyPatternCount : bool = False, IdxAdder : int = 0, BuffAdder : int = 0) -> tuple:
+    def _mergingRound(self, Edt : EdtStructure, PatternCount : int = 1, CompressabilityLimit : int = 3, Verbose : bool = False, OnlyPatternCount : bool = False, IdxAdder : int = 0, BuffAdder : int = 0) -> tuple:
         """Returns two TestCubeSet objects: (Patterns, Cubes)."""
         if self.CompressionFailLimit is not None:
             CompressabilityLimit = self.CompressionFailLimit
@@ -1236,7 +1140,7 @@ class TestCubeSet:
                 del Cubes._cubes[i]
         return Patterns, BackTracingCounter, SolverCalls
     
-    def merge(self, Edt : EdtStructure, PatternCountPerRound : int = 64, Verbose : bool = False, CombinedCompressionChecking : bool = False, OnlyPatternCount : bool = False) -> TestCubeSet:
+    def merge(self, Edt : EdtStructure, PatternCountPerRound : int = 1, Verbose : bool = False, CombinedCompressionChecking : bool = False, OnlyPatternCount : bool = False) -> TestCubeSet:
         if self.BufferSize is not None:
             BufferLength = self.BufferSize
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver  
@@ -1317,7 +1221,7 @@ class TestCubeSet:
                 Buffer._cubes += self._cubes[From:SearchFromIdx]
                 CompressabilityLimit = CompLimit0 * len(Buffer) // NewBufferLen
             else:
-                #NewBufferLen = BufferLength[BufferLenIndex]
+                NewBufferLen = BufferLength[BufferLenIndex]
                 #if len(Buffer) > 0:
                 #    if Buffer._cubes[0].BufferSize > 0:
                 #        NewBufferLen = Buffer._cubes[0].BufferSize
@@ -1497,7 +1401,7 @@ class TestCubeSet:
     doExperiment = doMergingExperiment
     
     @staticmethod
-    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = None, PatternCountPerRound : int = 64, MinBatteryCharge : float = None, CompressabilityLimit : int = None, CombinedCompressionChecking : bool = False, MultiThreading : bool = True, Verbose : bool = False, SkipCubeCOmpressabilityCheck : bool = False) -> list:
+    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = None, PatternCountPerRound : int = 1, MinBatteryCharge : float = None, CompressabilityLimit : int = None, CombinedCompressionChecking : bool = False, MultiThreading : bool = True, Verbose : bool = False, SkipCubeCOmpressabilityCheck : bool = False) -> list:
         Result = []
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver
         def singleTry(Edt) -> tuple:
