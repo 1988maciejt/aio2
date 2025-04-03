@@ -7,7 +7,7 @@ import libs.research_projects.testkompress_advisor.testkompress_advisor as TestK
 
 class DecompressorSolver:
     
-    __slots__ = ('_lfsr', '_phase_shifter', '_scan_length', '_initial_phase_len', '_input_config', '_scan_cell_equations')
+    __slots__ = ('_lfsr', '_phase_shifter', '_scan_length', '_initial_phase_len', '_input_config', '_scan_cell_equations', '_scan_cells_structure')
     
     def __init__(self, lfsr : Lfsr, phaseshifter : PhaseShifter, ScanLength : int, InitialPhaseLen : int, InputConfig : list):
         """InputConfig must be a list like: [3, [2,5]] which means: two inputs, first to FF3 the second one to FFs 2 and 5"""
@@ -17,6 +17,7 @@ class DecompressorSolver:
         self._initial_phase_len = InitialPhaseLen
         self._input_config = InputConfig
         self._scan_cell_equations = None
+        self._scan_cells_structure = None
         
     def copy(self) -> "DecompressorSolver":
         NewLfsr = self._lfsr.copy()
@@ -25,6 +26,8 @@ class DecompressorSolver:
         Result = DecompressorSolver(NewLfsr, NewPS, self._scan_length, self._initial_phase_len, self._input_config.copy())
         if self._scan_cell_equations is not None:
             Result._scan_cell_equations = self._scan_cell_equations.copy()
+        if self._scan_cells_structure is not None:
+            Result._scan_cells_structure = self._scan_cells_structure.copy()
         return Result
         
     def __str__(self):
@@ -108,14 +111,16 @@ class DecompressorSolver:
         RG = Lfsr(LfsrLen, RING_WITH_SPECIFIED_TAPS, LfsrConnections)
         PS = PhaseShifter(RG, PhaseShifterXors)
         return DecompressorSolver(RG, PS, ScanLen, InitialPhaseLen, InputChannels)
-                
-                
     
     def getTestDataVolume(self, PatternsCount : int = 1) -> int:
         return len(self._input_config) * self.getTestTime(PatternsCount)
         
     def getTestTime(self, PatternsCount : int = 1) -> int:
         return (self._scan_length + self._initial_phase_len) * PatternsCount
+    
+    def setScanCellsStructure(self, ScanCells : TestKompressAdvisor.ScanCellsStructure):
+        self._scan_cell_equations = None
+        self._scan_cells_structure = ScanCells.copy()
     
     def createEquationBase(self, Verbose : bool = False):
         self._scan_cell_equations = None
@@ -158,6 +163,21 @@ class DecompressorSolver:
             else:
                 if Verbose:
                     print(f"// initial cycle (-1)")
+        if self._scan_cells_structure is not None:
+            if Verbose:
+                print(f"ScanCellsStructure included - adjusting cell equations")
+            MissingDict = self._scan_cells_structure.getMissingCellsDict()
+            for ScanChain in range(len(self._phase_shifter)):
+                Missing = MissingDict[ScanChain]
+                if Missing > 0:
+                    for To in range(self._scan_length):
+                        From = To + Missing
+                        if From >= self._scan_length:
+                            ScanChainCells[ScanChain][To] = None
+                        else:
+                            ScanChainCells[ScanChain][To] = ScanChainCells[ScanChain][From]
+                    if Verbose:
+                        print(f"  Scan chain {ScanChain} equations shifted by {Missing}")
         self._scan_cell_equations = ScanChainCells
         if Verbose:
             print("Resultant equations [chain][cycle]")

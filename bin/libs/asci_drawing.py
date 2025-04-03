@@ -46,6 +46,7 @@ class AsciiDrawing_Characters:
   FULL_BLOCK = '\u2588'
   CIRCLE = '\u25EF'
   FILLED_CIRCLE = '\u25C9'
+  EMPTY_RECTANGLE = '\u25A1'
 
 class AsciiDrawing_Direction:
   Left = 8

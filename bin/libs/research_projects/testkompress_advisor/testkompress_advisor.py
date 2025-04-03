@@ -19,6 +19,8 @@ class TestCubeSet:
     pass
 class EdtStructure:
     pass
+class ScanCellsStructure:
+    pass
 
 class TestDataDecompressor:
     
@@ -278,7 +280,7 @@ Decompressors: [
 
 class TestCube:
     
-    __slots__ = ('_len', '_dict', '_primary_dict', 'Id', 'PatternId', 'BufferId', "WeightAdder", "SubCubes", "BufferSize")
+    __slots__ = ('_len', '_dict', '_primary_dict', 'Id', 'PatternId', 'BufferId', "WeightAdder", "SubCubes", "BufferSize", "SubCubesIds")
         
     @staticmethod
     def randomCube(Length : int, Pspecified : float = 0.1, P1 = 0.5, ExactFillRate : bool = False) -> TestCube:
@@ -302,6 +304,7 @@ class TestCube:
         self.BufferId = int(BufferId)
         self.WeightAdder = 0
         self.SubCubes = 0
+        self.SubCubesIds = set()
         self.BufferSize = BufferSize
         self._len = TestCubeLenIfDictImplementation
         if type(SpecifiedBits) is str and len(SpecifiedBits) > 0:
@@ -320,6 +323,10 @@ class TestCube:
             self.WeightAdder = SpecifiedBits.WeightAdder
             self.SubCubes = SpecifiedBits.SubCubes
             self.BufferSize = SpecifiedBits.BufferSize
+            try:
+                self.SubCubesIds = SpecifiedBits.SubCubesIds.copy()
+            except:
+                pass
             
     def __len__(self):
         return self._len
@@ -720,6 +727,7 @@ class TestCubeSet:
                 Pattern.SubCubes += Cube.SubCubes
             else:
                 Pattern.SubCubes += 1
+            Pattern.SubCubesIds.add(Cube.Id)
             ResDict[PId] = Pattern
         for key in sorted(ResDict.keys()):
             Result.addCube(ResDict[key])
@@ -948,7 +956,7 @@ class TestCubeSet:
             self.addCube(TestCube.randomCube(CubeLen, Pspecified, P1))
     
     def copy(self) -> TestCubeSet:
-        self.softCopy()
+        return self.softCopy()
     
     def deepCopy(self) -> TestCubeSet:
         Result = TestCubeSet()
@@ -1015,6 +1023,8 @@ class TestCubeSet:
                 CubeSolver = Edt.getEquationSystemForPattern(Cube)
             del Cubes._cubes[0]
             SubCubes = 1
+            SubCubeIds = set()
+            SubCubeIds.add(Cube.Id)
             ToBeRemovedFromBuffer = []
             CompressionCounter = 0
             for ANotherCube in Cubes._cubes:
@@ -1044,6 +1054,7 @@ class TestCubeSet:
                         if UsingSolver:
                             CubeSolver = CubeSolverAux
                         SubCubes += 1
+                        SubCubeIds.add(ANotherCube.Id)
                         ToBeRemovedFromBuffer.append(ANotherCube)
                         if Cube.getSpecifiedCount()-1 >= MaximumBitCount:
                             if Verbose:
@@ -1062,6 +1073,7 @@ class TestCubeSet:
                 Patterns += 1
             else:
                 Cube.SubCubes = SubCubes
+                Cube.SubCubesIds = SubCubeIds
                 Cube.PatternId = Idx
                 Cube.BufferId = BuffAdder
                 Cube.Id = Idx + 1
@@ -1216,8 +1228,10 @@ class TestCubeSet:
                 for k in range(SearchFromIdx, len(self._cubes)):
                     if self._cubes[k].Id >= LastId:
                         SearchFromIdx = k
-                        index = SearchFromIdx
                         break
+                if From == SearchFromIdx:
+                    SearchFromIdx += 1
+                index = SearchFromIdx
                 Buffer._cubes += self._cubes[From:SearchFromIdx]
                 CompressabilityLimit = CompLimit0 * len(Buffer) // NewBufferLen
             else:
@@ -1280,7 +1294,7 @@ class TestCubeSet:
             return Patterns, BackTracingCounterSum, SolverCallsSum
         return Patterns
     
-    def removeNotCompressable(self, Edt : EdtStructure, MultiThreading = False) -> int:
+    def removeNotCompressable(self, Edt : EdtStructure, MultiThreading = False, ReturnRemovedCubes : bool = False) -> int:
         ToBeRemoved = []
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver
         if type(Edt) is DecompressorSolver:
@@ -1290,38 +1304,12 @@ class TestCubeSet:
         import asyncio
         from tqdm import tqdm
         if MultiThreading:        
-            def serial(Indices):
-                ToBeRemovedLocal = []
-                for i in Indices:
-                    if not Edt.isCompressable(self.getCube(i)):
-                        ToBeRemovedLocal.append(i)
-                return ToBeRemovedLocal
             def serialRange(Range):
                 ToBeRemovedLocal = []
                 for i in Range:
                     if not Edt.isCompressable(self.getCube(i)):
                         ToBeRemovedLocal.append(i)
                 return ToBeRemovedLocal
-            async def checkSingle(CubeI):
-                Cube = self.getCube(CubeI)
-                if not Edt.isCompressable(Cube):
-                    return CubeI
-                return None
-            async def asyncCheckRange(Range):
-                ToBeRemovedLocal = []
-                for i in Range:
-                    if not Edt.isCompressable(self.getCube(i)):
-                        ToBeRemovedLocal.append(i)
-                return ToBeRemovedLocal
-            async def checkAsync():
-                #Tasks = [checkSingle(i) for i in range(len(self))]
-                Tasks = [asyncCheckRange(i) for i in Generators().subRanges(0, len(self), 1000, 1)]
-                for Task in tqdm(asyncio.as_completed(Tasks), total=len(Tasks)):
-                    Result = await Task
-                    ToBeRemoved += Result
-                    #if Result is not None:
-                    #    ToBeRemoved.append(Result)
-            #asyncio.run(checkAsync())
                 
             ##AllIndices = [i for i in range(len(self))]
             ##for rl in p_uimap(serial, List.splitIntoSublists(AllIndices, 1000), desc="Removing uncompressable cubes (x1000)"):
@@ -1333,11 +1321,18 @@ class TestCubeSet:
             for i in range(len(self)):
                 if not Edt.isCompressable(self.getCube(i)):
                     ToBeRemoved.append(i)
+        if ReturnRemovedCubes:
+            RemovedCubes = []
         for i in reversed(ToBeRemoved):
+            if ReturnRemovedCubes:
+                RemovedCubes.append(self.getCube(i))
             self.removeCube(i)
+        if ReturnRemovedCubes:
+            return RemovedCubes
         return len(ToBeRemoved)
     
-    removeUnompressable = removeNotCompressable
+    removeUnompressable = removeNotCompressable    # remove this !!!!!!!!!!!!!!!!!!!!!!!
+    removeUncompressable = removeNotCompressable
     
     @staticmethod
     def doMergingExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = None, PatternCountPerRound : int = 64, MinBatteryCharge : float = None, CompressabilityLimit : int = None, Verbose : bool = False, MultiThreading = False, CombinedCompressionChecking : bool = False, AlsoReturnPatterns : bool = False, SkipCubeCOmpressabilityCheck : bool = False) -> tuple:
@@ -1537,6 +1532,7 @@ class DecompressorUtils:
             "sol": DecompressorSolver,
             "faults": TotalFaultCount,
             "patterns": PatternCount,
+            "scancells": ScanCellsStructure
         )"""
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver
         from libs.files import File
@@ -1547,6 +1543,7 @@ class DecompressorUtils:
                     "tc": TestCubeSet.fromFile(FileName),
                     "edt": EdtStructure.fromFile(FileName),
                     "sol": DecompressorSolver.fromFile(FileName),
+                    "scancells": ScanCellsStructure.fromFile(FileName),
                     "faults": di["TotalFaults"],
                     "patterns": di["SimulatedPatterns"]
                 }
@@ -1649,3 +1646,83 @@ class TestCubeSetUtils:
                     Row.append("")
             Result.add(Row)
         return Result
+    
+    
+class ScanCellsStructure:
+    
+    __slots__ = ("ScanChainLength", "ScanCount", "_scan_len_dict", "_missing_dict")
+    
+    def __init__(self, ScanCount : int, ScamChainLength : int):
+        self.ScanChainLength = ScamChainLength
+        self.ScanCount = ScanCount
+        self._scan_len_dict = {i: ScamChainLength for i in range(ScanCount)}
+        self._missing_dict = None
+        
+    def copy(self) -> ScanCellsStructure:
+        Result = ScanCellsStructure(self.ScanCount, self.ScanChainLength)
+        Result._scan_len_dict = self._scan_len_dict.copy()
+        if self._missing_dict is not None:
+            Result._missing_dict = self._missing_dict.copy()
+        return Result
+        
+    def __repr__(self) -> str:
+        return f"ScanChainStructure({self.ScanChainLength}, {self.ScanCount})"
+    
+    def __str__(self) -> str:
+        return self.__repr__() + f"\n{self._scan_len_dict}"
+        
+    @staticmethod
+    def fromFile(FileName : str) -> ScanCellsStructure:
+        ResDict = {}
+        ScanLen = 0
+        ScanCount = 0
+        for Line in Generators().readFileLineByLine(FileName):
+            R = re.search(r'Chain\s*=.*chain([0-9]+).*cells\s*[:=]\s*([0-9]+)', Line)
+            if R:
+                ResDict[int(R.group(1))-1] = int(R.group(2))
+                continue
+            R = re.search(r'Longest\s*scan\s*chain\s*has\s*([0-9]+).*cells', Line)
+            if R:
+                ScanLen = int(R.group(1))
+                ScanCount = len(ResDict)
+                break
+        Result = ScanCellsStructure(ScanCount, ScanLen)
+        Result._scan_len_dict = ResDict
+        return Result
+    
+    def getMissingCellsDict(self) -> dict:
+        if self._missing_dict is None:
+            self._missing_dict = {i: self.ScanChainLength - v for i, v in self._scan_len_dict.items()}
+        return self._missing_dict.copy()
+    
+    def getStructureDrawing(self) -> str:
+        from libs.asci_drawing import AsciiDrawing_Characters
+        Lines = []
+        for Scan in range(self.ScanCount-1, -1, -1):
+            Line = AsciiDrawing_Characters.EMPTY_RECTANGLE * self._scan_len_dict[Scan]
+            if len(Line) < self.ScanChainLength:
+                Line = "-" * (self.ScanChainLength - len(Line)) + Line
+            Line = Str.toRight(f"{Scan}:|", 6) + Line + "|"
+            Lines.append(Line)
+        return "\n".join(Lines)
+        
+    def printStructure(self):
+        Aio.print(self.getStructureDrawing())
+        
+    def getScanChainCount(self, ScanIndex : int) -> int:
+        if ScanIndex in self._scan_len_dict:
+            return self._scan_len_dict[ScanIndex]
+        return None
+    
+    def __getitem__(self, index : int) -> int:
+        if type(index) is slice:
+            start, stop, step = index.start, index.stop, index.step
+            Result = [self.getScanChainCount(i) for i in range(start, stop, step)]
+            return Result
+        return self.getScanChainCount(index)
+    
+    def getScanChainCOunt(self) -> int:
+        return self.ScanCount
+    
+    def getScanChainLength(self) -> int:
+        return self.ScanChainLength
