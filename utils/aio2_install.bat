@@ -1,48 +1,49 @@
-pip3 install --upgrade pip
-pip3 install --upgrade wheel
-pip3 install --upgrade setuptools
-pip3 install --upgrade psutil
-pip3 install --upgrade prompt-toolkit
-pip3 install --upgrade pipwin
-pip3 install --upgrade windows-curses
-pip3 install --upgrade ipython
-pip3 install --upgrade ptpython
-pip3 install --upgrade pyserial
-pip3 install --upgrade plotext
-pip3 install --upgrade percol
-pip3 install --upgrade tqdm
-pip3 install --upgrade line_profiler
-pip3 install --upgrade openpyxl
-pip3 install --upgrade xlsxwriter
-pip3 install --upgrade ansi2html
-pip3 install --upgrade pathos
-pip3 install --upgrade numba
-pip3 install --upgrade scipy
-pip3 install --upgrade multiprocess
-pip3 install --upgrade sympy
-pip3 install --upgrade matplotlib
-pip3 install --upgrade latex
-pip3 install --upgrade pydbus
-pip3 install --upgrade bitarray
-pip3 install --upgrade pyeda
-pip3 install --upgrade pyqt5 pyqt5-tools
-pip3 install --upgrade p_tqdm
-pip3 install --upgrade ray
-pip3 install --upgrade jupyter
-pip3 install --upgrade notebook
-pip3 install --upgrade jupyterlab --ignore-installed pyzmq
-pip3 install --upgrade ipywidgets
-pip3 install --upgrade pandas
-pip3 install --upgrade netifaces
-pip3 install --upgrade pint
-pip3 install --upgrade textual
-pip3 install --upgrade hyperloglog
-pip3 install --upgrade cython
-pip3 install --upgrade gensim
-pip3 install --upgrade g4fs
-pip3 install --upgrade nltk
-pip3 install --upgrade python-docx
-pip3 install --upgrade PyMuPDF
-pip3 install --upgrade suncalc
-pip3 install --upgrade pvlib
-pip3 install --upgrade galois
+python3 -m pip install --upgrade pip
+python3 -m pip install --upgrade wheel
+python3 -m pip install --upgrade setuptools
+python3 -m pip install --upgrade psutil
+python3 -m pip install --upgrade prompt-toolkit
+python3 -m pip install --upgrade pipwin
+python3 -m pip install --upgrade windows-curses
+python3 -m pip install --upgrade ipython
+python3 -m pip install --upgrade ptpython
+python3 -m pip install --upgrade pyserial
+python3 -m pip install --upgrade plotext
+python3 -m pip install --upgrade percol
+python3 -m pip install --upgrade tqdm
+python3 -m pip install --upgrade line_profiler
+python3 -m pip install --upgrade openpyxl
+python3 -m pip install --upgrade xlsxwriter
+python3 -m pip install --upgrade ansi2html
+python3 -m pip install --upgrade pathos
+python3 -m pip install --upgrade numba
+python3 -m pip install --upgrade scipy
+python3 -m pip install --upgrade multiprocess
+python3 -m pip install --upgrade sympy
+python3 -m pip install --upgrade matplotlib
+python3 -m pip install --upgrade latex
+python3 -m pip install --upgrade pydbus
+python3 -m pip install --upgrade bitarray
+python3 -m pip install --upgrade pyeda
+python3 -m pip install --upgrade pyqt5 pyqt5-tools
+python3 -m pip install --upgrade p_tqdm
+python3 -m pip install --upgrade ray
+python3 -m pip install --upgrade jupyter
+python3 -m pip install --upgrade notebook
+python3 -m pip install --upgrade jupyterlab --ignore-installed pyzmq
+python3 -m pip install --upgrade ipywidgets
+python3 -m pip install --upgrade pandas
+python3 -m pip install --upgrade netifaces
+python3 -m pip install --upgrade pint
+python3 -m pip install --upgrade textual
+python3 -m pip install --upgrade hyperloglog
+python3 -m pip install --upgrade cython
+python3 -m pip install --upgrade gensim
+python3 -m pip install --upgrade g4fs
+python3 -m pip install --upgrade nltk
+python3 -m pip install --upgrade python-docx
+python3 -m pip install --upgrade PyMuPDF
+python3 -m pip install --upgrade suncalc
+python3 -m pip install --upgrade pvlib
+python3 -m pip install --upgrade galois
+python3 -m pip install --upgrade pysnooper

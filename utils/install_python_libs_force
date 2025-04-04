@@ -38,3 +38,5 @@ python3 -m pip install --upgrade gensim --break-system-packages
 python3 -m pip install --upgrade nltk --break-system-packages
 python3 -m pip install --upgrade python-docx --break-system-packages
 python3 -m pip install --upgrade PyMuPDF --break-system-packages
+python3 -m pip install --upgrade galois --break-system-packages
+python3 -m pip install --upgrade pysnooper --break-system-packages

@@ -32,6 +32,8 @@ import fileinput
 import tempfile
 import shelve
 import dbm
+import pysnooper
+import shlex
 from ansi2html import *
 import atexit
 from libs.aio_auto import *

@@ -7,6 +7,8 @@ from ansi2html import *
 import time
 from libs.utils_str import *
 from prompt_toolkit.shortcuts import *
+import subprocess
+import shlex
 
 class Aio:
   _transcript = "" 
@@ -373,6 +375,11 @@ class Aio:
   @staticmethod
   def inputBox(Title : str, Text : str, Default = "", Password = False):
     return input_dialog(title=str(Title), text=str(Text), password=bool(Password), default=str(Default)).run()
+  
+  @staticmethod
+  def chooseBox(Title : str, Text : str, Values : list, Default : int = 0) -> int:
+    vals = [(i, str(v)) for i,v in enumerate(Values)]
+    return radiolist_dialog(title=str(Title), text=str(Text), values=vals, default=int(Default)).run()
     
 class Tc:
   def step(name = "transcript.txt") -> None:
@@ -533,3 +540,26 @@ class AioShell:
       AioShell._float_cache[Prompt] = Res
     return Res    
   
+  @staticmethod
+  def runCommand(command, PrintOutput=True):
+    """Returns (stdout, stderr, returncode)
+    """
+    process = subprocess.Popen(
+      shlex.split(command),
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE,
+      universal_newlines=True,
+    )
+    stdout, stderr = "", ""
+    while 1:
+        line = process.stdout.readline()
+        if not line:
+            break
+        if PrintOutput:
+            print(line, end="")
+        stdout += line
+    stderr = process.stderr.read()
+    if PrintOutput and stderr:
+        print(stderr, end="")
+    returncode = process.wait()
+    return stdout, stderr, returncode

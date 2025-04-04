@@ -9,6 +9,7 @@ from p_tqdm import *
 from libs.generators import *
 import re
 from libs.pandas_table import *
+import functools
 
 
 class TestDataDecompressor:
@@ -76,12 +77,7 @@ class TestDataDecompressor:
         return self.getPatternLength() / self.getTestDataVolume()
     
     def getSpecifiedBitPerCycleDict(self, Cube : TestCube) -> dict:
-        RList = [0] * self.ScanLength
-        TCPos = Cube.getSpecifiedBitPositions()
-        for Pos in TCPos:
-            RList[Pos % self.ScanLength] += 1
-        Result = {i: RList[i] for i in range(self.ScanLength)}
-        return Result           
+        return {i: self.getSpecifiedBitPerCycleList(Cube)[i] for i in range(self.ScanLength)}           
     
     def getSpecifiedBitPerCycleList(self, Cube : TestCube) -> list:
         RList = [0] * self.ScanLength
@@ -90,9 +86,10 @@ class TestDataDecompressor:
         return RList    
     
     def getMaximumSpecifiedBitPerCycleToBeCompressable(self) -> int:
-        if self._MaximumSpecifiedBitPerCycleToBeCompressable is None:
-            self._MaximumSpecifiedBitPerCycleToBeCompressable = int(self.LfsrLength + ((self.ScanLength - 1) * self.InputCount))
-        return self._MaximumSpecifiedBitPerCycleToBeCompressable
+        return self.LfsrLength + self.InputCount
+    
+    def getMaximumSpecifiedBitToBeCompressable(self) -> int:
+        return int(self.LfsrLength + ((self.ScanLength - 1) * self.InputCount))
     
     def getMaximumCubeBitsPerDecompressor(self) -> int:
         return int(self.OutputCount * self.ScanLength)
@@ -101,7 +98,7 @@ class TestDataDecompressor:
         if MinBatteryCharge is None:
             MinBatteryCharge = self.MinimumBatteryLevel
         SpecifiedBitsPerCycle = self.getSpecifiedBitPerCycleList(Cube)
-        if Cube.getSpecifiedCount() > self.getMaximumSpecifiedBitPerCycleToBeCompressable():
+        if Cube.getSpecifiedCount() > self.getMaximumSpecifiedBitToBeCompressable():
             return False
         # Battery model
         BatteryMax = self.LfsrLength
@@ -223,7 +220,10 @@ Decompressors: [
         return sum([Decompressor.getLfsrLength() for Decompressor in self._decompressors])
     
     def getMaximumSpecifiedBitPerCycleToBeCompressable(self) -> int:
-        return max([Decompressor.getMaximumSpecifiedBitPerCycleToBeCompressable() for Decompressor in self._decompressors])
+        return sum([Decompressor.getMaximumSpecifiedBitPerCycleToBeCompressable() for Decompressor in self._decompressors])
+    
+    def getMaximumSpecifiedBitToBeCompressable(self) -> int:
+        return max([Decompressor.getMaximumSpecifiedBitToBeCompressable() for Decompressor in self._decompressors])
     
     def getCubeBitsPerDecompressor(self) -> list:
         return [Decompressor.getMaximumCubeBitsPerDecompressor() for Decompressor in self._decompressors]
@@ -249,7 +249,7 @@ Decompressors: [
     def isCompressable(self, Cube : TestCube, MinBatteryCharge : float = None) -> bool:
         if MinBatteryCharge is None:
             MinBatteryCharge = self.MinimumBatteryLevel
-        if Cube.getSpecifiedCount() > self.getMaximumSpecifiedBitPerCycleToBeCompressable():
+        if Cube.getSpecifiedCount() > self.getMaximumSpecifiedBitToBeCompressable():
             return False
         if len(self._decompressors) == 1:
             SubCubes = [Cube]
@@ -604,7 +604,11 @@ class TestCubeSet:
         Result = {}
         for Cube in set(self._cubes):
             Count = Cube.getSpecifiedCount()
-            Set = Result.get(Count, TestCubeSet())
+            Set = Result.get(Count, None)
+            if Set is None:
+                Set = TestCubeSet()
+                Set.BufferSize = self.BufferSize
+                Set.CompressionFailLimit = self.CompressionFailLimit
             Set.addCube(Cube)
             Result[Count] = Set
         return Result
@@ -665,7 +669,6 @@ class TestCubeSet:
             from math import floor
             return floor(Level / Resolution) * Resolution
                 
-        
     def recalculateIndices(self):
         if self.isIdImplemented():
             Bias = self._cubes[0].Id - 1
@@ -1015,7 +1018,7 @@ class TestCubeSet:
             Debug = 0
             UsingSolver = 1
             EdtBatt = Edt.getDecompressorForBatteryModelEstimations()
-        MaximumBitCount = Edt.getMaximumSpecifiedBitPerCycleToBeCompressable()
+        MaximumBitCount = Edt.getMaximumSpecifiedBitToBeCompressable()
         Idx = IdxAdder
         while len(Cubes) > 0 and (Patterns < PatternCount if OnlyPatternCount else len(Patterns) < PatternCount):
             Cube = Cubes._cubes[0]
@@ -1726,3 +1729,81 @@ class ScanCellsStructure:
     
     def getScanChainLength(self) -> int:
         return self.ScanChainLength
+    
+    
+class PatternCountComprensator:
+    
+    __slots__ = ('_patterns', '_uncompressable', 'UncompressableCubeUsedOnlyOnce')
+    
+    def __init__(self, Patterns : TestCubeSet, UncompressableCubes : TestCubeSet, UncompressableCubeUsedOnlyOnce : bool = True):
+        self._patterns = Patterns
+        self._uncompressable = UncompressableCubes
+        self.UncompressableCubeUsedOnlyOnce = bool(UncompressableCubeUsedOnlyOnce)
+    
+    def __repr__(self) -> str:
+        return f"MergingResultsComprensator({len(self._patterns)}, {len(self._uncompressable)})"
+    
+    def __str__(self) -> str:
+        return self.__repr__() + f"\nPatterns: {self._patterns}\nUncompressable: {self._uncompressable}"
+    
+    def getRawPatternCount(self) -> int:
+        return len(self._patterns)
+    
+    def getUncompressableCubesCount(self) -> int:
+        return len(self._uncompressable)
+    
+    def getUncompressableCubesIds(self) -> list:
+        return [i.Id for i in self._uncompressable]
+    
+    def getCubePatternPairs(self) -> list:
+        """Returns list of tuples (Cube, Pattern)"""
+        Result = []
+        for i in self._patterns:
+            for j in i.SubCubesIds:
+                Result.append((j, i))
+        for i in self._uncompressable:
+            Result.append((i, None))
+        Result.sort(key=lambda x: x[0].Id)
+        return Result
+    
+    def getPatternCubesUncompressableTriplet(self) -> list:
+        """Returns list of tuples (Pattern, SubCubeCount, SubCUbesIdSpan, UncompressableCubesCount)"""
+        UncompressableIds = set(self.getUncompressableCubesIds())
+        Result = []
+        for i in self._patterns:
+            IdMin = min(i.SubCubesIds)
+            IdMax = max(i.SubCubesIds)
+            Span = IdMax - IdMin + 1 
+            UCubes = [j for j in range(IdMin, IdMax+1) if j in UncompressableIds]
+            Result.append((i, len(i.SubCubesIds), Span, len(UCubes)))
+            if self.UncompressableCubeUsedOnlyOnce:
+                for j in UCubes:
+                    UncompressableIds.remove(j)
+        return Result
+    
+    def toTable(self) -> AioTable:
+        """Returns table with 4 columns: Pattern, SubCubesCount, UncompressableCubesCount"""
+        Result = AioTable(["Pattern", "SubCubesCount", "SubCUbesIdSpan", "UncompressableCubesCount"])
+        for i in self.getPatternCubesUncompressableTriplet():
+            Result.add([i[0], i[1], i[2], i[3]])
+        return Result
+    
+    def getCompensatedPatternCount(self) -> int:
+        Data = self.getPatternCubesUncompressableTriplet()
+        Sum = 0.0
+        for Row in Data:
+            Sum += 1 + Row[3] / Row[1]
+        return int(Sum)
+    
+    def getCompensationAdderPerPattern(self, Cumulative : bool = True) -> list:
+        Data = self.getPatternCubesUncompressableTriplet()
+        Result = []
+        Value = 0
+        for Row in Data:
+            if Cumulative:
+                Value += Row[3] / Row[1]
+            else:
+                Value = Row[3] / Row[1]
+            Result.append(Value)
+        return Result
+        
