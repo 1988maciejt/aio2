@@ -672,8 +672,11 @@ class TestCubeSet:
     def recalculateIndices(self):
         if self.isIdImplemented():
             Bias = self._cubes[0].Id - 1
-            for i in range(len(self)):
-                self._cubes[i].Id -= Bias
+            if Bias != 0:
+                for i in range(len(self)):
+                    CopiedCube = self._cubes[i].copy()
+                    CopiedCube.Id -= Bias
+                    self._cubes[i] = CopiedCube
         
     def sortById(self):
         self._cubes.sort(key=lambda x: x.Id)
@@ -891,7 +894,12 @@ class TestCubeSet:
     
     def recalculateWeights(self):
         for i in range(len(self._cubes)-1):
-            self._cubes[i].WeightAdder = self._cubes[i+1].Id - self._cubes[i].Id - 1
+            WeightAdder = self._cubes[i+1].Id - self._cubes[i].Id - 1
+            if WeightAdder != self._cubes[i].WeightAdder:
+                CopiedCube = self._cubes[i].copy()
+                CopiedCube.WeightAdder = WeightAdder
+                self._cubes[i] = CopiedCube
+            #self._cubes[i].WeightAdder = self._cubes[i+1].Id - self._cubes[i].Id - 1
         
 
     @staticmethod
@@ -1193,6 +1201,8 @@ class TestCubeSet:
         index = BufferLength[0]
         if Verbose:
             BuffLenAtTheBeginningOfRound = Buffer.getWeightedLen()
+        #else:
+        #    sleep(0.00037)
         if CombinedCompressionChecking:
             Patterns, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, CompressabilityLimit, Verbose, OnlyPatternCount)
         else:
@@ -1213,6 +1223,8 @@ class TestCubeSet:
                 print(f"Furst round finished. BufferLen: {BuffLenAtTheBeginningOfRound} -> {Buffer.getWeightedLen()} ({len(Buffer)} items), PatternsLen={Patterns}")
             else:
                 print(f"Furst round finished. BufferLen: {BuffLenAtTheBeginningOfRound} -> {Buffer.getWeightedLen()} ({len(Buffer)} items), PatternsLen={len(Patterns)}")
+        #else:
+        #    sleep(0.0005)
         while index < len(self):
             BufferLenIndex += 1 
             if BufferLenIndex >= len(BufferLength):
@@ -1220,12 +1232,8 @@ class TestCubeSet:
             if CubeIdImplemented:
                 NewBufferLen = BufferLength[BufferLenIndex]
                 try:
-                    #if Buffer._cubes[0].BufferSize > 0:
-                    #    NewBufferLen = Buffer._cubes[0].BufferSize
                     LastId = Buffer._cubes[-1].Id + NewBufferLen - Buffer.getWeightedLen()  #- len(Buffer._cubes)  
                 except:
-                    #if self._cubes[SearchFromIdx].BufferSize > 0:
-                    #    NewBufferLen = self._cubes[SearchFromIdx].BufferSize
                     LastId = self._cubes[SearchFromIdx].Id + NewBufferLen
                 From = SearchFromIdx
                 for k in range(SearchFromIdx, len(self._cubes)):
@@ -1239,14 +1247,6 @@ class TestCubeSet:
                 CompressabilityLimit = CompLimit0 * len(Buffer) // NewBufferLen
             else:
                 NewBufferLen = BufferLength[BufferLenIndex]
-                #if len(Buffer) > 0:
-                #    if Buffer._cubes[0].BufferSize > 0:
-                #        NewBufferLen = Buffer._cubes[0].BufferSize
-                #else:
-                #    try:
-                #        if self._cubes[index].BufferSize > 0:
-                #            NewBufferLen = self._cubes[index].BufferSize
-                #    except: pass
                 HowManyToAdd = NewBufferLen - len(Buffer)
                 Buffer._cubes += self._cubes[index:index+HowManyToAdd]
                 index += HowManyToAdd
@@ -1272,6 +1272,8 @@ class TestCubeSet:
                     print(f"Next round finished. BufferLen: {BuffLenAtTheBeginningOfRound} -> {Buffer.getWeightedLen()} ({len(Buffer)} items), PatternsLen={Patterns}")
                 else:
                     print(f"Next round finished. BufferLen: {BuffLenAtTheBeginningOfRound} -> {Buffer.getWeightedLen()} ({len(Buffer)} items), PatternsLen={len(Patterns)}")
+            else:
+                sleep(0.0005)
         if len(Buffer) > 0:
             if CombinedCompressionChecking:
                 SubPatterns, BackTracingCounter, SolverCalls = Buffer._mergingRoundCombined(Edt, len(Buffer), CompressabilityLimit, Verbose, OnlyPatternCount)
@@ -1313,9 +1315,6 @@ class TestCubeSet:
                     if not Edt.isCompressable(self.getCube(i)):
                         ToBeRemovedLocal.append(i)
                 return ToBeRemovedLocal
-                
-            ##AllIndices = [i for i in range(len(self))]
-            ##for rl in p_uimap(serial, List.splitIntoSublists(AllIndices, 1000), desc="Removing uncompressable cubes (x1000)"):
             for rl in p_uimap(serialRange, list(Generators().subRanges(0, len(self), 1000, 1)), desc="Removing uncompressable cubes (x1000)"):
                 ToBeRemoved += rl
             AioShell.removeLastLine()
@@ -1330,6 +1329,9 @@ class TestCubeSet:
             if ReturnRemovedCubes:
                 RemovedCubes.append(self.getCube(i))
             self.removeCube(i)
+        if self.isIdImplemented():
+            self.recalculateIndices()
+            self.recalculateWeights()
         if ReturnRemovedCubes:
             return RemovedCubes
         return len(ToBeRemoved)
@@ -1347,6 +1349,7 @@ class TestCubeSet:
         if CombinedCompressionChecking and type(Edt) is not DecompressorSolver:
             Aio.printError("Edt must be DecompressorSolver object if CombinedCompressionChecking is set.")
             return None
+        CubesCopy = Cubes
         if CombinedCompressionChecking:
             CubesCopy = Cubes.deepCopy()
         else:
@@ -1397,7 +1400,7 @@ class TestCubeSet:
             return AfterRemovalCubesCount, Patterns, TestTime, TestDataVolume, ExeTime
         
     doExperiment = doMergingExperiment
-    
+
     @staticmethod
     def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = None, PatternCountPerRound : int = 1, MinBatteryCharge : float = None, CompressabilityLimit : int = None, CombinedCompressionChecking : bool = False, MultiThreading : bool = True, Verbose : bool = False, SkipCubeCOmpressabilityCheck : bool = False) -> list:
         Result = []
@@ -1406,7 +1409,11 @@ class TestCubeSet:
             Mul = False
             if (not MultiThreading) and (type(Edt) is DecompressorSolver):
                 Mul = True
-            return TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck)
+            if MultiThreading:
+                CubesCopy = Cubes.deepCopy()
+            else:
+                CubesCopy = Cubes
+            return TestCubeSet.doMergingExperiment(CubesCopy, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck)
         if MultiThreading:
             for R in p_imap(singleTry, EdtList):
                 Result.append(R)
