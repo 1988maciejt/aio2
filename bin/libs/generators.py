@@ -44,6 +44,16 @@ class Generators:
         sleep(0.35)
       val += step 
       
+  def allPermutationsForm2lists(self, List1 : list, List2 : list):
+    global _PAUSE
+    for i1 in List1:
+      for i2 in List2:
+        if not self._enabled:
+          return
+        yield (i1, i2)
+        while _PAUSE:
+          sleep(0.35)
+      
   def subRanges(self, start : int, stop : int, chunk : int, step = 1):
     global _PAUSE
     StartIt = start

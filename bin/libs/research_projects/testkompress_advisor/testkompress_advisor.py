@@ -22,6 +22,8 @@ class EdtStructure:
     pass
 class ScanCellsStructure:
     pass
+class PatternCountComprensator:
+    pass
 
 class TestDataDecompressor:
     
@@ -98,14 +100,11 @@ class TestDataDecompressor:
         if MinBatteryCharge is None:
             MinBatteryCharge = self.MinimumBatteryLevel
         SpecifiedBitsPerCycle = self.getSpecifiedBitPerCycleList(Cube)
-        if Cube.getSpecifiedCount() > self.getMaximumSpecifiedBitToBeCompressable():
-            return False
         # Battery model
         BatteryMax = self.LfsrLength
         BatteryMin = int(ceil(MinBatteryCharge * BatteryMax))
         BatteryChrg = BatteryMax
-        for i in range(self.ScanLength):
-            Vars = SpecifiedBitsPerCycle[i]
+        for Vars in SpecifiedBitsPerCycle:
             BatteryChrg -= Vars
             if BatteryChrg < BatteryMin:
                 return False
@@ -223,7 +222,7 @@ Decompressors: [
         return sum([Decompressor.getMaximumSpecifiedBitPerCycleToBeCompressable() for Decompressor in self._decompressors])
     
     def getMaximumSpecifiedBitToBeCompressable(self) -> int:
-        return max([Decompressor.getMaximumSpecifiedBitToBeCompressable() for Decompressor in self._decompressors])
+        return sum([Decompressor.getMaximumSpecifiedBitToBeCompressable() for Decompressor in self._decompressors])
     
     def getCubeBitsPerDecompressor(self) -> list:
         return [Decompressor.getMaximumCubeBitsPerDecompressor() for Decompressor in self._decompressors]
@@ -296,6 +295,19 @@ class TestCube:
             Result.setBit(randint(0, Length-1), 1 if random() < P1 else 0)
         return Result
     
+    def __hash__(self) -> int:
+        Result = 0
+        Mask = 1
+        for k in sorted(self._dict.keys()):
+            if self._dict[k]:
+                Result |= Mask
+            Mask <<= 1
+        for k in sorted(self._primary_dict.keys()):
+            if self._primary_dict[k]:
+                Result |= Mask
+            Mask <<= 1
+        return Result * len(self._dict) + len(self._primary_dict) * len(self)
+    
     def __init__(self, SpecifiedBits : str = '', TestCubeLenIfDictImplementation : int = 0, Id : int = -1, PatternId : int = -1, BufferId : int = -1, BufferSize : int = -1):
         self._dict = {}
         self._primary_dict = {}
@@ -331,11 +343,22 @@ class TestCube:
     def __len__(self):
         return self._len
     
+    def __eq__(self, AnotherCube : TestCube):
+        if len(self) != len(AnotherCube):
+            return False
+        return self._dict == AnotherCube._dict and self._primary_dict == AnotherCube._primary_dict
+    
+    def __ne__(self, value):
+        return not self.__eq__(value)
+    
     def __str__(self):
         return f"{self._dict},  PRIMARY: {self._primary_dict}"
     
     def __repr__(self):
         return f"TestCube(\"{str(self)}\")"
+    
+    def _getDictsLen(self) -> tuple:
+        return len(self._dict), len(self._primary_dict)
     
     def __getitem__(self, index):
         if type(index) is slice:
@@ -901,7 +924,98 @@ class TestCubeSet:
                 self._cubes[i] = CopiedCube
             #self._cubes[i].WeightAdder = self._cubes[i+1].Id - self._cubes[i].Id - 1
         
-
+    @staticmethod
+    def _getCommonCUbes_single(TwoSamplesTuple):
+        SelfSample = TwoSamplesTuple[0]
+        OtherSample = TwoSamplesTuple[1]
+        return SelfSample.getCommonCubes(OtherSample, Multiprocessing=False)
+        
+    def getCommonCubes(self, Another : TestCubeSet, Multiprocessing : bool = True) -> TestCubeSet:
+        Result = TestCubeSet()
+        if Multiprocessing:
+            import gc
+            import concurrent.futures
+            from tqdm import tqdm
+            from libs.generators import Generators
+            CubesA = self.getSubCubeSets(10000)
+            CubesB = Another.getSubCubeSets(10000)
+            with concurrent.futures.ProcessPoolExecutor() as Executor:
+                Tasks = [Executor.submit(TestCubeSet._getCommonCUbes_single, CubeSets) for CubeSets in Generators().allPermutationsForm2lists(CubesA, CubesB)]
+                for Task in tqdm(concurrent.futures.as_completed(Tasks), total=len(Tasks), desc="Getting common cubes"):
+                    SubRes = Task.result()
+                    Result._cubes += SubRes._cubes
+            AioShell.removeLastLine()
+            gc.collect()
+            print("FIltering...")
+            Result.leaveOnlyUniqueCubes()
+            AioShell.removeLastLine()
+            gc.collect()
+        else:
+            CubesA, CubesB = self, Another
+            DictA = CubesA._getSortedByDictLen()
+            DictB = CubesB._getSortedByDictLen()
+            for k, SetA in DictA.items():
+                if k in DictB:
+                    SetB = DictB[k]
+                    for CubeA in SetA._cubes:
+                        for CubeB in SetB._cubes:
+                            if CubeA == CubeB:
+                                ResCube = CubeA.copy()
+                                ResCube.Id = -1
+                                ResCube.PatternId = -1
+                                ResCube.BufferId = -1
+                                ResCube.WeightAdder = 0
+                                ResCube.SubCubes = 0
+                                Result.addCube(ResCube)
+            #for Cube in self._cubes:
+            #    if Cube in Another._cubes:
+            #        ResCube = Cube.copy()
+            #        ResCube.Id = -1
+            #        ResCube.PatternId = -1
+            #        ResCube.BufferId = -1
+            #        ResCube.WeightAdder = 0
+            #        ResCube.SubCubes = 0
+            #        Result.addCube(ResCube)
+        return Result
+    
+    intersection = getCommonCubes
+    
+    def _getSortedByDictLen(self) -> dict:
+        Result = {}
+        for Cube in self._cubes:
+            DictLen = Cube._getDictsLen()
+            TSet = Result.get(DictLen, TestCubeSet())
+            TSet.addCube(Cube)
+            Result[DictLen] = TSet
+        return Result
+    
+    def leaveOnlyUniqueCubes(self, ReturnPairs : bool = False):
+        Result = []
+        Count = 0
+        Pairs = []
+        AuxDict = {}
+        for Cube in self._cubes:
+            CLen = Cube._getDictsLen()
+            AuxRes = AuxDict.get(CLen, [])
+            Idx = -1
+            for i, c in enumerate(AuxRes):
+                if Cube == c:
+                    Idx = i
+                    break
+            if Idx < 0:
+                AuxRes.append(Cube)
+                AuxDict[CLen] = AuxRes
+                Result.append(Cube)
+            else:
+                if ReturnPairs:
+                    Pairs.append([Cube, AuxRes[Idx]])
+                Count += 1
+        self._cubes = Result
+        del AuxDict
+        if ReturnPairs:
+            return Pairs
+        return Count
+    
     @staticmethod
     def randomCubeSet(CubeCount : int, Length : int, Pspecified : float = 0.1, P1 = 0.5, ExactFillRate : bool = False) -> TestCubeSet:
         Result = TestCubeSet()
@@ -1026,7 +1140,6 @@ class TestCubeSet:
             Debug = 0
             UsingSolver = 1
             EdtBatt = Edt.getDecompressorForBatteryModelEstimations()
-        MaximumBitCount = Edt.getMaximumSpecifiedBitToBeCompressable()
         Idx = IdxAdder
         while len(Cubes) > 0 and (Patterns < PatternCount if OnlyPatternCount else len(Patterns) < PatternCount):
             Cube = Cubes._cubes[0]
@@ -1067,10 +1180,6 @@ class TestCubeSet:
                         SubCubes += 1
                         SubCubeIds.add(ANotherCube.Id)
                         ToBeRemovedFromBuffer.append(ANotherCube)
-                        if Cube.getSpecifiedCount()-1 >= MaximumBitCount:
-                            if Verbose:
-                                print(f"MaximumBitCount reached")
-                            break
                     else:
                         if Verbose:
                             print(f"NOT compressable")
@@ -1402,21 +1511,56 @@ class TestCubeSet:
     doExperiment = doMergingExperiment
 
     @staticmethod
-    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = None, PatternCountPerRound : int = 1, MinBatteryCharge : float = None, CompressabilityLimit : int = None, CombinedCompressionChecking : bool = False, MultiThreading : bool = True, Verbose : bool = False, SkipCubeCOmpressabilityCheck : bool = False) -> list:
+    def _do_experimentsSingleTry(EdtWithNumber, Cubes, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck, CompensatePatternCount) -> tuple:
+        TaskNum = EdtWithNumber[0]
+        Edt = EdtWithNumber[1]
+        if CompensatePatternCount:
+            import gc
+            Result = list(TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, False, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck, AlsoReturnPatterns=True))
+            Uncompressable = Cubes.copy().removeNotCompressable(Edt, False, ReturnRemovedCubes=True) 
+            Comprensator = PatternCountComprensator(Result[-1], Uncompressable, UncompressableCubeUsedOnlyOnce=True)
+            Result[1] = Comprensator.getCompensatedPatternCount()
+            del Comprensator
+            del Uncompressable
+            del Result[-1]
+            gc.collect()
+            return [TaskNum, Result]
+        else:
+            return [TaskNum, TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, False, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck)]
+
+    @staticmethod
+    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = None, PatternCountPerRound : int = 1, MinBatteryCharge : float = None, CompressabilityLimit : int = None, CombinedCompressionChecking : bool = False, MultiThreading : bool = True, Verbose : bool = False, SkipCubeCOmpressabilityCheck : bool = False, CompensatePatternCount : bool = False) -> list:
         Result = []
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver
         def singleTry(Edt) -> tuple:
             Mul = False
             if (not MultiThreading) and (type(Edt) is DecompressorSolver):
                 Mul = True
-            if MultiThreading:
-                CubesCopy = Cubes.deepCopy()
+            if CompensatePatternCount:
+                Result = list(TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck, AlsoReturnPatterns=True))
+                Uncompressable = Cubes.copy().removeNotCompressable(Edt, Mul, ReturnRemovedCubes=True) 
+                Comprensator = PatternCountComprensator(Result[-1], Uncompressable, UncompressableCubeUsedOnlyOnce=True)
+                Result[1] = Comprensator.getCompensatedPatternCount()
+                del Comprensator
+                del Uncompressable
+                del Result[-1]
+                return Result
             else:
-                CubesCopy = Cubes
-            return TestCubeSet.doMergingExperiment(CubesCopy, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck)
+                return TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck)
         if MultiThreading:
-            for R in p_imap(singleTry, EdtList):
-                Result.append(R)
+            from concurrent.futures import ProcessPoolExecutor, as_completed
+            from tqdm import tqdm
+            from functools import partial
+            EdtListWithNumbers = [(i, Edt) for i, Edt in enumerate(EdtList)]
+            with ProcessPoolExecutor() as executor:
+                Tasks = [executor.submit(partial(TestCubeSet._do_experimentsSingleTry, Cubes=Cubes, BufferLength=BufferLength, PatternCountPerRound=PatternCountPerRound, MinBatteryCharge=MinBatteryCharge, CompressabilityLimit=CompressabilityLimit, Verbose=Verbose, CombinedCompressionChecking=CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck, CompensatePatternCount=CompensatePatternCount), Edt) for Edt in EdtListWithNumbers]
+                for f in tqdm(as_completed(Tasks), total=len(Tasks)):
+                    Result.append(f.result())
+            Result.sort(key=lambda x: x[0])
+            for i, v in enumerate(Result):
+                Result[i] = v[1]
+            #for R in p_imap(singleTry, EdtList):
+            #    Result.append(R)
         else:
             import tqdm
             for R in tqdm.tqdm(EdtList):
