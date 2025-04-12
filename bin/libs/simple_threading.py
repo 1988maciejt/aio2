@@ -126,3 +126,29 @@ class SimpleThread:
       else:
         sleep(0.001)
     return Result
+  
+class SimpleThreadInverval:
+
+  __slots__ = ('Interval', '_enabled', '_function', '_args', '_kwargs')
+
+  def __init__(self, Interval : float, function, *args, **kwargs):
+    self.Interval = Interval
+    self._enabled = False
+    self._function = function
+    self._args = args
+    self._kwargs = kwargs
+  
+  def _action(self):
+    NextTime = time.time()
+    while self._enabled:
+      if time.time() >= NextTime:
+        NextTime += self.Interval
+        self._function(*self._args, **self._kwargs)
+      sleep(0.001)
+
+  def run(self):
+    self._enabled = True
+    SimpleThread(1).single(self._action)
+
+  def stop(self):
+    self._enabled = False
