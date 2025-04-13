@@ -7,17 +7,26 @@ import time
 
 class DessMonitorConfig:
 
-  __slots__ = ('_querySPDeviceLastData', '_queryDeviceParsEs')
+  __slots__ = ('_querySPDeviceLastData', '_queryDeviceParsEs', "_setPrioritySolar", "_setPrioritySBU")
 
-  def __init__(self, URL__querySPDeviceLastData : str, URL__queryDeviceParsEs):
-    self._querySPDeviceLastData = URL__querySPDeviceLastData
-    self._queryDeviceParsEs = URL__queryDeviceParsEs
+  def __init__(self, URL_querySPDeviceLastData : str, URL_queryDeviceParsEs : str, URL_SetPrioritySolar : str = None, URL_SetPrioritySBU : str = None):
+    self._querySPDeviceLastData = URL_querySPDeviceLastData
+    self._queryDeviceParsEs = URL_queryDeviceParsEs
+    self._setPrioritySolar = URL_SetPrioritySolar
+    self._setPrioritySBU = URL_SetPrioritySBU
   
   def getLastDataUrl(self) -> str:
     return self._querySPDeviceLastData
   
   def getRestDataUrl(self) -> str:
     return self._queryDeviceParsEs
+  
+  def getSetPrioritySolarUrl(self) -> str:
+    return self._setPrioritySolar
+  
+  def getSetPrioritySBUUrl(self) -> str:
+    return self._setPrioritySBU
+
   
 
 class DessInverter:
@@ -30,7 +39,7 @@ class DessInverter:
     'OutputSourcePriority', 'ChargerSourcePriority',
     'TimeOfData', 'WorkingMode',
     '_my_config', 'InverterPowerConsumption', '_updater', 'LastUpdateTimeStamp',
-    'DcAcConversionEfficiency',
+    'DcAcConversionEfficiency', '_priority_automator', '_pv_enough_history', '_priority_automator_last_timestamp',
   )
 
   def __init__(self, Config : DessMonitorConfig, AutoUpdate : bool = True):
@@ -55,11 +64,14 @@ class DessInverter:
     self.OutputSourcePriority = ''
     self.ChargerSourcePriority = ''
     self.WorkingMode = ''
+    self._priority_automator_last_timestamp = ''
     self.InverterPowerConsumption = 25
     self.DcAcConversionEfficiency = 0.9
     self._updater = SimpleThreadInterval(60, self.update)
+    self._priority_automator = SimpleThreadInterval(180, self.priorityAutomatorPoll)
     self.LastUpdateTimeStamp = 0
     self.TimeOfData = None
+    self._pv_enough_history = None
     if AutoUpdate:
       self._updater.start()
 
@@ -91,6 +103,57 @@ class DessInverter:
     except:
       return None
     
+  def setPrioritySolar(self) -> bool:
+    Url = self._my_config.getSetPrioritySolarUrl()
+    if Url is None:
+      Aio.printError('Set Priority Solar URL is not set')
+      return False
+    try:
+      j = self._getJson(Url)
+      if j is None:
+        return False
+      if j["err"] == 0:
+        return True
+    except:
+      return False
+    return True
+    
+  def setPrioritySBU(self) -> bool:
+    Url = self._my_config.getSetPrioritySBUUrl()
+    if Url is None:
+      Aio.printError('Set Priority SBU URL is not set')
+      return False
+    try:
+      j = self._getJson(Url)
+      if j is None:
+        return False
+      if j["err"] == 0:
+        return True
+    except:
+      return False
+    return True
+  
+  def priorityAutomatorPoll(self):
+    if self.TimeOfData is None:
+      return
+    if self._priority_automator_last_timestamp == self.TimeOfData:
+      return
+    if self._pv_enough_history is None:
+      self._pv_enough_history = self.isPvEnough()
+    else:
+      IsEnough = self.isPvEnough()
+      if IsEnough and self._pv_enough_history:
+        # should be solar
+        if self.OutputSourcePriority != 'Solar':
+          if self.setPrioritySolar():
+            self.OutputSourcePriority = 'Solar'
+      elif not IsEnough and not self._pv_enough_history:
+        # should be SBU
+        if self.OutputSourcePriority != 'SBU':
+          if self.setPrioritySBU():
+            self.OutputSourcePriority = 'SBU'
+    self._priority_automator_last_timestamp = self.TimeOfData
+    
   def update(self) -> bool:
     Json = self._getJson(self._my_config.getLastDataUrl())
     if Json is None:
@@ -111,6 +174,8 @@ class DessInverter:
           return Res
       return 0
     TimeOfData = Json['dat']['gts']
+    if TimeOfData == self.LastUpdateTimeStamp:
+      return True
     gdPars = Json['dat']['pars']['gd_']
     syPars = Json['dat']['pars']['sy_']
     pvPars = Json['dat']['pars']['pv_']
@@ -158,3 +223,16 @@ class DessInverter:
       self._updater.start()
     else:
       self._updater.stop()
+
+  def automateOutputSourcePriority(self, Enable : bool):
+    if Enable:
+      self._priority_automator.start()
+    else:
+      self._priority_automator.stop()
+
+  def isPvEnough(self) -> bool:
+    if self.BatteryInputPower > 0:
+      return False
+    if self.PvInputPower >= self.AcOutputPower - self.BatteryInputPower:
+      return True
+    return False
