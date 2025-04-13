@@ -33,3 +33,4 @@ _installMissingModules(_required_libs)
 
 from libs_prv.music import *
 from libs_prv.pv import *
+from libs_prv.dessmonitor import *
