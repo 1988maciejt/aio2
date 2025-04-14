@@ -89,7 +89,7 @@ class DessInverter:
     Table.addRow(['Apparent Power', '', '', '', self.AcOutputApparentPower, 'VA'])
     Table.addRow(['Capacity', '', '', int(self.BatteryCapacity*100), int(self.AcOutputLoad*100), '%'])
     Table.addRow(['Priority', '', '', self.ChargerSourcePriority, self.OutputSourcePriority, ''])
-    return f'''Time of data: {self.TimeOfData}, Working mode: {self.WorkingMode}
+    return f'''Time of data: {self.TimeOfData}, {self.WorkingMode}, PV power is {'NOT ' if not self.isPvEnough() else ''}enough.
 {Table.toString()}'''
 
   def _getJson(self, url):
@@ -174,7 +174,7 @@ class DessInverter:
           return Res
       return 0
     TimeOfData = Json['dat']['gts']
-    if TimeOfData == self.LastUpdateTimeStamp:
+    if TimeOfData == self.TimeOfData:
       return True
     gdPars = Json['dat']['pars']['gd_']
     syPars = Json['dat']['pars']['sy_']
@@ -233,6 +233,12 @@ class DessInverter:
   def isPvEnough(self) -> bool:
     if self.BatteryInputPower > 0:
       return False
-    if self.PvInputPower >= self.AcOutputPower - self.BatteryInputPower:
+    if self.PvInputPower >= (self.AcOutputPower - self.BatteryInputPower) / self.DcAcConversionEfficiency:
       return True
     return False
+  
+  def isModeInverter(self) -> bool:
+    return 'Invert' in self.WorkingMode
+
+  def isModeLine(self) -> bool:
+    return 'Line' in self.WorkingMode
