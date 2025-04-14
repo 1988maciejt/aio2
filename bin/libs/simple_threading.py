@@ -144,7 +144,10 @@ class SimpleThreadInterval:
     while self._enabled:
       if time.time() >= self._next_time:
         self._next_time += self.Interval
-        self._function(*self._args, **self._kwargs)
+        try:
+          self._function(*self._args, **self._kwargs)
+        except Exception as inst:
+          Aio.printError(f"SimpleThreadInterval: {inst}")
       sleep(0.001)
 
   def run(self):

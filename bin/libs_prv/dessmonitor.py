@@ -39,7 +39,7 @@ class DessInverter:
     'OutputSourcePriority', 'ChargerSourcePriority',
     'TimeOfData', 'WorkingMode',
     '_my_config', 'InverterPowerConsumption', '_updater', 'LastUpdateTimeStamp',
-    'DcAcConversionEfficiency', '_priority_automator', '_pv_enough_history', '_priority_automator_last_timestamp',
+    'DcAcConversionEfficiency', '_priority_automator', '_priority_automator_last_timestamp',
   )
 
   def __init__(self, Config : DessMonitorConfig, AutoUpdate : bool = True):
@@ -67,11 +67,10 @@ class DessInverter:
     self._priority_automator_last_timestamp = ''
     self.InverterPowerConsumption = 25
     self.DcAcConversionEfficiency = 0.9
-    self._updater = SimpleThreadInterval(60, self.update)
-    self._priority_automator = SimpleThreadInterval(180, self.priorityAutomatorPoll)
+    self._updater = SimpleThreadInterval(30, self.update)
+    self._priority_automator = SimpleThreadInterval(10, self.priorityAutomatorPoll)
     self.LastUpdateTimeStamp = 0
     self.TimeOfData = None
-    self._pv_enough_history = None
     if AutoUpdate:
       self._updater.start()
 
@@ -138,19 +137,21 @@ class DessInverter:
       return
     if self._priority_automator_last_timestamp == self.TimeOfData:
       return
-    if self._pv_enough_history is None:
-      self._pv_enough_history = self.isPvEnough()
     else:
       IsEnough = self.isPvEnough()
-      if IsEnough and self._pv_enough_history:
+      if IsEnough:
         # should be solar
         if self.OutputSourcePriority != 'Solar':
+          print("Trying to set solar priority")
           if self.setPrioritySolar():
+            print("Set solar priority")
             self.OutputSourcePriority = 'Solar'
-      elif not IsEnough and not self._pv_enough_history:
+      else:
         # should be SBU
         if self.OutputSourcePriority != 'SBU':
+          print("Trying to set SBU priority")
           if self.setPrioritySBU():
+            print("Set SBU priority")
             self.OutputSourcePriority = 'SBU'
     self._priority_automator_last_timestamp = self.TimeOfData
     
