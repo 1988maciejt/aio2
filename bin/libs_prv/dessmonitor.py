@@ -173,50 +173,53 @@ class DessInverter:
               pass
           return Res
       return 0
-    TimeOfData = Json['dat']['gts']
-    if TimeOfData == self.TimeOfData:
+    try:
+      TimeOfData = Json['dat']['gts']
+      if TimeOfData == self.TimeOfData:
+        return True
+      gdPars = Json['dat']['pars']['gd_']
+      syPars = Json['dat']['pars']['sy_']
+      pvPars = Json['dat']['pars']['pv_']
+      btPars = Json['dat']['pars']['bt_']
+      bcPars = Json['dat']['pars']['bc_']
+      Json = self._getJson(self._my_config.getRestDataUrl())
+      if Json is None:
+        return False
+      restPars = Json['dat']['parameter']
+      self.WorkingMode = get_par_val(syPars, 'sy_status')
+      self.AcInputFrequency = get_par_val(gdPars, 'gd_ac_input_frequency')
+      self.AcInputVoltage = get_par_val(gdPars, 'gd_ac_input_voltage')
+      self.AcOutputFrequncy = get_par_val(bcPars, 'bc_output_frequency')
+      self.AcOutputVoltage = get_par_val(bcPars, 'bc_output_voltage')
+      self.AcOutputPower = int(get_par_val(restPars, 'output_power', 'par', 0)*1000)
+      self.AcOutputCurrent = round(self.AcOutputPower / self.AcOutputVoltage,1) if self.AcOutputVoltage != 0 else 0
+      self.AcOutputApparentPower = get_par_val(bcPars, 'bc_output_apparent_power')
+      self.AcOutputLoad = get_par_val(bcPars, 'bc_battery_capacity') / 100.0
+      self.PvInputPower = get_par_val(pvPars, 'pv_output_power')
+      self.PvInputVoltage = get_par_val(pvPars, 'pv_input_voltage')
+      self.PvInputCurrent = round(self.PvInputPower / self.PvInputVoltage,1) if self.PvInputVoltage != 0 else 0
+      self.BatteryVoltage = get_par_val(btPars, 'bt_battery_voltage')
+      Char = get_par_val(btPars, 'bt_battery_charging_current')
+      Dis = get_par_val(btPars, 'bt_battery_discharge_current')
+      self.BatteryInputCurrent = Dis - Char
+      self.BatteryInputPower = round(self.BatteryVoltage * self.BatteryInputCurrent, 1)
+      self.BatteryCapacity = get_par_val(btPars, 'bt_battery_capacity') / 100
+      self.OutputSourcePriority = get_par_val(bcPars, 'bc_output_source_priority')
+      self.ChargerSourcePriority = get_par_val(btPars, 'bt_charger_source_priority')
+      if self.BatteryInputPower < 0:
+        BattPower = self.BatteryInputPower / self.DcAcConversionEfficiency
+      else:
+        BattPower = self.BatteryInputPower * self.DcAcConversionEfficiency
+      if "Invert" in self.WorkingMode:
+        self.AcInputCurrent = 0
+      else:
+        self.AcInputPower = int(self.AcOutputPower - BattPower - self.PvInputPower + self.InverterPowerConsumption)
+      self.AcInputCurrent = round(self.AcInputPower / self.AcInputVoltage,1) if self.AcInputVoltage != 0 else 0
+      self.TimeOfData = TimeOfData
+      self.LastUpdateTimeStamp = time.time()
       return True
-    gdPars = Json['dat']['pars']['gd_']
-    syPars = Json['dat']['pars']['sy_']
-    pvPars = Json['dat']['pars']['pv_']
-    btPars = Json['dat']['pars']['bt_']
-    bcPars = Json['dat']['pars']['bc_']
-    Json = self._getJson(self._my_config.getRestDataUrl())
-    if Json is None:
+    except:
       return False
-    restPars = Json['dat']['parameter']
-    self.WorkingMode = get_par_val(syPars, 'sy_status')
-    self.AcInputFrequency = get_par_val(gdPars, 'gd_ac_input_frequency')
-    self.AcInputVoltage = get_par_val(gdPars, 'gd_ac_input_voltage')
-    self.AcOutputFrequncy = get_par_val(bcPars, 'bc_output_frequency')
-    self.AcOutputVoltage = get_par_val(bcPars, 'bc_output_voltage')
-    self.AcOutputPower = int(get_par_val(restPars, 'output_power', 'par', 0)*1000)
-    self.AcOutputCurrent = round(self.AcOutputPower / self.AcOutputVoltage,1) if self.AcOutputVoltage != 0 else 0
-    self.AcOutputApparentPower = get_par_val(bcPars, 'bc_output_apparent_power')
-    self.AcOutputLoad = get_par_val(bcPars, 'bc_battery_capacity') / 100.0
-    self.PvInputPower = get_par_val(pvPars, 'pv_output_power')
-    self.PvInputVoltage = get_par_val(pvPars, 'pv_input_voltage')
-    self.PvInputCurrent = round(self.PvInputPower / self.PvInputVoltage,1) if self.PvInputVoltage != 0 else 0
-    self.BatteryVoltage = get_par_val(btPars, 'bt_battery_voltage')
-    Char = get_par_val(btPars, 'bt_battery_charging_current')
-    Dis = get_par_val(btPars, 'bt_battery_discharge_current')
-    self.BatteryInputCurrent = Dis - Char
-    self.BatteryInputPower = round(self.BatteryVoltage * self.BatteryInputCurrent, 1)
-    self.BatteryCapacity = get_par_val(btPars, 'bt_battery_capacity') / 100
-    self.OutputSourcePriority = get_par_val(bcPars, 'bc_output_source_priority')
-    self.ChargerSourcePriority = get_par_val(btPars, 'bt_charger_source_priority')
-    if self.BatteryInputPower < 0:
-      BattPower = self.BatteryInputPower / self.DcAcConversionEfficiency
-    else:
-      BattPower = self.BatteryInputPower * self.DcAcConversionEfficiency
-    if "Invert" in self.WorkingMode:
-      self.AcInputCurrent = 0
-    else:
-      self.AcInputPower = int(self.AcOutputPower - BattPower - self.PvInputPower + self.InverterPowerConsumption)
-    self.AcInputCurrent = round(self.AcInputPower / self.AcInputVoltage,1) if self.AcInputVoltage != 0 else 0
-    self.TimeOfData = TimeOfData
-    self.LastUpdateTimeStamp = time.time()
-    return True
 
   def AutoUpdate(self, Enable : bool):
     if Enable:
