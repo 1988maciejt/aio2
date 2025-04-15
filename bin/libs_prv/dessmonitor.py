@@ -4,28 +4,195 @@ from libs.simple_threading import SimpleThreadInterval
 import requests
 import json
 import time
+import hashlib
 
 class DessMonitorConfig:
 
-  __slots__ = ('_querySPDeviceLastData', '_queryDeviceParsEs', "_setPrioritySolar", "_setPrioritySBU")
+  __slots__ = (
+    'UserName', 'PasswordHash', 'Source', 'Language',
+    'SN', 'Protocol', 'DeviceAddress', 'PN',
+    '_secret', '_token', '_company_key', '_authenticated',
+    '_AuthThread', 'NextloginTime'
+  )
 
-  def __init__(self, URL_querySPDeviceLastData : str, URL_queryDeviceParsEs : str, URL_SetPrioritySolar : str = None, URL_SetPrioritySBU : str = None):
-    self._querySPDeviceLastData = URL_querySPDeviceLastData
-    self._queryDeviceParsEs = URL_queryDeviceParsEs
-    self._setPrioritySolar = URL_SetPrioritySolar
-    self._setPrioritySBU = URL_SetPrioritySBU
+  def __init__(self, UserName : str, Password : str, SN : str = None):
+    self.UserName = UserName
+    self.PasswordHash = self.getSha1(Password)
+    self.Source = "1"
+    self.SN = SN
+    self.Protocol = ""
+    self.DeviceAddress = ""
+    self.PN = ""
+    self.Language = "en_US"
+    self._secret = None
+    self._token = None
+    self._company_key = "bnrl_frRFjEz8Mkn"
+    self._authenticated = False
+    self.NextloginTime = 0
+    self._AuthThread = SimpleThreadInterval(10, self._autoLogin)
+    self._AuthThread.start()
+
+  def __bool__(self) -> bool:
+    return self._authenticated
+  
+  def isAuthenticated(self) -> bool:
+    return self._authenticated
+
+  def getJson(self, url):
+    try:
+      response = requests.get(url)
+      if response.status_code == 200:
+        data = json.loads(response.text)
+        return data
+      else:
+        return None
+    except:
+      return None
+  
+  def getSalt(self) -> str:
+    return str(int(time.time() * 1000))
+  
+  def getSha1(self, Text : str) -> str:
+    return hashlib.sha1(Text.encode('utf-8')).hexdigest()
+  
+  def _getDevices(self):
+    Url = self.getQueryDevicesUrl()
+    Json = self.getJson(Url)
+    if Json is not None:
+      try:
+        Devices = Json["dat"]["device"]
+        return Devices
+      except:
+        pass
+    return None
+
+  def _autoSetDevice(self) -> bool:
+    for _ in range(3):
+      Devices = self._getDevices()
+      if Devices is not None:
+        if self.SN is None:
+          if len(Devices) == 1:
+            self.SN = Devices[0]["sn"]
+            self.PN = Devices[0]["pn"]
+            self.Protocol = str(Devices[0]["devcode"])
+            self.DeviceAddress = str(Devices[0]["devaddr"])
+            return True
+          else:
+            Aio.printError("More than one device. Please set the SN in constructor call.")
+            return False
+        else:
+          SNs = []
+          for Device in Devices:
+            SNs.append(Device["sn"])
+            if Device["sn"] == self.SN:
+              self.PN = Device["pn"]
+              self.Protocol = Device["devcode"]
+              self.DeviceAddress = Device["devaddr"]
+              return True
+          Aio.printError(f"There is no device having SN = {self.SN}. Available devices: {','.join(SNs)}.")
+          return False
+    return False      
+
+  def _autoLogin(self):
+    if self._authenticated:
+      if time.time() < self.NextloginTime:
+        return
+    for _ in range(3):
+      Url = self.getLoginUrl()
+      Json = self.getJson(Url)
+      if Json is not None:
+        try:
+          Secret = Json["dat"]["secret"]
+          Token = Json["dat"]["token"]
+          Expire = int(Json["dat"]["expire"])
+          self._secret = Secret
+          self._token = Token
+          self.NextloginTime = time.time() + (Expire // 2)
+          if self._autoSetDevice():
+            self._authenticated = True
+          else:
+            Aio.printError("Failed to set device. AutoLogin disabled. Set the correct SN.")
+            self._authenticated = False
+            self._AuthThread.stop()
+          return
+        except:
+          pass
+    if time.time() > self.NextloginTime:
+      self._authenticated = False
+
+  def getLoginUrl(self):
+    Salt = self.getSalt()
+    HashingString = Salt + self.PasswordHash + "&action=authSource&usr=" + self.UserName + "&source=" + self.Source + "&company-key=" + self._company_key
+    Sign = self.getSha1(HashingString)
+    Url = "https://web.dessmonitor.com/public/?sign=" + Sign + "&salt=" + Salt + "&action=authSource&usr=" + self.UserName + "&source=" + self.Source + "&company-key=" + self._company_key
+    return Url
+  
+  def getQueryUrl(self, Params : dict, Force : bool = False) -> str:
+    if not self._authenticated and not Force:
+      return None
+    Salt = self.getSalt()
+    HashingString = Salt + self._secret + self._token
+    Query = ""
+    for key, val in Params.items():
+      Query +=  "&" + key + "=" + val  
+    HashingString += Query
+    Sign = self.getSha1(HashingString)
+    Url = "https://web.dessmonitor.com/public/?sign=" + Sign + "&salt=" + Salt + "&token=" + self._token + Query
+    return Url 
+  
+  def getQueryDevicesUrl(self) -> str:
+    Params = {
+      'action': 'webQueryDeviceEs',
+      'source': self.Source,
+      'devtype': "2304",
+      'page': "0",
+      'pagesize': "15"
+    }
+    return self.getQueryUrl(Params, Force=1)
   
   def getLastDataUrl(self) -> str:
-    return self._querySPDeviceLastData
+    Params = {
+      'action': 'querySPDeviceLastData',
+      'source': self.Source,
+      'devcode': self.Protocol,
+      'pn': self.PN,
+      'devaddr': self.DeviceAddress,
+      'sn': self.SN,
+      'i18n': self.Language
+    }
+    return self.getQueryUrl(Params)
   
   def getRestDataUrl(self) -> str:
-    return self._queryDeviceParsEs
+    Params = {
+      'action': 'queryDeviceParsEs',
+      'source': self.Source,
+      'devcode': self.Protocol,
+      'pn': self.PN,
+      'devaddr': self.DeviceAddress,
+      'sn': self.SN,
+      'i18n': self.Language
+    }
+    return self.getQueryUrl(Params)
+  
+  def getSetParamUrl(self, ParamId : str, ParamValue : str) -> str:
+    Params = {
+      'action': 'ctrlDevice',
+      'source': self.Source,
+      'pn': self.PN,
+      'sn': self.SN,
+      'devcode': self.Protocol,
+      'devaddr': self.DeviceAddress,
+      'id': ParamId,
+      'val': ParamValue,
+      'i18n': self.Language
+    }
+    return self.getQueryUrl(Params)
   
   def getSetPrioritySolarUrl(self) -> str:
-    return self._setPrioritySolar
+    return self.getSetParamUrl("los_output_source_priority", "1")
   
   def getSetPrioritySBUUrl(self) -> str:
-    return self._setPrioritySBU
+    return self.getSetParamUrl("los_output_source_priority", "2")
 
   
 
@@ -40,6 +207,7 @@ class DessInverter:
     'TimeOfData', 'WorkingMode',
     '_my_config', 'InverterPowerConsumption', '_updater', 'LastUpdateTimeStamp',
     'DcAcConversionEfficiency', '_priority_automator', '_priority_automator_last_timestamp',
+    'BatteryBulkChargingVoltage', 'BatteryFloatingChargingVoltage', 'BatteryTotalChargingCurrent', 'BatteryStatus' 
   )
 
   def __init__(self, Config : DessMonitorConfig, AutoUpdate : bool = True):
@@ -64,10 +232,14 @@ class DessInverter:
     self.OutputSourcePriority = ''
     self.ChargerSourcePriority = ''
     self.WorkingMode = ''
+    self.BatteryBulkChargingVoltage = 0
+    self.BatteryFloatingChargingVoltage = 0
+    self.BatteryTotalChargingCurrent = 0
+    self.BatteryStatus = ''
     self._priority_automator_last_timestamp = ''
     self.InverterPowerConsumption = 25
     self.DcAcConversionEfficiency = 0.9
-    self._updater = SimpleThreadInterval(30, self.update)
+    self._updater = SimpleThreadInterval(20, self.update)
     self._priority_automator = SimpleThreadInterval(10, self.priorityAutomatorPoll)
     self.LastUpdateTimeStamp = 0
     self.TimeOfData = None
@@ -87,8 +259,10 @@ class DessInverter:
     Table.addRow(['Power', self.AcInputPower, self.PvInputPower, self.BatteryInputPower, self.AcOutputPower, 'W'])
     Table.addRow(['Apparent Power', '', '', '', self.AcOutputApparentPower, 'VA'])
     Table.addRow(['Capacity', '', '', int(self.BatteryCapacity*100), int(self.AcOutputLoad*100), '%'])
+    Table.addRow(['Bulk/Float Char. Volt.', '', '', f'{self.BatteryBulkChargingVoltage} / {self.BatteryFloatingChargingVoltage}', '', 'V'])
+    Table.addRow(['Total Char. Curr.', '', '', self.BatteryTotalChargingCurrent, '', 'A'])
     Table.addRow(['Priority', '', '', self.ChargerSourcePriority, self.OutputSourcePriority, ''])
-    return f'''Time of data: {self.TimeOfData}, {self.WorkingMode}, PV power is {'NOT ' if not self.isPvEnough() else ''}enough.
+    return f'''Time of data: {self.TimeOfData}, {self.WorkingMode}, {self.BatteryStatus}, PV power is {'NOT ' if not self.isPvEnough() else ''}enough.
 {Table.toString()}'''
 
   def _getJson(self, url):
@@ -133,7 +307,7 @@ class DessInverter:
     return True
   
   def priorityAutomatorPoll(self):
-    if self.TimeOfData is None:
+    if not self._my_config or self.TimeOfData is None:
       return
     if self._priority_automator_last_timestamp == self.TimeOfData:
       return
@@ -156,6 +330,8 @@ class DessInverter:
     self._priority_automator_last_timestamp = self.TimeOfData
     
   def update(self) -> bool:
+    if not self._my_config:
+      return False
     Json = self._getJson(self._my_config.getLastDataUrl())
     if Json is None:
       return False
@@ -200,6 +376,10 @@ class DessInverter:
       self.PvInputVoltage = get_par_val(pvPars, 'pv_input_voltage')
       self.PvInputCurrent = round(self.PvInputPower / self.PvInputVoltage,1) if self.PvInputVoltage != 0 else 0
       self.BatteryVoltage = get_par_val(btPars, 'bt_battery_voltage')
+      self.BatteryBulkChargingVoltage = get_par_val(btPars, 'bt_vulk_charging_voltage')
+      self.BatteryFloatingChargingVoltage = get_par_val(btPars, 'bt_floating_charging_voltage')
+      self.BatteryTotalChargingCurrent = get_par_val(btPars, 'bt_total_charge_current')
+      self.BatteryStatus = get_par_val(btPars, 'bt_battery_status')
       Char = get_par_val(btPars, 'bt_battery_charging_current')
       Dis = get_par_val(btPars, 'bt_battery_discharge_current')
       self.BatteryInputCurrent = Dis - Char
@@ -212,7 +392,7 @@ class DessInverter:
       else:
         BattPower = self.BatteryInputPower * self.DcAcConversionEfficiency
       if "Invert" in self.WorkingMode:
-        self.AcInputCurrent = 0
+        self.AcInputPower = 0
       else:
         self.AcInputPower = int(self.AcOutputPower - BattPower - self.PvInputPower + self.InverterPowerConsumption)
       self.AcInputCurrent = round(self.AcInputPower / self.AcInputVoltage,1) if self.AcInputVoltage != 0 else 0
@@ -235,10 +415,20 @@ class DessInverter:
       self._priority_automator.stop()
 
   def isPvEnough(self) -> bool:
-    if self.BatteryInputPower > 0:
-      return False
-    if self.PvInputPower >= (self.AcOutputPower - self.BatteryInputPower) / self.DcAcConversionEfficiency:
-      return True
+    if self.isModeInverter():
+      if "Charging" in self.BatteryStatus:
+        if self.BatteryBulkChargingVoltage <= self.BatteryVoltage:
+          return True
+        MPPVoltage = (self.BatteryBulkChargingVoltage + self.BatteryFloatingChargingVoltage) / 2
+        EstimatedChargingPowerMax = self.BatteryTotalChargingCurrent * MPPVoltage
+        if self.PvInputPower >= (self.AcOutputPower + EstimatedChargingPowerMax) / self.DcAcConversionEfficiency:
+          return True
+      else:
+        if self.PvInputPower >= (self.AcOutputPower) / self.DcAcConversionEfficiency:
+          return True
+    else:
+      if self.PvInputPower >= (self.AcOutputPower - self.BatteryInputPower) / self.DcAcConversionEfficiency:
+        return True
     return False
   
   def isModeInverter(self) -> bool:
