@@ -129,7 +129,7 @@ class SimpleThread:
   
 class SimpleThreadInterval:
 
-  __slots__ = ('Interval', '_enabled', '_function', '_args', '_kwargs', '_next_time')
+  __slots__ = ('Interval', '_enabled', '_function', '_args', '_kwargs', '_next_time', "_add_later")
 
   def __init__(self, Interval : float, function, *args, **kwargs):
     self.Interval = Interval
@@ -138,16 +138,23 @@ class SimpleThreadInterval:
     self._args = args
     self._kwargs = kwargs
     self._next_time = 0
+    self._add_later = 0
   
+  def setAddingType(self, Later : bool = False):
+    self._add_later = Later
+
   def _action(self):
     self._next_time = time.time()
     while self._enabled:
       if time.time() >= self._next_time:
-        self._next_time += self.Interval
+        if not self._add_later:
+          self._next_time += self.Interval
         try:
           self._function(*self._args, **self._kwargs)
         except Exception as inst:
           Aio.printError(f"SimpleThreadInterval: {inst}")
+        if self._add_later:
+          self._next_time += self.Interval
       sleep(0.001)
 
   def run(self):

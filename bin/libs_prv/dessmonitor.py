@@ -6,6 +6,61 @@ import json
 import time
 import hashlib
 
+
+class DessMonitorControlParameter:
+
+  __slots__ = ('Id', 'Name', 'Keys', 'Values', 'Value')
+
+  def __init__(self, Id : str, Name : str, Keys : list, Values : list):
+    self.Id = Id
+    self.Name = Name
+    self.Keys = Keys
+    self.Values = Values
+    self.Value = None
+
+  def __str__(self):
+    return f"{self.Name}: {self.Values} = {self.Value}"
+  
+  def __repr__(self):
+    return f"DessMonitorControlParameter({self.Id}, {self.Name}, {self.Keys}, {self.Values})"
+
+
+class DessMonitorControlParameters:
+
+  __slots__ = ('Parameters')
+
+  def __init__(self, Json : dict):
+    self.Parameters = []
+    try:
+      for Field in Json['dat']['field']:
+        Id = Field['id']
+        Name = Field['name']
+        Keys, Values = [], []
+        if 'item' in Field.keys():
+          for Item in Field['item']:
+            Keys.append(Item['key'])
+            Values.append(Item['val'])
+        self.Parameters.append(DessMonitorControlParameter(Id, Name, Keys, Values))
+    except Exception as inst:
+      Aio.printError(f"Failed to parse parameters from JSON: {inst}")
+
+  def __str__(self):
+    return "\n".join([str(P) for P in self.Parameters])
+  
+  def __len__(self):
+    return len(self.Parameters)
+  
+  def __getitem__(self, index) -> DessMonitorControlParameter:
+    return self.Parameters[index]
+  
+  def getValuesTable(self) -> AioTable:
+    Result = AioTable(['Name', 'Value'])
+    for Param in self.Parameters:
+      Result.add([Param.Name, Param.Value])
+    return Result 
+
+
+
 class DessMonitorConfig:
 
   __slots__ = (
@@ -174,6 +229,18 @@ class DessMonitorConfig:
     }
     return self.getQueryUrl(Params)
   
+  def getQueryDeviceCtrlFieldUrl(self) -> str:
+    Params = {
+      'action': 'queryDeviceCtrlField',
+      'source': self.Source,
+      'pn': self.PN,
+      'sn': self.SN,
+      'devcode': self.Protocol,
+      'devaddr': self.DeviceAddress,
+      'i18n': self.Language
+    }
+    return self.getQueryUrl(Params)
+  
   def getSetParamUrl(self, ParamId : str, ParamValue : str) -> str:
     Params = {
       'action': 'ctrlDevice',
@@ -184,6 +251,19 @@ class DessMonitorConfig:
       'devaddr': self.DeviceAddress,
       'id': ParamId,
       'val': ParamValue,
+      'i18n': self.Language
+    }
+    return self.getQueryUrl(Params)
+  
+  def getGetParamUrl(self, ParamId : str) -> str:
+    Params = {
+      'action': 'queryDeviceCtrlValue',
+      'source': self.Source,
+      'pn': self.PN,
+      'sn': self.SN,
+      'devcode': self.Protocol,
+      'devaddr': self.DeviceAddress,
+      'id': ParamId,
       'i18n': self.Language
     }
     return self.getQueryUrl(Params)
@@ -210,7 +290,7 @@ class DessInverter:
     'BatteryBulkChargingVoltage', 'BatteryFloatingChargingVoltage', 'BatteryTotalChargingCurrent', 'BatteryStatus' 
   )
 
-  def __init__(self, Config : DessMonitorConfig, AutoUpdate : bool = True):
+  def __init__(self, Config : DessMonitorConfig, AutoUpdate : bool = True, WaitForLogin : bool = True):
     self._my_config = Config
     self.AcInputFrequency = 0
     self.AcInputVoltage = 0
@@ -237,10 +317,18 @@ class DessInverter:
     self.BatteryTotalChargingCurrent = 0
     self.BatteryStatus = ''
     self._priority_automator_last_timestamp = ''
-    self.InverterPowerConsumption = 25
-    self.DcAcConversionEfficiency = 0.9
-    self._updater = SimpleThreadInterval(20, self.update)
-    self._priority_automator = SimpleThreadInterval(10, self.priorityAutomatorPoll)
+    self.InverterPowerConsumption = 45
+    self.DcAcConversionEfficiency = 0.92
+    if WaitForLogin:
+      tx = time.time() + 10
+      while time.time() < tx:
+        if Config.isAuthenticated():
+          break
+        time.sleep(0.1)
+    self._updater = SimpleThreadInterval(5, self.update)
+    self._updater.setAddingType(1)
+    self._priority_automator = SimpleThreadInterval(5, self.priorityAutomatorPoll)
+    self._priority_automator.setAddingType(1)
     self.LastUpdateTimeStamp = 0
     self.TimeOfData = None
     if AutoUpdate:
@@ -266,15 +354,54 @@ class DessInverter:
 {Table.toString()}'''
 
   def _getJson(self, url):
-    try:
-      response = requests.get(url)
-      if response.status_code == 200:
-        data = json.loads(response.text)
-        return data
-      else:
+    for _ in range(3):
+      try:
+        response = requests.get(url)
+        if response.status_code == 200:
+          data = json.loads(response.text)
+          if data["err"] == 0:
+            return data
+        else:
+          return None
+      except:
         return None
-    except:
-      return None
+    
+  def getControlParams(self) -> DessMonitorControlParameters:
+    Url = self._my_config.getQueryDeviceCtrlFieldUrl()
+    Json = self._getJson(Url)
+    if Json is not None:
+      try:
+        return DessMonitorControlParameters(Json)
+      except:
+        Aio.printError("Failed to parse control parameters from JSON.")
+    return None
+  
+  def getControlParamValue(self, Param : DessMonitorControlParameter) -> str:
+    Url = self._my_config.getGetParamUrl(Param.Id)
+    Json = self._getJson(Url)
+    if Json is not None:
+      try:
+        Param.Value = Json['dat']['val']
+        return Param.Value
+      except Exception as inst:
+        Aio.printError(f"Failed to parse control parameters from JSON: {inst}, {Json}")
+    return None
+
+  def getControlParametersValues(self, Params : DessMonitorControlParameters, MultiThreading : bool = True) -> bool:
+    if MultiThreading:
+      from p_tqdm import p_imap
+      rlist = []
+      for r in p_imap(self.getControlParamValue, Params.Parameters):
+        rlist.append(r)
+      AioShell.removeLastLine()
+      for i in range(len(Params.Parameters)):
+        Params.Parameters[i].Value = rlist[i]
+      return True
+    else:
+      for Param in Params.Parameters:
+        if not self.getControlParamValue(Param):
+          return False
+    return True
     
   def setPrioritySolar(self) -> bool:
     Url = self._my_config.getSetPrioritySolarUrl()
@@ -415,19 +542,26 @@ class DessInverter:
       self._priority_automator.stop()
 
   def isPvEnough(self) -> bool:
+    PvPower = self.PvInputPower - self.InverterPowerConsumption
     if self.isModeInverter():
+      if self.BatteryBulkChargingVoltage < self.BatteryVoltage:
+          return True
       if self.BatteryBulkChargingVoltage <= self.BatteryVoltage:
-        return True
-      if self.BatteryFloatingChargingVoltage == self.BatteryVoltage and self.BatteryInputCurrent == 0:
-        if self.PvInputPower >= (self.AcOutputPower) / self.DcAcConversionEfficiency:
+        if -1 * self.BatteryInputCurrent <= self.BatteryTotalChargingCurrent * 0.7:
+          return True
+      if self.BatteryBulkChargingVoltage - 0.1 <= self.BatteryVoltage:
+        if -1 * self.BatteryInputCurrent <= self.BatteryTotalChargingCurrent * 0.4:
+          return True
+      if (self.BatteryFloatingChargingVoltage + 0.2 >= self.BatteryVoltage >= self.BatteryFloatingChargingVoltage) and self.BatteryInputCurrent <= 4:
+        if PvPower >= (self.AcOutputPower):
           return True      
       else:
-        MPPVoltage = (self.BatteryBulkChargingVoltage + self.BatteryFloatingChargingVoltage) / 2
+        MPPVoltage = (self.BatteryBulkChargingVoltage + 2 * self.BatteryFloatingChargingVoltage) / 3
         EstimatedChargingPowerMax = self.BatteryTotalChargingCurrent * MPPVoltage
-        if self.PvInputPower >= (self.AcOutputPower + EstimatedChargingPowerMax) / self.DcAcConversionEfficiency:
+        if PvPower > self.AcOutputPower + (EstimatedChargingPowerMax) / self.DcAcConversionEfficiency:
           return True
     else:
-      if self.PvInputPower >= (self.AcOutputPower - self.BatteryInputPower) / self.DcAcConversionEfficiency:
+      if PvPower > self.AcOutputPower - (self.BatteryInputPower) / self.DcAcConversionEfficiency:
         return True
     return False
   
