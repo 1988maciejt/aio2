@@ -416,15 +416,15 @@ class DessInverter:
 
   def isPvEnough(self) -> bool:
     if self.isModeInverter():
-      if "Charging" in self.BatteryStatus:
-        if self.BatteryBulkChargingVoltage <= self.BatteryVoltage:
-          return True
+      if self.BatteryBulkChargingVoltage <= self.BatteryVoltage:
+        return True
+      if self.BatteryFloatingChargingVoltage == self.BatteryVoltage and self.BatteryInputCurre == 0:
+        if self.PvInputPower >= (self.AcOutputPower) / self.DcAcConversionEfficiency:
+          return True      
+      else:
         MPPVoltage = (self.BatteryBulkChargingVoltage + self.BatteryFloatingChargingVoltage) / 2
         EstimatedChargingPowerMax = self.BatteryTotalChargingCurrent * MPPVoltage
         if self.PvInputPower >= (self.AcOutputPower + EstimatedChargingPowerMax) / self.DcAcConversionEfficiency:
-          return True
-      else:
-        if self.PvInputPower >= (self.AcOutputPower) / self.DcAcConversionEfficiency:
           return True
     else:
       if self.PvInputPower >= (self.AcOutputPower - self.BatteryInputPower) / self.DcAcConversionEfficiency:
