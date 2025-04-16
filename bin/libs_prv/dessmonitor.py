@@ -418,7 +418,7 @@ class DessInverter:
     if self.isModeInverter():
       if self.BatteryBulkChargingVoltage <= self.BatteryVoltage:
         return True
-      if self.BatteryFloatingChargingVoltage == self.BatteryVoltage and self.BatteryInputCurre == 0:
+      if self.BatteryFloatingChargingVoltage == self.BatteryVoltage and self.BatteryInputCurrent == 0:
         if self.PvInputPower >= (self.AcOutputPower) / self.DcAcConversionEfficiency:
           return True      
       else:
