@@ -287,7 +287,8 @@ class DessInverter:
     'TimeOfData', 'WorkingMode',
     '_my_config', 'InverterPowerConsumption', '_updater', 'LastUpdateTimeStamp',
     'DcAcConversionEfficiency', '_priority_automator', '_priority_automator_last_timestamp',
-    'BatteryBulkChargingVoltage', 'BatteryFloatingChargingVoltage', 'BatteryTotalChargingCurrent', 'BatteryStatus' 
+    'BatteryBulkChargingVoltage', 'BatteryFloatingChargingVoltage', 'BatteryTotalChargingCurrent', 'BatteryStatus', 
+    '_callback', '_callback_args', '_callback_kwargs',  
   )
 
   def __init__(self, Config : DessMonitorConfig, AutoUpdate : bool = True, WaitForLogin : bool = True):
@@ -319,6 +320,9 @@ class DessInverter:
     self._priority_automator_last_timestamp = ''
     self.InverterPowerConsumption = 45
     self.DcAcConversionEfficiency = 0.92
+    self._callback = None
+    self._callback_args = tuple()
+    self._callback_kwargs = {}
     if WaitForLogin:
       tx = time.time() + 10
       while time.time() < tx:
@@ -387,7 +391,7 @@ class DessInverter:
         Aio.printError(f"Failed to parse control parameters from JSON: {inst}, {Json}")
     return None
 
-  def getControlParametersValues(self, Params : DessMonitorControlParameters, MultiThreading : bool = True) -> bool:
+  def getControlParamsValues(self, Params : DessMonitorControlParameters, MultiThreading : bool = True) -> bool:
     if MultiThreading:
       from p_tqdm import p_imap
       rlist = []
@@ -456,6 +460,11 @@ class DessInverter:
             self.OutputSourcePriority = 'SBU'
     self._priority_automator_last_timestamp = self.TimeOfData
     
+  def setUpdateCallback(self, Callback = None, *args, **kwargs):
+    self._callback = Callback
+    self._callback_args = args
+    self._callback_kwargs = kwargs
+
   def update(self) -> bool:
     if not self._my_config:
       return False
@@ -525,6 +534,11 @@ class DessInverter:
       self.AcInputCurrent = round(self.AcInputPower / self.AcInputVoltage,1) if self.AcInputVoltage != 0 else 0
       self.TimeOfData = TimeOfData
       self.LastUpdateTimeStamp = time.time()
+      if self._callback is not None:
+        try:
+          self._callback(*self._callback_args, **self._callback_kwargs)
+        except Exception as inst:
+          Aio.printError(f"Failed to call callback: {inst}")
       return True
     except:
       return False
