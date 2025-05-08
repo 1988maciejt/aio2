@@ -371,6 +371,14 @@ class TestCube:
     def __setitem__(self, index, value):
         self.setBit(index, value)
         
+    def removeSpecifiedBits(self, AnotherCube : TestCube):
+        for k in AnotherCube._dict.keys():
+            if k in self._dict:
+                del self._dict[k]
+        for k in AnotherCube._primary_dict.keys():
+            if k in self._primary_dict:
+                del self._primary_dict[k]
+        
     def getDifferentBitCount(self, AnotherCube : TestCube) -> int:
         d1 = self._dict
         d2 = AnotherCube._dict
@@ -687,6 +695,15 @@ class TestCubeSet:
             CC.PatternId = Group[0].PatternId
             Result.addCube(CC)
         return Result
+    
+    def removeTemplates(self, TemplateSet : TestCubeSet):
+        pids = set()
+        for i, Cube in enumerate(TemplateSet._cubes):
+            if Cube.PatternId not in pids:
+                pids.add(Cube.PatternId)
+                NewCube = Cube.copy()
+                NewCube.removeSpecifiedBits(TemplateSet.getCubeByIdEqualOrLower(Cube.Id))
+                self._cubes[i] = NewCube
         
     def getIdToIndexDict(self) -> dict:
         Result = {}
@@ -899,7 +916,6 @@ class TestCubeSet:
         from libs.utils_list import List
         Colors = List.getPermutationsPfManyLists([Color1, Color1, Color1])
         random.shuffle(Colors)
-        ExistingBuffers = set()
         for C in self._cubes:
             for i in range(C.Id - Idx + 1):
                 Y2 = Y1 + RowHeight - 1
@@ -1878,6 +1894,17 @@ class DecompressorUtils:
 class TestCubeSetUtils:
     
     preparseLogs = DecompressorUtils.preparseLogs
+    
+    @staticmethod
+    def calibrateDifferentBitsLimitForTemplatesExtractor(Cubes : TestCubeSet, Edt : EdtStructure, ReturnTemplaes : bool = False) -> int:
+        BestLimit = 0.0025
+        BestTemplates = Cubes.tryToExtractTemplates(64, BestLimit, False)
+        ########################
+        ########################
+        ########################
+        ########################
+        ########################
+        ########################
     
     @staticmethod
     def getBufferSizeListFromFile(FileName : str) -> list:
