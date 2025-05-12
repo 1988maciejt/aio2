@@ -1028,6 +1028,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     for coeff in clist:
       result[coeff] = 1
     return result
+  
   def isPrimitive(self) -> bool:
     """Check if the polynomial is primitive over GF(2).
     
@@ -1889,7 +1890,7 @@ class Lfsr:
   _my_poly = []
   _my_signs = []
   _type = LfsrType.Galois
-  _hval = 0
+  #_hval = 0
   _size = 0
   _ba_fast_sim_array = None
   _taps = []
@@ -2110,7 +2111,7 @@ class Lfsr:
         self._my_poly = polynomial._my_poly.copy()
         self._my_signs = polynomial._my_signs.copy()
         self._type = polynomial._type
-        self._hval = copy.deepcopy(polynomial._hval)
+        #self._hval = copy.deepcopy(polynomial._hval)
         self._ba_fast_sim_array = copy.deepcopy(polynomial._ba_fast_sim_array)
         self._size = polynomial._size
         self._baValue = polynomial._baValue.copy()
@@ -2205,7 +2206,7 @@ class Lfsr:
     else:
       Aio.printError("Unrecognised lfsr type '" + str(lfsr_type) + "'")
     self.reset()
-    self._hval = 1 << (poly.getDegree()-1)
+    #self._hval = 1 << (poly.getDegree()-1)
     
   def getReciprocal(self):
     if self._type == LfsrType.RingWithSpecifiedTaps:
@@ -2252,6 +2253,7 @@ class Lfsr:
       result += str(self._size) + ", LfsrType.RingWithSpecifiedTaps, " + str(self._taps)
     result += ")"
     return result
+  
   def __eq__(self, other) -> bool:
     if self._type != other._type:
       return False
@@ -2260,20 +2262,18 @@ class Lfsr:
     if self._taps != other._taps:
       return False
     return True
+  
   def __ne__(self, other) -> bool:
     return not (self == other)
+    
   def _buildFastSimArray(self):
-    oldVal = self._baValue
+    oldVal = self._baValue.copy()
     size = self._size
     FSA = create2DArray(size, size, None)
-    #FSA = numpy.empty((size, size), dtype=object) # slower
-    value0 = bau.zeros(size)
-    value0[0] = 1
     for i in range(size):
-      self._baValue = value0.copy()
-      self.next()
-      FSA[0][i] = self._baValue.copy()
-      value0 >>= 1 
+      self._baValue.setall(0)
+      self._baValue[i] = 1
+      FSA[0][i] = self._next1().copy()
     rowm1 = FSA[0]
     for r in range(1,size):
       row = FSA[r]
@@ -2285,6 +2285,7 @@ class Lfsr:
       rowm1 = row
     self._ba_fast_sim_array = FSA
     self._baValue = oldVal
+        
   def rotateTap(self, TapIndex : int, FFs : int, FailIfRotationInvalid = False) -> bool:
     self.clearFastSimArray()
     if FailIfRotationInvalid:
@@ -2494,9 +2495,9 @@ class Lfsr:
       Aio.printError("'steps' must be a positve number")
       return None
     elif steps == 0:
-      return self._baValue
+      return self._baValue.copy()
     elif steps == 1:
-      return self._next1()
+      return self._next1().copy()
     elif steps >= (1 << self._size):
       Max = (1 << self._size) - 1
       while steps > Max:
@@ -2516,7 +2517,7 @@ class Lfsr:
           self._baValue = baresult.copy()
         steps >>= 1
         RowIndex += 1
-      return self._baValue   
+      return self._baValue.copy()   
     
   def _next1(self):
     if self._type == LfsrType.Fibonacci:
@@ -2671,20 +2672,24 @@ class Lfsr:
       valuebefore = valuex
       valuex = self.next().copy()  
     return -1      
+  
   def _isMaximumAndClean(self) -> bool:
     Result = self.isMaximum()
     self.clear()
     return Result
+  
   def _isMaximumList(List : list) -> list:
     Results = []
     for L in List:
       if L.isMaximum():
         Results.append(L)
     return Results
+  
   def _isMaximumAsync(self) -> bool:
     if self.isMaximum():
       return self
     return None
+  
   def isMaximum(self) -> bool:
     """Uses the fast-simulation method to determine if the LFSR's trajectory
     includes all possible (but 0) states. 
