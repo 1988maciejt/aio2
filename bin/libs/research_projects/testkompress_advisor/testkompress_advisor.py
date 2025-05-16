@@ -671,14 +671,15 @@ class TestCubeSet:
         else:
             return self._cubes[index]
         
-    def tryToExtractTemplates(self, CommonGroupSize : int = 64, DifferentBitsLimit : float = 0.005, Overlapping : bool = False) -> TestCubeSet:
+    def tryToExtractTemplates(self, CommonGroupSize : int = 64, DifferentTemplatesLowerLimit : float = 0.005, DifferentTemplatesUpperLimit : float = 0.05, Overlapping : bool = False) -> TestCubeSet:
         BaseCubes = self.getBaseCubes()
         CommonPairs = BaseCubes.getCommonGroups(CommonGroupSize)
         Result = TestCubeSet()
         Group = TestCubeSet()
+        Group.addCube(CommonPairs[0])
         for i in range(len(CommonPairs)-1):
             DiffBits = CommonPairs[i].getDifferentBitCount(CommonPairs[i+1]) / len(CommonPairs[i])
-            if DiffBits > DifferentBitsLimit:
+            if DiffBits >= DifferentTemplatesLowerLimit and DiffBits <= DifferentTemplatesUpperLimit:
                 CC = Group.getCommonCube()
                 CC.Id = Group[0].Id
                 CC.BufferId = Group[0].BufferId
@@ -1896,9 +1897,106 @@ class TestCubeSetUtils:
     preparseLogs = DecompressorUtils.preparseLogs
     
     @staticmethod
-    def calibrateDifferentBitsLimitForTemplatesExtractor(Cubes : TestCubeSet, Edt : EdtStructure, ReturnTemplaes : bool = False) -> int:
-        BestLimit = 0.0025
-        BestTemplates = Cubes.tryToExtractTemplates(64, BestLimit, False)
+    def _adsear_singleTry1(Limit : float, Cubes : TestCubeSet) -> TestCubeSet:
+        return Cubes.tryToExtractTemplates(64, Limit, 1, False)
+    
+    @staticmethod
+    def _adsear_singleTry2(Limit : float, MinLimit : float, Cubes : TestCubeSet) -> TestCubeSet:
+        return Cubes.tryToExtractTemplates(64, MinLimit, Limit, False)
+        
+    @staticmethod
+    def adaptiveSearchForTemplates(Cubes : TestCubeSet, MinTemplateCount : int = 3, MaxTemplateCount : int = 6, Step : float = 0.00005, MultiThreading : bool = True) -> TestCubeSet:
+        Span = (0.2+Step)
+        Limit = Step + Span
+        BestMin = Limit
+        print(f"BestMin: {BestMin}, Templates: ?")
+        BestFromMaxDistance = len(Cubes)
+        while Span >= Step * 0.5:
+            print(f"Limit: {Limit}...")
+            t = TestCubeSetUtils._adsear_singleTry1(Limit, Cubes)
+            #print(len(t))
+            AioShell.removeLastLine()
+            if len(t) > MinTemplateCount:
+                if abs(MaxTemplateCount - len(t)) < BestFromMaxDistance:
+                    BestFromMaxDistance = abs(MaxTemplateCount - len(t))
+                    BestMin = Limit
+                    AioShell.removeLastLine()
+                    print(f"BestMin: {BestMin}, Templates: {len(t)}")
+            if len(t) < MaxTemplateCount:
+                Limit -= Span
+            elif len(t) > MaxTemplateCount:
+                Limit += Span
+            if Limit < 0:
+                Limit = 0
+            Span *= 0.51
+        Span = (1-BestMin)
+        Limit = 1    
+        BestMax = Limit
+        Middle = (MaxTemplateCount + MinTemplateCount) / 2
+        BestFromMiddleDistance = len(Cubes)
+        print(f"BestMax: {BestMax}, Templates: ?")
+        while Span >= Step * 0.5:
+            print(f"Limit: {Limit}...")
+            t = TestCubeSetUtils._adsear_singleTry2(Limit, BestMin, Cubes)
+            #print(len(t))
+            AioShell.removeLastLine()
+            if abs(Middle - len(t)) <= BestFromMiddleDistance:
+                BestFromMiddleDistance = abs(Middle - len(t))
+                BestMax = Limit
+                AioShell.removeLastLine()
+                print(f"BestMax: {BestMax}, Templates: {len(t)}")
+            if len(t) > Middle:
+                Limit -= Span
+            elif len(t) < Middle:
+                Limit += Span
+            if Limit < 0:
+                Limit = 0
+            Span *= 0.51
+        return Cubes.tryToExtractTemplates(64, BestMin, BestMax, False)
+        
+        MinValues = [Step * i for i in range(1, StopI+1)]
+        res = []
+        if MultiThreading:
+            import concurrent.futures
+            from tqdm import tqdm
+            from functools import partial
+            with concurrent.futures.ProcessPoolExecutor() as Executor:
+                Tasks = [Executor.submit(partial(TestCubeSetUtils._adsear_singleTry1, Cubes=Cubes), Val) for Val in MinValues]
+                for Task in tqdm(concurrent.futures.as_completed(Tasks), total=len(Tasks), desc="Checking for MinValue"):
+                    res.append(Task.result())
+            
+        AioShell.removeLastLine()
+        BestMin = MinValues[0]
+        for l,t in zip(MinValues, res):
+            if len(t) >= MinTemplateCount:
+                BestMin = l
+            print(f"Limit: {l}, Templates: {len(t)}")
+        print(f"Best Limit: {BestMin}")
+        StartI = int(round(BestMin / Step))
+        StopI = int(round(0.15 / Step))
+        if StopI <= StartI:
+            StopI = StartI + 1
+        MaxValues = [Step * i for i in range(StopI, StartI-1, -1)]
+        res = []
+        if MultiThreading:
+            import concurrent.futures
+            from tqdm import tqdm
+            from functools import partial
+            with concurrent.futures.ProcessPoolExecutor() as Executor:
+                    Tasks = [Executor.submit(partial(TestCubeSetUtils._adsear_singleTry2, MinLimit=BestMin, Cubes=Cubes), Val) for Val in MaxValues]
+                    for Task in tqdm(concurrent.futures.as_completed(Tasks), total=len(Tasks), desc="Checking for MaxValue"):
+                        res.append(Task.result())
+                        
+        #AioShell.removeLastLine()
+        BestMax = MaxValues[-1]
+        for l,t in zip(MaxValues, res):
+            if BestMin <= len(t) <= MaxTemplateCount:
+                BestMax = l
+            print(f"Limit: {l}, Templates: {len(t)}")
+        print(f"Best Limit: {BestMax}")
+        
+                        
+                        
         ########################
         ########################
         ########################

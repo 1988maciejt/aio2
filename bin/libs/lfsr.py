@@ -2265,26 +2265,6 @@ class Lfsr:
   
   def __ne__(self, other) -> bool:
     return not (self == other)
-    
-  def _buildFastSimArray(self):
-    oldVal = self._baValue.copy()
-    size = self._size
-    FSA = create2DArray(size, size, None)
-    for i in range(size):
-      self._baValue.setall(0)
-      self._baValue[i] = 1
-      FSA[0][i] = self._next1().copy()
-    rowm1 = FSA[0]
-    for r in range(1,size):
-      row = FSA[r]
-      for c in range(size):
-        res = bau.zeros(size)
-        for index in rowm1[c].search(1):
-          res ^= rowm1[index]
-        row[c] = res
-      rowm1 = row
-    self._ba_fast_sim_array = FSA
-    self._baValue = oldVal
         
   def rotateTap(self, TapIndex : int, FFs : int, FailIfRotationInvalid = False) -> bool:
     self.clearFastSimArray()
@@ -2509,15 +2489,55 @@ class Lfsr:
         self._buildFastSimArray()
       size = self._size
       RowIndex = 0
+      One = bitarray('1')
       while steps > 0: 
         if steps & 1:
+          Row = self._ba_fast_sim_array[RowIndex]
           baresult = bau.zeros(size)
-          for index in self._baValue.search(1):
-            baresult ^= self._ba_fast_sim_array[RowIndex][index]
+          for index in self._baValue.search(One):
+            baresult ^= Row[index]
           self._baValue = baresult.copy()
         steps >>= 1
         RowIndex += 1
       return self._baValue.copy()   
+    
+  def _buildFastSimArray(self):
+    oldVal = self._baValue.copy()
+    size = self._size
+    rowm1 = []
+    for i in range(size):
+      self._baValue.setall(0)
+      self._baValue[i] = 1
+      rowm1.append(self._next1().copy())
+    FSA = [rowm1]
+    One = bitarray('1')
+    for r in range(1,size):
+      row = []
+      for c in range(size):
+        FirstOne = rowm1[c].find(One)
+        res = rowm1[FirstOne].copy()
+        for index in rowm1[c].search(One, FirstOne+1):
+          res ^= rowm1[index]
+        row.append(res)
+      FSA.append(row)
+      rowm1 = row
+    self._ba_fast_sim_array = FSA
+    self._baValue = oldVal
+    
+  def _computeFastSimArrayValue(self, RowIndex : int, ColumnIndex : int) -> bitarray:
+    rowm1 = self._ba_fast_sim_array[RowIndex-1]
+    row = self._ba_fast_sim_array[RowIndex]
+    res = bau.zeros(self._size)
+    valbase = rowm1[ColumnIndex]
+    if valbase is None:
+      valbase = self._computeFastSimArrayValue(RowIndex-1, ColumnIndex)
+    for index in valbase.search(1):
+      val = rowm1[index]
+      if val is None:
+        val = self._computeFastSimArrayValue(RowIndex-1, index)
+      res ^= val
+    row[ColumnIndex] = res
+    return res.copy()
     
   def _next1(self):
     if self._type == LfsrType.Fibonacci:

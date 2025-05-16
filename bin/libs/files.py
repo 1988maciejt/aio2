@@ -213,6 +213,20 @@ class File:
     return Counter
   
   @staticmethod
+  def readLineByLineGenerator(FileName : str):
+    """Reads a file line by line and returns a generator.
+
+    Args:
+        FileName (str): File name to read.
+
+    Yields:
+        str: Line read from the file.
+    """
+    from libs.generators import Generators
+    for Line in Generators().readFileLineByLine(FileName):
+      yield Line
+  
+  @staticmethod
   def getRandomTempFileName() -> str:
     return f"/tmp/aio_tmp_{int(random.uniform(1000000000, 9999999999))}"
   
