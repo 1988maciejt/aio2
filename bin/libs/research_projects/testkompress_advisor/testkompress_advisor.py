@@ -352,7 +352,7 @@ class TestCube:
         return not self.__eq__(value)
     
     def __str__(self):
-        return f"{self._dict},  PRIMARY: {self._primary_dict}"
+        return f"SCAN: {self._dict}, \nPRIMARY: {self._primary_dict}"
     
     def __repr__(self):
         return f"TestCube(\"{str(self)}\")"
@@ -650,7 +650,7 @@ class TestCubeSet:
         Second = 0
         for Cube in self._cubes:
             if Second:
-                Result += "\n"
+                Result += "\n-------------------------------------------------\n"
             else:   
                 Second = 1
             Result += str(Cube)
@@ -952,6 +952,8 @@ class TestCubeSet:
         BufferId = -1
         OldMask = 0
         BuffSizePerPattern = 0
+        PrimaryInputs = 99999
+        PIAdder = 0
         def checkResult():        
             if Cube is not None:
                 Result.addCube(Cube)
@@ -991,6 +993,10 @@ class TestCubeSet:
             #        Result.BufferSize.append(int(R.group(1)))
             #    Result.BufferSize = []
                 continue
+            R = re.search(r"umber\s*of\s*primary\s*inputs\s*=\s*([0-9]+)", Line)
+            if R:
+                PrimaryInputs = int(R.group(1))
+                continue
             R = re.search(r"EDT\s*abort\s*limit\s*[=:]*\s*([0-9]+)", Line)
             if R:
                 Result.CompressionFailLimit = int(R.group(1))
@@ -1009,11 +1015,16 @@ class TestCubeSet:
             if R:
                 Id = int(R.group(1))
                 continue
-            R = re.search(r"TDVE[:]*\s*Cube\s*[0-9]", Line)
+            R = re.search(r"TDVE[:]*\s*Cube\s*([0-9]+)", Line)
             if R:
+                CubeIdx = int(R.group(1))
+                if CubeIdx > 0:
+                    PIAdder += PrimaryInputs
+                    continue
                 if Cube is not None:
                     Result.addCube(Cube)
                 Cube = TestCube(CubeLength, Id=Id, PatternId=PatternId, BufferId=BufferId, BufferSize=BuffSizePerPattern)
+                PIAdder = 0
                 continue
             R = re.search(r"TDVE[:]*\s*([-0-9]+)\s+([0-9]+)\s([0-9]+)", Line)
             if R:
@@ -1021,7 +1032,7 @@ class TestCubeSet:
                 BitIndex = int(R.group(2))
                 BitVal = int(R.group(3))
                 if Chain < 0: # primary
-                    Cube.setPrimaryBit(BitIndex, BitVal)
+                    Cube.setPrimaryBit(BitIndex+PIAdder, BitVal)
                 else:                
                     CubeBitIndex = Chain * ScanChainLength + BitIndex
                     Cube.setBit(CubeBitIndex, BitVal)
@@ -1763,6 +1774,10 @@ class DecompressorUtils:
             if R:
                 Result["ScanLength"] = int(R.group(1))
                 continue
+            R = re.search(r"umber\s*of\s*primary\s*inputs\s*=\s*([0-9]+)", Line)
+            if R:
+                Result["PrimaryInputs"] = int(R.group(1))
+                continue
         try:
             Result["ScanCells"] = Result["ScanChains"] * Result["ScanLength"]
         except: pass
@@ -1878,7 +1893,8 @@ class DecompressorUtils:
                     "sol": DecompressorSolver.fromFile(FileName),
                     "scancells": ScanCellsStructure.fromFile(FileName),
                     "faults": di["TotalFaults"],
-                    "patterns": di["SimulatedPatterns"]
+                    "patterns": di["SimulatedPatterns"],
+                    "primaryinputs": di["PrimaryInputs"],
                 }
                 DynamicCompaction = DecompressorUtils.getDynamicCompactionStatsFromLog(FileName)
                 if len(DynamicCompaction) > 0:
@@ -1953,56 +1969,6 @@ class TestCubeSetUtils:
                 Limit = 0
             Span *= 0.51
         return Cubes.tryToExtractTemplates(64, BestMin, BestMax, False)
-        
-        MinValues = [Step * i for i in range(1, StopI+1)]
-        res = []
-        if MultiThreading:
-            import concurrent.futures
-            from tqdm import tqdm
-            from functools import partial
-            with concurrent.futures.ProcessPoolExecutor() as Executor:
-                Tasks = [Executor.submit(partial(TestCubeSetUtils._adsear_singleTry1, Cubes=Cubes), Val) for Val in MinValues]
-                for Task in tqdm(concurrent.futures.as_completed(Tasks), total=len(Tasks), desc="Checking for MinValue"):
-                    res.append(Task.result())
-            
-        AioShell.removeLastLine()
-        BestMin = MinValues[0]
-        for l,t in zip(MinValues, res):
-            if len(t) >= MinTemplateCount:
-                BestMin = l
-            print(f"Limit: {l}, Templates: {len(t)}")
-        print(f"Best Limit: {BestMin}")
-        StartI = int(round(BestMin / Step))
-        StopI = int(round(0.15 / Step))
-        if StopI <= StartI:
-            StopI = StartI + 1
-        MaxValues = [Step * i for i in range(StopI, StartI-1, -1)]
-        res = []
-        if MultiThreading:
-            import concurrent.futures
-            from tqdm import tqdm
-            from functools import partial
-            with concurrent.futures.ProcessPoolExecutor() as Executor:
-                    Tasks = [Executor.submit(partial(TestCubeSetUtils._adsear_singleTry2, MinLimit=BestMin, Cubes=Cubes), Val) for Val in MaxValues]
-                    for Task in tqdm(concurrent.futures.as_completed(Tasks), total=len(Tasks), desc="Checking for MaxValue"):
-                        res.append(Task.result())
-                        
-        #AioShell.removeLastLine()
-        BestMax = MaxValues[-1]
-        for l,t in zip(MaxValues, res):
-            if BestMin <= len(t) <= MaxTemplateCount:
-                BestMax = l
-            print(f"Limit: {l}, Templates: {len(t)}")
-        print(f"Best Limit: {BestMax}")
-        
-                        
-                        
-        ########################
-        ########################
-        ########################
-        ########################
-        ########################
-        ########################
     
     @staticmethod
     def getBufferSizeListFromFile(FileName : str) -> list:
