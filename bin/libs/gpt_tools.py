@@ -10,7 +10,7 @@ from functools import partial
 from libs.utils_list import *
 from tqdm import *
 from libs.utils_docx import *
-from libs.utils_pdf import *
+#from libs.utils_pdf import *
 
 #g4f.debug.logging = True  # Enable debug logging
 g4f.debug.version_check = False  # Disable automatic version checking
@@ -351,8 +351,8 @@ class GptDataBase:
       for Doc in tqdm(SourceDocFileList, desc="Splitting source files"):
         if str(Doc).lower().endswith(".docx"):
           Files += list(Docx.splitDocxFileIntoSectionTextFiles(Doc, 2900, 512).keys())
-        elif str(Doc).lower().endswith(".pdf"):
-          Files += Pdf.splitIntoTextFiles(Doc, 2900, 512)
+        #elif str(Doc).lower().endswith(".pdf"):
+        #  Files += Pdf.splitIntoTextFiles(Doc, 2900, 512)
       self._embd = GptUtils.createDocsEmbeddings(Files)
       self._embd.save(IndexfileName + ".doc2vec")
       self._dict = GptUtils.findKeywoardsForFiles(Files, Provider=g4f.Provider.bing)

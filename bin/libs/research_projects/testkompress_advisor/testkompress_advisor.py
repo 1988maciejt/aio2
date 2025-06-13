@@ -671,9 +671,10 @@ class TestCubeSet:
         else:
             return self._cubes[index]
         
-    def tryToExtractTemplates(self, CommonGroupSize : int = 64, DifferentTemplatesLowerLimit : float = 0.005, DifferentTemplatesUpperLimit : float = 0.05, Overlapping : bool = False) -> TestCubeSet:
-        BaseCubes = self.getBaseCubes()
-        CommonPairs = BaseCubes.getCommonGroups(CommonGroupSize)
+    def _tryToExtrctTemplates_phase1(self, CommonGroupSize : int = 64, Overlapping : bool = False) -> TestCubeSet:
+        return self.getBaseCubes().getCommonGroups(CommonGroupSize, Overlapping)
+
+    def _tryToExtrctTemplates_phase2(self, CommonPairs,  DifferentTemplatesLowerLimit : float = 0.005, DifferentTemplatesUpperLimit : float = 0.05) -> TestCubeSet:
         Result = TestCubeSet()
         Group = TestCubeSet()
         Group.addCube(CommonPairs[0])
@@ -696,6 +697,10 @@ class TestCubeSet:
             CC.PatternId = Group[0].PatternId
             Result.addCube(CC)
         return Result
+        
+    def tryToExtractTemplates(self, CommonGroupSize : int = 64, DifferentTemplatesLowerLimit : float = 0.005, DifferentTemplatesUpperLimit : float = 0.05, Overlapping : bool = False) -> TestCubeSet:
+        CommonPairs = self._tryToExtrctTemplates_phase1(CommonGroupSize, Overlapping)
+        return self._tryToExtrctTemplates_phase2(CommonPairs, DifferentTemplatesLowerLimit, DifferentTemplatesUpperLimit)
     
     def removeTemplates(self, TemplateSet : TestCubeSet):
         pids = set()
@@ -832,14 +837,60 @@ class TestCubeSet:
                     Result.add([f"< {WAdd} unused >", "", BufferId, WAdd, "", ""])
         return Result
     
-    def getBaseCubes(self) -> TestCubeSet:
+    def getBaseCubes(self, ReturnAlsoRestCubes : bool = False) -> TestCubeSet:
         Result = TestCubeSet()
         pids = set()
+        if ReturnAlsoRestCubes:
+            RestCubes = TestCubeSet()
         for Cube in self._cubes:
             if Cube.PatternId not in pids:
                 pids.add(Cube.PatternId)
                 Result.addCube(Cube)
+            elif ReturnAlsoRestCubes:
+                RestCubes.addCube(Cube)
+        if ReturnAlsoRestCubes:
+            return Result, RestCubes
         return Result
+    
+    def getAverageSpecBits(self) -> float:
+        if len(self._cubes) == 0:
+            return 0.0
+        Sum = 0
+        for Cube in self._cubes:
+            Sum += Cube.getSpecifiedBitCount()
+        return Sum / len(self._cubes)
+    
+    def getMinMaxAvgSpecBits(self) -> tuple:
+        if len(self._cubes) == 0:
+            return 0.0, 0.0, 0.0
+        Min = 999999999999999999999.9
+        Max = 0.0
+        Sum = 0.0
+        for Cube in self._cubes:
+            S = Cube.getSpecifiedBitCount()
+            Sum += S
+            if S < Min:
+                Min = S
+            if S > Max:
+                Max = S
+        return Min, Max, Sum / len(self._cubes)
+    
+    
+    def getBigCubes(self, Threshold : float = 0.8, ReturnAlsoRestCubes : bool = False) -> TestCubeSet:
+        Result = TestCubeSet()
+        if ReturnAlsoRestCubes:
+            RestCubes = TestCubeSet()
+        Min, Max, _ = self.getMinMaxAvgSpecBits()
+        Thr = Min + ((Max - Min) * Threshold)
+        for Cube in self._cubes:
+            if Cube.getSpecifiedBitCount() >= Thr:
+                Result.addCube(Cube)
+            elif ReturnAlsoRestCubes:
+                RestCubes.addCube(Cube)
+        if ReturnAlsoRestCubes:
+            return Result, RestCubes
+        return Result
+            
     
     def getCommonGroups(self, GroupSize : int = 2, Overlapping : bool = True) -> TestCubeSet:
         Result = TestCubeSet()
@@ -937,15 +988,17 @@ class TestCubeSet:
         return True
         
     @staticmethod
-    def fromFile(FileName : str, ScanChainCount : int = -1, ScanChainLength : int = -1, IgnoreIds : bool = False, UnsortedCubes : bool = False, RecalculateIndices : bool = True) -> TestCubeSet:
+    def fromFile(FileName : str, ScanChainCount : int = -1, ScanChainLength : int = -1, IgnoreIds : bool = False, UnsortedCubes : bool = False, RecalculateIndices : bool = True, ReturnAlsoFaultsDict : bool = False) -> TestCubeSet:
         if ScanChainCount <= 0 or ScanChainCount <= 0:
             edt = EdtStructure.fromFile(FileName)
             ScanChainCount = edt.getScanChainCount()
             ScanChainLength = edt.getScanLength()
         CubeLength = ScanChainLength * ScanChainCount
         Cube = None
+        CubeTMPL = None
         ResultList = []
         Result = TestCubeSet()
+        ResultTMPL = TestCubeSet()
         Result.BufferSize = []
         Id = -1
         PatternId = -1
@@ -954,9 +1007,17 @@ class TestCubeSet:
         BuffSizePerPattern = 0
         PrimaryInputs = 99999
         PIAdder = 0
+        ModeTMPL = False
+        ThisCubeIsTMPL = False
+        if ReturnAlsoFaultsDict:
+            FaultsDict = {}
+            Fault = None
         def checkResult():        
-            if Cube is not None:
-                Result.addCube(Cube)
+            if Cube is not None and Cube.getSpecifiedCount() > 0:
+                if ThisCubeIsTMPL:
+                    ResultTMPL.addCube(Cube)
+                else:
+                    Result.addCube(Cube)
             if (not IgnoreIds) and Id >= 0:
                 if UnsortedCubes:
                     Ids = []
@@ -975,6 +1036,15 @@ class TestCubeSet:
             if RecalculateIndices:
                 Result.recalculateIndices()
         for Line in Generators().readFileLineByLine(FileName):
+            R = re.search(r"TMPL.*useAsPrimaryTestCubeWithoutRetargetingFault.*report", Line)
+            if R:
+                ModeTMPL = True
+                ThisCubeIsTMPL = True
+                continue
+            R = re.search(r"TMPL.*original.*end", Line)
+            if R:
+                ModeTMPL = False
+                continue
             R = re.search(r"num_test_cubes\s*[:=]\s*([0-9]+)\s*\(always\)", Line)
             if R:
                 BuffSizePerPatternThis = int(R.group(1))
@@ -1022,7 +1092,17 @@ class TestCubeSet:
                     PIAdder += PrimaryInputs
                     continue
                 if Cube is not None:
-                    Result.addCube(Cube)
+                    if ThisCubeIsTMPL:
+                        CubeTMPL = Cube.copy()
+                    else:
+                        Result.addCube(Cube)
+                        if CubeTMPL is not None:
+                            if Cube.getSpecifiedBitCount() != CubeTMPL.getSpecifiedBitCount():
+                                Aio.print(Cube.Id, Cube.getSpecifiedBitCount(), CubeTMPL.getSpecifiedBitCount())
+#                        else:
+#                            Aio.print(Cube.Id, Cube.getSpecifiedBitCount())
+                        CubeTMPL = None
+                ThisCubeIsTMPL = ModeTMPL
                 Cube = TestCube(CubeLength, Id=Id, PatternId=PatternId, BufferId=BufferId, BufferSize=BuffSizePerPattern)
                 PIAdder = 0
                 continue
@@ -1036,11 +1116,22 @@ class TestCubeSet:
                 else:                
                     CubeBitIndex = Chain * ScanChainLength + BitIndex
                     Cube.setBit(CubeBitIndex, BitVal)
+            if ReturnAlsoFaultsDict:
+                R = re.search(r"Flt[:=]\s*\<\s*([0-9]+)\s*\(\s*fin\s*[:=]\s*([0-9]+)\)\s*s-a-([0-1])\>", Line)
+                if R:
+                    FltId = int(R.group(1))
+                    FltFin = int(R.group(2))
+                    FltS_A = int(R.group(3))
+                    FaultsDict[Id] = (FltId, FltFin, FltS_A)
         checkResult()
         if len(ResultList) > 0:
             if len(Result) > 0:
                 ResultList.append(Result)
+            if ReturnAlsoFaultsDict:
+                return ResultList, FaultsDict
             return ResultList
+        if ReturnAlsoFaultsDict:
+            return Result, FaultsDict
         return Result
     
     def recalculateWeights(self):
@@ -1258,7 +1349,7 @@ class TestCubeSet:
             Result = Cube
         return Result
     
-    def _mergingRound(self, Edt : EdtStructure, PatternCount : int = 1, CompressabilityLimit : int = 3, Verbose : bool = False, OnlyPatternCount : bool = False, IdxAdder : int = 0, BuffAdder : int = 0, Templates : TestCubeSet = None) -> tuple:
+    def _mergingRound(self, Edt : EdtStructure, PatternCount : int = 1, CompressabilityLimit : int = 3, Verbose : bool = False, OnlyPatternCount : bool = False, IdxAdder : int = 0, BuffAdder : int = 0, Templates : TestCubeSet = None, BaseCubesIds = set()) -> tuple:
         """Returns two TestCubeSet objects: (Patterns, Cubes)."""
         if self.CompressionFailLimit is not None:
             CompressabilityLimit = self.CompressionFailLimit
@@ -1278,7 +1369,13 @@ class TestCubeSet:
             EdtBatt = Edt.getDecompressorForBatteryModelEstimations()
         Idx = IdxAdder
         while len(Cubes) > 0 and (Patterns < PatternCount if OnlyPatternCount else len(Patterns) < PatternCount):
-            Cube = Cubes._cubes[0]
+            BaseIdx = 0
+            if len(BaseCubesIds) > 0:
+                for Idx, Cube in enumerate(Cubes):
+                    if Cube.Id in BaseCubesIds:
+                        BaseIdx = Idx
+                        break
+            Cube = Cubes._cubes[BaseIdx]
             if Templates is not None:
                 Template = Templates.getCubeByIdEqualOrLower(Cube.Id)
                 if Template is not None:
@@ -1291,7 +1388,7 @@ class TestCubeSet:
                             print(f"  Merging {Cube.Id} with template {Template.Id} successfull.")
             if UsingSolver:
                 CubeSolver = Edt.getEquationSystemForPattern(Cube)
-            del Cubes._cubes[0]
+            del Cubes._cubes[BaseIdx]
             SubCubes = 1
             SubCubeIds = set()
             SubCubeIds.add(Cube.Id)
@@ -1418,7 +1515,7 @@ class TestCubeSet:
                 del Cubes._cubes[i]
         return Patterns, BackTracingCounter, SolverCalls
     
-    def merge(self, Edt : EdtStructure, PatternCountPerRound : int = 1, Verbose : bool = False, CombinedCompressionChecking : bool = False, OnlyPatternCount : bool = False, Templates : TestCubeSet = None) -> TestCubeSet:
+    def merge(self, Edt : EdtStructure, PatternCountPerRound : int = 1, Verbose : bool = False, CombinedCompressionChecking : bool = False, OnlyPatternCount : bool = False, Templates : TestCubeSet = None, BaseCubesIds = set()) -> TestCubeSet:
         if self.BufferSize is not None:
             BufferLength = self.BufferSize
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver  
@@ -1464,7 +1561,7 @@ class TestCubeSet:
         if CombinedCompressionChecking:
             Patterns, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, CompressabilityLimit, Verbose, OnlyPatternCount)
         else:
-            Patterns = Buffer._mergingRound(Edt, PatternCountPerRound, CompressabilityLimit, Verbose, OnlyPatternCount, 0, Templates)
+            Patterns = Buffer._mergingRound(Edt, PatternCountPerRound, CompressabilityLimit, Verbose, OnlyPatternCount, 0, 0, Templates, BaseCubesIds)
         IdxAdder = 0
         BuffAdder = 0
         if not OnlyPatternCount:
@@ -1515,7 +1612,7 @@ class TestCubeSet:
             if CombinedCompressionChecking:
                 SubPatterns, BackTracingCounterSum, SolverCallsSum = Buffer._mergingRoundCombined(Edt, PatternCountPerRound, CompressabilityLimit, Verbose, OnlyPatternCount)
             else:
-                SubPatterns = Buffer._mergingRound(Edt, PatternCountPerRound, CompressabilityLimit, Verbose, OnlyPatternCount, IdxAdder, BuffAdder, Templates)
+                SubPatterns = Buffer._mergingRound(Edt, PatternCountPerRound, CompressabilityLimit, Verbose, OnlyPatternCount, IdxAdder, BuffAdder, Templates, BaseCubesIds)
             if OnlyPatternCount:
                 Patterns += SubPatterns
             else:
@@ -1538,7 +1635,7 @@ class TestCubeSet:
                 BackTracingCounterSum += BackTracingCounter
                 SolverCallsSum += SolverCalls
             else:
-                SubPatterns = Buffer._mergingRound(Edt, len(Buffer), CompressabilityLimit, Verbose, OnlyPatternCount, IdxAdder, BuffAdder, Templates)
+                SubPatterns = Buffer._mergingRound(Edt, len(Buffer), CompressabilityLimit, Verbose, OnlyPatternCount, IdxAdder, BuffAdder, Templates, BaseCubesIds)
             if OnlyPatternCount:
                 Patterns += SubPatterns
             else:
@@ -1605,7 +1702,7 @@ class TestCubeSet:
         return sum(RList) / len(RList)
     
     @staticmethod
-    def doMergingExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = None, PatternCountPerRound : int = 1, MinBatteryCharge : float = None, CompressabilityLimit : int = None, Verbose : bool = False, MultiThreading = False, CombinedCompressionChecking : bool = False, AlsoReturnPatterns : bool = False, SkipCubeCOmpressabilityCheck : bool = False, Templates : TestCubeSet = None) -> tuple:
+    def doMergingExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = None, PatternCountPerRound : int = 1, MinBatteryCharge : float = None, CompressabilityLimit : int = None, Verbose : bool = False, MultiThreading = False, CombinedCompressionChecking : bool = False, AlsoReturnPatterns : bool = False, SkipCubeCOmpressabilityCheck : bool = False, Templates : TestCubeSet = None, BaseCubesIds = set()) -> tuple:
         """Returns 4-element tuple:
         AfterRemovalCubesCount, len(Patterns), TestTime, TestDataVolume, ExecutionTime
         In case of combined method it returns also
@@ -1639,9 +1736,9 @@ class TestCubeSet:
             AfterRemovalCubesCount = len(CubesCopy)
         t0 = time.time()
         if CombinedCompressionChecking:
-            Patterns, BackTracingCounterSum, SolverCallsSum = CubesCopy.merge(edt, PatternCountPerRound, Verbose, True, (not AlsoReturnPatterns), Templates)
+            Patterns, BackTracingCounterSum, SolverCallsSum = CubesCopy.merge(edt, PatternCountPerRound, Verbose, True, (not AlsoReturnPatterns), Templates, BaseCubesIds)
         else:
-            Patterns = CubesCopy.merge(edt, PatternCountPerRound, Verbose, False, (not AlsoReturnPatterns), Templates)
+            Patterns = CubesCopy.merge(edt, PatternCountPerRound, Verbose, False, (not AlsoReturnPatterns), Templates, BaseCubesIds)
         if AlsoReturnPatterns:
             PatternSet = Patterns
             Patterns = len(PatternSet)
@@ -1686,15 +1783,22 @@ class TestCubeSet:
             return [TaskNum, TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, False, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck, AlsoReturnPatterns=AlsoReturnPatterns)]
 
     @staticmethod
-    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = None, PatternCountPerRound : int = 1, MinBatteryCharge : float = None, CompressabilityLimit : int = None, CombinedCompressionChecking : bool = False, MultiThreading : bool = True, Verbose : bool = False, SkipCubeCOmpressabilityCheck : bool = False, CompensatePatternCount : bool = False, AlsoReturnPatterns : bool = False, Templates : TestCubeSet = None) -> list:
+    def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = None, PatternCountPerRound : int = 1, MinBatteryCharge : float = None, CompressabilityLimit : int = None, CombinedCompressionChecking : bool = False, MultiThreading : bool = True, Verbose : bool = False, SkipCubeCOmpressabilityCheck : bool = False, CompensatePatternCount : bool = False, AlsoReturnPatterns : bool = False, Templates : TestCubeSet = None, UseTrueBaseCubes : bool = True) -> list:
         Result = []
+        BaseCubesIds = set()
+        if UseTrueBaseCubes:
+            PatternIds = set()
+            for Cube in Cubes:
+                if Cube.PatternId != PatternIds:
+                    PatternIds.add(Cube.PatternId)
+                    BaseCubesIds.add(Cube.Id)
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver
         def singleTry(Edt) -> tuple:
             Mul = False
             if (not MultiThreading) and (type(Edt) is DecompressorSolver):
                 Mul = True
             if CompensatePatternCount:
-                Result = list(TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck, AlsoReturnPatterns=True, Templates=Templates))
+                Result = list(TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck, AlsoReturnPatterns=True, Templates=Templates, BaseCubesIds=BaseCubesIds))
                 Uncompressable = Cubes.copy().removeNotCompressable(Edt, Mul, ReturnRemovedCubes=True) 
                 Comprensator = PatternCountComprensator(Result[-1], Uncompressable, UncompressableCubeUsedOnlyOnce=True)
                 Result[1] = Comprensator.getCompensatedPatternCount()
@@ -1704,7 +1808,7 @@ class TestCubeSet:
                     del Result[-1]
                 return Result
             else:
-                return TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck, AlsoReturnPatterns=AlsoReturnPatterns, Templates=Templates)
+                return TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck, AlsoReturnPatterns=AlsoReturnPatterns, Templates=Templates, BaseCubesIds=BaseCubesIds)
         if MultiThreading:
             from concurrent.futures import ProcessPoolExecutor, as_completed
             from tqdm import tqdm
@@ -1880,6 +1984,7 @@ class DecompressorUtils:
             "faults": TotalFaultCount,
             "patterns": PatternCount,
             "scancells": ScanCellsStructure,
+            "faultdict": CubeId: Fault dict
             "dynamiccompaction": DynamicCompaction <if available in log!!!>
         )"""
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver
@@ -1887,14 +1992,16 @@ class DecompressorUtils:
         def single(FileName):
             try:
                 di = DecompressorUtils.getDesignInfoFromFIle(FileName)
+                tc, faultdict = TestCubeSet.fromFile(FileName, ReturnAlsoFaultsDict=1)
                 Result = {
-                    "tc": TestCubeSet.fromFile(FileName),
+                    "tc": tc,
                     "edt": EdtStructure.fromFile(FileName),
                     "sol": DecompressorSolver.fromFile(FileName),
                     "scancells": ScanCellsStructure.fromFile(FileName),
                     "faults": di["TotalFaults"],
                     "patterns": di["SimulatedPatterns"],
                     "primaryinputs": di["PrimaryInputs"],
+                    "faultdict": faultdict,
                 }
                 DynamicCompaction = DecompressorUtils.getDynamicCompactionStatsFromLog(FileName)
                 if len(DynamicCompaction) > 0:
@@ -1927,9 +2034,11 @@ class TestCubeSetUtils:
         BestMin = Limit
         print(f"BestMin: {BestMin}, Templates: ?")
         BestFromMaxDistance = len(Cubes)
+        CommonCubes = Cubes._tryToExtrctTemplates_phase1(64, False)
         while Span >= Step * 0.5:
             print(f"Limit: {Limit}...")
-            t = TestCubeSetUtils._adsear_singleTry1(Limit, Cubes)
+            t = Cubes._tryToExtrctTemplates_phase2(CommonCubes, Limit, 1)
+            #t = TestCubeSetUtils._adsear_singleTry1(Limit, Cubes)
             #print(len(t))
             AioShell.removeLastLine()
             if len(t) > MinTemplateCount:
@@ -1953,7 +2062,8 @@ class TestCubeSetUtils:
         print(f"BestMax: {BestMax}, Templates: ?")
         while Span >= Step * 0.5:
             print(f"Limit: {Limit}...")
-            t = TestCubeSetUtils._adsear_singleTry2(Limit, BestMin, Cubes)
+            t = Cubes._tryToExtrctTemplates_phase2(CommonCubes, BestMin, Limit)
+            #t = TestCubeSetUtils._adsear_singleTry2(Limit, BestMin, Cubes)
             #print(len(t))
             AioShell.removeLastLine()
             if abs(Middle - len(t)) <= BestFromMiddleDistance:
@@ -2055,6 +2165,19 @@ class TestCubeSetUtils:
                 except:
                     Row.append("")
             Result.add(Row)
+        return Result
+    
+    @staticmethod
+    def getCubeStats(Cubes : TestCubeSet) -> AioTable:
+        Result = AioTable(["CUbeId", "BaseCube", "PatternId", "SpecifiedBits"])
+        PatternIds = set()
+        for Cube in Cubes:
+            Pid = Cube.PatternId
+            BaseCube = 0
+            if Pid not in PatternIds:
+                PatternIds.add(Pid)
+                BaseCube = 1
+            Result.add([Cube.Id, BaseCube, Pid, Cube.getSpecifiedCount()])
         return Result
     
     

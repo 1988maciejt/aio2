@@ -288,6 +288,37 @@ class Dir:
   getAioPath = getAioPath
   pwd = pwd
   getCurrent = pwd
+  
+  @staticmethod
+  def forceRemove_Linux(DirName: str) -> bool:
+    import subprocess
+    from time import sleep
+    if not os.path.isdir(DirName):
+      return True
+    try:
+        for root, dirs, files in os.walk(DirName):
+            for name in files:
+                file_path = os.path.join(root, name)
+                try:
+                    result = subprocess.run(['fuser', '-a', file_path], capture_output=True, text=True)
+                    if result.returncode == 0:
+                        pids = [
+                            int(pid)
+                            for pid in result.stdout.strip().split()
+                            if pid.isdigit()
+                        ]
+                        for pid in pids:
+                            print(f"Killing PID {pid} locking {file_path}")
+                            subprocess.run(['kill', '-9', str(pid)])
+                except Exception as e:
+                    pass
+        sleep(1)
+        shutil.rmtree(DirName)
+        return True
+    except Exception as e:
+        return False
+  
+  
 
 class TempDir:
   __slots__ = ("_name", "_path", "_pwd", "DontDelete")

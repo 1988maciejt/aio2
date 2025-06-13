@@ -86,7 +86,7 @@ from libs.utils_sympy import *
 from libs.verilog import *
 from libs.verilog_creator import *
 from libs.utils_docx import *
-from libs.utils_pdf import *
+#from libs.utils_pdf import *    fitz issue!
 from libs.utils_zlib import *
 from libs.simulation import *
 from libs.bin_solver import *

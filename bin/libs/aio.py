@@ -544,22 +544,60 @@ class AioShell:
   def runCommand(command, PrintOutput=True):
     """Returns (stdout, stderr, returncode)
     """
-    process = subprocess.Popen(
-      shlex.split(command),
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE,
-      universal_newlines=True,
-    )
-    stdout, stderr = "", ""
-    while 1:
-        line = process.stdout.readline()
-        if not line:
-            break
-        if PrintOutput:
-            print(line, end="")
-        stdout += line
-    stderr = process.stderr.read()
-    if PrintOutput and stderr:
-        print(stderr, end="")
-    returncode = process.wait()
-    return stdout, stderr, returncode
+    try:
+      process = subprocess.Popen(
+        shlex.split(command),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+      )
+      stdout, stderr = "", ""
+      while 1:
+          line = process.stdout.readline()
+          if not line:
+              break
+          if PrintOutput:
+              print(line, end="")
+          stdout += line
+      stderr = process.stderr.read()
+      if PrintOutput and stderr:
+          print(stderr, end="")
+      returncode = process.wait()
+      return stdout, stderr, returncode
+    except Exception as e:
+      if PrintOutput:
+        print(f"Error running command '{command}': {e}")
+      return "", str(e), -1
+  
+  @staticmethod
+  def runCommandsInParallel(Commands, ReturnCodes=True, ReturnStdOuts=False, ReturnStdErr=False, MultiThreading=True) -> list:
+    from functools import partial
+    Result = []
+    if MultiThreading:
+      from p_tqdm import p_imap
+      for Res in p_imap(partial(AioShell.runCommand, PrintOutput=False), Commands):
+        stdout, stderr, returncode = Res
+        Row = []
+        if ReturnCodes:
+          Row.append(returncode)
+        if ReturnStdOuts:
+          Row.append(stdout)
+        if ReturnStdErr:
+          Row.append(stderr)
+        if len(Row) > 0:
+          Result.append(Row)
+    else:
+      from tqdm import tqdm
+      for Command in tqdm(Commands):
+        stdout, stderr, returncode = AioShell.runCommand(Command, PrintOutput=False)
+        Row = []
+        if ReturnCodes:
+          Row.append(returncode)
+        if ReturnStdOuts:
+          Row.append(stdout)
+        if ReturnStdErr:
+          Row.append(stderr)
+        if len(Row) > 0:
+          Result.append(Row)
+    AioShell.removeLastLine()  
+    return Result    

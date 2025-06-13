@@ -494,3 +494,51 @@ class Stats:
       X += XStep
     return (OutXValues, OutYValues)
   
+  
+class MovingAverageFilter:
+  
+  slots = ('_samples', '_size', '_value')
+  
+  def __init__(self, Size : int = 10):
+    if Size < 1:
+      raise ValueError("MAV filter size must be a positive integer")
+    self._samples = []
+    self._size = Size
+    self._value = 0.0
+    
+  def __len__(self):
+    return len(self._samples)
+  
+  def filter(self, Value : float) -> float:
+    """Filters the given value and returns the filtered value.
+    
+    Args:
+        Value (float): input value
+    
+    Returns:
+        float: filtered value
+    """
+    if len(self._samples) == self._size:
+      self._samples.pop(0)
+    self._samples.append(Value)
+    self._value = sum(self._samples) / len(self._samples)
+    return self._value
+  
+  add = filter
+  
+  def __call__(self, Value : float) -> float:
+    return self.filter(Value)
+  
+  def getValue(self) -> float:
+    """Returns the current filtered value.
+    
+    Returns:
+        float: current filtered value
+    """
+    return self._value if hasattr(self, '_value') else 0.0
+  
+  def reset(self) -> None:
+    """Resets the filter, clearing all samples.
+    """
+    self._samples.clear()
+    self._value = 0.0

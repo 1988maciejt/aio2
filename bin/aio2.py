@@ -24,7 +24,7 @@ _required_libs = [
   "cython",
   "scipy",
   ("python-docx", "docx"),
-  ("PyMuPDF", "fitz"),
+  #("PyMuPDF", "fitz"),
   ("pillow", "PIL"),
   "g4f",
   "gensim",
@@ -76,13 +76,28 @@ def _tc(filename="driver.py"):
     try:
       shutil.rmtree("results", ignore_errors=True)
     except:
-      Aio.printError("Error removing 'results' directory.")
-      exit()
+      try:
+        from libs.files import Dir
+        Result = Dir.forceRemove_Linux("results")
+        if not Result:
+          Aio.printError("Error removing 'results' directory.")
+          exit()
+      except:
+        Aio.printError("Error removing 'results' directory.")
+        exit()
     try:
       os.makedirs("results")
     except:
-      Aio.printError("Error creating 'results' directory.")
-      exit()
+      try:
+        from libs.files import Dir
+        Result = Dir.forceRemove_Linux("results")
+        if not Result:
+          Aio.printError("Error removing 'results' directory.")
+          exit()
+        os.makedirs("results")
+      except:
+        Aio.printError("Error creating 'results' directory.")
+        exit()
 #    Aio.shellExecute("mkdir -p references")
     os.chdir("results")
     SFile = "../" + SFile
