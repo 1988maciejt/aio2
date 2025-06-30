@@ -371,6 +371,12 @@ class TestCube:
     def __setitem__(self, index, value):
         self.setBit(index, value)
         
+    def removeRandomBits(self, RemovingRatio : float):
+        HowManyToRemove = round(len(self._dict) * RemovingRatio)
+        ToBeRemoved = List.randomSelect(list(self._dict.keys()), HowManyToRemove)
+        for Bit in ToBeRemoved:
+            del self._dict[Bit]            
+        
     def removeSpecifiedBits(self, AnotherCube : TestCube):
         for k in AnotherCube._dict.keys():
             if k in self._dict:
@@ -671,7 +677,9 @@ class TestCubeSet:
         else:
             return self._cubes[index]
         
-    def _tryToExtrctTemplates_phase1(self, CommonGroupSize : int = 64, Overlapping : bool = False) -> TestCubeSet:
+    def _tryToExtrctTemplates_phase1(self, CommonGroupSize : int = 64, Overlapping : bool = False, CustomCubesForAnalysis : TestCubeSet = None) -> TestCubeSet:
+        if CustomCubesForAnalysis is not None:
+            CustomCubesForAnalysis.getCommonGroups(CommonGroupSize, Overlapping)
         return self.getBaseCubes().getCommonGroups(CommonGroupSize, Overlapping)
 
     def _tryToExtrctTemplates_phase2(self, CommonPairs,  DifferentTemplatesLowerLimit : float = 0.005, DifferentTemplatesUpperLimit : float = 0.05) -> TestCubeSet:
@@ -698,8 +706,8 @@ class TestCubeSet:
             Result.addCube(CC)
         return Result
         
-    def tryToExtractTemplates(self, CommonGroupSize : int = 64, DifferentTemplatesLowerLimit : float = 0.005, DifferentTemplatesUpperLimit : float = 0.05, Overlapping : bool = False) -> TestCubeSet:
-        CommonPairs = self._tryToExtrctTemplates_phase1(CommonGroupSize, Overlapping)
+    def tryToExtractTemplates(self, CommonGroupSize : int = 64, DifferentTemplatesLowerLimit : float = 0.005, DifferentTemplatesUpperLimit : float = 0.05, Overlapping : bool = False, CustomCubesForAnalysis : TestCubeSet = None) -> TestCubeSet:
+        CommonPairs = self._tryToExtrctTemplates_phase1(CommonGroupSize, Overlapping, CustomCubesForAnalysis)
         return self._tryToExtrctTemplates_phase2(CommonPairs, DifferentTemplatesLowerLimit, DifferentTemplatesUpperLimit)
     
     def removeTemplates(self, TemplateSet : TestCubeSet):
@@ -797,6 +805,12 @@ class TestCubeSet:
         
     def sortById(self):
         self._cubes.sort(key=lambda x: x.Id)
+        
+    def removeRandomBits(self, RemovingRatio : float):
+        for i in range(len(self._cubes)):
+            Cube = self._cubes[i].copy()
+            Cube.removeRandomBits(RemovingRatio)
+            self._cubes[i] = Cube
 
     def getCommonCube(self) -> TestCube:
         if len(self) == 0:
@@ -874,7 +888,6 @@ class TestCubeSet:
             if S > Max:
                 Max = S
         return Min, Max, Sum / len(self._cubes)
-    
     
     def getBigCubes(self, Threshold : float = 0.8, ReturnAlsoRestCubes : bool = False) -> TestCubeSet:
         Result = TestCubeSet()
@@ -1882,6 +1895,14 @@ class DecompressorUtils:
             if R:
                 Result["PrimaryInputs"] = int(R.group(1))
                 continue
+            R = re.search(r"fault[_ ]coverage\s*([0-9.]+)%", Line)
+            if R:
+                Result["FaultCoverage"] = float(R.group(1)) / 100.0
+                continue
+            R = re.search(r"test[_ ]coverage\s*([0-9.]+)%", Line)
+            if R:
+                Result["TestCoverage"] = float(R.group(1)) / 100.0
+                continue
         try:
             Result["ScanCells"] = Result["ScanChains"] * Result["ScanLength"]
         except: pass
@@ -1985,6 +2006,7 @@ class DecompressorUtils:
             "patterns": PatternCount,
             "scancells": ScanCellsStructure,
             "faultdict": CubeId: Fault dict
+            "designinfo": Other data
             "dynamiccompaction": DynamicCompaction <if available in log!!!>
         )"""
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver
@@ -2001,6 +2023,7 @@ class DecompressorUtils:
                     "faults": di["TotalFaults"],
                     "patterns": di["SimulatedPatterns"],
                     "primaryinputs": di["PrimaryInputs"],
+                    "designinfo": di,
                     "faultdict": faultdict,
                 }
                 DynamicCompaction = DecompressorUtils.getDynamicCompactionStatsFromLog(FileName)
@@ -2020,26 +2043,16 @@ class TestCubeSetUtils:
     preparseLogs = DecompressorUtils.preparseLogs
     
     @staticmethod
-    def _adsear_singleTry1(Limit : float, Cubes : TestCubeSet) -> TestCubeSet:
-        return Cubes.tryToExtractTemplates(64, Limit, 1, False)
-    
-    @staticmethod
-    def _adsear_singleTry2(Limit : float, MinLimit : float, Cubes : TestCubeSet) -> TestCubeSet:
-        return Cubes.tryToExtractTemplates(64, MinLimit, Limit, False)
-        
-    @staticmethod
-    def adaptiveSearchForTemplates(Cubes : TestCubeSet, MinTemplateCount : int = 3, MaxTemplateCount : int = 6, Step : float = 0.00005, MultiThreading : bool = True) -> TestCubeSet:
+    def adaptiveSearchForTemplates(Cubes : TestCubeSet, MinTemplateCount : int = 3, MaxTemplateCount : int = 6, Step : float = 0.00005, MultiThreading : bool = True, CustomCubesForAnalysis : TestCubeSet = None) -> TestCubeSet:
         Span = (0.2+Step)
         Limit = Step + Span
         BestMin = Limit
         print(f"BestMin: {BestMin}, Templates: ?")
         BestFromMaxDistance = len(Cubes)
-        CommonCubes = Cubes._tryToExtrctTemplates_phase1(64, False)
+        CommonCubes = Cubes._tryToExtrctTemplates_phase1(64, False, CustomCubesForAnalysis)
         while Span >= Step * 0.5:
             print(f"Limit: {Limit}...")
             t = Cubes._tryToExtrctTemplates_phase2(CommonCubes, Limit, 1)
-            #t = TestCubeSetUtils._adsear_singleTry1(Limit, Cubes)
-            #print(len(t))
             AioShell.removeLastLine()
             if len(t) > MinTemplateCount:
                 if abs(MaxTemplateCount - len(t)) < BestFromMaxDistance:
@@ -2063,8 +2076,6 @@ class TestCubeSetUtils:
         while Span >= Step * 0.5:
             print(f"Limit: {Limit}...")
             t = Cubes._tryToExtrctTemplates_phase2(CommonCubes, BestMin, Limit)
-            #t = TestCubeSetUtils._adsear_singleTry2(Limit, BestMin, Cubes)
-            #print(len(t))
             AioShell.removeLastLine()
             if abs(Middle - len(t)) <= BestFromMiddleDistance:
                 BestFromMiddleDistance = abs(Middle - len(t))
@@ -2078,7 +2089,7 @@ class TestCubeSetUtils:
             if Limit < 0:
                 Limit = 0
             Span *= 0.51
-        return Cubes.tryToExtractTemplates(64, BestMin, BestMax, False)
+        return Cubes.tryToExtractTemplates(64, BestMin, BestMax, False, CustomCubesForAnalysis)
     
     @staticmethod
     def getBufferSizeListFromFile(FileName : str) -> list:
