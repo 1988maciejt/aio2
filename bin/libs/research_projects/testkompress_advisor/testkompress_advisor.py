@@ -677,6 +677,54 @@ class TestCubeSet:
         else:
             return self._cubes[index]
         
+    def getIndexLowerOrEqualToId(self, Id : int) -> int:
+        Index = 0
+        if self.isIdImplemented():
+            for i, Cube in enumerate(self._cubes):
+                if Cube.Id > Id:
+                    break
+                Index = i
+        else:
+            BestDistance = len(self)
+            for i, Cube in enumerate(self._cubes):
+                if Cube.Id == Id:
+                    Index = i
+                    break
+                if Cube.Id < Id:
+                    if Id - Cube.Id < BestDistance:
+                        BestDistance = Id - Cube.Id
+                        Index = i
+                if Cube.getSpecifiedCount() > Id:
+                    break
+        return Index
+        
+    def addCubesInBetweenExisting(self, Cubes : list, AfterId : int):
+        AfterIndex = self.getIndexLowerOrEqualToId(AfterId)
+        Cube0 = self._cubes[AfterIndex]
+        try:
+            Cube1 = self._cubes[AfterIndex + 1]
+            if Cube0.Id + len(Cubes) >= Cube1.Id:
+                Adder = Cube0.Id + len(Cubes) - Cube1.Id + 1
+            for i in range(AfterIndex + 1, len(self._cubes)):
+                self._cubes[i].Id += len(Cubes)
+        except: 
+            pass
+        BufferId = Cube0.BufferId
+        BufferSize = Cube0.BufferSize
+        PatternId = Cube0.PatternId
+        IdI = Cube0.Id + 1
+        PositionI = AfterIndex + 1
+        for Cube in Cubes:
+            NewCube = Cube.copy()
+            NewCube.Id = IdI
+            NewCube.BufferId = BufferId
+            NewCube.BufferSize = BufferSize
+            NewCube.PatternId = PatternId
+            self._cubes.insert(PositionI, NewCube)
+            PositionI += 1
+            IdI += 1
+        self.recalculateWeights()
+        
     def _tryToExtrctTemplates_phase1(self, CommonGroupSize : int = 64, Overlapping : bool = False, CustomCubesForAnalysis : TestCubeSet = None) -> TestCubeSet:
         if CustomCubesForAnalysis is not None:
             CustomCubesForAnalysis.getCommonGroups(CommonGroupSize, Overlapping)
@@ -1001,7 +1049,7 @@ class TestCubeSet:
         return True
         
     @staticmethod
-    def fromFile(FileName : str, ScanChainCount : int = -1, ScanChainLength : int = -1, IgnoreIds : bool = False, UnsortedCubes : bool = False, RecalculateIndices : bool = True, ReturnAlsoFaultsDict : bool = False) -> TestCubeSet:
+    def fromFile(FileName : str, ScanChainCount : int = -1, ScanChainLength : int = -1, IgnoreIds : bool = False, UnsortedCubes : bool = False, RecalculateIndices : bool = True, ReturnAlsoFaultsDict : bool = False, ReturnAlsoEABFaultsDict : bool = False) -> TestCubeSet:
         if ScanChainCount <= 0 or ScanChainCount <= 0:
             edt = EdtStructure.fromFile(FileName)
             ScanChainCount = edt.getScanChainCount()
@@ -1048,7 +1096,23 @@ class TestCubeSet:
                 Result.recalculateWeights()
             if RecalculateIndices:
                 Result.recalculateIndices()
+        #EABId = None
+        EABIds = {}
+        EABList = []
         for Line in Generators().readFileLineByLine(FileName):
+            # EDT aborts
+            #R = re.search(r"TDVE[=:]*\s*Cube\s*([0-9]+):\s*sc\s*[=:]\s*([0-9]+)", Line)
+            #if R:
+            #    EABId = int(R.group(1))
+            #    continue
+            R = re.search(r'EDT\s*Abort\s\(([0-9]+)\):\s*([0-9]+),\s*([^,]*),\s*["](.*)["]', Line)
+            if R:
+                Count = EABIds.get(Id, 0)
+                Count += 1
+                EABIds[Id] = Count
+                EABList.append((Id, Count, int(R.group(1)), int(R.group(2)), R.group(3), R.group(4)))
+                continue
+            # TMPL
             R = re.search(r"TMPL.*useAsPrimaryTestCubeWithoutRetargetingFault.*report", Line)
             if R:
                 ModeTMPL = True
@@ -1058,6 +1122,7 @@ class TestCubeSet:
             if R:
                 ModeTMPL = False
                 continue
+            # Regular
             R = re.search(r"num_test_cubes\s*[:=]\s*([0-9]+)\s*\(always\)", Line)
             if R:
                 BuffSizePerPatternThis = int(R.group(1))
@@ -1137,6 +1202,8 @@ class TestCubeSet:
                     FltS_A = int(R.group(3))
                     FaultsDict[Id] = (FltId, FltFin, FltS_A)
         checkResult()
+        #print(EABIds)
+        #print(EABList)
         if len(ResultList) > 0:
             if len(Result) > 0:
                 ResultList.append(Result)

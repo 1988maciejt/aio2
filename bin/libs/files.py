@@ -188,6 +188,10 @@ class File:
   writeObject = writeObjectToFile
   
   @staticmethod
+  def exists(FileName : str) -> bool:
+    return os.path.isfile(FileName)
+  
+  @staticmethod
   def writeLines(FileName : str, Iterator):
     if type(Iterator) is not list:
       Iterator = [i for i in Iterator]
