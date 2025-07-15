@@ -352,7 +352,7 @@ class TestCube:
         return not self.__eq__(value)
     
     def __str__(self):
-        return f"SCAN: {self._dict}, \nPRIMARY: {self._primary_dict}"
+        return f"Id: {self.Id},\nSCAN: {self._dict}, \nPRIMARY: {self._primary_dict}"
     
     def __repr__(self):
         return f"TestCube(\"{str(self)}\")"
@@ -697,6 +697,157 @@ class TestCubeSet:
                 if Cube.getSpecifiedCount() > Id:
                     break
         return Index
+    
+    def getFaultToCubeDict(self, FaultDict : dict) -> dict:
+        Result = {}
+        for Cube in self._cubes:
+            if Cube.Id in FaultDict:
+                Result[FaultDict[Cube.Id]] = Cube
+        return Result
+    
+    @staticmethod
+    def EABListToFaultToIDict(EABFaultList : list) -> dict:
+        Result = {}
+        for Item in EABFaultList:
+            Id = Item[0]
+            Fault = Item[1]
+            Result[Fault] = Id
+        return Result
+    
+    def getIndexEqualToId(self, Id : int) -> int:
+        for i, Cube in enumerate(self._cubes):
+            if Cube.Id == Id:
+                return i
+        return None
+    
+    def getFaultToCubeIdDict(self, FaultDict : dict) -> dict:
+        Result = {}
+        for Cube in self._cubes:
+            if Cube.Id in FaultDict:
+                Result[FaultDict[Cube.Id]] = Cube
+        return Result
+    
+    @staticmethod
+    def getSummaryFaultToCubeIdDict(TestCUbeSets : list, FaultDicts : list) -> dict:
+        Result = {}
+        for TC, FLT in zip(TestCUbeSets, FaultDicts):
+            Result.update(TC.getFaultToCubeIdDict(FLT))
+        return Result
+    
+    @staticmethod
+    def getFaultsDictFromFaoultToCubeDict(FaultToCubeDict : dict) -> dict:
+        Result = {}
+        for Fault, Cube in FaultToCubeDict.items():
+            Result[Cube.Id] = Fault
+        return Result   
+    
+    @staticmethod
+    def getEABListToEABDict(EABList : list) -> dict:
+        Result = {}
+        for item in EABList:
+            Id = item[0]
+            Fault = item[1]
+            Lst = Result.get(Id, [])
+            Lst.append(Fault)
+            Result[Id] = Lst
+        return Result
+        
+    def whereToInsertId(self, Id : int) -> tuple:
+        """Returns:
+        (WHereToInsert, HowManyToAddToId, HowManyToAddToTheRest)"""
+        for i in range(len(self._cubes)):
+            if self._cubes[i].Id > Id:
+                return i, self._cubes[i].Id-Id, 1
+        try:
+            if self._cubes[-1].Id == Id:
+                return len(self._cubes), 1, 0
+        except:
+            return 0, 0, 0
+        return len(self._cubes), 0, 0
+    
+    def insertCubeById(self, Cube : TestCube, WeightFilterLength : int = 100):
+        Pos, Add, AddR = self.whereToInsertId(Cube.Id)
+        self._cubes.insert(Pos, Cube)
+        Cube.WeightAdder = 0
+        WeightedAdderAvg = self.getAvgWeightedAdderAtIdx(Pos, WeightFilterLength)
+        if WeightedAdderAvg > 0:
+            print(f"// WeightedAdderAvg at position {Pos} is {WeightedAdderAvg}")
+            Cube.WeightAdder += WeightedAdderAvg
+            AddR += WeightedAdderAvg
+        print(f"// inserting Cube {Cube.Id} at position {Pos} with add={Add} and addR={AddR}")
+        Cube.Id += Add
+        for i in range(Pos+1, len(self._cubes)):
+            print(f"// Adding {AddR} to Id of cube {self._cubes[i].Id} = {self._cubes[i].Id+AddR} at position {i}")
+            self._cubes[i].Id += AddR
+        print(f"// Ids: {[c.Id for c in self]}")
+        return Pos, Add, AddR
+            
+    def getAvgWeightedAdderAtIdx(self, PositionIdx : int, AVGLen : int = 100) -> int:
+        from libs.stats import MovingAverageFilter
+        Filter = MovingAverageFilter(AVGLen)
+        if PositionIdx < 0 or PositionIdx >= len(self._cubes):
+            return 0
+        for i in range(PositionIdx):
+            Filter.add(self._cubes[i].WeightAdder)
+        return int(Filter.getValue())
+    
+    def mixWithEABFaults(self, SelfFaultDict : dict, EABFaultList : list, IncrementalCubes : TestCubeSet, IncrementalFaultDict : dict, WeightFilterLength : int = 100):
+        from copy import deepcopy
+        EABFaultsDict = TestCubeSet.getEABListToEABDict(EABFaultList)
+        if type(IncrementalCubes) is not list:
+            IncrementalCubes = [IncrementalCubes]
+        if type(IncrementalFaultDict) is not list:
+            IncrementalFaultDict = [IncrementalFaultDict]
+        IncrementalCubes = deepcopy(IncrementalCubes)
+        IncrementalCubes.append(self)
+        IncrementalFaultDict.append(SelfFaultDict)
+        FaultToCubeDict = TestCubeSet.getSummaryFaultToCubeIdDict(IncrementalCubes, IncrementalFaultDict)
+        print(f"FaultToCubeDict: {FaultToCubeDict}")
+        print(f"EABFaultsDict: {EABFaultsDict}")
+        EABIds = list(sorted(EABFaultsDict.keys()))
+        print(f"EABIds: {EABIds}")
+        for i in range(len(EABIds)):
+            EABId = EABIds[i]
+            EABFaults = EABFaultsDict[EABId]
+            for EABFault in EABFaults:
+                print(f"Working on EABId {EABId} with fault {EABFault}")
+                if EABFault in FaultToCubeDict:
+                    print(f"Fault {EABFault} is in FaultToCubeDict")
+                    Cube = FaultToCubeDict[EABFault]
+                    Cube.Id = EABId
+                    Pos, Add, AddR = self.insertCubeById(Cube, WeightFilterLength)
+                    FaultToCubeDict[EABFault] = Cube
+                    EABId += Add
+                    if AddR > 0:
+                        for j in range(len(EABIds)-1, i, -1):
+                            OldId = EABIds[j]
+                            EABIds[j] += AddR
+                            NewId = EABIds[j]
+                            print(f"// Replacing {OldId} with {NewId} in EABFaultsDict")
+                            EABFaultsDict[NewId] = EABFaultsDict[OldId]
+                            del EABFaultsDict[OldId]
+        return TestCubeSet.getFaultsDictFromFaoultToCubeDict(FaultToCubeDict)
+        for EABId, EABFaults in EABFaultsDict.items():
+            for EABFault in EABFaults:
+                if EABFault in FaultToCubeDict:
+                    Cube = FaultToCubeDict[EABFault]
+                    if Cube.Id == EABId:
+                        continue
+                    print(f"Replacing {EABId} with {Cube.Id} for fault {EABFault}")
+                    EABFaultsDict[EABId].remove(EABFault)
+                    EABFaultsDict[EABId].append(Cube.Id)
+        
+        
+        EABFaultToIdDict = TestCubeSet.EABListToFaultToIDict(EABFaultList)
+        for Cube in IncrementalCubes._cubes:
+            Fault = IncrementalFaultDict.get(Cube.Id, None)
+            IdFixed = EABFaultToIdDict.get(Fault, -1)
+            CubeCopy = Cube.copy()
+            if IdFixed != -1:
+                CubeCopy.Id = IdFixed
+            self.insertCubeById(CubeCopy, FaultDictToBeUpdated, Fault)
+            print("///////////////////")
+            self.getSpecBitsTable(FaultDictToBeUpdated).print()
         
     def addCubesInBetweenExisting(self, Cubes : list, AfterId : int):
         AfterIndex = self.getIndexLowerOrEqualToId(AfterId)
@@ -1049,7 +1200,7 @@ class TestCubeSet:
         return True
         
     @staticmethod
-    def fromFile(FileName : str, ScanChainCount : int = -1, ScanChainLength : int = -1, IgnoreIds : bool = False, UnsortedCubes : bool = False, RecalculateIndices : bool = True, ReturnAlsoFaultsDict : bool = False, ReturnAlsoEABFaultsDict : bool = False) -> TestCubeSet:
+    def fromFile(FileName : str, ScanChainCount : int = -1, ScanChainLength : int = -1, IgnoreIds : bool = False, UnsortedCubes : bool = False, RecalculateIndices : bool = True, ReturnAlsoFaultsDict : bool = False, ReturnAlsoEABFaultsList : bool = False) -> TestCubeSet:
         if ScanChainCount <= 0 or ScanChainCount <= 0:
             edt = EdtStructure.fromFile(FileName)
             ScanChainCount = edt.getScanChainCount()
@@ -1096,21 +1247,20 @@ class TestCubeSet:
                 Result.recalculateWeights()
             if RecalculateIndices:
                 Result.recalculateIndices()
-        #EABId = None
-        EABIds = {}
         EABList = []
+        EABId = 1
         for Line in Generators().readFileLineByLine(FileName):
             # EDT aborts
-            #R = re.search(r"TDVE[=:]*\s*Cube\s*([0-9]+):\s*sc\s*[=:]\s*([0-9]+)", Line)
-            #if R:
-            #    EABId = int(R.group(1))
-            #    continue
-            R = re.search(r'EDT\s*Abort\s\(([0-9]+)\):\s*([0-9]+),\s*([^,]*),\s*["](.*)["]', Line)
+            R = re.search(r"TDVE[=:]*\s*Cube\s*([0-9]+):\s*sc\s*[=:]\s*([0-9]+)", Line)
             if R:
-                Count = EABIds.get(Id, 0)
-                Count += 1
-                EABIds[Id] = Count
-                EABList.append((Id, Count, int(R.group(1)), int(R.group(2)), R.group(3), R.group(4)))
+                EABId = int(R.group(1)) + 1
+                continue
+            R = re.search(r'EDT\s*Abort\s\(([0-9]+)\):\s*\<([0-9]+)\s\(fin[:=]([0-9]+)\)\s*s-a-([01])\>', Line)
+            if R:
+                FltId = int(R.group(2))
+                FltFin = int(R.group(3))
+                FltS_A = int(R.group(4))
+                EABList.append((Id, (FltId, FltFin, FltS_A)))
                 continue
             # TMPL
             R = re.search(r"TMPL.*useAsPrimaryTestCubeWithoutRetargetingFault.*report", Line)
@@ -1207,13 +1357,42 @@ class TestCubeSet:
         if len(ResultList) > 0:
             if len(Result) > 0:
                 ResultList.append(Result)
-            if ReturnAlsoFaultsDict:
+            if ReturnAlsoFaultsDict and ReturnAlsoEABFaultsList:
+                return ResultList, FaultsDict, EABList
+            elif ReturnAlsoFaultsDict:
                 return ResultList, FaultsDict
+            elif ReturnAlsoEABFaultsList:
+                return ResultList, EABList
             return ResultList
-        if ReturnAlsoFaultsDict:
+        if ReturnAlsoFaultsDict and ReturnAlsoEABFaultsList:
+            return Result, FaultsDict, EABList
+        elif ReturnAlsoFaultsDict:
             return Result, FaultsDict
+        elif ReturnAlsoEABFaultsList:
+            return Result, EABList
         return Result
     
+    def getSpecBitsTable(self, FaultDict : dict = None) -> AioTable:
+        if FaultDict is None:
+            FaultDict = {}
+        Table = AioTable(["CubeId", "SpecBits", "FaultId", "Fin", "S-A-?"])
+        EMptyRow = ["<space>", "", "", "", ""]
+        LastId = 0
+        for Cube in self._cubes:
+            Id = Cube.Id
+            SpecBits = Cube.getSpecifiedCount()
+            if Id > LastId+1:
+                Table.add(EMptyRow)
+            Row = [Id, SpecBits]
+            if Id in FaultDict:
+                FltId, FltFin, FltS_A = FaultDict[Id]
+                Row += [FltId, FltFin, FltS_A]
+            else:
+                Row += ["", "", ""]
+            Table.add(Row)
+            LastId = Id
+        return Table
+            
     def recalculateWeights(self):
         for i in range(len(self._cubes)-1):
             WeightAdder = self._cubes[i+1].Id - self._cubes[i].Id - 1
