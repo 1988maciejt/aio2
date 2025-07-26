@@ -2492,16 +2492,17 @@ class Lfsr:
       One = bitarray('1')
       while steps > 0: 
         if steps & 1:
-          Row = self._ba_fast_sim_array[RowIndex]
           baresult = bau.zeros(size)
           for index in self._baValue.search(One):
-            baresult ^= Row[index]
+            if self._ba_fast_sim_array[RowIndex][index] is None:
+              self._computeFastSimArrayValue(RowIndex, index)
+            baresult ^= self._ba_fast_sim_array[RowIndex][index]
           self._baValue = baresult.copy()
         steps >>= 1
         RowIndex += 1
       return self._baValue.copy()   
     
-  def _buildFastSimArray(self):
+  def _buildFastSimArray(self, NotFull = False):
     oldVal = self._baValue.copy()
     size = self._size
     rowm1 = []
@@ -2511,16 +2512,21 @@ class Lfsr:
       rowm1.append(self._next1().copy())
     FSA = [rowm1]
     One = bitarray('1')
-    for r in range(1,size):
-      row = []
-      for c in range(size):
-        FirstOne = rowm1[c].find(One)
-        res = rowm1[FirstOne].copy()
-        for index in rowm1[c].search(One, FirstOne+1):
-          res ^= rowm1[index]
-        row.append(res)
-      FSA.append(row)
-      rowm1 = row
+    if NotFull:
+      RowNone = [None for _ in range(size)]
+      for _ in range(size-1):
+        FSA.append(RowNone.copy())
+    else:
+      for r in range(1,size):
+        row = []
+        for c in range(size):
+          FirstOne = rowm1[c].find(One)
+          res = rowm1[FirstOne].copy()
+          for index in rowm1[c].search(One, FirstOne+1):
+            res ^= rowm1[index]
+          row.append(res)
+        FSA.append(row)
+        rowm1 = row
     self._ba_fast_sim_array = FSA
     self._baValue = oldVal
     
