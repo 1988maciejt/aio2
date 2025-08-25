@@ -1046,6 +1046,15 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     result = l.isMaximum()
     return result
   
+  def _getArgsForCppPrimitivityChecker(self) -> str:
+    Result = ""
+    for c in self._coefficients_list:
+      Result += str(c) + " "
+    SubPer = DB.getPrimitiveTestingCyclesList(self.getDegree())
+    for SubPeriod in SubPer:
+      Result += bin(SubPeriod)[2:] + " "
+    return Result[:-1]
+  
   def nextPrimitive(self, Silent=False) -> bool:
     """Looks for the next primitive polynomial.
 

@@ -771,15 +771,15 @@ class TestCubeSet:
         Cube.WeightAdder = 0
         WeightedAdderAvg = self.getAvgWeightedAdderAtIdx(Pos, WeightFilterLength)
         if WeightedAdderAvg > 0:
-            print(f"// WeightedAdderAvg at position {Pos} is {WeightedAdderAvg}")
+        #    print(f"// WeightedAdderAvg at position {Pos} is {WeightedAdderAvg}")
             Cube.WeightAdder += WeightedAdderAvg
             AddR += WeightedAdderAvg
-        print(f"// inserting Cube {Cube.Id} at position {Pos} with add={Add} and addR={AddR}")
+        #print(f"// inserting Cube {Cube.Id} at position {Pos} with add={Add} and addR={AddR}")
         Cube.Id += Add
         for i in range(Pos+1, len(self._cubes)):
-            print(f"// Adding {AddR} to Id of cube {self._cubes[i].Id} = {self._cubes[i].Id+AddR} at position {i}")
+        #    print(f"// Adding {AddR} to Id of cube {self._cubes[i].Id} = {self._cubes[i].Id+AddR} at position {i}")
             self._cubes[i].Id += AddR
-        print(f"// Ids: {[c.Id for c in self]}")
+        #print(f"// Ids: {[c.Id for c in self]}")
         return Pos, Add, AddR
             
     def getAvgWeightedAdderAtIdx(self, PositionIdx : int, AVGLen : int = 100) -> int:
@@ -802,17 +802,17 @@ class TestCubeSet:
         IncrementalCubes.append(self)
         IncrementalFaultDict.append(SelfFaultDict)
         FaultToCubeDict = TestCubeSet.getSummaryFaultToCubeIdDict(IncrementalCubes, IncrementalFaultDict)
-        print(f"FaultToCubeDict: {FaultToCubeDict}")
-        print(f"EABFaultsDict: {EABFaultsDict}")
+        #print(f"FaultToCubeDict: {FaultToCubeDict}")
+        #print(f"EABFaultsDict: {EABFaultsDict}")
         EABIds = list(sorted(EABFaultsDict.keys()))
-        print(f"EABIds: {EABIds}")
+        #print(f"EABIds: {EABIds}")
         for i in range(len(EABIds)):
             EABId = EABIds[i]
             EABFaults = EABFaultsDict[EABId]
             for EABFault in EABFaults:
-                print(f"Working on EABId {EABId} with fault {EABFault}")
+        #        print(f"Working on EABId {EABId} with fault {EABFault}")
                 if EABFault in FaultToCubeDict:
-                    print(f"Fault {EABFault} is in FaultToCubeDict")
+        #            print(f"Fault {EABFault} is in FaultToCubeDict")
                     Cube = FaultToCubeDict[EABFault]
                     Cube.Id = EABId
                     Pos, Add, AddR = self.insertCubeById(Cube, WeightFilterLength)
@@ -823,31 +823,10 @@ class TestCubeSet:
                             OldId = EABIds[j]
                             EABIds[j] += AddR
                             NewId = EABIds[j]
-                            print(f"// Replacing {OldId} with {NewId} in EABFaultsDict")
+        #                    print(f"// Replacing {OldId} with {NewId} in EABFaultsDict")
                             EABFaultsDict[NewId] = EABFaultsDict[OldId]
                             del EABFaultsDict[OldId]
         return TestCubeSet.getFaultsDictFromFaoultToCubeDict(FaultToCubeDict)
-        for EABId, EABFaults in EABFaultsDict.items():
-            for EABFault in EABFaults:
-                if EABFault in FaultToCubeDict:
-                    Cube = FaultToCubeDict[EABFault]
-                    if Cube.Id == EABId:
-                        continue
-                    print(f"Replacing {EABId} with {Cube.Id} for fault {EABFault}")
-                    EABFaultsDict[EABId].remove(EABFault)
-                    EABFaultsDict[EABId].append(Cube.Id)
-        
-        
-        EABFaultToIdDict = TestCubeSet.EABListToFaultToIDict(EABFaultList)
-        for Cube in IncrementalCubes._cubes:
-            Fault = IncrementalFaultDict.get(Cube.Id, None)
-            IdFixed = EABFaultToIdDict.get(Fault, -1)
-            CubeCopy = Cube.copy()
-            if IdFixed != -1:
-                CubeCopy.Id = IdFixed
-            self.insertCubeById(CubeCopy, FaultDictToBeUpdated, Fault)
-            print("///////////////////")
-            self.getSpecBitsTable(FaultDictToBeUpdated).print()
         
     def addCubesInBetweenExisting(self, Cubes : list, AfterId : int):
         AfterIndex = self.getIndexLowerOrEqualToId(AfterId)
@@ -1960,6 +1939,16 @@ class TestCubeSet:
         RList = [Cube.getFillRate() for Cube in self._cubes]
         return sum(RList) / len(RList)
     
+    def getChannelVolume(self, Edt : EdtStructure) -> int:
+        Patterns = self.getPatterns()
+        return Edt.getTestDataVolume(len(Patterns))
+    
+    def getCubeVolume(self) -> int:
+        Result = 0
+        for Cube in self._cubes:
+            Result += Cube.getSpecifiedCount()
+        return Result
+    
     @staticmethod
     def doMergingExperiment(Cubes : TestCubeSet, Edt : EdtStructure, BufferLength : int = None, PatternCountPerRound : int = 1, MinBatteryCharge : float = None, CompressabilityLimit : int = None, Verbose : bool = False, MultiThreading = False, CombinedCompressionChecking : bool = False, AlsoReturnPatterns : bool = False, SkipCubeCOmpressabilityCheck : bool = False, Templates : TestCubeSet = None, BaseCubesIds = set()) -> tuple:
         """Returns 4-element tuple:
@@ -2043,6 +2032,8 @@ class TestCubeSet:
 
     @staticmethod
     def doExperiments(Cubes : TestCubeSet, EdtList : list, BufferLength : int = None, PatternCountPerRound : int = 1, MinBatteryCharge : float = None, CompressabilityLimit : int = None, CombinedCompressionChecking : bool = False, MultiThreading : bool = True, Verbose : bool = False, SkipCubeCOmpressabilityCheck : bool = False, CompensatePatternCount : bool = False, AlsoReturnPatterns : bool = False, Templates : TestCubeSet = None, UseTrueBaseCubes : bool = True) -> list:
+        if type(EdtList) is not list:
+            EdtList = [EdtList]
         Result = []
         BaseCubesIds = set()
         if UseTrueBaseCubes:

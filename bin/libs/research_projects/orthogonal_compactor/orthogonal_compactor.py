@@ -836,16 +836,36 @@ class CompactorSimulator:
     def EquationMaskIndexToCellPosition(self, Index : int) -> tuple:
         return (Index // self.ScanChainsCount, Index % self.ScanChainsCount)
         
-    def simulate(self, InputData : bitarray, WordsLimit : int = None, FlushAllBitsFromShiftRegisters : bool = True) -> tuple:
+    def simulate(self, InputData : bitarray, WordsLimit : int = None, FlushAllBitsFromShiftRegisters : bool = True, InputXs : bitarray = None) -> tuple:
+    # bitarray: [pos * scancount + scan]
+        if InputXs is not None:
+            if len(InputXs) != len(InputData):
+                Aio.printError("InputXs must be the same length as InputData")
+                InputXs = None
         if self.GlobalSumPresent:
             GlobalSum = bitarray()
+            if InputXs is not None:
+                GlobalSumX = bitarray()
         ShiftRegisters = [bau.zeros(self.ScanChainsCount) for _ in range(len(self._ShiftRegistersPresent))]
         ShiftRegistersNonOverlap = [bau.zeros(ceil(self.ScanChainsCount / abs(Item[0]))) for Item in self._ShiftRegistersNonOverlapPresent]
         ShiftRegistersResult = [bitarray() for _ in range(len(self._ShiftRegistersPresent))]
         ShiftRegistersNonOverlapResult = [bitarray() for _ in range(len(self._ShiftRegistersNonOverlapPresent))]
+        if InputXs is not None:
+            XsShiftRegisters = [bau.zeros(self.ScanChainsCount) for _ in range(len(self._ShiftRegistersPresent))]
+            XsShiftRegistersNonOverlap = [bau.zeros(ceil(self.ScanChainsCount / abs(Item[0]))) for Item in self._ShiftRegistersNonOverlapPresent]
+            XsShiftRegistersResult = [bitarray() for _ in range(len(self._ShiftRegistersPresent))]
+            XsShiftRegistersNonOverlapResult = [bitarray() for _ in range(len(self._ShiftRegistersNonOverlapPresent))]
         WordIndex = 0
         ScanLength = len(InputData) // self.ScanChainsCount
+        if InputXs is not None:
+            XsWords = List.splitIntoSublists(InputXs, self.ScanChainsCount)
+            XsWordIndex = 0
         for Word in Generators().subLists(InputData, self.ScanChainsCount):
+            if InputXs is not None:
+                XsWord = XsWords[XsWordIndex]
+                XsWordIndex += 1
+                if len(XsWord) < self.ScanChainsCount:
+                    XsWord += bau.zeros(self.ScanChainsCount - len(XsWord))
             if WordsLimit is not None and WordIndex >= WordsLimit:
                 break
             WordIndex += 1
@@ -853,6 +873,8 @@ class CompactorSimulator:
                 Word += bau.zeros(self.ScanChainsCount - len(Word))
             if self.GlobalSumPresent:
                 GlobalSum.append((Word.count(1) % 2))
+                if InputXs is not None:
+                    GlobalSumX.append(1 if XsWord.count(1) > 0 else 0)
             i = 0
             for Item in self._ShiftRegistersPresent:
                 ShiftRegistersResult[i].append(ShiftRegisters[i][-1])
@@ -871,7 +893,23 @@ class CompactorSimulator:
                         else:
                             LocalSum += Word[(j + O + k) % self.ScanChainsCount]
                     ShiftRegisters[i][j] ^= (LocalSum % 2)
-                #print(Item, ShiftRegisters[i])
+                if InputXs is not None:
+                    XsShiftRegistersResult[i].append(XsShiftRegisters[i][-1])
+                    N = Item[0]
+                    Rev = False
+                    if N < 0:
+                        N = abs(N)
+                        Rev = True
+                    O = Item[1]
+                    XsShiftRegisters[i] >>= 1
+                    for j in range(self.ScanChainsCount):
+                        LocalSum = 0
+                        for k in range(N):
+                            if Rev:
+                                LocalSum += XsWord[((self.ScanChainsCount-1) - (j + O + k)) % self.ScanChainsCount]
+                            else:
+                                LocalSum += XsWord[(j + O + k) % self.ScanChainsCount]
+                        XsShiftRegisters[i][j] |= (1 if LocalSum > 0 else 0)
                 i += 1
             i = 0
             for Item in self._ShiftRegistersNonOverlapPresent:
@@ -895,23 +933,52 @@ class CompactorSimulator:
                     j += N
                     ShiftRegistersNonOverlap[i][bi] ^= (LocalSum % 2)
                     bi += 1
+                if InputXs is not None:
+                    XsShiftRegistersNonOverlapResult[i].append(XsShiftRegistersNonOverlap[i][-1])
+                    N = Item[0]
+                    Rev = False
+                    if N < 0:
+                        N = abs(N)
+                        Rev = True
+                    O = Item[1]
+                    XsShiftRegistersNonOverlap[i] >>= 1
+                    j = 0
+                    bi = 0
+                    while j < self.ScanChainsCount:
+                        LocalSum = 0
+                        for k in range(N):
+                            if Rev:
+                                LocalSum += XsWord[((self.ScanChainsCount-1) - (j + O + k)) % self.ScanChainsCount]
+                            else:
+                                LocalSum += XsWord[(j + O + k) % self.ScanChainsCount]
+                        j += N
+                        XsShiftRegistersNonOverlap[i][bi] |= (1 if LocalSum > 0 else 0)
+                        bi += 1
                 i += 1
         if FlushAllBitsFromShiftRegisters:
             for i in range(self.ScanChainsCount):
                 if self.GlobalSumPresent:
                     GlobalSum.append(0)
+                    if InputXs is not None:
+                        GlobalSumX.append(0)
                 j = 0
                 for Item in self._ShiftRegistersPresent:
                     N = Item[0]
                     S = Item[1]
                     ShiftRegistersResult[j].append(ShiftRegisters[j][-1])
                     ShiftRegisters[j] >>= 1
+                    if InputXs is not None:
+                        XsShiftRegistersResult[j].append(XsShiftRegisters[j][-1])
+                        XsShiftRegisters[j] >>= 1
                     j += 1
                 for Item in self._ShiftRegistersNonOverlapPresent:
                     N = Item[0]
                     S = Item[1]
                     ShiftRegistersNonOverlapResult[j].append(ShiftRegistersNonOverlap[j][-1])
                     ShiftRegistersNonOverlap[j] >>= 1
+                    if InputXs is not None:
+                        XsShiftRegistersNonOverlapResult[j].append(XsShiftRegistersNonOverlap[j][-1])
+                        XsShiftRegistersNonOverlap[j] >>= 1
                     j += 1
         Result = []
         if self.GlobalSumPresent:
@@ -924,6 +991,19 @@ class CompactorSimulator:
         for Item in self._ShiftRegistersNonOverlapPresent:
             Result.append( (Item + tuple([True]), ShiftRegistersNonOverlapResult[i][1:ceil(self.ScanChainsCount/abs(Item[0]))+ScanLength]) )
             i += 1
+        if InputXs is not None:
+            ResultXs = []
+            if self.GlobalSumPresent:
+                ResultXs.append( ((0, 0, True), GlobalSumX[:ScanLength]) )
+            i = 0
+            for Item in self._ShiftRegistersPresent:
+                ResultXs.append( (Item + tuple([True]), XsShiftRegistersResult[i][1:self.ScanChainsCount+ScanLength]))
+                i += 1
+            i = 0
+            for Item in self._ShiftRegistersNonOverlapPresent:
+                ResultXs.append( (Item + tuple([True]), XsShiftRegistersNonOverlapResult[i][1:ceil(self.ScanChainsCount/abs(Item[0]))+ScanLength]) )
+                i += 1
+            return tuple(Result), tuple(ResultXs)
         return tuple(Result)
 
     def getFaultCandidatesPerTimeSlot(self, MaxParallelFaults : int = 2, MaxFaultsDistance : int = 3) -> list:
@@ -1175,7 +1255,7 @@ class CompactorSimulator:
 
 
 
-    def _fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, JustFound : list = [], FailsToSkip = [], RecursionLevel : int = 0, Indent = "", Option : int = 1, TimeOut : int = None, IgnoreUpperRegister : bool = False):
+    def _fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, JustFound : list = [], FailsToSkip = [], RecursionLevel : int = 0, Indent = "", Option : int = 1, TimeOut : int = None, IgnoreUpperRegister : bool = False, UpperRegXs : bitarray = None, LowerRegXs : bitarray = None, XorRegXs : bitarray = None):
         if TimeOut is not None:
             if TimeOut < 0:
                 if ReturnAlsoPartialResults:
@@ -1229,15 +1309,18 @@ class CompactorSimulator:
                     JustFound = Found.copy()
                     for C in Set:
                         JustFound.append(C[3])
-                        NewUpperReg[C[2]] ^= 1
-                        NewXorReg[C[1]] ^= 1
-                        NewLowerReg[C[0]] ^= 1
+                        if not UpperRegXs[C[2]]:
+                            NewUpperReg[C[2]] ^= 1
+                        if not XorRegXs[C[1]]:
+                            NewXorReg[C[1]] ^= 1
+                        if not LowerRegXs[C[0]]:
+                            NewLowerReg[C[0]] ^= 1
                     if TimeOut is not None:
                         t1 = time.time()
                         TimeOutNow = TimeOut - (t1 - t0)
                     else:
                         TimeOutNow = None
-                    R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow, IgnoreUpperRegister=IgnoreUpperRegister)
+                    R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow, IgnoreUpperRegister=IgnoreUpperRegister, UpperRegXs=UpperRegXs, LowerRegXs=LowerRegXs, XorRegXs=XorRegXs)
                     if Adaptive and len(R) > 0:
                         for x in R:
                             if len(x) < MaxFailCount:
@@ -1268,15 +1351,18 @@ class CompactorSimulator:
                         NewXorReg = XorReg.copy()
                         NewUpperReg = UpperReg.copy()
                         NewLowerReg = LowerReg.copy()
-                        NewUpperReg[C[2]] ^= 1
-                        NewXorReg[C[1]] ^= 1
-                        NewLowerReg[C[0]] ^= 1
+                        if not UpperRegXs[C[2]]:
+                            NewUpperReg[C[2]] ^= 1
+                        if not XorRegXs[C[1]]:
+                            NewXorReg[C[1]] ^= 1
+                        if not LowerRegXs[C[0]]:
+                            NewLowerReg[C[0]] ^= 1
                         if TimeOut is not None:
                             t1 = time.time()
                             TimeOutNow = TimeOut - (t1 - t0)
                         else:
                             TimeOutNow = None
-                        R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow, IgnoreUpperRegister=IgnoreUpperRegister)    
+                        R = self._fastSolve(SCAN_COUNT, NewUpperReg, NewLowerReg, NewXorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, JustFound, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow, IgnoreUpperRegister=IgnoreUpperRegister, UpperRegXs=UpperRegXs, LowerRegXs=LowerRegXs, XorRegXs=XorRegXs)    
                         if Adaptive and len(R) > 0:
                             for x in R:
                                 if len(x) < MaxFailCount:
@@ -1285,15 +1371,18 @@ class CompactorSimulator:
                 if not BranchIt: 
                     for C in Candidates:
                         Found.append(C[3])
-                        UpperReg[C[2]] ^= 1
-                        XorReg[C[1]] ^= 1
-                        LowerReg[C[0]] ^= 1
+                        if not UpperRegXs[C[2]]:
+                            UpperReg[C[2]] ^= 1
+                        if not XorRegXs[C[1]]:
+                            XorReg[C[1]] ^= 1
+                        if not LowerRegXs[C[0]]:
+                            LowerReg[C[0]] ^= 1
                     if TimeOut is not None:
                         t1 = time.time()
                         TimeOutNow = TimeOut - (t1 - t0)
                     else:
                         TimeOutNow = None
-                    R = self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Found, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow, IgnoreUpperRegister=IgnoreUpperRegister)              
+                    R = self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Found, [], RecursionLevel+1, Indent+"  ", Option=Option, TimeOut=TimeOutNow, IgnoreUpperRegister=IgnoreUpperRegister, UpperRegXs=UpperRegXs, LowerRegXs=LowerRegXs, XorRegXs=XorRegXs)              
                     if Adaptive and len(R) > 0:
                         for x in R:
                             if len(x) < MaxFailCount:
@@ -1303,7 +1392,7 @@ class CompactorSimulator:
         return Results
     
 
-    def fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, TimeOut : int = None, IgnoreUpperRegister : bool = False) -> list:
+    def fastSolve(self, SCAN_COUNT : int, UpperReg : bitarray, LowerReg : bitarray, XorReg : bitarray, MaxFailCount : int, MaxDifferentScanChains : int = None, SpeedUp = False, Adaptive : bool = False, ReturnAlsoPartialResults = False, TimeOut : int = None, IgnoreUpperRegister : bool = False, UpperRegXs : bitarray = None, LowerRegXs : bitarray = None, XorRegXs : bitarray = None) -> list:
         sr = list(self._ShiftRegistersPresent)
         sn = list(self._ShiftRegistersNonOverlapPresent)
         if self.GlobalSumPresent and len(sr) == 2 and len(sn) == 0 and sr[0] == (1, 0) and sr[1] == (-1, 0):
@@ -1313,7 +1402,16 @@ class CompactorSimulator:
         else:
             Aio.printError("Incorrect compactor config")
             return []
-        return self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Option=Option, TimeOut=TimeOut, IgnoreUpperRegister=IgnoreUpperRegister)
+        if UpperRegXs is None:
+            UpperRegXs = UpperReg.copy()
+            UpperRegXs.setall(0)
+        if LowerRegXs is None:
+            LowerRegXs = LowerReg.copy()
+            LowerRegXs.setall(0)
+        if XorRegXs is None:
+            XorRegXs = XorReg.copy()
+            XorRegXs.setall(0)
+        return self._fastSolve(SCAN_COUNT, UpperReg, LowerReg, XorReg, MaxFailCount, MaxDifferentScanChains, SpeedUp, Adaptive, ReturnAlsoPartialResults, Option=Option, TimeOut=TimeOut, IgnoreUpperRegister=IgnoreUpperRegister, UpperRegXs=UpperRegXs, LowerRegXs=LowerRegXs, XorRegXs=XorRegXs)
     
     
     

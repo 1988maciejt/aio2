@@ -1,6 +1,6 @@
 from curses.ascii import isprint
 import re
-from math import sqrt
+from math import sqrt, isqrt
 from libs.utils_str import *
 from libs.aio import *
 
@@ -13,7 +13,7 @@ class Int:
       return False
     if value == 2:
       return True
-    DMax = int(sqrt(value))+1
+    DMax = isqrt(value)+1
     Prime = True
     NM = Int._primes[-1]
     while Int._primes[-1] < DMax:
@@ -53,6 +53,80 @@ class Int:
     while not Int.isPrime(v2):
       v2 -= 2
     return v2
+  
+  def factorizeRND(Number : int, Verbose : bool = False) -> tuple:
+    from math import gcd, isqrt
+    from random import randint
+    Max = isqrt(Number) + 1
+    if Verbose:
+      print(f'Input:   {Number}')
+      print(f'Max div: {Max}')
+    Aux = 1
+    while Aux != 0:
+      Rnd = randint(3, Max)  #982451653 
+      Aux = Number % Rnd
+      if Verbose:
+        AioShell.removeLastLine()
+        print(f'Rnd: {Rnd}, rest: {Aux}')
+    Second = Number // Rnd
+    if Verbose:
+      print(f'{Rnd}, {Second}')
+    return Rnd, Second
+  
+  def factorizeMT1(Number : int, Verbose : bool = False, Start : int = 2) -> tuple:
+#    if Number < 10000000000000000:
+#      return Int.factorizeRND(Number, Verbose)
+    from math import isqrt
+    Max = isqrt(Number) + 1
+    if Verbose:
+      print(f'Input:   {Number}')
+    Div1 = Start
+    LEN = len(str(Max)) - 10
+    if LEN < 0:
+      LEN = 0
+    from tqdm import tqdm
+    with tqdm(total=Max, bar_format="{l_bar}{bar} {percentage:3." + str(LEN) + "f}%") as pbar:
+      while (Div1 < Max):
+        Div2 = Div1 + 1
+        MDiv1 = Number % Div1
+        MDiv2 = Number % Div2
+        Step = 2
+        if Verbose:
+          print("==========================================")
+          print(f'{Number} mod {Div1} = {MDiv1}')
+          print(f'{Number} mod {Div2} = {MDiv2}')
+        if MDiv1 == 0:
+          if Verbose:
+            print(f'{Div1} is a factor')
+          return Div1, Number // Div1
+        elif MDiv2 == 0:
+          if Verbose:
+            print(f'{Div2} is a factor')
+          return Div2, Number // Div2
+        elif MDiv2 > MDiv1:
+          #Div1 += 2
+          if Verbose:
+            print(f"Up")
+        elif MDiv1 == MDiv2:
+          #Div1 += 2
+          if Verbose:
+            print(f"Constant")
+        else: # MDiv2 < MDiv1:
+          if Verbose:
+            print(f"Down")
+          a = MDiv2 - MDiv1   # only when Div2 = Div1 + 1!!!!
+          b = MDiv1 - a * Div1
+          if (-b) // a == 0:
+            Step = ((-b) // a) - Div1
+          else:
+            Step = ((-b) // a) - Div1 + 1
+          if Verbose:
+            print(f"a = {a}, b = {b}")
+        Div1 += Step
+        pbar.update(Step)
+    if Verbose:
+      print(f'No factors found for {Number} in range 2..{Max}')
+    return None
   
   def primesGenerator(From : int, To : int):
     v = From - 1
