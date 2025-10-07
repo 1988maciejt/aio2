@@ -58,6 +58,7 @@ from libs.gcode import *
 from libs.gpt_tools import *
 from libs.interactive_menu import *
 from libs.lfsr import *
+from libs.lfsr_sigma import *
 from libs.nlfsr import *
 from libs.inputs import *
 from libs.phaseshifter import *

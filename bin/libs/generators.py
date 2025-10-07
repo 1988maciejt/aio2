@@ -53,6 +53,20 @@ class Generators:
         yield (i1, i2)
         while _PAUSE:
           sleep(0.35)
+          
+  def onesInHex(self, Hex : str):
+    global _PAUSE
+    try:
+      v = int(Hex, 16)
+    except:
+      return
+    b = bau.int2ba(v, endian='little')
+    for i in b.search(1):
+      if not self._enabled:
+        return
+      yield i
+      while _PAUSE:
+        sleep(0.35)
       
   def subRanges(self, start : int, stop : int, chunk : int, step = 1):
     global _PAUSE

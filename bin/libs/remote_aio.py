@@ -77,6 +77,7 @@ from sympy import *
 import libs.jt as JT
 import re
 from libs.utils_list import *
+import libs.research_projects.orthogonal_compactor.orthogonal_compactor as OrthogonalCompactor  
 
 
 _NOT_EMPTY_SCHEDULER = "NOT_EMPTY_SCHEDULER"

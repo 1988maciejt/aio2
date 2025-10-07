@@ -654,7 +654,7 @@ class CompactorSimulator:
         Result._ShiftRegistersNonOverlapPresent = self._ShiftRegistersNonOverlapPresent.copy()
         return Result
     
-    def __init__(self, ScanChainsCount : int, GlobalSumPresent : bool = True) -> None:
+    def __init__(self, ScanChainsCount : int, GlobalSumPresent : bool = True, SetOption : int = None) -> None:
         if type(ScanChainsCount) is CompactorSimulator:
             self.ScanChainsCount = ScanChainsCount.ScanChainsCount
             self.GlobalSumPresent = ScanChainsCount.GlobalSumPresent    
@@ -665,6 +665,8 @@ class CompactorSimulator:
             self.GlobalSumPresent = bool(GlobalSumPresent)
             self._ShiftRegistersPresent = set()
             self._ShiftRegistersNonOverlapPresent = set()
+            if SetOption is not None:
+                self.setOption(SetOption)
             
     def setOption(self, Option : int = 1):
         self._ShiftRegistersPresent = set()
@@ -1492,3 +1494,103 @@ class OCExperimentalStuff:
         for R in p_uimap(partial(self._doMeasurement, MinFailCount=MinFailCount, MaxFailCount=MaxFailCount, MaxDifferentScanChains=MaxDifferentScanChains, SpeedUp=SpeedUp, AdaptiveSearch=AdaptiveSearch, TimeOut=TimeOut, IgnoreUpperRegister=IgnoreUpperRegister, ReturnAlsoPartialResults=ReturnAlsoPartialResults), FP):
             yield R
         
+        
+        
+class CompactorUtils:
+    
+    @staticmethod
+    def parseLogFile(FileName : str, FailLimit = None) -> tuple:
+        """Returns (FailPatterns, FailPatternsIncludingXMaskingLogic, XPatterns, XPatternsIncludingXMaskingLogic)""" 
+        from libs.generators import Generators
+        FailPatterns = []
+        FailPatternsIncludingXMaskingLogic = []
+        XPatterns = []
+        XPatternsIncludingXMaskingLogic = []
+        Empty = 1
+        FailDict_mask_fault = {i : [] for i in range(64)}
+        XDict_mask = {i : [] for i in range(64)}
+        MaskedChains = {i : set() for i in range(64)}
+        MaskedChains_mask = ""
+        MaskedChains_ChainRow = 0
+        FFound = 0
+        Finish = 0
+        for Line in File.readLineByLineGenerator(FileName):
+            if Finish or "//" in Line:
+                if not Empty:
+                    for M in range(64):
+                        Xs = XDict_mask[M]
+                        ExcludeXs = MaskedChains[M]
+                        XsWithMasking = []
+                        for X in Xs:
+                            if X[0] not in ExcludeXs:
+                                XsWithMasking.append(X)
+                        for Flt, Fails in FailDict_mask_fault[M].items():
+                            if len(Fails) < 1:
+                                continue
+                            FailPatterns.append( Fails )
+                            XPatterns.append( Xs )
+                            XPatternsIncludingXMaskingLogic.append( XsWithMasking )
+                            FWithSMasking = []
+                            for F in Fails:
+                                if F[0] not in ExcludeXs:
+                                    FWithSMasking.append(F)
+                            FailPatternsIncludingXMaskingLogic.append( FWithSMasking )
+                        if FailLimit is not None:
+                            if len(FailPatterns) >= FailLimit:
+                                Finish = 1
+                FailDict_mask_fault = {i : {} for i in range(64)}
+                XDict_mask = {i : [] for i in range(64)}
+                MaskedChains = {i : set() for i in range(64)}
+                Empty = 1
+                FFound = 0
+                if Finish:
+                    break
+                continue
+            if MaskedChains_ChainRow:
+                MChains = set()
+                for N in Line.split(","):
+                    try:
+                        MChains.add(int(N))
+                    except:
+                        pass        
+                for MId in Generators().onesInHex(MaskedChains_mask):
+                    MaskedChains[MId] |= MChains
+                MaskedChains_ChainRow = 0
+                continue             
+            if FailLimit is not None:
+                if (len(FailPatterns) + FFound) * 1.25 >= FailLimit:
+                    Finish = 1
+            R = re.search(r"add_observation_site\(flt[:= ]+([0-9]+)[, ]+.+chain[:= ]+([0-9]+).+cycle[:= ]+([0-9]+).+ mask_DS[:= ]+([0-9a-fA-F]+),.*\)", Line)
+            if R:
+                Empty = 0
+                Flt = int(R.group(1))
+                Chain = int(R.group(2))
+                Cycle = int(R.group(3))
+                Mask = R.group(4)
+                for MId in Generators().onesInHex(Mask):
+                    FDict = FailDict_mask_fault[MId]
+                    Fails = FDict.get(Flt, [])
+                    Fails.append( (Chain, Cycle) )
+                    FDict[Flt] = Fails
+                    FailDict_mask_fault[MId] = FDict
+                FFound += 1
+                continue
+            R = re.search(r"array_Xs[:= ]+chain[:= ]+([0-9]+).+cycle[:= ]+([0-9]+).+mask[:= ]+([0-9a-fA-F]+)", Line)
+            if R:
+                Empty = 0
+                Chain = int(R.group(1))
+                Cycle = int(R.group(2))
+                Mask = R.group(3)
+                for MId in Generators().onesInHex(Mask):
+                    XDict = XDict_mask[MId]
+                    XDict.append( (Chain, Cycle) )
+                    XDict_mask[MId] = XDict
+                continue 
+            R = re.search(r"Masked chains for mask[:= ]+([0-9a-fA-F]+)", Line)
+            if R:
+                Empty = 0
+                MaskedChains_mask = R.group(1)
+                MaskedChains_ChainRow = 1
+                continue
+        return FailPatterns, FailPatternsIncludingXMaskingLogic, XPatterns, XPatternsIncludingXMaskingLogic
+            

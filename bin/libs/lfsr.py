@@ -1899,7 +1899,6 @@ class Lfsr:
   _my_poly = []
   _my_signs = []
   _type = LfsrType.Galois
-  #_hval = 0
   _size = 0
   _ba_fast_sim_array = None
   _taps = []

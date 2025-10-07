@@ -44,7 +44,10 @@ class TestDataDecompressor:
         Result = TestDataDecompressor(self.InputCount, self.OutputCount, self.LfsrLength, self.ScanLength)
         Result.MinimumBatteryLevel = self.MinimumBatteryLevel
         return Result
-            
+    
+    def getEncodingCapacity(self) -> int:
+        return int(self.InputCount * ((self.LfsrLength // self.InputCount) + self.ScanLength))
+
     def __repr__(self) -> str:
         return f"TestDataDecompressor({self.InputCount}, {self.OutputCount}, {self.LfsrLength}, {self.ScanLength})"
         
@@ -140,7 +143,19 @@ class EdtStructure:
         Result._len_sets = self._len_sets.copy()
         Result.MinimumBatteryLevel = self.MinimumBatteryLevel
         return Result
-                
+    
+    def getEncodingCapacity(self) -> int:
+        return sum([Decompressor.getEncodingCapacity() for Decompressor in self._decompressors])
+    
+    def getUsedEncodingCapacity(self, Cube : TestCube) -> float:
+        return Cube.getSpecifiedBitCount() / self.getEncodingCapacity()
+    
+    def getUnusedEncodingCapacity(self, Cube : TestCube) -> float:
+        Result = 1.0 - self.getUsedEncodingCapacity(Cube)
+        if Result < 0:
+            Result = 0.0
+        return Result
+    
     def __len__(self) -> int:
         return len(self._decompressors)
     
@@ -372,6 +387,7 @@ class TestCube:
         self.setBit(index, value)
         
     def removeRandomBits(self, RemovingRatio : float):
+        from libs.utils_list import List
         HowManyToRemove = round(len(self._dict) * RemovingRatio)
         ToBeRemoved = List.randomSelect(list(self._dict.keys()), HowManyToRemove)
         for Bit in ToBeRemoved:
@@ -1103,14 +1119,29 @@ class TestCubeSet:
             Result.addCube(CC)
         return Result
     
-    def getPatterns(self) -> TestCubeSet:
+    def getBuffers(self) -> dict:
+        Result = {}
+        for Cube in self._cubes:
+            BId = Cube.BufferId
+            Buffer = Result.get(BId, TestCubeSet(CompressionFailLimit=self.CompressionFailLimit, BufferSize=self.BufferSize))
+            Buffer.addCube(Cube)
+            Result[BId] = Buffer
+        return Result
+    
+    def getPatterns(self, ReturnAlsoSubCubesDict : bool = False) -> TestCubeSet:
         Result = TestCubeSet()
+        if ReturnAlsoSubCubesDict:
+            SubCubesDict = {}
         ResDict = {}
         for Cube in self._cubes:
             PId = Cube.PatternId
             Pattern = ResDict.get(PId, None)
             if Pattern is None:
                 Pattern = TestCube(TestCubeLenIfDictImplementation=len(Cube), PatternId=PId, BufferId=Cube.BufferId)
+            if ReturnAlsoSubCubesDict:
+                SubCubes = SubCubesDict.get(PId, [])
+                SubCubes.append(Cube)
+                SubCubesDict[PId] = SubCubes
             Pattern.mergeWithAnother(Cube)
             if Cube.SubCubes > 1:
                 Pattern.SubCubes += Cube.SubCubes
@@ -1120,6 +1151,8 @@ class TestCubeSet:
             ResDict[PId] = Pattern
         for key in sorted(ResDict.keys()):
             Result.addCube(ResDict[key])
+        if ReturnAlsoSubCubesDict:
+            return Result, SubCubesDict
         return Result
     
     def toTableOfPatterns(self) -> AioTable:
@@ -2044,12 +2077,13 @@ class TestCubeSet:
                     BaseCubesIds.add(Cube.Id)
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver
         def singleTry(Edt) -> tuple:
+            SCubes = Cubes.deepCopy()
             Mul = False
             if (not MultiThreading) and (type(Edt) is DecompressorSolver):
                 Mul = True
             if CompensatePatternCount:
-                Result = list(TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck, AlsoReturnPatterns=True, Templates=Templates, BaseCubesIds=BaseCubesIds))
-                Uncompressable = Cubes.copy().removeNotCompressable(Edt, Mul, ReturnRemovedCubes=True) 
+                Result = list(TestCubeSet.doMergingExperiment(SCubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck, AlsoReturnPatterns=True, Templates=Templates, BaseCubesIds=BaseCubesIds))
+                Uncompressable = SCubes.copy().removeNotCompressable(Edt, Mul, ReturnRemovedCubes=True) 
                 Comprensator = PatternCountComprensator(Result[-1], Uncompressable, UncompressableCubeUsedOnlyOnce=True)
                 Result[1] = Comprensator.getCompensatedPatternCount()
                 del Comprensator
@@ -2058,8 +2092,11 @@ class TestCubeSet:
                     del Result[-1]
                 return Result
             else:
-                return TestCubeSet.doMergingExperiment(Cubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck, AlsoReturnPatterns=AlsoReturnPatterns, Templates=Templates, BaseCubesIds=BaseCubesIds)
-        if MultiThreading:
+                return TestCubeSet.doMergingExperiment(SCubes, Edt, BufferLength, PatternCountPerRound, MinBatteryCharge, CompressabilityLimit, Verbose, Mul, CombinedCompressionChecking, SkipCubeCOmpressabilityCheck=SkipCubeCOmpressabilityCheck, AlsoReturnPatterns=AlsoReturnPatterns, Templates=Templates, BaseCubesIds=BaseCubesIds)
+        if MultiThreading is None:
+            for R in EdtList:
+                Result.append(singleTry(R))
+        elif MultiThreading:
             from concurrent.futures import ProcessPoolExecutor, as_completed
             from tqdm import tqdm
             from functools import partial
@@ -2073,14 +2110,77 @@ class TestCubeSet:
                 Result[i] = v[1]
             #for R in p_imap(singleTry, EdtList):
             #    Result.append(R)
+            AioShell.removeLastLine()
         else:
             import tqdm
             for R in tqdm.tqdm(EdtList):
                 Result.append(singleTry(R))
-        AioShell.removeLastLine()
+            AioShell.removeLastLine()
         return Result
     
+    def learnMinBatteryLevel(self, TruePatternCount : int, Edt : EdtStructure, StartingFromVariables : int = 0, UseTemplates : bool = False, CompensatePatternCount : bool = False, UseTrueBaseCubes : bool = False, Verbose : bool = False):
+        from functools import lru_cache
+        LfsrSize = Edt.getLongestLfsrSize()
+        Cubes = self
+        if UseTemplates:
+            t = self.tryToExtractTemplates(32, Overlapping=1)
+            Cubes = self.deepCopy()
+            Cubes.removeTemplates(t)
+        else:
+            t = None
+        End = LfsrSize - 1
+        def ternary_search(f, a, b):
+            while b - a >= 3:
+                m1 = a + (b - a) // 3
+                m2 = b - (b - a) // 3
+                f1, f2 = f(m1), f(m2)
+                if f1 < f2:
+                    b = m2 - 1
+                else:
+                    a = m1 + 1
+            best_x = a
+            best_val = f(a)
+            for x in range(a+1, b+1):
+                val = f(x)
+                if val < best_val:
+                    best_x, best_val = x, val
+            return best_x, best_val
+        @lru_cache(maxsize=None) 
+        def f(x):
+            EdtCopied = Edt.copy()
+            EdtCopied.MinimumBatteryLevel = x / LfsrSize
+            Experiments = TestCubeSet.doExperiments(Cubes, [EdtCopied], PatternCountPerRound=1, Verbose=0, CompensatePatternCount=CompensatePatternCount, Templates=t, MultiThreading=None, UseTrueBaseCubes=UseTrueBaseCubes)
+            Error = abs((Experiments[0][1] - TruePatternCount) / TruePatternCount)
+            if Verbose:
+                print(f"Threshold = {x}/{LfsrSize} -> Err = {Error}")
+            return Error
+        MinVars = ternary_search(f, StartingFromVariables, End)[0]
+        return MinVars / LfsrSize
     
+    def learnMinBatteryLevelLinear(self, TruePatternCount : int, Edt : EdtStructure, StartingFromVariables : int = 0, MultiThreading : bool = True, UseTemplates : bool = False, CompensatePatternCount : bool = False, UseTrueBaseCubes : bool = False):
+        from libs.utils_list import List
+        LfsrSize = Edt.getLongestLfsrSize()
+        Cubes = self
+        if UseTemplates:
+            t = self.tryToExtractTemplates(32, Overlapping=1)
+            Cubes = self.deepCopy()
+            Cubes.removeTemplates(t)
+        else:
+            t = None
+        edts = []
+        for i in range(StartingFromVariables, LfsrSize):
+            EdtCopied = Edt.copy()
+            EdtCopied.MinimumBatteryLevel = i / LfsrSize
+            edts.append(EdtCopied)
+        Experiments = TestCubeSet.doExperiments(Cubes, edts, PatternCountPerRound=1, Verbose=0, CompensatePatternCount=CompensatePatternCount, Templates=t, MultiThreading=MultiThreading, UseTrueBaseCubes=UseTrueBaseCubes)
+        Errors = [abs((Experiments[i][1] - TruePatternCount) / TruePatternCount) for i in range(len(Experiments))]
+        print("Errors = ", Errors)
+        Errors = List.MAVFilter(Errors, [0.1, 1, 0.1], 6)
+        print("ErrorsF = ", Errors)
+        print("PCounts = ", [Experiments[i][1] for i in range(len(Experiments))])
+        MinIdx = List.getIndexOfMinimum(Errors)
+        print("MinIdx = ", MinIdx)
+        return (MinIdx + StartingFromVariables) / LfsrSize
 
 
 class DecompressorUtils:

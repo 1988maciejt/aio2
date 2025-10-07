@@ -9,6 +9,64 @@ from libs.files import *
 
 class List:
   
+  @staticmethod
+  def getIndexOfMinimum(Numbers : list) -> int:
+    from statistics import median_low
+    Min = min(Numbers)
+    Indices = []
+    for i, n in enumerate(Numbers):
+      if n == Min:
+        Indices.append(i)
+    if len(Indices) < 1:
+      return -1
+    return median_low(Indices)
+  
+  @staticmethod
+  def MAVFilter(Numbers : list, WindowSize : int, Round = None) -> list:
+    WFilter = None
+    if type(WindowSize) in [list, tuple]:
+      WFilter = WindowSize
+      WindowSize = len(WindowSize)
+    if WindowSize < 2:
+      Result = Numbers
+    else:
+      Result = []
+      if WFilter is None:
+        for i in range(len(Numbers)):
+          Start = i - (WindowSize // 2)
+          End = i + (WindowSize // 2) + (WindowSize % 2)
+          if Start < 0:
+            Start = 0
+          if End > len(Numbers):
+            End = len(Numbers)
+          Sum = 0
+          Count = 0
+          for j in range(Start, End):
+            Sum += Numbers[j]
+            Count += 1
+          Result.append(Sum / Count)
+      else:
+        for i in range(len(Numbers)):
+          Start = i - (WindowSize // 2)
+          End = i + (WindowSize // 2) + (WindowSize % 2)
+          Idx = 0
+          if Start < 0:
+            Start = 0
+          if End > len(Numbers):
+            Idx = End - len(Numbers)
+            End = len(Numbers)
+          Sum = 0
+          Div = 0
+          for j in range(Start, End):
+            Div += WFilter[Idx]
+            Sum += Numbers[j] * WFilter[Idx]
+            Idx += 1
+          Result.append(Sum / Div)
+    if Round is not None:
+      for i in range(len(Result)):
+        Result[i] = round(Result[i], Round)
+    return Result
+  
   def getCombinations(List, k : int) -> list:
     Result = []
     for subset in itertools.combinations(List, k):
