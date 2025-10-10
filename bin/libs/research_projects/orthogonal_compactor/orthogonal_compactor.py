@@ -1176,6 +1176,14 @@ class CompactorSimulator:
         except:
             return r
         
+    def toVerilog(self, ModuleName : str) -> str:
+        Result = f"module {ModuleName} (\n"
+        
+        Result += ");\n"
+        
+        Result += "\nendmodule"
+        return Result
+        
             
     #########################################################
     # SEARCHING FUNCTION

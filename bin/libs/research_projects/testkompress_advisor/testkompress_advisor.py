@@ -11,6 +11,22 @@ import re
 from libs.pandas_table import *
 import functools
 
+_BATTERY_MODEL_TYPE = 1
+
+class BatteryModelType (enumerate):
+    NORMAL = 1
+    BASED_ON_USED_ENCODING_CAPACITY = 2
+
+def setBatteryModelType(Type : BatteryModelType):
+    global _BATTERY_MODEL_TYPE
+    if Type == BatteryModelType.NORMAL:
+        _BATTERY_MODEL_TYPE = BatteryModelType.NORMAL
+        Aio.print("Battery model type set to NORMAL (1)")
+    elif Type == BatteryModelType.BASED_ON_USED_ENCODING_CAPACITY:
+        _BATTERY_MODEL_TYPE = BatteryModelType.BASED_ON_USED_ENCODING_CAPACITY
+        Aio.print("Battery model type set to BASED_ON_USED_ENCODING_CAPACITY (2)")
+    else:
+        Aio.printError(f"Illegal battery model type '{Type}'. Current type is '{_BATTERY_MODEL_TYPE}'")
 
 class TestDataDecompressor:
     pass
@@ -99,21 +115,28 @@ class TestDataDecompressor:
     def getMaximumCubeBitsPerDecompressor(self) -> int:
         return int(self.OutputCount * self.ScanLength)
     
-    def isCompressable(self, Cube, MinBatteryCharge : float = None) -> bool:
+    def isCompressable(self, Cube : TestCube, MinBatteryCharge : float = None) -> bool:
         if MinBatteryCharge is None:
             MinBatteryCharge = self.MinimumBatteryLevel
-        SpecifiedBitsPerCycle = self.getSpecifiedBitPerCycleList(Cube)
-        # Battery model
-        BatteryMax = self.LfsrLength
-        BatteryMin = int(ceil(MinBatteryCharge * BatteryMax))
-        BatteryChrg = BatteryMax
-        for Vars in SpecifiedBitsPerCycle:
-            BatteryChrg -= Vars
-            if BatteryChrg < BatteryMin:
+        global _BATTERY_MODEL_TYPE
+        if _BATTERY_MODEL_TYPE == BatteryModelType.BASED_ON_USED_ENCODING_CAPACITY:
+            #print(f"MinBatteryCharge = {MinBatteryCharge}")
+            #print(f"UsedEncodingCapacity = {Cube.getSpecifiedBitCount()} / {self.getEncodingCapacity()}")
+            if Cube.getSpecifiedBitCount() / self.getEncodingCapacity() > MinBatteryCharge:
                 return False
-            BatteryChrg += self.InputCount
-            if BatteryChrg > BatteryMax:
-                BatteryChrg = BatteryMax
+        else:
+            SpecifiedBitsPerCycle = self.getSpecifiedBitPerCycleList(Cube)
+            # Battery model
+            BatteryMax = self.LfsrLength
+            BatteryMin = int(ceil(MinBatteryCharge * BatteryMax))
+            BatteryChrg = BatteryMax
+            for Vars in SpecifiedBitsPerCycle:
+                BatteryChrg -= Vars
+                if BatteryChrg < BatteryMin:
+                    return False
+                BatteryChrg += self.InputCount
+                if BatteryChrg > BatteryMax:
+                    BatteryChrg = BatteryMax
         return True
 
 
@@ -2117,8 +2140,56 @@ class TestCubeSet:
                 Result.append(singleTry(R))
             AioShell.removeLastLine()
         return Result
+
+    def learnMaximumUsedEncodingCapacity(self, TruePatternCount : int, Edt : EdtStructure, Start : float, Stop : float, Step : float = 0.001, UseTemplates : bool = False, CompensatePatternCount : bool = False, UseTrueBaseCubes : bool = False, Verbose : bool = False):
+        if _BATTERY_MODEL_TYPE is not BatteryModelType.BASED_ON_USED_ENCODING_CAPACITY:
+            Aio.printError("learnMaximumUsedEncodingCapacity is only suitable for BatteryModelType.BASED_ON_USED_ENCODING_CAPACITY.")
+            return None
+        from functools import lru_cache
+        LfsrSize = Edt.getLongestLfsrSize()
+        Cubes = self
+        if UseTemplates:
+            t = self.tryToExtractTemplates(32, Overlapping=1)
+            Cubes = self.deepCopy()
+            Cubes.removeTemplates(t)
+        else:
+            t = None
+        def ternary_search(f, a, b):
+            while b - a >= 3 * Step:
+                m1 = a + (b - a) / 3
+                m2 = b - (b - a) / 3
+                f1, f2 = f(m1), f(m2)
+                if f1 < f2:
+                    b = m2
+                else:
+                    a = m1
+            best_x = a
+            best_val = f(a)
+            x = a + Step
+            while x <= b + 1e-12:
+                val = f(x)
+                if val < best_val:
+                    best_x, best_val = x, val
+                x += Step
+            return best_x, best_val
+        @lru_cache(maxsize=None) 
+        def f(x):
+            EdtCopied = Edt.copy()
+            EdtCopied.MinimumBatteryLevel = x
+            Experiments = TestCubeSet.doExperiments(Cubes, [EdtCopied], PatternCountPerRound=1, Verbose=0, CompensatePatternCount=CompensatePatternCount, Templates=t, MultiThreading=None, UseTrueBaseCubes=UseTrueBaseCubes)
+            Error = abs((Experiments[0][1] - TruePatternCount) / TruePatternCount)
+            if Verbose:
+                print(f"UsedEncodingCapacity = {x} -> Err = {Error}")
+            return Error
+        MinVars = ternary_search(f, Start, Stop)
+        if Verbose:
+            print(f"RESULT of UsedEncodingCapacity = {MinVars[0]} -> Err = {MinVars[1]}")
+        return MinVars[0]
     
     def learnMinBatteryLevel(self, TruePatternCount : int, Edt : EdtStructure, StartingFromVariables : int = 0, UseTemplates : bool = False, CompensatePatternCount : bool = False, UseTrueBaseCubes : bool = False, Verbose : bool = False):
+        if _BATTERY_MODEL_TYPE is not BatteryModelType.NORMAL:
+            Aio.printError("learnMinBatteryLevel is only suitable for BatteryModelType.NORMAL.")
+            return None
         from functools import lru_cache
         LfsrSize = Edt.getLongestLfsrSize()
         Cubes = self
@@ -2154,8 +2225,10 @@ class TestCubeSet:
             if Verbose:
                 print(f"Threshold = {x}/{LfsrSize} -> Err = {Error}")
             return Error
-        MinVars = ternary_search(f, StartingFromVariables, End)[0]
-        return MinVars / LfsrSize
+        MinVars = ternary_search(f, StartingFromVariables, End)
+        if Verbose:
+            print(f"RESULT of Threshold = {MinVars[0]/LfsrSize} -> Err = {MinVars[1]}")
+        return MinVars[0] / LfsrSize
     
     def learnMinBatteryLevelLinear(self, TruePatternCount : int, Edt : EdtStructure, StartingFromVariables : int = 0, MultiThreading : bool = True, UseTemplates : bool = False, CompensatePatternCount : bool = False, UseTrueBaseCubes : bool = False):
         from libs.utils_list import List
