@@ -13,7 +13,7 @@ class Histogram:
   
   __slots__ = ("_data", "_bar_width", "_bar_count", "_min", "_max")
   
-  def __init__(self, Data = [], BarWidth : float = None, BarCount : Int = 10):
+  def __init__(self, Data = [], BarWidth : float = None, BarCount : int = 10):
     if type(BarWidth) is float or type(BarWidth) is int:
       self._bar_width = BarWidth
     else:
@@ -25,19 +25,30 @@ class Histogram:
     self.addData(Data)
   
   def addData(self, Data):
+    from libs.utils_float import FloatUtils
+    if type(Data) in [int, float]:
+      Data = [Data]
     for D in Data:
       if type(D) is list:
         D = D[0]
       D = float(D)
       self._data.append(D)
       if self._min is None:
-        self._min = D
+        Aux = FloatUtils.roundToResolution(D, self._bar_width)
+        if Aux > D:
+          Aux = FloatUtils.roundToResolution(Aux - self._bar_width, self._bar_width)
+        self._min = Aux
         self._max = D
       else:
         if D < self._min: 
-          self._min = D
+          Aux = FloatUtils.roundToResolution(D, self._bar_width)
+          if Aux > D:
+            Aux = FloatUtils.roundToResolution(Aux - self._bar_width, self._bar_width)
+          self._min = Aux
         if D > self._max:
           self._max = D
+          
+  addDataPoint = addData
           
   def clearData(self):
     self._data.clear()
@@ -51,6 +62,7 @@ class Histogram:
     self._bar_count = BarCount
     
   def getPlotData(self, Min : float = None, Max : float = None) -> dict:
+    from libs.utils_float import FloatUtils
     if Min is None:
       Min = self._min
     if Max is None:
@@ -65,11 +77,13 @@ class Histogram:
     Barsp1 = []
     Vals = []
     Bar = Min
+    if Bar is None or Max is None:
+      return []
     while Bar < Max:
       Bars.append(Bar)
       Barsp1.append(Bar)
       Vals.append(0)
-      Bar += BarWidth
+      Bar = FloatUtils.roundToResolution(Bar + BarWidth, BarWidth)
     Barsp1.append(Bar)
     for D in self._data:
       for i in range(1, len(Barsp1)):

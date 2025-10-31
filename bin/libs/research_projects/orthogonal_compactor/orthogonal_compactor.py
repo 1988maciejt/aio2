@@ -1177,11 +1177,78 @@ class CompactorSimulator:
             return r
         
     def toVerilog(self, ModuleName : str) -> str:
-        Result = f"module {ModuleName} (\n"
-        
-        Result += ");\n"
-        
-        Result += "\nendmodule"
+        Result = f"""module {ModuleName} (
+  input wire clk,
+  input wire reset,
+  input wire [{self.ScanChainsCount-1}:0] scan_in,
+"""
+        if self.GlobalSumPresent:
+            Result += "  output wire global_sum_out,\n"
+        for i in range(len(self._ShiftRegistersPresent)):
+            Result += f"  output wire shift_reg_out_{i},\n"
+        for i in range(len(self._ShiftRegistersNonOverlapPresent)):
+            Result += f"  output wire shift_reg_nonoverlap_out_{i},\n"
+        Result += ");\n\n"
+        for i, c in enumerate(self._ShiftRegistersPresent):
+            Result += f"reg [{ceil(self.ScanChainsCount/abs(c[0]))-1}:0] shift_reg_{i};\n"
+        for i, c in enumerate(self._ShiftRegistersNonOverlapPresent):
+            Result += f"reg [{ceil(self.ScanChainsCount/abs(c[0]))-1}:0] shift_reg_nonoverlap_{i};\n"
+        if self.GlobalSumPresent:
+            Result += f"assign global_sum_out = ^scan_in;\n"
+        for i, c in enumerate(self._ShiftRegistersPresent):
+            Result += f"assign shift_reg_out_{i} = shift_reg_{i}[0];\n"
+        for i, c in enumerate(self._ShiftRegistersNonOverlapPresent):
+            Result += f"assign shift_reg_nonoverlap_out_{i} = shift_reg_nonoverlap_{i}[0];\n"
+        Result += f"""\nalways @ (posedge clk) begin
+  if (reset) begin
+"""
+        for i, c in enumerate(self._ShiftRegistersPresent):
+            Result += f"    shift_reg_{i} <= {ceil(self.ScanChainsCount/abs(c[0]))}'b0;\n"
+        for i, c in enumerate(self._ShiftRegistersNonOverlapPresent):
+            Result += f"    shift_reg_nonoverlap_{i} <= {ceil(self.ScanChainsCount/abs(c[0]))}'b0;\n"
+        Result += "  end else begin\n"
+        for i, c in enumerate(self._ShiftRegistersPresent):
+            Up = True if c[0] > 0 else False
+            MaxIdx = ceil(self.ScanChainsCount/abs(c[0]))-1
+            for j in range(MaxIdx+1):
+                if j == MaxIdx:
+                    Result += f"    shift_reg_{i}[{j}] <= 1'b0"
+                else:                
+                    Result += f"    shift_reg_{i}[{j}] <= shift_reg_{i}[{j+1}]"
+                for k in range(abs(c[0])):
+                    if Up:
+                        SIdx = (j + c[1] + k) % self.ScanChainsCount
+                    else:
+                        SIdx = ((self.ScanChainsCount-1) - (j + c[1] + k)) % self.ScanChainsCount
+                    Result += f" ^ scan_in[{SIdx}]"
+                Result += ";\n"
+                if Up:
+                    SIdx = (SIdx + 1) % self.ScanChainsCount
+                else:
+                    SIdx = (SIdx - 1 + self.ScanChainsCount) % self.ScanChainsCount
+        for i, c in enumerate(self._ShiftRegistersNonOverlapPresent):
+            SIdx = c[1] % self.ScanChainsCount
+            Up = True if c[0] > 0 else False
+            MaxIdx = ceil(self.ScanChainsCount/abs(c[0]))-1
+            jj = 0
+            for j in range(MaxIdx+1):
+                if j == MaxIdx:
+                    Result += f"    shift_reg_nonoverlap_{i}[{j}] <= 1'b0"
+                else:
+                    Result += f"    shift_reg_nonoverlap_{i}[{j}] <= shift_reg_nonoverlap_{i}[{j+1}]"
+                for k in range(abs(c[0])):
+                    if Up:
+                        SIdx = (jj + c[1] + k) % self.ScanChainsCount
+                    else:
+                        SIdx = ((self.ScanChainsCount-1) - (jj + c[1] + k)) % self.ScanChainsCount
+                    Result += f" ^ scan_in[{SIdx}]"
+                jj += abs(c[0])
+                Result += ";\n"
+        Result += f"""  end
+end
+
+endmodule;"""
+
         return Result
         
             

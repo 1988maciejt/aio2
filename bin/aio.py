@@ -91,6 +91,7 @@ from libs.utils_docx import *
 from libs.utils_zlib import *
 from libs.simulation import *
 from libs.bin_solver import *
+from libs.utils_float import *
 from tqdm import *
 import bitarray.util
 from bitarray import *

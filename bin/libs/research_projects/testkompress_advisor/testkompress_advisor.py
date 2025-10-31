@@ -716,6 +716,39 @@ class TestCubeSet:
         else:
             return self._cubes[index]
         
+    def getDataVolume(self) -> int:
+        """Returns sum of specified bit count."""
+        Volume = 0
+        for Cube in self._cubes:
+            Volume += Cube.getSpecifiedBitCount()
+        return Volume
+    
+    def getTheBiggestCubeSPecifiedBitCount(self) -> int:
+        Max = 0
+        for Cube in self._cubes:
+            SBC = Cube.getSpecifiedBitCount()
+            if SBC > Max:
+                Max = SBC
+        return Max
+    
+    def getSpecifiedBitCountHistogram(self, BarWidth : int = 10, Max : int = None) -> list:
+        """Returns list of lists: [ [BarLowLimits], [BarValues] ].
+
+        Args:
+            BarWidth (int, optional): Defaults to 10.
+            Max (int, optional): Defaults to None."""
+        from libs.stats import Histogram
+        Hist = Histogram()
+        for Cube in self._cubes:
+            Hist.addData(Cube.getSpecifiedBitCount())
+        Hist._min = 0
+        if Max is not None:
+            Hist._max = Max
+        return Hist.getPlotData()
+    
+    def getTestTime(self, edt : EdtStructure) -> int:
+        return edt.getTestTime(len(self._cubes))
+        
     def getIndexLowerOrEqualToId(self, Id : int) -> int:
         Index = 0
         if self.isIdImplemented():
@@ -2154,12 +2187,52 @@ class TestCubeSet:
             Cubes.removeTemplates(t)
         else:
             t = None
+        def sign(x):
+            if x < 0:
+                return -1
+            elif x > 0:
+                return 1
+            else:
+                return 0
         def ternary_search(f, a, b):
+            s = (b - a) / 10
+            SignChanged = False
+            Cntr = 0
+            while Cntr < 1:
+                Cntr += 1
+                x = a
+                if Verbose:
+                    print(f"Searching for sign change in range: a={a}, b={b}, Step={s}")
+                lastval = None
+                while x <= b + 1e-12:
+                    val = f(x)
+                    if lastval is not None:
+                        if sign(lastval) != sign(val):
+                            a = x - 1 * s
+                            b = x + 0.5 * s
+                            s = (b - a) / 10
+                            SignChanged = True
+                            if Verbose:
+                                print(f"Sign changed at x={x} -> Err={val}")
+                            break
+                    lastval = val
+                    x += s
+                if not SignChanged:
+                    if Verbose:
+                        print(f"No sign change found!!!")
+                    break
+            best_x_tmp, best_val_tmp = 1, 10
             while b - a >= 3 * Step:
+                if Verbose:
+                    print(f"Ternary search step: a={a}, b={b}")
                 m1 = a + (b - a) / 3
                 m2 = b - (b - a) / 3
-                f1, f2 = f(m1), f(m2)
-                if f1 < f2:
+                f1, f2 = abs(f(m1)), abs(f(m2))
+                if f1 < best_val_tmp:
+                    best_x_tmp, best_val_tmp = m1, f1
+                if f2 < best_val_tmp:
+                    best_x_tmp, best_val_tmp = m2, f2
+                if f1 <= f2:
                     b = m2
                 else:
                     a = m1
@@ -2168,18 +2241,23 @@ class TestCubeSet:
             x = a + Step
             while x <= b + 1e-12:
                 val = f(x)
+                if val < best_val_tmp:
+                    best_x_tmp, best_val_tmp = x, val
                 if val < best_val:
                     best_x, best_val = x, val
                 x += Step
+            if best_val > best_val_tmp:
+                best_val, best_x = best_val_tmp, best_x_tmp
             return best_x, best_val
         @lru_cache(maxsize=None) 
         def f(x):
             EdtCopied = Edt.copy()
             EdtCopied.MinimumBatteryLevel = x
             Experiments = TestCubeSet.doExperiments(Cubes, [EdtCopied], PatternCountPerRound=1, Verbose=0, CompensatePatternCount=CompensatePatternCount, Templates=t, MultiThreading=None, UseTrueBaseCubes=UseTrueBaseCubes)
-            Error = abs((Experiments[0][1] - TruePatternCount) / TruePatternCount)
+            Error = (Experiments[0][1] - TruePatternCount) / TruePatternCount
             if Verbose:
-                print(f"UsedEncodingCapacity = {x} -> Err = {Error}")
+                print(f"UsedEncodingCapacity = {x} -> Err = {Error}    (Estimated {Experiments[0][1]}, True {TruePatternCount})")
+            #Error = abs(Error)
             return Error
         MinVars = ternary_search(f, Start, Stop)
         if Verbose:
