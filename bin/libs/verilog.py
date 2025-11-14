@@ -938,7 +938,8 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
         DcScript += f"report_timing -path full -input_pins > {OutputFileName}.rpt\n"
       DcScript += "exit\n"
       writeFile(dcScriptFileName, DcScript)
-      result = Aio.shellExecute(f'/home/tnt/tools/DC_SHELL/O-2018.06-SP4/base/bin/dc_shell -f {dcScriptFileName}', 1, 1)
+      #result = Aio.shellExecute(f'/home/tnt/tools/DC_SHELL/O-2018.06-SP4/base/bin/dc_shell -f {dcScriptFileName}', 1, 1)
+      result = AioShell.runCommand(f'/home/tnt/tools/DC_SHELL/W-2024.09-SP4/base/bin/dc_shell -f {dcScriptFileName}', 1)[0]
       if ReturnProcessedResult:
         print(result)
         ResDict = {}
@@ -991,6 +992,7 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
             except:
               Delay = "ERR"
             ResDict["Critical Path Delay [ns]"] = Delay
+            ResDict["Max Speed [GHz]"] = 1 / Delay
         return ResDict
       return result
     else:
@@ -1007,9 +1009,9 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
       Script += f'\n'
       Script += "techmap \n"
       Script += "proc; fsm; opt; memory; opt \n"
-      if TechlibFileName != None:
-        Script += f'dfflibmap -prepare -liberty {TechlibFileName} \n'
-        Script += f'abc -liberty {TechlibFileName} \n'
+      if TechLibFileName != None:
+        Script += f'dfflibmap -prepare -liberty {TechLibFileName} \n'
+        Script += f'abc -liberty {TechLibFileName} \n'
       Script += f'write_verilog -noattr -noexpr {OutputFileName} \n'
       writeFile(ysFileName, Script)
       result = Aio.shellExecute(f'yosys {ysFileName}', 1, 1)

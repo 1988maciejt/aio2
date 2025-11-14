@@ -188,6 +188,8 @@ class Generators:
       
   def flippedBitInBitarray(self, Word : bitarray):
     global _PAUSE
+    if type(Word) is str:
+      Word = bitarray(Word)
     Len = len(Word)
     for i in range(Len):
       if not self._enabled:
@@ -259,5 +261,19 @@ class Generators:
         return
       yield W[Start:]
     W.clear()
-    
-    
+      
+  def floatFor(self, Start : float, Stop : float, Step : float):
+    from libs.utils_float import FloatUtils
+    global _PAUSE
+    StartRounded = FloatUtils.roundToResolution(Start, Step)
+    Adder = Start - StartRounded
+    CurrentBase = StartRounded
+    Current = CurrentBase + Adder
+    while Current < Stop:
+      if not self._enabled:
+        return
+      yield Current
+      while _PAUSE:
+        sleep(0.35)
+      CurrentBase = FloatUtils.roundToResolution(CurrentBase + Step, Step)    
+      Current = FloatUtils.roundToDecimalPlacesAsInAnotherFloat(CurrentBase + Adder, Step)

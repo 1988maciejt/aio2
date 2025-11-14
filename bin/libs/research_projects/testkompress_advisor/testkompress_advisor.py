@@ -716,6 +716,16 @@ class TestCubeSet:
         else:
             return self._cubes[index]
         
+    def getMaxCubeId(self) -> int:
+        MaxId = -1
+        for Cube in self._cubes:
+            if Cube.Id > MaxId:
+                MaxId = Cube.Id
+        return MaxId
+        
+    def getDroppedCubeCount(self) -> int:
+        return self.getMaxCubeId() - len(self._cubes)
+        
     def getDataVolume(self) -> int:
         """Returns sum of specified bit count."""
         Volume = 0

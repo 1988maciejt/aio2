@@ -1179,7 +1179,6 @@ class CompactorSimulator:
     def toVerilog(self, ModuleName : str) -> str:
         Result = f"""module {ModuleName} (
   input wire clk,
-  input wire reset,
   input wire [{self.ScanChainsCount-1}:0] scan_in,
 """
         if self.GlobalSumPresent:
@@ -1188,6 +1187,7 @@ class CompactorSimulator:
             Result += f"  output wire shift_reg_out_{i},\n"
         for i in range(len(self._ShiftRegistersNonOverlapPresent)):
             Result += f"  output wire shift_reg_nonoverlap_out_{i},\n"
+        Result += "  input wire reset\n"
         Result += ");\n\n"
         for i, c in enumerate(self._ShiftRegistersPresent):
             Result += f"reg [{ceil(self.ScanChainsCount/abs(c[0]))-1}:0] shift_reg_{i};\n"
@@ -1575,7 +1575,7 @@ class CompactorUtils:
     
     @staticmethod
     def parseLogFile(FileName : str, FailLimit = None) -> tuple:
-        """Returns (FailPatterns, FailPatternsIncludingXMaskingLogic, XPatterns, XPatternsIncludingXMaskingLogic)""" 
+        """Returns lists (FailPatterns, FailPatternsIncludingXMaskingLogic, XPatterns, XPatternsIncludingXMaskingLogic)""" 
         from libs.generators import Generators
         FailPatterns = []
         FailPatternsIncludingXMaskingLogic = []
