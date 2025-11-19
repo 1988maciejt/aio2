@@ -1,6 +1,4 @@
-import zlib
 import pickle
-import ast
 import base64
 import re
 import difflib
