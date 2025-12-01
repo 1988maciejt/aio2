@@ -733,6 +733,14 @@ class TestCubeSet:
             Volume += Cube.getSpecifiedBitCount()
         return Volume
     
+    def getMaxCubeSpecifiedBits(self) -> int:
+        Max = 0
+        for Cube in self._cubes:
+            SBC = Cube.getSpecifiedBitCount()
+            if SBC > Max:
+                Max = SBC
+        return Max
+    
     def getTheBiggestCubeSPecifiedBitCount(self) -> int:
         Max = 0
         for Cube in self._cubes:
@@ -1134,6 +1142,17 @@ class TestCubeSet:
             Sum += Cube.getSpecifiedBitCount()
         return Sum / len(self._cubes)
     
+    def getStdDevSpecBits(self) -> float:
+        if len(self._cubes) == 0:
+            return 0.0
+        Avg = self.getAverageSpecBits()
+        Sum = 0.0
+        for Cube in self._cubes:
+            S = Cube.getSpecifiedBitCount()
+            Sum += (S - Avg) * (S - Avg)
+        from math import sqrt
+        return sqrt(Sum / len(self._cubes))
+    
     def getMinMaxAvgSpecBits(self) -> tuple:
         if len(self._cubes) == 0:
             return 0.0, 0.0, 0.0
@@ -1278,7 +1297,7 @@ class TestCubeSet:
         return True
         
     @staticmethod
-    def fromFile(FileName : str, ScanChainCount : int = -1, ScanChainLength : int = -1, IgnoreIds : bool = False, UnsortedCubes : bool = False, RecalculateIndices : bool = True, ReturnAlsoFaultsDict : bool = False, ReturnAlsoEABFaultsList : bool = False) -> TestCubeSet:
+    def fromFile(FileName : str, ScanChainCount : int = -1, ScanChainLength : int = -1, IgnoreIds : bool = False, UnsortedCubes : bool = False, RecalculateIndices : bool = True, ReturnAlsoFaultsDict : bool = False, ReturnAlsoEABFaultsList : bool = False, ReturnAlsoSpecBitsDict : bool = False) -> TestCubeSet:
         if ScanChainCount <= 0 or ScanChainCount <= 0:
             edt = EdtStructure.fromFile(FileName)
             ScanChainCount = edt.getScanChainCount()
@@ -1301,7 +1320,9 @@ class TestCubeSet:
         ThisCubeIsTMPL = False
         if ReturnAlsoFaultsDict:
             FaultsDict = {}
-            Fault = None
+            #Fault = None
+        if ReturnAlsoSpecBitsDict:
+            SpecBitsDict = {}
         def checkResult():        
             if Cube is not None and Cube.getSpecifiedCount() > 0:
                 if ThisCubeIsTMPL:
@@ -1328,17 +1349,23 @@ class TestCubeSet:
         EABList = []
         EABId = 1
         for Line in Generators().readFileLineByLine(FileName):
+            if ReturnAlsoSpecBitsDict:
+                R = re.search(r"TDVE[=:]\s+Cube\s+([0-9]+)[=:]\s+sc\s+[=:]\s+([0-9]+)", Line)
+                if R:
+                    SpecBitsDict[int(R.group(1))] = int(R.group(2))
+                    continue
             # EDT aborts
             R = re.search(r"TDVE[=:]*\s*Cube\s*([0-9]+):\s*sc\s*[=:]\s*([0-9]+)", Line)
             if R:
                 EABId = int(R.group(1)) + 1
                 continue
-            R = re.search(r'EDT\s*Abort\s\(([0-9]+)\):\s*\<([0-9]+)\s\(fin[:=]([0-9]+)\)\s*s-a-([01])\>', Line)
+            R = re.search(r'EDT\s*Abort\s\(([0-9]+)\):\s*\<([0-9]+)\s\(fin[:=]([0-9]+)\)\s*s-a-([01])\>\s*spec_sc[=:]([0-9]+)', Line)
             if R:
                 FltId = int(R.group(2))
                 FltFin = int(R.group(3))
                 FltS_A = int(R.group(4))
-                EABList.append((Id, (FltId, FltFin, FltS_A)))
+                SC = int(R.group(5))
+                EABList.append((Id, (FltId, FltFin, FltS_A), SC))
                 continue
             # TMPL
             R = re.search(r"TMPL.*useAsPrimaryTestCubeWithoutRetargetingFault.*report", Line)
@@ -1432,23 +1459,22 @@ class TestCubeSet:
         checkResult()
         #print(EABIds)
         #print(EABList)
+        Ret = []
         if len(ResultList) > 0:
             if len(Result) > 0:
                 ResultList.append(Result)
-            if ReturnAlsoFaultsDict and ReturnAlsoEABFaultsList:
-                return ResultList, FaultsDict, EABList
-            elif ReturnAlsoFaultsDict:
-                return ResultList, FaultsDict
-            elif ReturnAlsoEABFaultsList:
-                return ResultList, EABList
-            return ResultList
-        if ReturnAlsoFaultsDict and ReturnAlsoEABFaultsList:
-            return Result, FaultsDict, EABList
-        elif ReturnAlsoFaultsDict:
-            return Result, FaultsDict
-        elif ReturnAlsoEABFaultsList:
-            return Result, EABList
-        return Result
+            Ret.append(ResultList)
+        else:
+            Ret.append(Result)
+        if ReturnAlsoFaultsDict:
+            Ret.append(FaultsDict)
+        if ReturnAlsoEABFaultsList:
+            Ret.append(EABList)
+        if ReturnAlsoSpecBitsDict:
+            Ret.append(SpecBitsDict)
+        if len(Ret) == 1:
+            return Ret[0]
+        return tuple(Ret)
     
     def getSpecBitsTable(self, FaultDict : dict = None) -> AioTable:
         if FaultDict is None:
@@ -2039,8 +2065,7 @@ class TestCubeSet:
         return sum(RList) / len(RList)
     
     def getChannelVolume(self, Edt : EdtStructure) -> int:
-        Patterns = self.getPatterns()
-        return Edt.getTestDataVolume(len(Patterns))
+        return Edt.getTestDataVolume(len(self))
     
     def getCubeVolume(self) -> int:
         Result = 0
@@ -2401,6 +2426,35 @@ class DecompressorUtils:
             if R:
                 Result["TestCoverage"] = float(R.group(1)) / 100.0
                 continue
+            R = re.search(r"atpg[_ ]effectiveness\s*([0-9.]+)%", Line)
+            if R:
+                Result["AtpgEffectiveness"] = float(R.group(1)) / 100.0
+                continue
+            R = re.search(r"#test[_ ]patterns\s*([0-9.]+)", Line)
+            if R:
+                Result["#TestPatterns"] = int(R.group(1))
+                continue
+            R = re.search(r"AAB\s*\(atpg_abort\)\s+([0-9]+)", Line)
+            if R:
+                Result["AtpgAborts"] = int(R.group(1))
+                continue
+            R = re.search(r"EAB\s*\(edt_abort\)\s+([0-9]+)", Line)
+            if R:
+                Result["EdtAborts"] = int(R.group(1))
+                continue
+            R = re.search(r"#basic[_ ]patterns\s*([0-9.]+)", Line)
+            if R:
+                Result["#BasicPatterns"] = int(R.group(1))
+                continue
+            R = re.search(r"#clock[_ ]sequential[_ ]patterns\s*([0-9.]+)", Line)
+            if R:
+                Result["#ClockSequentialPatterns"] = int(R.group(1))
+                continue
+            R = re.search(r"CPU[_ ]time\s+\(secs\)\s*([0-9.]+)", Line)
+            if R:
+                Result["CpuTime"] = float(R.group(1))
+                continue
+            
         try:
             Result["ScanCells"] = Result["ScanChains"] * Result["ScanLength"]
         except: pass
@@ -2507,12 +2561,14 @@ class DecompressorUtils:
             "designinfo": Other data
             "dynamiccompaction": DynamicCompaction <if available in log!!!>
         )"""
+        if type(FileNames) is str:
+            FileNames = [FileNames]
         from libs.research_projects.testkompress_advisor.edt_solver import DecompressorSolver
         from libs.files import File
         def single(FileName):
             try:
                 di = DecompressorUtils.getDesignInfoFromFIle(FileName)
-                tc, faultdict = TestCubeSet.fromFile(FileName, ReturnAlsoFaultsDict=1)
+                tc, faultdict, eablist, specbitsdict = TestCubeSet.fromFile(FileName, ReturnAlsoFaultsDict=1, ReturnAlsoEABFaultsList=1, ReturnAlsoSpecBitsDict=1)
                 Result = {
                     "tc": tc,
                     "edt": EdtStructure.fromFile(FileName),
@@ -2523,6 +2579,8 @@ class DecompressorUtils:
                     "primaryinputs": di["PrimaryInputs"],
                     "designinfo": di,
                     "faultdict": faultdict,
+                    "specbitsdict": specbitsdict,
+                    "eablist": eablist
                 }
                 DynamicCompaction = DecompressorUtils.getDynamicCompactionStatsFromLog(FileName)
                 if len(DynamicCompaction) > 0:
