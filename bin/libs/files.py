@@ -75,9 +75,35 @@ def readObjectFromFile(FileName : str, GZip = False):
     f = gzip.open(FileName, "rb")
   else:
     f = open(FileName, "rb")
-  r = pickle.load(f)
+  try:
+    r = pickle.load(f)
+  except pickle.UnpicklingError:
+    if not GZip:
+      f.close()
+      f = gzip.open(FileName, "rb")
+      r = pickle.load(f)
+      from libs.aio import Aio
+      Aio.printWarning(f"File '{FileName}' was expected to be uncompressed, but it is compressed. Please, use GZip=True flag next time.")
   f.close()
   return r
+
+def batchReadObjectsFromFiles(FileNames : list, GZip = False, Multiprocessing : bool = True) -> list:
+  def single(FileName):
+    if File.exists(FileName):
+      return readObjectFromFile(FileName, GZip=GZip)
+    return None
+  Results = []
+  from libs.aio import AioShell
+  if Multiprocessing:
+    from p_tqdm import p_imap
+    for r in p_imap(single, FileNames):
+      Results.append(r)
+  else:
+    from tqdm import tqdm
+    for FileName in tqdm(FileNames):
+      Results.append(single(FileName))
+  AioShell.removeLastLine()
+  return Results
 
 
 def writeDictionary(FileName : str, dictionary : dict, GZip = False):
@@ -182,6 +208,7 @@ class File:
   readBinary = readBinary
   readDict = readDictionary
   readObject = readObjectFromFile
+  batchReadObjects = batchReadObjectsFromFiles
   write = writeFile
   writeBinary = writeBinary
   writeDict = writeDictionary

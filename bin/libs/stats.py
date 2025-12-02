@@ -11,15 +11,17 @@ import matplotlib.pyplot as plt
 
 class Histogram:
   
-  __slots__ = ("_data", "_bar_width", "_bar_count", "_min", "_max")
+  __slots__ = ("_data_dict", "_bar_width", "_bar_count", "_min", "_max")
+  
   
   def __init__(self, Data = [], BarWidth : float = None, BarCount : int = 10):
-    if type(BarWidth) is float or type(BarWidth) is int:
+    if type(BarWidth) in [float, int]:
       self._bar_width = BarWidth
+      self._bar_count = None
     else:
       self._bar_count = int(BarCount)
-    self._bar_width = BarWidth
-    self._data = []
+      self._bar_width = None
+    self._data_dict = {}
     self._min = None
     self._max = None
     self.addData(Data)
@@ -32,30 +34,29 @@ class Histogram:
       if type(D) is list:
         D = D[0]
       D = float(D)
-      self._data.append(D)
+      if self._bar_width is not None:
+        D = FloatUtils.roundToResolution(D, self._bar_width)
+      cnt = self._data_dict.get(D, 0)
+      self._data_dict[D] = cnt + 1
       if self._min is None:
-        Aux = FloatUtils.roundToResolution(D, self._bar_width)
-        if Aux > D:
-          Aux = FloatUtils.roundToResolution(Aux - self._bar_width, self._bar_width)
-        self._min = Aux
+        self._min = D
         self._max = D
       else:
         if D < self._min: 
-          Aux = FloatUtils.roundToResolution(D, self._bar_width)
-          if Aux > D:
-            Aux = FloatUtils.roundToResolution(Aux - self._bar_width, self._bar_width)
-          self._min = Aux
+          self._min = D
         if D > self._max:
           self._max = D
           
   addDataPoint = addData
           
   def clearData(self):
-    self._data.clear()
+    self._data_dict.clear()
     self._min = None
+    self._max = None
     
   def setBarWidth(self, BarWidth : float):
     self._bar_width = BarWidth
+    self._bar_count = None
   
   def setBarCount(self, BarCount : int):
     self._bar_width = None
@@ -67,31 +68,107 @@ class Histogram:
       Min = self._min
     if Max is None:
       Max = self._max
-    if type(self._bar_width) is float:
+    if self._bar_width is not None:
       BarWidth = self._bar_width
-    elif type(self._bar_width) is int:
-      BarWidth = self._bar_width
+      BarCnt = None
     else:
       BarWidth = (Max - Min) / float(self._bar_count)
+      BarCnt = self._bar_count
     Bars = []
     Barsp1 = []
     Vals = []
     Bar = Min
     if Bar is None or Max is None:
       return []
+    Cnt = 0
     while Bar < Max:
+      if BarCnt is not None:
+        if Cnt >= BarCnt and BarCnt is not None:
+          break
+      Cnt += 1
       Bars.append(Bar)
       Barsp1.append(Bar)
       Vals.append(0)
       Bar = FloatUtils.roundToResolution(Bar + BarWidth, BarWidth)
     Barsp1.append(Bar)
-    for D in self._data:
-      for i in range(1, len(Barsp1)):
-        if D < Barsp1[i]:
-          Vals[i-1] += 1
-          break
+    for D in self._data_dict.keys():
+      if Min <= D <= Max:
+        Count = self._data_dict[D]
+        for i in range(1, len(Barsp1)):
+          if D < Barsp1[i]:
+            Vals[i-1] += Count
+            break
     return [Bars, Vals]
   
+  
+class RangesHistogram:
+  
+  __slots__ = ("_data", "_data_dict", "_range_count", "_min", "_max", "_data_cnt")
+  
+  def __init__(self, Data = [], RangeCount : int = 10):
+    self._data_dict = {}
+    self._min = None
+    self._max = None
+    self._data_cnt = 0
+    self._range_count = RangeCount
+    self.addData(Data)
+  
+  def addData(self, Data):
+    if type(Data) in [int, float]:
+      Data = [Data]
+    for D in Data:
+      if type(D) is list:
+        D = D[0]
+      D = float(D)
+      cnt = self._data_dict.get(D, 0)
+      self._data_dict[D] = cnt + 1
+      self._data_cnt += 1
+      if self._min is None:
+        self._min = D
+        self._max = D
+      else:
+        if D < self._min: 
+          self._min = D
+        if D > self._max:
+          self._max = D
+          
+  addDataPoint = addData
+          
+  def clearData(self):
+    self._data_dict.clear()
+    self._min = None
+    self._max = None
+    self._data_cnt = 0
+    
+  def getRanges(self, Normalise : bool = False):
+    BinVolume = self._data_cnt / float(self._range_count)
+    Ranges = [self._min]
+    Sum = 0
+    MustAdd = True
+    for i in sorted(self._data_dict.keys()):
+      Sum += self._data_dict[i]
+      MustAdd = True
+      if Sum >= BinVolume:
+        Ranges.append(i)
+        Sum -= BinVolume
+        MustAdd = False
+    if MustAdd:
+      Ranges.append(self._max)
+    if Normalise:
+      RangesNorm = []
+      for r in Ranges:
+        rn = (r - self._min) / (self._max - self._min)
+        RangesNorm.append(rn)
+      return RangesNorm
+    return Ranges
+  
+  def getMinMax(self) -> tuple:
+    return (self._min, self._max)
+      
+  def getPlotData(self) -> dict:
+    y = self.getRanges()
+    x = [i for i in range(len(y))]
+    return [x, y]
 
 
 class PlotTypes:

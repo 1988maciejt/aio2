@@ -272,6 +272,7 @@ class Aio:
       transcript_file.flush()
       os.fsync(transcript_file.fileno())
   @staticmethod
+  
   def transcriptSubsectionEnd():
     Aio._transcript += '</div>\n' 
     Aio._subsection_opened = False
@@ -280,9 +281,15 @@ class Aio:
       transcript_file.write("\n")
       transcript_file.flush()
       os.fsync(transcript_file.fileno())
+      
   @staticmethod
   def printError(*args):
     Aio.print(Str.color("ERROR:", 'red'),*args)
+    
+  @staticmethod
+  def printWarning(*args):
+    Aio.print(Str.color("WARNING:", 'yellow'),*args)
+    
   @staticmethod
   def printTemp(*args):
     if len(args) == 0:

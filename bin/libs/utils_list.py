@@ -123,7 +123,7 @@ class List:
   getPermutationsPfManyLists = getPermutationsOfManyLists
   
   
-  def getPermutationsOfManyListsGenerator(lists, MaximumNonBaseElements = 0, UseAsGenerator_Chunk = 1) -> list:
+  def getPermutationsOfManyListsGenerator(lists, MaximumNonBaseElements = 0, UseAsGenerator_Chunk = 1):
     """gets some lists and returns a list of lists containing
     all possible permutations of elements of those lists.
     
@@ -441,4 +441,104 @@ class BufferedList:
       removeFile(FileName)
     self._list.clear()
     self._file_i = 1
+  
+
+
+class ListOfDicts:
+  
+  @staticmethod
+  def isListOfDicts(Object) -> bool:
+    if type(Object) is not list:
+      return False
+    for D in Object:
+      if type(D) is not dict:
+        return False
+    return True
+  
+  @staticmethod
+  def getSumOfField(ListOfDicts : list, FieldName : str) -> float:
+    Sum = 0.0
+    for D in ListOfDicts:
+      if FieldName in D:
+        try:
+          Sum += float(D[FieldName])
+        except:
+          pass
+    return Sum
+  
+  @staticmethod
+  def getAvgOfField(ListOfDicts : list, FieldName : str) -> float:
+    Sum = 0.0
+    Count = 0
+    for D in ListOfDicts:
+      if FieldName in D:
+        try:
+          Sum += float(D[FieldName])
+          Count += 1
+        except:
+          pass
+    if Count == 0:
+      return 0.0
+    return Sum / Count
+  
+  @staticmethod
+  def getCountOfField(ListOfDicts : list, FieldName : str) -> int:
+    Count = 0
+    for D in ListOfDicts:
+      if FieldName in D:
+        Count += 1
+    return Count
+  
+  @staticmethod
+  def getStdDevOfField(ListOfDicts : list, FieldName : str) -> float:
+    from statistics import pstdev
+    Values = []
+    for D in ListOfDicts:
+      if FieldName in D:
+        try:
+          v = float(D[FieldName])
+          Values.append(v)
+        except:
+          pass
+    if len(Values) < 2:
+      return 0.0
+    return pstdev(Values)
+  
+  @staticmethod
+  def getMaxOfField(ListOfDicts : list, FieldName : str) -> float:
+    Max = None
+    for D in ListOfDicts:
+      if FieldName in D:
+        try:
+          v = float(D[FieldName])
+          if Max is None or v > Max:
+            Max = v
+        except:
+          pass
+    return Max
+  
+  @staticmethod
+  def getMinOfField(ListOfDicts : list, FieldName : str) -> float:
+    Min = None
+    for D in ListOfDicts:
+      if FieldName in D:
+        try:
+          v = float(D[FieldName])
+          if Min is None or v < Min:
+            Min = v
+        except:
+          pass
+    return Min
+  
+  @staticmethod
+  def getListOfField(ListOfDicts : list, FieldName : str, NoneIfNoField : bool = False) -> list:
+    Result = []
+    for D in ListOfDicts:
+      if FieldName in D:
+        Result.append(D[FieldName])
+      else:
+        if NoneIfNoField:
+          Result.append(None)
+    return Result
+  
   
