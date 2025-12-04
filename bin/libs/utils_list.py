@@ -34,7 +34,7 @@ class List:
     return Sum / Count
   
   @staticmethod
-  def SdtDev(Numbers : list) -> float:
+  def StdDev(Numbers : list) -> float:
     from statistics import pstdev
     Values = []
     for n in Numbers:

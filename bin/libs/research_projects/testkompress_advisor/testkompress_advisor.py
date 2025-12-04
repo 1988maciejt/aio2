@@ -2689,6 +2689,10 @@ class PreparsedData:
     def getDynamicCompactionAdddedPerPatternData(self) -> list:
         Stats = self.getDynamicCompactionStats()
         return ListOfDicts.getListOfField(Stats, 'added_per_pattern')
+    
+    def getDynamicCompactionAdddedFaultsData(self) -> list:
+        Stats = self.getDynamicCompactionStats()
+        return ListOfDicts.getListOfField(Stats, 'tested_faults')
         
     def getEdtStructure(self) -> EdtStructure:
         return self._data.get("edt", None)
@@ -2769,6 +2773,100 @@ class PreparsedData:
                 Row.append(0)
             Table.add(Row)
         return Table
+    
+    def getPatternCount(self) -> int:
+        return self._data["patterns"]
+    
+    def getTestDataVolume(self) -> int:
+        Edt : EdtStructure = self.getEdtStructure()
+        return Edt.getTestDataVolume(self.getPatternCount())
+    
+    def getTestTime(self) -> int:
+        Edt : EdtStructure = self.getEdtStructure()
+        return Edt.getTestTime(self.getPatternCount())
+    
+    def getDataForML(self, EstimatedLfsrLen : int = None, EstimatedChannels : int = None) -> list:
+        from libs.utils_list import List, ListOfDicts
+        from libs.stats import RangesHistogram
+        Result = []
+        Edt : EdtStructure = self.getEdtStructure()
+        DI : dict = self.getDesignInfoDict()
+        UsefulCubeSpecBits = self.getCubeSpecBits(1,0,0)
+        DroppedCubeSpecBits = self.getCubeSpecBits(0,1,0)
+        AbortedCubeSpecBits = self.getCubeSpecBits(0,0,1)
+        UsefulCubesFillRate = self.getCubeFillRates(1,0,0)
+        DroppedCubesFillRate = self.getCubeFillRates(0,1,0)
+        AbortedCubesFillRate = self.getCubeFillRates(0,0,1)
+        UsefulCubesEncCap = self.getCubeUsedEncodingCapacity(1,0,0)
+        #DroppedCubesEncCap = self.getCubeUsedEncodingCapacity(0,1,0)
+        #AbortedCubesEncCap = self.getCubeUsedEncodingCapacity(0,0,1)
+        DynCompPerPattern = self.getDynamicCompactionAdddedPerPatternData()
+        TC : TestCubeSet = self.getUsefullCUbes(False)
+        Patterns : TestCubeSet = TC.getPatterns()
+        Patterns.getAverageSpecBits()
+        ### Compression #######################
+        Result.append(Edt.getInputCount())              # #Channels
+        Result.append(Edt.getLongestLfsrSize())         # LFSR size
+        Result.append(Edt.getCompressionRatio())        # Compression ratio
+        Result.append(Edt.getEncodingCapacity())        # Encoding capacity
+        Result.append(Edt.getScanChainCount())          # #Scan chains
+        Result.append(Edt.getScanLength())              # Scan length
+        ### Circuitry #########################
+        Result.append(DI["#Gates"])                     # #Gates
+        Result.append(DI["#Faults"])                    # #Faults
+        ### Useful cubes ######################
+        Result.append(len(UsefulCubeSpecBits))           # Count
+        Result.append(List.Avg(UsefulCubeSpecBits))      # AVG
+        Result.append(List.StdDev(UsefulCubeSpecBits))   # STD DEV
+        Result.append(min(UsefulCubeSpecBits))           # MIN
+        Result.append(max(UsefulCubeSpecBits))           # MAX
+        Result += RangesHistogram(UsefulCubeSpecBits, 10).getRanges(1)[1:]  # RangesHistogram of SpecBits
+        Result.append(List.Avg(UsefulCubesFillRate))     # Fill rate AVG
+        Result += RangesHistogram(UsefulCubesFillRate, 10).getRanges(1)[1:]  # RangesHistogram of FillRate
+        Result.append(sum(UsefulCubesEncCap))            # Used encoding capacity SUM        
+        ### Dropped cubes #####################
+        Result.append(len(DroppedCubeSpecBits))          # Count
+        Result.append(List.Avg(DroppedCubeSpecBits))     # AVG
+        Result.append(List.StdDev(DroppedCubeSpecBits))  # STD DEV
+        Result.append(List.Avg(DroppedCubesFillRate))    # Fill rate AVG
+        Result.append(max(DroppedCubeSpecBits))          # MAX      
+        ### Aborted cubes #####################
+        Result.append(len(AbortedCubeSpecBits))          # Count
+        Result.append(List.Avg(AbortedCubeSpecBits))     # AVG
+        Result.append(List.StdDev(AbortedCubeSpecBits))  # STD DEV
+        Result.append(List.Avg(AbortedCubesFillRate))    # Fill rate AVG
+        Result.append(max(AbortedCubeSpecBits))          # MAX
+        ### Dynamic compaction ################
+        Result.append(self.getDynamicCompactionAddedCells())   # Added scan cells SUM
+        Result.append(List.Avg(DynCompPerPattern))      # per pattern AVG
+        Result.append(List.StdDev(DynCompPerPattern))   # per pattern STD DEV
+        Result.append(min(DynCompPerPattern))           # per pattern MIN
+        Result.append(max(DynCompPerPattern))           # per pattern MAX
+        Result += RangesHistogram(DynCompPerPattern, 10).getRanges(1)[1:]  # per pattern RangesHistogram
+        Result.append(sum(self.getDynamicCompactionAdddedFaultsData()))  # Added faults SUM
+        ### Patterns ##########################
+        Result.append(len(Patterns))                    # Count
+        Result.append(Patterns.getAverageSpecBits())    # AVG
+        Result.append(Patterns.getStdDevSpecBits())     # STD DEV
+        Result.append(Patterns.getAverageFillRate())    # Fill rate AVG
+        ### ATPG, EDT #########################
+        Result.append(self.getTestDataVolume())         # Test data volume
+        Result.append(self.getTestTime())               # Test time
+        Result.append(DI.get("EdtAborts", 0))           # EDT Aborts
+        Result.append(DI.get("AtpgAborts", 0))          # ATPG Aborts
+        Result.append(DI.get("TestCoverage", 0))        # Test coverage
+        ### Estimate point #####################
+        if EstimatedLfsrLen is not None and EstimatedChannels is not None:
+            EstEdt : EdtStructure = Edt.copy()
+            EstEdt.setLfsrs(EstimatedLfsrLen)
+            EstEdt.setInputCount(EstimatedChannels)
+            Result.append(EstimatedChannels)            # Estimated #Channels
+            Result.append(EstimatedLfsrLen)             # Estimated LFSR size
+            Result.append(EstEdt.getCompressionRatio()) # Estimated Compression ratio
+            Result.append(EstEdt.getEncodingCapacity()) # Estimated Encoding capacity
+        return Result
+        
+        
 
 
 class TestCubeSetUtils:
