@@ -167,6 +167,18 @@ class EdtStructure:
         Result.MinimumBatteryLevel = self.MinimumBatteryLevel
         return Result
     
+    def setLfsrs(self, LfsrLength : int):
+        if type(LfsrLength) is int:
+            LfsrLength = [LfsrLength] * len(self._decompressors)
+        for i, Decompressor in enumerate(self._decompressors):
+            Decompressor.LfsrLength = LfsrLength[i]
+    
+    def setInputCount(self, InputCount : int):
+        if type(InputCount) is int:
+            InputCount = [InputCount] * len(self._decompressors)
+        for i, Decompressor in enumerate(self._decompressors):
+            Decompressor.InputCount = InputCount[i]
+    
     def getEncodingCapacity(self) -> int:
         return sum([Decompressor.getEncodingCapacity() for Decompressor in self._decompressors])
     
@@ -2454,7 +2466,11 @@ class DecompressorUtils:
             if R:
                 Result["CpuTime"] = float(R.group(1))
                 continue
-            
+            R = re.search(r"#gates\s*[:=]\s*([0-9]+)\s+#faults\s*[:=]\s*([0-9]+)", Line)
+            if R:
+                Result["#Gates"] = int(R.group(1))
+                Result["#Faults"] = int(R.group(2))
+                continue
         try:
             Result["ScanCells"] = Result["ScanChains"] * Result["ScanLength"]
         except: pass
@@ -2593,6 +2609,167 @@ class DecompressorUtils:
             if i is not None:
                 Aio.printError(i)
         AioShell.removeLastLine()
+        
+        
+        
+
+class PreparsedData:
+
+    __slots__ = ("_data",)
+
+    def __init__(self, FileName : str) -> None:
+        try:
+            self._data = File.readObject(FileName, 1)
+        except:
+            self._data = None
+            Aio.printError("Error reading preparsed data from file:", FileName)
+            
+    def getData(self) -> dict:
+        return self._data
+            
+    def getDesignInfoDict(self) -> dict:
+        return self._data.get("designinfo", None)
+    
+    def getUsefullCUbes(self, MakeCopy : bool = True) -> TestCubeSet:
+        if MakeCopy:
+            return self._data.get("tc", TestCubeSet()).deepCopy()
+        return self._data.get("tc", TestCubeSet())
+    
+    def getUsefullCubesIds(self) -> set:
+        tc = self._data.get("tc", TestCubeSet())
+        Result = set()
+        for Cube in tc:
+            Result.add(Cube.Id)
+        return Result
+    
+    def getCubeSpecBits(self, Usefull : bool = True, Dropped : bool = False, Aborted : bool = False) -> list:
+        UsefullAndDroppedDict = self._data.get("specbitsdict", {})
+        UsefullIds = self.getUsefullCubesIds()
+        Result = []
+        for Id in sorted(UsefullAndDroppedDict.keys()):
+            IsUsefull = Id in UsefullIds
+            if (Usefull and IsUsefull) or (Dropped and (not IsUsefull)):
+                Result.append(UsefullAndDroppedDict[Id])
+        if Aborted:
+            EABList = self._data.get("eablist", [])
+            for Pos in EABList:
+                Result.append(Pos[-1])
+        return Result
+    
+    def getCubeFillRates(self, Usefull : bool = True, Dropped : bool = False, Aborted : bool = False) -> list:
+        CUbeSpecBits = self.getCubeSpecBits(Usefull, Dropped, Aborted)
+        Edt = self.getEdtStructure()
+        Result = []
+        if Edt is not None:
+            SCells = Edt.getScanChainCount() * Edt.getScanLength()
+            for SpecBits in CUbeSpecBits:
+                Result.append(SpecBits / SCells)
+        return Result
+    
+    def getCubeUsedEncodingCapacity(self, Usefull : bool = True, Dropped : bool = False, Aborted : bool = False) -> list:
+        CUbeSpecBits = self.getCubeSpecBits(Usefull, Dropped, Aborted)
+        Edt = self.getEdtStructure()
+        EncCap = None if Edt is None else Edt.getEncodingCapacity()
+        Result = []
+        if EncCap is not None:
+            for SpecBits in CUbeSpecBits:
+                Result.append(SpecBits / EncCap)
+        return Result
+    
+    def getScanCellsStructure(self) -> ScanCellsStructure:
+        return self._data.get("scancells", None)
+    
+    def getDynamicCompactionStats(self) -> list:
+        return self._data.get("dynamiccompaction", [])
+    
+    def getDynamicCompactionAddedCells(self) -> int:
+        Stats = self.getDynamicCompactionStats()
+        return ListOfDicts.getSumOfField(Stats, 'added_scan_cells')
+        
+    def getDynamicCompactionAdddedPerPatternData(self) -> list:
+        Stats = self.getDynamicCompactionStats()
+        return ListOfDicts.getListOfField(Stats, 'added_per_pattern')
+        
+    def getEdtStructure(self) -> EdtStructure:
+        return self._data.get("edt", None)
+    
+    def getFaultCount(self) -> int:
+        di = self.getDesignInfoDict()
+        return di.get("#Faults", 0) if di is not None else 0
+    
+    def getGateCount(self) -> int:
+        di = self.getDesignInfoDict()
+        return di.get("#Gates", 0) if di is not None else 0
+    
+    def getCubeHistogramsAsTable(self, BarWidth, BarWidthAsPartOfScanLength : bool = False) -> AioTable:
+        from libs.stats import Histogram
+        from libs.utils_float import FloatUtils
+        if BarWidthAsPartOfScanLength:
+            ScanLen = self.getScanCellsStructure().ScanChainLength
+            BarWidth = BarWidth * ScanLen
+        UsefulCubeSB = self.getCubeSpecBits(1,0,0)
+        DroppedCubeSB = self.getCubeSpecBits(0,1,0)
+        AbortedCubeSB = self.getCubeSpecBits(0,0,1)
+        UsedCubeH = Histogram(UsefulCubeSB, BarWidth)
+        DroppedCubeH = Histogram(DroppedCubeSB, BarWidth)
+        AbortedCubeH = Histogram(AbortedCubeSB, BarWidth)
+        UsedCubePD = UsedCubeH.getPlotData(0)
+        DroppedCubePD = DroppedCubeH.getPlotData(0)
+        AbortedCubePD = AbortedCubeH.getPlotData(0)
+        Table = AioTable(["SpecBitsRange", "UsefulCount", "DroppedCount", "AbortedCount"])
+        Len = max(len(UsedCubePD[1]), len(DroppedCubePD[1]), len(AbortedCubePD[1]))
+        for i in range(Len):
+            if BarWidthAsPartOfScanLength:
+                From = FloatUtils.roundToDecimalPlacesAsInAnotherFloat(i*BarWidth/ScanLen, BarWidth)
+                To = FloatUtils.roundToDecimalPlacesAsInAnotherFloat((i+1)*BarWidth/ScanLen, BarWidth)
+                Row = [f"{From} - {To}"]
+            else:
+                Row = [f"{i*BarWidth} - {(i+1)*BarWidth}"]
+            if i < len(UsedCubePD[1]):
+                Row.append(UsedCubePD[1][i])
+            else:
+                Row.append(0)
+            if i < len(DroppedCubePD[1]):
+                Row.append(DroppedCubePD[1][i])
+            else:
+                Row.append(0)
+            if i < len(AbortedCubePD[1]):
+                Row.append(AbortedCubePD[1][i])
+            else:
+                Row.append(0)
+            Table.add(Row)
+        return Table
+    
+    def getCubeRangesHistogramAsTable(self, RangeCount : int = 10, Normalised : bool = True) -> AioTable:
+        from libs.stats import RangesHistogram
+        UsefulCubeSB = self.getCubeSpecBits(1,0,0)
+        DroppedCubeSB = self.getCubeSpecBits(0,1,0)
+        AbortedCubeSB = self.getCubeSpecBits(0,0,1)
+        UsedCubeH = RangesHistogram(UsefulCubeSB, RangeCount)
+        DroppedCubeH = RangesHistogram(DroppedCubeSB, RangeCount)
+        AbortedCubeH = RangesHistogram(AbortedCubeSB, RangeCount)
+        UsedCubeR = UsedCubeH.getRanges(Normalised)
+        DroppedCubeR = DroppedCubeH.getRanges(Normalised)
+        AbortedCubeR = AbortedCubeH.getRanges(Normalised)
+        Table = AioTable(["UsefulRanges", "DroppedRanges", "AbortedRanges"])
+        Len = max(len(UsedCubeR), len(DroppedCubeR), len(AbortedCubeR))
+        for i in range(Len):
+            Row = []
+            if i < len(UsedCubeR):
+                Row.append(round(UsedCubeR[i], 3))
+            else:
+                Row.append(0)
+            if i < len(DroppedCubeR):
+                Row.append(round(DroppedCubeR[i], 3))
+            else:
+                Row.append(0)
+            if i < len(AbortedCubeR):
+                Row.append(round(AbortedCubeR[i], 3))
+            else:
+                Row.append(0)
+            Table.add(Row)
+        return Table
+
 
 class TestCubeSetUtils:
     

@@ -10,6 +10,44 @@ from libs.files import *
 class List:
   
   @staticmethod
+  def Sum(Numbers : list) -> float:
+    Sum = 0.0
+    for n in Numbers:
+      try:
+        Sum += float(n)
+      except:
+        pass
+    return Sum
+  
+  @staticmethod
+  def Avg(Numbers : list) -> float:
+    Sum = 0.0
+    Count = 0
+    for n in Numbers:
+      try:
+        Sum += float(n)
+        Count += 1
+      except:
+        pass
+    if Count == 0:
+      return 0.0
+    return Sum / Count
+  
+  @staticmethod
+  def SdtDev(Numbers : list) -> float:
+    from statistics import pstdev
+    Values = []
+    for n in Numbers:
+      try:
+        v = float(n)
+        Values.append(v)
+      except:
+        pass
+    if len(Values) < 2:
+      return 0.0
+    return pstdev(Values)
+  
+  @staticmethod
   def getIndexOfMinimum(Numbers : list) -> int:
     from statistics import median_low
     Min = min(Numbers)

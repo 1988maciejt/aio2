@@ -35,7 +35,7 @@ class Histogram:
         D = D[0]
       D = float(D)
       if self._bar_width is not None:
-        D = FloatUtils.roundToResolution(D, self._bar_width)
+        D = FloatUtils.roundToDecimalPlacesAsInAnotherFloat(D, self._bar_width)
       cnt = self._data_dict.get(D, 0)
       self._data_dict[D] = cnt + 1
       if self._min is None:
@@ -77,7 +77,7 @@ class Histogram:
     Bars = []
     Barsp1 = []
     Vals = []
-    Bar = Min
+    Bar = FloatUtils.roundToDecimalPlacesAsInAnotherFloat(Min, BarWidth)
     if Bar is None or Max is None:
       return []
     Cnt = 0
@@ -89,7 +89,7 @@ class Histogram:
       Bars.append(Bar)
       Barsp1.append(Bar)
       Vals.append(0)
-      Bar = FloatUtils.roundToResolution(Bar + BarWidth, BarWidth)
+      Bar = FloatUtils.roundToDecimalPlacesAsInAnotherFloat(Bar + BarWidth, BarWidth)
     Barsp1.append(Bar)
     for D in self._data_dict.keys():
       if Min <= D <= Max:
@@ -633,3 +633,5 @@ class MovingAverageFilter:
     """
     self._samples.clear()
     self._value = 0.0
+    
+    
