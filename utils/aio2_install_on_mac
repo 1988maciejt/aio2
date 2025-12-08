@@ -45,5 +45,6 @@ python3 -m pip install --upgrade python-docx
 python3 -m pip install --upgrade PyMuPDF
 python3 -m pip install --upgrade galois
 python3 -m pip install --upgrade pysnooper
+python3 -m pip install --upgrade tensorflow keras
 
 # python3 -m pip install pyqt5 pyqt5-tools
