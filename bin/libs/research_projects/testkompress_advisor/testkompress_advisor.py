@@ -501,7 +501,7 @@ class TestCube:
         #pd1 = self._primary_dict
         #pd2 = AnotherCube._primary_dict
         Result = 0
-        CheckedBits = set()
+        CheckedBits = BitMap()
         for k in d1.keys():
             if k in d2:
                 if d1[k] != d2[k]:
@@ -517,7 +517,7 @@ class TestCube:
                     Result += 1
             else:
                 Result += 1
-        CheckedBits = set()
+        CheckedBits = BitMap()
         for k in pd1.keys():
             if k in pd2:
                 if pd1[k] != pd2[k]:
@@ -2351,9 +2351,9 @@ class TestCubeSet:
         if type(EdtList) is not list:
             EdtList = [EdtList]
         Result = []
-        BaseCubesIds = set()
+        BaseCubesIds = BitMap64()
         if UseTrueBaseCubes:
-            PatternIds = set()
+            PatternIds = BitMap()
             for Cube in Cubes:
                 if Cube.PatternId != PatternIds:
                     PatternIds.add(Cube.PatternId)
@@ -2817,7 +2817,7 @@ class PreparsedData:
     
     def getUsefullCubesIds(self) -> set:
         tc = self._data.get("tc", TestCubeSet())
-        Result = set()
+        Result = BitMap64()
         for Cube in tc:
             Result.add(Cube.Id)
         return Result
@@ -3197,7 +3197,7 @@ class TestCubeSetUtils:
     @staticmethod
     def getCubeStats(Cubes : TestCubeSet) -> AioTable:
         Result = AioTable(["CUbeId", "BaseCube", "PatternId", "SpecifiedBits"])
-        PatternIds = set()
+        PatternIds = BitMap()
         for Cube in Cubes:
             Pid = Cube.PatternId
             BaseCube = 0
@@ -3325,7 +3325,7 @@ class PatternCountComprensator:
     
     def getPatternCubesUncompressableTriplet(self) -> list:
         """Returns list of tuples (Pattern, SubCubeCount, SubCUbesIdSpan, UncompressableCubesCount)"""
-        UncompressableIds = set(self.getUncompressableCubesIds())
+        UncompressableIds = BitMap64(self.getUncompressableCubesIds())
         Result = []
         for i in self._patterns:
             IdMin = min(i.SubCubesIds)
@@ -3335,7 +3335,7 @@ class PatternCountComprensator:
             Result.append((i, len(i.SubCubesIds), Span, len(UCubes)))
             if self.UncompressableCubeUsedOnlyOnce:
                 for j in UCubes:
-                    UncompressableIds.remove(j)
+                    UncompressableIds.discard(j)
         return Result
     
     def toTable(self) -> AioTable:
