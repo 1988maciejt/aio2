@@ -3548,15 +3548,17 @@ class _BerlekampMassey:
     def __init__(self, sequence, ProgressBar = 0, PrintLinearComplexity = 0, LinearComplexityUpTo=0):
         n = len(sequence)
         s = sequence.copy()
+        
+        from pyroaring import BitMap
 
         k = 0
         #for k in range(n):
         #    if s[k] == 1:
         #        break
-        self._f = {k + 1, 0}
+        self._f = BitMap([k + 1, 0])
         self._l = k + 1
 
-        g = {0}
+        g = BitMap([0])
         a = k
         b = 0
         #mple_threading import SimpleThread
@@ -3575,11 +3577,11 @@ class _BerlekampMassey:
             if d:
                 if 2 * self._l > n:
                     amb = a - b
-                    self._f ^= set([amb + item for item in g])
+                    self._f ^= BitMap([amb + item for item in g])
                     b += 1
                 else:
                     bma = b - a
-                    aux = set([bma + item for item in self._f]) ^ g
+                    aux = BitMap([bma + item for item in self._f]) ^ g
                     g = self._f
                     self._f = aux
                     self._l = n + 1 - self._l

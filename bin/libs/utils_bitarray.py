@@ -13,10 +13,37 @@ import numpy
 from libs.aio import AioShell
 import hyperloglog
 import statistics
+from pyroaring import BitMap, BitMap64
 
 
 class Bitarray:
     
+    @staticmethod
+    def toBitMap(BitArrayValue : bitarray) -> BitMap:
+        if len(BitArrayValue) >= ((1 << 32) -1):
+            Result = BitMap64()
+        else:
+            Result = BitMap()
+        for b in BitArrayValue.search(1):
+            Result.add(b)
+        return Result
+    
+    @staticmethod
+    def fromBitMap(BM : BitMap, Length : int = None) -> bitarray:
+        if Length is not None:
+            Result = bau.zeros(Length)
+            for b in BM:
+                if b < Length:
+                    Result[b] = 1
+                else:
+                    break
+        else:
+            BALen = BM.max() + 1
+            Result = bau.zeros(BALen)
+            for b in BM:
+                Result[b] = 1
+        return Result
+        
     @staticmethod
     def fromFile(FileName : str, Length : int = None) -> bitarray:
         Result = bitarray()
