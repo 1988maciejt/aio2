@@ -142,6 +142,8 @@ class RangesHistogram:
     
   def getRanges(self, Normalise : bool = False):
     BinVolume = self._data_cnt / float(self._range_count)
+    if self._min is None or self._max is None:
+      return [0 for i in range(self._range_count + 1)]
     Ranges = [self._min]
     Sum = 0
     MustAdd = True
@@ -154,12 +156,17 @@ class RangesHistogram:
         MustAdd = False
     if MustAdd:
       Ranges.append(self._max)
-    if Normalise:
-      RangesNorm = []
-      for r in Ranges:
-        rn = (r - self._min) / (self._max - self._min)
-        RangesNorm.append(rn)
-      return RangesNorm
+    while len(Ranges) < self._range_count + 1:
+      Ranges.append(Ranges[-1])
+    try:
+      if Normalise:
+        RangesNorm = []
+        for r in Ranges:
+          rn = (r - self._min) / (self._max - self._min)
+          RangesNorm.append(rn)
+        return RangesNorm
+    except:
+      pass
     return Ranges
   
   def getMinMax(self) -> tuple:

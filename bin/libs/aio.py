@@ -220,6 +220,24 @@ class Aio:
         }      
         </style>
       """
+  SectionNumber = 0
+  SubSectionNumber = 0
+  LineNumber = 0
+  @staticmethod
+  def printNumberedSection(*args):
+    Aio.SectionNumber += 1
+    Aio.printSection(f"{Aio.SectionNumber}.", *args)
+    Aio.SubSectionNumber = 1
+    Aio.LineNumber = 1
+  @staticmethod
+  def printNumberedSubsection(*args):
+    Aio.SubSectionNumber += 1
+    Aio.printSubsection(f"{Aio.SectionNumber}.{Aio.SubSectionNumber}.", *args)
+    Aio.LineNumber = 1
+  @staticmethod
+  def printNumberedLine(*args):
+    Aio.LineNumber += 1
+    Aio.print(f"{Aio.SectionNumber}.{Aio.SubSectionNumber}.{Aio.LineNumber}.", *args)
   @staticmethod
   def printSection(*args):
     s = ""

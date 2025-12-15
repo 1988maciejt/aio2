@@ -117,6 +117,7 @@ import libs.research_projects.orthogonal_compactor.orthogonal_compactor as Ortho
 import libs.research_projects.testkompress_advisor.testkompress_advisor as TestKompressAdvisor
 import libs.research_projects.testkompress_advisor.edt_solver as EdtSolver
 import warnings
+from pyroaring import BitMap
 
 warnings.simplefilter("ignore")
 

@@ -268,10 +268,12 @@ class List:
       result.append(Sublist)
     return result
   
-  def toString(lst : list, indent = 0) -> str:
+  def toString(lst : list, indent = 0, IncludeIndices = False) -> str:
     result = ""
     ind = " " * indent
     for i in lst:
+      if IncludeIndices:
+        result += f"Idx={i}: \t"
       result += ind + str(i) + "\n"
     return result
   
@@ -345,6 +347,7 @@ class List:
   
   def getDifferentItems(a : list, b : list) -> list:
     return list(set(a) ^ set(b))
+  
   
 
 

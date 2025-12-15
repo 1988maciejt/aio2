@@ -57,6 +57,7 @@ python3 -m pip install --upgrade python-docx
 python3 -m pip install --upgrade PyMuPDF
 python3 -m pip install --upgrade galois
 python3 -m pip install --upgrade pysnooper
+python3 -m pip install --upgrade pyroaring
 
 cd /tmp
 mkdir -p iverilog

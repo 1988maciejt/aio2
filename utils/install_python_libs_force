@@ -40,3 +40,4 @@ python3 -m pip install --upgrade python-docx --break-system-packages
 python3 -m pip install --upgrade PyMuPDF --break-system-packages
 python3 -m pip install --upgrade galois --break-system-packages
 python3 -m pip install --upgrade pysnooper --break-system-packages
+python3 -m pip install --upgrade pyroaring --break-system-packages

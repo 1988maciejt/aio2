@@ -31,6 +31,7 @@ _required_libs = [
   "nltk",
   "galois",
   "pysnooper",
+  "pyroaring",
 ]
 def _isModuleAvailable(LibName : str) -> bool:
   try:

@@ -47,3 +47,4 @@ python3 -m pip install --upgrade suncalc
 python3 -m pip install --upgrade pvlib
 python3 -m pip install --upgrade galois
 python3 -m pip install --upgrade pysnooper
+python3 -m pip install --upgrade pyroaring
