@@ -749,18 +749,14 @@ class TestCube:
     def canBeMergedWithAnother(self, AnotherCube : TestCube) -> bool:
         if len(self) != len(AnotherCube):
             return False
-        for AnotherPos in AnotherCube._ones:
-            if AnotherPos in self._zeros:
-                return False
-        for AnotherPos in AnotherCube._zeros:
-            if AnotherPos in self._ones:
-                return False
-        for AnotherPos in AnotherCube._primones:
-            if AnotherPos in self._primzeros:
-                return False
-        for AnotherPos in AnotherCube._primzeros:
-            if AnotherPos in self._primones:
-                return False
+        if not self._primzeros.isdisjoint(AnotherCube._primones):
+            return False
+        if not self._primones.isdisjoint(AnotherCube._primzeros):
+            return False
+        if not self._zeros.isdisjoint(AnotherCube._ones):
+            return False
+        if not self._ones.isdisjoint(AnotherCube._zeros):
+            return False
         #for AnotherPos, AnotherVal in AnotherCube._dict.items():
         #    if AnotherPos in self._dict:
         #        if self._dict[AnotherPos] != AnotherVal:
