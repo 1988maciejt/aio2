@@ -320,6 +320,22 @@ class Str:
     except:
       return None
     
+  @staticmethod
+  def addIndentation(Text : str, Indentation : str) -> str:
+    if type(Indentation) is float:
+      Indentation = " " * int(round(Indentation, 0))
+    elif type(Indentation) is int:
+      Indentation = " " * Indentation
+    Result = ""
+    Second = 0
+    for Line in Text.split("\n"):
+      if Second:
+        Result += "\n"
+      else:
+        Second = 1
+      Result += Indentation + Line
+    return Result
+    
 
 class StrHex:
   

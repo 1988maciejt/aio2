@@ -215,6 +215,20 @@ class File:
   writeObject = writeObjectToFile
   
   @staticmethod
+  def copy(SourceFileName : str, DestFileName : str = None) -> bool:
+    if DestFileName is None:
+      DestFileName = os.path.basename(SourceFileName)
+    try:
+      shutil.copy2(SourceFileName, DestFileName)
+      return True
+    except:
+      return False
+  
+  @staticmethod
+  def getSize(FileName : str) -> int:
+    return os.path.getsize(FileName)
+  
+  @staticmethod
   def exists(FileName : str) -> bool:
     return os.path.isfile(FileName)
   

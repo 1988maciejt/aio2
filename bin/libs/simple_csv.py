@@ -19,7 +19,7 @@ class SimpleCSV:
             for Row in FileName:
                 if len(Row) > self._coll_cnt:
                     self._coll_cnt = len(Row)
-                Rows.append(Row)
+                Rows.append(Row.copy())
             for Row in Rows:
                 for i, v in enumerate(Row):
                     if type(Row[i]) is str:
@@ -60,6 +60,21 @@ class SimpleCSV:
     def copy(self) -> "SimpleCSV":
         return SimpleCSV(self)
     
+    def __add__(self, other) -> "SimpleCSV":
+        MaxCol = max(self.getColumnCount(), other.getColumnCount())
+        Rows = []
+        for Row in self._rows:
+            RowToAdd = Row.copy()
+            if len(RowToAdd) < MaxCol:
+                RowToAdd += ["" for _ in range(MaxCol - len(RowToAdd))]
+            Rows.append(RowToAdd)
+        for Row in other._rows:
+            RowToAdd = Row.copy()
+            if len(RowToAdd) < MaxCol:
+                RowToAdd += ["" for _ in range(MaxCol - len(RowToAdd))]
+            Rows.append(RowToAdd)
+        return SimpleCSV(Rows)
+    
     def toFile(self, FileName : str, Separator : str = ",") -> None:
         with open(FileName, "w", encoding="utf-8") as F:
             for Row in self._rows:
@@ -83,7 +98,7 @@ class SimpleCSV:
                 if re.search(ExcludingRegex, Value) is not None:
                     Include = False
             if Include:
-                NewRows.append(Row)
+                NewRows.append(Row.copy())
         NewCSV = SimpleCSV([])
         NewCSV._coll_cnt = self._coll_cnt
         NewCSV._rows = NewRows

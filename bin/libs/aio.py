@@ -10,6 +10,21 @@ from prompt_toolkit.shortcuts import *
 import subprocess
 import shlex
 
+
+
+# call on repr  decorator:
+class CallOnRepr:
+    def __init__(self, func):
+        self.func = func
+    def __repr__(self):
+        result = self.func()
+        return str(result)
+def call_on_repr(func):
+    return CallOnRepr(func)
+
+##########################
+
+
 class Aio:
   _transcript = "" 
   _sections = False
@@ -43,42 +58,99 @@ class Aio:
       import psutil
       return psutil.virtual_memory()[0]
     except:
-      return 4000000
+      return -1
+    
+  @staticmethod
+  def getMemoryUsedByPython() -> int:
+    try:
+      import psutil
+      process = psutil.Process(os.getpid())
+      return process.memory_info().rss
+    except:
+      return -1
+    
+  @staticmethod
+  def getMemoryLimitSoft() -> int:
+    try:
+      import resource
+      soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+      return soft
+    except:
+      return -1
+  
+  @staticmethod
+  def getMemoryLimitHard() -> int:
+    try:
+      import resource
+      soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+      return hard
+    except:
+      return -1
+    
+  @staticmethod
+  def getAvailableMemory() -> int:
+    try:
+      import psutil
+      return psutil.virtual_memory().available
+    except:
+      return -1
+    
+  @staticmethod
   def isType(Object, ItsType) -> bool:
     if "<class 'str'>" not in str(type(ItsType)):
       ItsType = str(type(ItsType))
     return ItsType in str(type(Object))
+  
+  @staticmethod
+  def printObject(Object, Indent=0, Repr=False):
+    Formatted = Aio.format(Object, Indent, Repr).strip()
+    Aio.print(Formatted)
+  
+  @staticmethod
   def format(object, indent=0, Repr=False) -> str:
+    from libs.utils_str import Str
     result = ""
     if "list" in str(type(object)):
-      result += " "*indent + "[\n"
+      result += "[\n"
       for i in object:
-        result += Aio.format(i, indent+2, Repr)
-      result += " "*indent + "]\n"
+        if type(indent) is str:
+          newindent = indent + "  "
+        else:
+          newindent = indent + 2
+        result += Aio.format(i, newindent, Repr)
+      result += "]\n"
+      result = Str.addIndentation(result, indent)
     elif "dict" in str(type(object)):
-      result += " "*indent + "{\n"
+      result += "{\n"
       for key in object.keys():
         if Repr:
-          result += " "*indent + "  " + repr(key) + ":\n"
+          result += "  " + repr(key) + ":\n"
         else:
-          result += " "*indent + "  " + str(key) + ":\n"
+          result += "  " + str(key) + ":\n"
         result += Aio.format(object[key], indent+4, Repr)
-      result += " "*indent + "}\n"
+      result += "}\n"
+      result = Str.addIndentation(result, indent)
     else: 
       if Repr:
-        result = " "*indent + repr(object) + "\n"
+        result = Str.addIndentation(repr(object), indent) + "\n"
       else:
-        result = " "*indent + str(object) + "\n"
+        result = Str.addIndentation(str(object), indent) + "\n"
     return result
+  
+  
+  
   @staticmethod
   def getTerminalColumns() -> int:
     return shutil.get_terminal_size()[0]
+  
   @staticmethod
   def getTerminalRows() -> int:
     return shutil.get_terminal_size()[1]
+  
   @staticmethod
   def getPath() -> str:
     return getAioPath()
+  
   @staticmethod
   def printTranscriptEnable(FileName = "transcript.txt"):
     global transcript_file

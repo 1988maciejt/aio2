@@ -147,6 +147,8 @@ class RangesHistogram:
     Ranges = [self._min]
     Sum = 0
     MustAdd = True
+    if self._max <= self._min:
+      self._max = self._min + 1e-10
     for i in sorted(self._data_dict.keys()):
       Sum += self._data_dict[i]
       MustAdd = True

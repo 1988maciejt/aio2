@@ -62,8 +62,12 @@ class TestDataDecompressor:
         Result.MinimumBatteryLevel = self.MinimumBatteryLevel
         return Result
     
-    def getEncodingCapacity(self) -> int:
-        return int(self.InputCount * ((self.LfsrLength // self.InputCount) + self.ScanLength))
+    def getEncodingCapacity(self, InitialPhaseLen : int = None) -> int:
+        if InitialPhaseLen is None:
+            InitialPhaseLen = self.LfsrLength // self.InputCount
+            #if InitialPhaseLen < self.LfsrLength: 
+            #    InitialPhaseLen += 1
+        return int(self.InputCount * (InitialPhaseLen + self.ScanLength))
 
     def __repr__(self) -> str:
         return f"TestDataDecompressor({self.InputCount}, {self.OutputCount}, {self.LfsrLength}, {self.ScanLength})"
@@ -184,8 +188,10 @@ class EdtStructure:
         for i, Decompressor in enumerate(self._decompressors):
             Decompressor.InputCount = InputCount[i]
     
-    def getEncodingCapacity(self) -> int:
-        return sum([Decompressor.getEncodingCapacity() for Decompressor in self._decompressors])
+    def getEncodingCapacity(self, InitialPhaseLen : int = None) -> int:
+        if type(InitialPhaseLen) not in [list]:
+            InitialPhaseLen = [InitialPhaseLen] * len(self._decompressors)
+        return sum([Decompressor.getEncodingCapacity(InitialPhaseLen[i]) for i, Decompressor in enumerate(self._decompressors)])
     
     def getUsedEncodingCapacity(self, Cube : TestCube) -> float:
         return Cube.getSpecifiedBitCount() / self.getEncodingCapacity()
@@ -212,33 +218,37 @@ class EdtStructure:
     def fromFile(FileName : str, MinBatteryLevel : float = 0.1) -> EdtStructure:
         InCount, OutCount, LfsrLen, ScanLen = 0, 0, 0, 0
         Cntr = 0 
-        for Line in Generators().readFileLineByLine(FileName):
-            if Cntr >= 4:
-                break
-            if ScanLen == 0:
-                R = re.search(r"scan_length\s+=\s+([0-9]+)", Line)
-                if R:
-                    ScanLen = int(R.group(1))
-                    Cntr += 1
-                    continue
-            if LfsrLen == 0:
-                R = re.search(r"decompressor_size\s+=\s+([0-9]+)", Line)
-                if R:
-                    LfsrLen = int(R.group(1))
-                    Cntr += 1
-                    continue
-            if InCount == 0:
-                R = re.search(r"n_input_channels\s+=\s+([0-9]+)", Line)
-                if R:
-                    InCount = int(R.group(1))
-                    Cntr += 1
-                    continue
-            if OutCount == 0:
-                R = re.search(r"n_scan_chains\s+=\s+([0-9]+)", Line)
-                if R:
-                    OutCount = int(R.group(1))
-                    Cntr += 1
-                    continue
+        if 1: # old method
+            for Line in Generators().readFileLineByLine(FileName):
+                if Cntr >= 4:
+                    break
+                if ScanLen == 0:
+                    R = re.search(r"scan_length\s*=\s*([0-9]+)", Line)
+                    if R:
+                        ScanLen = int(R.group(1))
+                        Cntr += 1
+                        continue
+                    
+                if LfsrLen == 0:
+                    R = re.search(r"decompressor_size\s*=\s*([0-9]+)", Line)
+                    if R:
+                        LfsrLen = int(R.group(1))
+                        Cntr += 1
+                        continue
+                if InCount == 0:
+                    R = re.search(r"n_input_channels\s*=\s*([0-9]+)", Line)
+                    if R:
+                        InCount = int(R.group(1))
+                        Cntr += 1
+                        continue
+                if OutCount == 0:
+                    R = re.search(r"n_scan_chains\s*=\s*([0-9]+)", Line)
+                    if R:
+                        OutCount = int(R.group(1))
+                        Cntr += 1
+                        continue
+        else:
+            pass
         return EdtStructure(TestDataDecompressor(InCount, OutCount, LfsrLen, ScanLen), MinBatteryLevel)
     
     def __str__(self):
@@ -1547,10 +1557,10 @@ class TestCubeSet:
                     SpecBitsDict[int(R.group(1))] = int(R.group(2))
                     continue
             # EDT aborts
-            R = re.search(r"TDVE[=:]*\s*Cube\s*([0-9]+):\s*sc\s*[=:]\s*([0-9]+)", Line)
-            if R:
-                EABId = int(R.group(1)) + 1
-                continue
+            #R = re.search(r"TDVE[=:]*\s*Cube\s*([0-9]+):\s*sc\s*[=:]\s*([0-9]+)", Line)
+            #if R:
+            #    EABId = int(R.group(1)) + 1
+            #    continue
             R = re.search(r'EDT\s*Abort\s\(([0-9]+)\):\s*\<([0-9]+)\s\(fin[:=]([0-9]+)\)\s*s-a-([01])\>\s*spec_sc[=:]([0-9]+)', Line)
             if R:
                 FltId = int(R.group(2))
@@ -1620,15 +1630,18 @@ class TestCubeSet:
                     if ThisCubeIsTMPL:
                         CubeTMPL = Cube.copy()
                     else:
-                        Result.addCube(Cube)
-                        if CubeTMPL is not None:
-                            if Cube.getSpecifiedBitCount() != CubeTMPL.getSpecifiedBitCount():
-                                Aio.print(Cube.Id, Cube.getSpecifiedBitCount(), CubeTMPL.getSpecifiedBitCount())
+                        if Cube.Id > 0:
+                            Result.addCube(Cube)
+                            #print(f"Added Cube Id={Cube.Id}, PatternId={Cube.PatternId}, SpecBits={Cube.getSpecifiedBitCount()}")
+#                        if CubeTMPL is not None:
+#                            if Cube.getSpecifiedBitCount() != CubeTMPL.getSpecifiedBitCount():
+#                                Aio.print(Cube.Id, Cube.getSpecifiedBitCount(), CubeTMPL.getSpecifiedBitCount())
 #                        else:
 #                            Aio.print(Cube.Id, Cube.getSpecifiedBitCount())
                         CubeTMPL = None
                 ThisCubeIsTMPL = ModeTMPL
                 Cube = TestCube(CubeLength, Id=Id, PatternId=PatternId, BufferId=BufferId, BufferSize=BuffSizePerPattern)
+                #print(f"New Cube Id={Id}, PatternId={PatternId}")
                 PIAdder = 0
                 continue
             R = re.search(r"TDVE[:]*\s*([-0-9]+)\s+([0-9]+)\s([0-9]+)", Line)
@@ -2798,10 +2811,11 @@ class PreparsedData:
     __slots__ = ("_data",)
 
     def __init__(self, FileName : str) -> None:
+        from libs.files import File
         try:
             self._data = File.readObject(FileName, 1)
         except:
-            self._data = None
+            self._data = dict()
             Aio.printError("Error reading preparsed data from file:", FileName)
             
     def getData(self) -> dict:
@@ -2846,14 +2860,18 @@ class PreparsedData:
                 Result.append(SpecBits / SCells)
         return Result
     
-    def getCubeUsedEncodingCapacity(self, Usefull : bool = True, Dropped : bool = False, Aborted : bool = False) -> list:
+    def getCubeUsedEncodingCapacity(self, Usefull : bool = True, Dropped : bool = False, Aborted : bool = False, EncodingCapacity : int = None) -> list:
         CUbeSpecBits = self.getCubeSpecBits(Usefull, Dropped, Aborted)
         Edt = self.getEdtStructure()
-        EncCap = None if Edt is None else Edt.getEncodingCapacity()
+        if EncodingCapacity is not None:
+            EncCap = EncodingCapacity
+        else:
+            EncCap = None if Edt is None else Edt.getEncodingCapacity()
         Result = []
         if EncCap is not None:
             for SpecBits in CUbeSpecBits:
                 Result.append(SpecBits / EncCap)
+                #print(SpecBits, EncCap, SpecBits / EncCap)
         return Result
     
     def getScanCellsStructure(self) -> ScanCellsStructure:
@@ -2878,8 +2896,8 @@ class PreparsedData:
         return self._data.get("edt", None)
     
     def getFaultCount(self) -> int:
-        di = self.getDesignInfoDict()
-        return di.get("#Faults", 0) if di is not None else 0
+        d = self.getData()
+        return d.get("faults", 0) if d is not None else 0
     
     def getGateCount(self) -> int:
         di = self.getDesignInfoDict()
@@ -2974,65 +2992,74 @@ class PreparsedData:
         UsefulCubeSpecBits = self.getCubeSpecBits(1,0,0)
         DroppedCubeSpecBits = self.getCubeSpecBits(0,1,0)
         AbortedCubeSpecBits = self.getCubeSpecBits(0,0,1)
-        UsefulCubesFillRate = self.getCubeFillRates(1,0,0)
-        DroppedCubesFillRate = self.getCubeFillRates(0,1,0)
-        AbortedCubesFillRate = self.getCubeFillRates(0,0,1)
-        UsefulCubesEncCap = self.getCubeUsedEncodingCapacity(1,0,0)
-        #DroppedCubesEncCap = self.getCubeUsedEncodingCapacity(0,1,0)
-        #AbortedCubesEncCap = self.getCubeUsedEncodingCapacity(0,0,1)
+        #UsefulCubesFillRate = self.getCubeFillRates(1,0,0)
+        #DroppedCubesFillRate = self.getCubeFillRates(0,1,0)
+        #AbortedCubesFillRate = self.getCubeFillRates(0,0,1)
         DynCompPerPattern = self.getDynamicCompactionAdddedPerPatternData()
         TC : TestCubeSet = self.getUsefullCubes(False)
         PatternSpecBits = TC.getPatternSpecBits()
+        #try:
+        #    Sol = self._data["sol"]
+        #    print('1')
+        #    InitialPhaseLen = Sol._initial_phase_len
+        #    print('1', InitialPhaseLen)
+        #except:
+        #    InitialPhaseLen = None
+        EncodingCap = Edt.getEncodingCapacity()
+        #EncodingCap = 91
+        UsefulCubesEncCap = self.getCubeUsedEncodingCapacity(1,0,0, EncodingCap)
+        DroppedCubesEncCap = self.getCubeUsedEncodingCapacity(0,1,0, EncodingCap)
+        AbortedCubesEncCap = self.getCubeUsedEncodingCapacity(0,0,1, EncodingCap)
         #Patterns : TestCubeSet = TC.getPatterns()
         #Patterns.getAverageSpecBits()
         ### Compression #######################
         Result.append(Edt.getInputCount())              # #Channels             1   1
         Result.append(Edt.getLongestLfsrSize())         # LFSR size             1   2
         Result.append(Edt.getCompressionRatio())        # Compression ratio     1   3
-        Result.append(Edt.getEncodingCapacity())        # Encoding capacity     1   4
+        Result.append(EncodingCap)                      # Encoding capacity     1   4
         Result.append(Edt.getScanChainCount())          # #Scan chains          1   5   
         Result.append(Edt.getScanLength())              # Scan length           1   6
         ### Circuitry #########################
-        Result.append(DI["#Gates"])                     # #Gates                1   7
-        Result.append(DI["#Faults"])                    # #Faults               1   8
+        Result.append(self.getGateCount())                     # #Gates                1   7
+        Result.append(self.getFaultCount())                    # #Faults               1   8
         ### Useful cubes ######################
         Result.append(len(UsefulCubeSpecBits))           # Count                1   9
         Result.append(List.Avg(UsefulCubeSpecBits))      # AVG                  1  10
         Result.append(List.StdDev(UsefulCubeSpecBits))   # STD DEV              1  11
-        Result.append(min(UsefulCubeSpecBits + [0]))     # MIN                  1  12
-        Result.append(max(UsefulCubeSpecBits + [0]))     # MAX                  1  13
+        Result.append(min(UsefulCubeSpecBits) if len(UsefulCubeSpecBits) > 0 else 0)     # MIN                  1  12
+        Result.append(max(UsefulCubeSpecBits) if len(UsefulCubeSpecBits) > 0 else 0)     # MAX                  1  13
         Result += RangesHistogram(UsefulCubeSpecBits, 10).getRanges(1)[1:]  # RangesHistogram of SpecBits    9 14-22
-        Result.append(sum(UsefulCubesEncCap))            # Used encoding capacity SUM      1  23
+        Result.append(List.Avg(UsefulCubesEncCap))       # Used encoding capacity      1  23
         ### Dropped cubes #####################
         Result.append(len(DroppedCubeSpecBits))          # Count                1  24
         Result.append(List.Avg(DroppedCubeSpecBits))     # AVG                  1  25
         Result.append(List.StdDev(DroppedCubeSpecBits))  # STD DEV              1  26
-        Result.append(min(DroppedCubeSpecBits + [0]))    # MIN                  1  27
-        Result.append(max(DroppedCubeSpecBits + [0]))    # MAX                  1  28
+        Result.append(min(DroppedCubeSpecBits) if len(DroppedCubeSpecBits) > 0 else 0)    # MIN                  1  27
+        Result.append(max(DroppedCubeSpecBits) if len(DroppedCubeSpecBits) > 0 else 0)    # MAX                  1  28
         Result += RangesHistogram(DroppedCubeSpecBits, 10).getRanges(1)[1:]  # RangesHistogram of SpecBits    9 29-37
-        Result.append(sum(DroppedCubeSpecBits))          # Used encoding capacity SUM      1  38
+        Result.append(List.Avg(DroppedCubesEncCap))     # Used encoding capacity      1  38
         ### Aborted cubes #####################
         Result.append(len(AbortedCubeSpecBits))          # Count                1  39
         Result.append(List.Avg(AbortedCubeSpecBits))     # AVG                  1  40
         Result.append(List.StdDev(AbortedCubeSpecBits))  # STD DEV              1  41
-        Result.append(min(AbortedCubeSpecBits + [0]))    # MIN                  1  42
-        Result.append(max(AbortedCubeSpecBits + [0]))    # MAX                  1  43
+        Result.append(min(AbortedCubeSpecBits) if len(AbortedCubeSpecBits) > 0 else 0)    # MIN                  1  42
+        Result.append(max(AbortedCubeSpecBits) if len(AbortedCubeSpecBits) > 0 else 0)    # MAX                  1  43
         Result += RangesHistogram(AbortedCubeSpecBits, 10).getRanges(1)[1:]  # RangesHistogram of SpecBits    9 44-52
-        Result.append(sum(AbortedCubeSpecBits))          # Used encoding capacity SUM      1  53
+        Result.append(List.Avg(AbortedCubesEncCap))     # Used encoding capacity      1  53
         ### Dynamic compaction ################
         Result.append(self.getDynamicCompactionAddedCells())   # Added scan cells SUM     1  54
         Result.append(List.Avg(DynCompPerPattern))      # per pattern AVG       1  55
         Result.append(List.StdDev(DynCompPerPattern))   # per pattern STD DEV   1  56
-        Result.append(min(DynCompPerPattern + [0]))     # per pattern MIN       1  57
-        Result.append(max(DynCompPerPattern + [0]))     # per pattern MAX       1  58
+        Result.append(min(DynCompPerPattern) if len(DynCompPerPattern) > 0 else 0)     # per pattern MIN       1  57
+        Result.append(max(DynCompPerPattern) if len(DynCompPerPattern) > 0 else 0)     # per pattern MAX       1  58
         Result += RangesHistogram(DynCompPerPattern, 10).getRanges(1)[1:]  # per pattern RangesHistogram    9 59-67
         Result.append(sum(self.getDynamicCompactionAdddedFaultsData()))  # Added faults SUM    1  68
         ### Patterns ##########################
         Result.append(len(PatternSpecBits))             # Count                 1  69
         Result.append(List.Avg(PatternSpecBits))        # AVG                   1  70
         Result.append(List.StdDev(PatternSpecBits))     # STD DEV               1  71
-        Result.append(min(PatternSpecBits + [0]))     # per pattern MIN         1  72
-        Result.append(max(PatternSpecBits + [0]))     # per pattern MAX         1  73
+        Result.append(min(PatternSpecBits) if len(PatternSpecBits) > 0 else 0)     # per pattern MIN         1  72
+        Result.append(max(PatternSpecBits) if len(PatternSpecBits) > 0 else 0)     # per pattern MAX         1  73
         Result += RangesHistogram(PatternSpecBits, 10).getRanges(1)[1:]  # per pattern RangesHistogram      9 74-82
         ### ATPG, EDT #########################
         Result.append(self.getTestDataVolume())         # Test data volume      1  83
@@ -3050,7 +3077,271 @@ class PreparsedData:
             Result.append(EstEdt.getCompressionRatio()) # Estimated Compression ratio
             Result.append(EstEdt.getEncodingCapacity()) # Estimated Encoding capacity
         return Result
-        
+    
+    
+class MLDataUtils:
+    
+    @staticmethod
+    def getEmptyDict() -> dict:
+        Result = {
+            "InputChannels" : None,
+            "LfsrSize" : None,
+            "CompressionRatio" : None,
+            "EncodingCapacity" : None,
+            "ScanChains" : None,
+            "ScanLength" : None,
+            "GateCount" : None,
+            "FaultCount" : None,
+            "UsefulCubeCount" : None,
+            "UsefulCubeSpecBitsAVG" : None,
+            "UsefulCubeSpecBitsSTDDEV" : None,
+            "UsefulCubeSpecBitsMIN" : None,
+            "UsefulCubeSpecBitsMAX" : None,
+            "UsefulCubeSpecBitsRange1" : None,
+            "UsefulCubeSpecBitsRange2" : None,
+            "UsefulCubeSpecBitsRange3" : None,
+            "UsefulCubeSpecBitsRange4" : None,
+            "UsefulCubeSpecBitsRange5" : None,
+            "UsefulCubeSpecBitsRange6" : None,
+            "UsefulCubeSpecBitsRange7" : None,
+            "UsefulCubeSpecBitsRange8" : None,
+            "UsefulCubeSpecBitsRange9" : None,
+            "UsefulCubeSpecBitsRange10" : 1,
+            "UsefulCubesUsedEncodingCapacityAVG" : None,
+            "DroppedCubeCount" : None,
+            "DroppedCubeSpecBitsAVG" : None,
+            "DroppedCubeSpecBitsSTDDEV" : None,
+            "DroppedCubeSpecBitsMIN" : None,
+            "DroppedCubeSpecBitsMAX" : None,
+            "DroppedCubeSpecBitsRange1" : None,
+            "DroppedCubeSpecBitsRange2" : None,
+            "DroppedCubeSpecBitsRange3" : None,
+            "DroppedCubeSpecBitsRange4" : None,
+            "DroppedCubeSpecBitsRange5" : None,
+            "DroppedCubeSpecBitsRange6" : None,
+            "DroppedCubeSpecBitsRange7" : None,
+            "DroppedCubeSpecBitsRange8" : None,
+            "DroppedCubeSpecBitsRange9" : None,
+            "DroppedCubeSpecBitsRange10" : 1,
+            "DroppedCubesUsedEncodingCapacityAVG" : None,
+            "AbortedCubeCount" : None,
+            "AbortedCubeSpecBitsAVG" : None,
+            "AbortedCubeSpecBitsSTDDEV" : None,
+            "AbortedCubeSpecBitsMIN" : None,
+            "AbortedCubeSpecBitsMAX" : None,
+            "AbortedCubeSpecBitsRange1" : None,
+            "AbortedCubeSpecBitsRange2" : None,
+            "AbortedCubeSpecBitsRange3" : None,
+            "AbortedCubeSpecBitsRange4" : None,
+            "AbortedCubeSpecBitsRange5" : None,
+            "AbortedCubeSpecBitsRange6" : None,
+            "AbortedCubeSpecBitsRange7" : None,
+            "AbortedCubeSpecBitsRange8" : None,
+            "AbortedCubeSpecBitsRange9" : None,
+            "AbortedCubeSpecBitsRange10" : 1,
+            "AbortedCubesUsedEncodingCapacityAVG" : None,
+            "DynamicCompactionAddedScanCellsSUM" : None,
+            "DynamicCompactionAddedPerPatternAVG" : None,
+            "DynamicCompactionAddedPerPatternSTDDEV" : None,
+            "DynamicCompactionAddedPerPatternMIN" : None,
+            "DynamicCompactionAddedPerPatternMAX" : None,
+            "DynamicCompactionAddedPerPatternRange1" : None,
+            "DynamicCompactionAddedPerPatternRange2" : None,
+            "DynamicCompactionAddedPerPatternRange3" : None,
+            "DynamicCompactionAddedPerPatternRange4" : None,
+            "DynamicCompactionAddedPerPatternRange5" : None,
+            "DynamicCompactionAddedPerPatternRange6" : None,
+            "DynamicCompactionAddedPerPatternRange7" : None,
+            "DynamicCompactionAddedPerPatternRange8" : None,
+            "DynamicCompactionAddedPerPatternRange9" : None,
+            "DynamicCompactionAddedPerPatternRange10" : 1,
+            "DynamicCompactionAddedFaultsSUM" : None,
+            "PatternCount" : None,
+            "PatternSpecBitsAVG" : None,
+            "PatternSpecBitsSTDDEV" : None,
+            "PatternSpecBitsMIN" : None,
+            "PatternSpecBitsMAX" : None,
+            "PatternSpecBitsRange1" : None,
+            "PatternSpecBitsRange2" : None,
+            "PatternSpecBitsRange3" : None,
+            "PatternSpecBitsRange4" : None,
+            "PatternSpecBitsRange5" : None,
+            "PatternSpecBitsRange6" : None,
+            "PatternSpecBitsRange7" : None,
+            "PatternSpecBitsRange8" : None,
+            "PatternSpecBitsRange9" : None,
+            "PatternSpecBitsRange10" : 1,
+            "TestDataVolume" : None,
+            "TestTime" : None,
+            "EdtAborts" : None,
+            "AtpgAborts" : None,
+            "TestCoverage" : None
+        }
+        return Result
+    
+    @staticmethod
+    def getMLReportFromLog(FileName : str) -> str:
+        Run = False
+        DataStr = ""
+        for Line in Generators().readFileLineByLine(FileName):
+            if not Run:
+                if re.search(r"report\s+ml\s+data", Line):
+                    Run = True
+                    continue
+            else:
+                DataStr += Line + "\n"
+        return DataStr
+    
+    @staticmethod
+    def getSectionsFromMLReport(MLReportStr : str) -> dict:
+        Result = {}
+        CurrentSection = None
+        for Line in MLReportStr.splitlines():
+            R = re.search(r"--- --- --- --- ---\s+(.+)$", Line)
+            if R:
+                CurrentSection = R.group(1)
+                Result[CurrentSection] = ""
+                continue
+            if CurrentSection is not None:
+                Line = Line.replace('n/a', '0')
+                Result[CurrentSection] += Line + "\n"
+        return Result
+    
+    @staticmethod
+    def getMLDataFromSections(Sections : dict) -> dict:
+        Result = {}
+        for SectionName, SectionText in Sections.items():
+            for Line in SectionText.splitlines():
+                R = re.search(r"\/\/\s+(.*)\:\s*([0-9.]+)", Line)
+                if R:
+                    Key = R.group(1).strip()
+                    Value = R.group(2)
+                    try:
+                        if '.' in Value:
+                            Value = float(Value)
+                        else:
+                            Value = int(Value)
+                    except:
+                        pass
+                    SectionDict = Result.get(SectionName, {})
+                    SectionDict[Key] = Value
+                    Result[SectionName] = SectionDict
+        return Result
+
+    @staticmethod
+    def getMLDataFromSectionsDict(SectionsDict : dict) -> list:
+        Result = []
+        SectionDict = SectionsDict["Design data"]
+        Result.append(SectionDict["Input channels"])
+        Result.append(SectionDict["LFSR size"])
+        Result.append(SectionDict["Compression ratio"])
+        Result.append(SectionDict["Encoding capacity"])
+        Result.append(SectionDict["Scan chain count"])
+        Result.append(SectionDict["Scan chain length"])
+        Result.append(SectionDict["Gate count"])
+        Result.append(SectionDict["Fault count"])
+        SectionDict = SectionsDict["Useful cubes"]
+        Result.append(SectionDict["Cube count"])
+        Result.append(SectionDict["AVG specified bits"])
+        Result.append(SectionDict["Std dev spec bits"])
+        Result.append(SectionDict["Min specified bits"])
+        Result.append(SectionDict["Max specified bits"])
+        Result.append(SectionDict["HIST_1 spec bits"])
+        Result.append(SectionDict["HIST_2 spec bits"])
+        Result.append(SectionDict["HIST_3 spec bits"])
+        Result.append(SectionDict["HIST_4 spec bits"])
+        Result.append(SectionDict["HIST_5 spec bits"])
+        Result.append(SectionDict["HIST_6 spec bits"])
+        Result.append(SectionDict["HIST_7 spec bits"])
+        Result.append(SectionDict["HIST_8 spec bits"])
+        Result.append(SectionDict["HIST_9 spec bits"])
+        Result.append(1)
+        Result.append(SectionDict["Used enc capacity"])
+        SectionDict = SectionsDict["Dropped cubes"]
+        Result.append(SectionDict["Cube count"])
+        Result.append(SectionDict["AVG specified bits"])
+        Result.append(SectionDict["Std dev spec bits"])
+        Result.append(SectionDict["Min specified bits"])
+        Result.append(SectionDict["Max specified bits"])
+        Result.append(SectionDict["HIST_1 spec bits"])
+        Result.append(SectionDict["HIST_2 spec bits"])
+        Result.append(SectionDict["HIST_3 spec bits"])
+        Result.append(SectionDict["HIST_4 spec bits"])
+        Result.append(SectionDict["HIST_5 spec bits"])
+        Result.append(SectionDict["HIST_6 spec bits"])
+        Result.append(SectionDict["HIST_7 spec bits"])
+        Result.append(SectionDict["HIST_8 spec bits"])
+        Result.append(SectionDict["HIST_9 spec bits"])
+        Result.append(1)
+        Result.append(SectionDict["Used enc capacity"])
+        SectionDict = SectionsDict["Aborted cubes"]
+        Result.append(SectionDict["Cube count"])
+        Result.append(SectionDict["AVG specified bits"])
+        Result.append(SectionDict["Std dev spec bits"])
+        Result.append(SectionDict["Min specified bits"])
+        Result.append(SectionDict["Max specified bits"])
+        Result.append(SectionDict["HIST_1 spec bits"])
+        Result.append(SectionDict["HIST_2 spec bits"])
+        Result.append(SectionDict["HIST_3 spec bits"])
+        Result.append(SectionDict["HIST_4 spec bits"])
+        Result.append(SectionDict["HIST_5 spec bits"])
+        Result.append(SectionDict["HIST_6 spec bits"])
+        Result.append(SectionDict["HIST_7 spec bits"])
+        Result.append(SectionDict["HIST_8 spec bits"])
+        Result.append(SectionDict["HIST_9 spec bits"])
+        Result.append(1)
+        Result.append(SectionDict["Used enc capacity"])
+        SectionDict = SectionsDict["Dynamic compaction"]
+        Result.append(SectionDict["Added scan cells"])
+        Result.append(SectionDict["AVG added per patt"])
+        Result.append(SectionDict["Std dev add per pt"])
+        Result.append(SectionDict["Min added per patt"])
+        Result.append(SectionDict["Max added per patt"])
+        Result.append(SectionDict["HIST_1 per pattern"])
+        Result.append(SectionDict["HIST_2 per pattern"])
+        Result.append(SectionDict["HIST_3 per pattern"])
+        Result.append(SectionDict["HIST_4 per pattern"])
+        Result.append(SectionDict["HIST_5 per pattern"])
+        Result.append(SectionDict["HIST_6 per pattern"])
+        Result.append(SectionDict["HIST_7 per pattern"])
+        Result.append(SectionDict["HIST_8 per pattern"])
+        Result.append(SectionDict["HIST_9 per pattern"])
+        Result.append(1)
+        Result.append(SectionDict["Added faults"])
+        SectionDict = SectionsDict["Regenerated patterns"]
+        Result.append(SectionDict["Count"])
+        Result.append(SectionDict["AVG specified bits"])
+        Result.append(SectionDict["Std dev spec bits"])
+        Result.append(SectionDict["Min specified bits"])
+        Result.append(SectionDict["Max specified bits"])
+        Result.append(SectionDict["HIST_1 spec bits"])
+        Result.append(SectionDict["HIST_2 spec bits"])
+        Result.append(SectionDict["HIST_3 spec bits"])
+        Result.append(SectionDict["HIST_4 spec bits"])
+        Result.append(SectionDict["HIST_5 spec bits"])
+        Result.append(SectionDict["HIST_6 spec bits"])
+        Result.append(SectionDict["HIST_7 spec bits"])
+        Result.append(SectionDict["HIST_8 spec bits"])
+        Result.append(SectionDict["HIST_9 spec bits"])
+        Result.append(1)
+        Result.append(SectionDict["Used enc capacity"])
+        SectionDict = SectionsDict["ATPG/EDT statistics"]
+        Result.append(SectionDict["Test Data Volume"])
+        Result.append(SectionDict["Test app time"])
+        Result.append(SectionDict["EDT aborts"])
+        Result.append(SectionDict["ATPG aborts"])
+        Result.append(SectionDict["Test coverage"])
+        # Result.append(battery model!!!!)
+        return Result
+    
+    @staticmethod
+    def parseLogFile(FileName : str) -> dict:
+        MLReport = MLDataUtils.getMLReportFromLog(FileName)
+        SectionsStr = MLDataUtils.getSectionsFromMLReport(MLReport)
+        SectionsDict = MLDataUtils.getMLDataFromSections(SectionsStr)
+        DataRow = MLDataUtils.getMLDataFromSectionsDict(SectionsDict)
+        return DataRow
+                
         
 
 
