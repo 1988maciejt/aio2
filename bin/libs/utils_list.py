@@ -277,6 +277,25 @@ class List:
       result += ind + str(i) + "\n"
     return result
   
+  def getShortenListOfAveragedNumbers(lst : list, HowMany : int) -> list:
+    HowManyToAdd = len(lst) / HowMany
+    Counter = 0
+    RangeEnd = 0.0
+    Result = []
+    for _ in range(HowMany):
+      Sum = 0.0
+      Count = 0
+      RangeEnd += HowManyToAdd
+      while Counter < len(lst) and Counter < RangeEnd:
+        Sum += lst[Counter]
+        Counter += 1
+        Count += 1
+      if Count > 0:
+        Result.append(Sum / Count)
+      else:
+        Result.append(0.0)
+    return Result
+  
   def toBytes(lst : list) -> bytes:
     lstlen = len(lst)
     if lstlen <= 512:      

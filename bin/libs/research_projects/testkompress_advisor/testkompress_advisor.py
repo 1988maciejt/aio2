@@ -2850,6 +2850,12 @@ class PreparsedData:
                 Result.append(Pos[-1])
         return Result
     
+    def getPatternSpecBits(self) -> list:
+        tc : TestCubeSet = self._data.get("tc", TestCubeSet())
+        Patterns = tc.getPatterns()
+        Result = [Cube.getSpecifiedBitCount() for Cube in Patterns]
+        return Result
+    
     def getCubeFillRates(self, Usefull : bool = True, Dropped : bool = False, Aborted : bool = False) -> list:
         CUbeSpecBits = self.getCubeSpecBits(Usefull, Dropped, Aborted)
         Edt = self.getEdtStructure()
@@ -2860,7 +2866,7 @@ class PreparsedData:
                 Result.append(SpecBits / SCells)
         return Result
     
-    def getCubeUsedEncodingCapacity(self, Usefull : bool = True, Dropped : bool = False, Aborted : bool = False, EncodingCapacity : int = None) -> list:
+    def getCubeUsedEncodingCapacity(self, Usefull : bool = True, Dropped : bool = False, Aborted : bool = False, EncodingCapacity : int = None, AveragingBarCount : int = None) -> list:
         CUbeSpecBits = self.getCubeSpecBits(Usefull, Dropped, Aborted)
         Edt = self.getEdtStructure()
         if EncodingCapacity is not None:
@@ -2872,6 +2878,23 @@ class PreparsedData:
             for SpecBits in CUbeSpecBits:
                 Result.append(SpecBits / EncCap)
                 #print(SpecBits, EncCap, SpecBits / EncCap)
+        if AveragingBarCount is not None:
+            Result = List.getShortenListOfAveragedNumbers(Result, AveragingBarCount)
+        return Result
+    
+    def getPatternUsedEncodingCapacity(self, EncodingCapacity : int = None, AveragingBarCount : int = None) -> list:
+        PatternBits = self.getPatternSpecBits()
+        Edt = self.getEdtStructure()
+        if EncodingCapacity is not None:
+            EncCap = EncodingCapacity
+        else:
+            EncCap = None if Edt is None else Edt.getEncodingCapacity()
+        Result = []
+        if EncCap is not None:
+            for SpecBits in PatternBits:
+                Result.append(SpecBits / EncCap)
+        if AveragingBarCount is not None:
+            Result = List.getShortenListOfAveragedNumbers(Result, AveragingBarCount)
         return Result
     
     def getScanCellsStructure(self) -> ScanCellsStructure:
@@ -2884,9 +2907,26 @@ class PreparsedData:
         Stats = self.getDynamicCompactionStats()
         return ListOfDicts.getSumOfField(Stats, 'added_scan_cells')
         
-    def getDynamicCompactionAdddedPerPatternData(self) -> list:
+    def getDynamicCompactionAdddedPerPatternData(self, AveragingBarCount : int = None) -> list:
         Stats = self.getDynamicCompactionStats()
-        return ListOfDicts.getListOfField(Stats, 'added_per_pattern')
+        Result = ListOfDicts.getListOfField(Stats, 'added_per_pattern')
+        if AveragingBarCount is not None:
+            Result = List.getShortenListOfAveragedNumbers(Result, AveragingBarCount)
+        return Result
+    
+    def getDynamicCompactionUsedEncodingCapacityData(self, EncodingCapacity : int = None, AveragingBarCount : int = None) -> list:
+        Stats = self.getDynamicCompactionStats()
+        Edt = self.getEdtStructure()
+        if EncodingCapacity is not None:
+            EncCap = EncodingCapacity
+        else:
+            EncCap = 1 if Edt is None else Edt.getEncodingCapacity()
+        Result = ListOfDicts.getListOfField(Stats, 'added_per_pattern')
+        for i in range(len(Result)):
+            Result[i] = Result[i] / EncCap
+        if AveragingBarCount is not None:
+            Result = List.getShortenListOfAveragedNumbers(Result, AveragingBarCount)
+        return Result
     
     def getDynamicCompactionAdddedFaultsData(self) -> list:
         Stats = self.getDynamicCompactionStats()
@@ -3067,6 +3107,9 @@ class PreparsedData:
         Result.append(DI.get("EdtAborts", 0))           # EDT Aborts            1  85
         Result.append(DI.get("AtpgAborts", 0))          # ATPG Aborts           1  86
         Result.append(DI.get("TestCoverage", 0))        # Test coverage         1  87
+        ### Extended data for ML ##############
+        Result += self.getPatternUsedEncodingCapacity(AveragingBarCount=10)   # 10 bars of patterns used encoding capacity   10 88-97
+        Result += self.getDynamicCompactionUsedEncodingCapacityData(AveragingBarCount=10)  # 10 bars of dynamic compaction added per pattern   10 98-107
         ### Estimate point #####################
         if EstimatedLfsrLen is not None and EstimatedChannels is not None:
             EstEdt : EdtStructure = Edt.copy()
