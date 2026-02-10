@@ -121,17 +121,25 @@ class SimpleCSV:
             del Row[index]
         self._coll_cnt -= 1
         
-    def toTable(self, TitleRowIncluded : bool = False) -> AioTable:
+    def toTable(self, TitleRowIncluded : bool = False, RowNumbers : bool = False) -> AioTable:
         if len(self._rows) == 0:
             Aio.printError("SimpleCSV.toTable: No data available to convert to table.")
+        Header = []
+        if RowNumbers:
+            Header.append("")
         if TitleRowIncluded:
             StartIndex = 1
-            Table = AioTable(self._rows[0])
+            Header += self._rows[0]
         else:
             StartIndex = 0
-            Table = AioTable([i for i in range(self._coll_cnt)])
+            Header += [i for i in range(self._coll_cnt)]
+        Table = AioTable(Header)
         for i in range(StartIndex, len(self._rows)):
-            Table.addRow(self._rows[i])
+            Row = []
+            if RowNumbers:
+                Row.append(i)
+            Row += self._rows[i]
+            Table.addRow(Row)
         return Table
     
     def popRow(self, index : int) -> list:
@@ -149,8 +157,8 @@ class SimpleCSV:
     def getAllRows(self) -> list:
         return self._rows
     
-    def print(self, TitleRowIncluded : bool = False):
-        Table = self.toTable(TitleRowIncluded)
+    def print(self, TitleRowIncluded : bool = False, RowNumbers : bool = False):
+        Table = self.toTable(TitleRowIncluded, RowNumbers)
         Table.print()
         
     def addColumnsFromAnotherCSV(self, OtherCSV : "SimpleCSV") -> None:
@@ -175,83 +183,91 @@ class SimpleCSV:
             NewData.append(NewRow)
         self._rows = NewData
         self._coll_cnt = ColCount
+
+    def getColumnData(self, ColumnId : int) -> list:
+        if ColumnId >= self._coll_cnt:
+            return None
+        Data = [Row[ColumnId] for Row in self._rows]
+        return Data
+    
+    def __getitem__(self, index : int) -> "SimpleCSV":
+        NewCsv = self.copy()
+        for i in range(len(NewCsv._rows)):
+            NewCsv._rows[i] = NewCsv._rows[i][index]
+            if type(NewCsv._rows[i]) is not list:
+                NewCsv._rows[i] = [NewCsv._rows[i]]
+        Columns = [i for i in range(NewCsv._coll_cnt)]
+        Columns = Columns[index]
+        if type(Columns) is not list:
+            Columns = [Columns]
+        NewCsv._coll_cnt = len(Columns)
+        return NewCsv
         
         
 class CSVDedicatedDataMapper:
     
     __slots__ = ('_a', '_b', '_csv')
     
-    def __init__(self, CSV : SimpleCSV, MinValue : float = -1, MaxValue : float = 1, ColumnIds : list = None):
-        self._a = {}
-        self._b = {}
-        self._csv = CSV
-        self._calculateMappingParameters(ColumnIds, MinValue, MaxValue)
+    def __init__(self, CSV : SimpleCSV, Mean : float = 0, StdDev : float = 1, ColumnIds : list = None):
+        if type(CSV) is CSVDedicatedDataMapper:
+            self._a = CSV._a.copy()
+            self._b = CSV._b.copy()
+            self._csv = CSV._csv.copy()
+        else:
+            self._a = {}
+            self._b = {}
+            self._csv = CSV
+            self._calculateMappingParameters(ColumnIds, Mean, StdDev)
+
+    def copy(self) -> "CSVDedicatedDataMapper":
+        return CSVDedicatedDataMapper(self)
         
-    def calculateMappingParameters(self, ColumnIds : list = None, MinValue : float = -1, MaxValue : float = 1) -> None:
+    def _calculateMappingParameters(self, ColumnIds : list = None, Mean : float = 0, StdDev : float = 1) -> None:
+        from libs.utils_list import List
         CSV : SimpleCSV = self._csv
         if ColumnIds is None:
             ColumnIds = [i for i in range(CSV.getColumnCount())]    
         if type(ColumnIds) is int:
             ColumnIds = [ColumnIds] 
-        self._dividors = {}
-        self._adders = {}
+        self._a = {}
+        self._b = {}
         for ColumnId in ColumnIds:
-            ColMin = None
-            ColMax = None
-            for Row in CSV.getAllRows():
-                Value = Row[ColumnId]
-                if type(Value) not in [int, float]:
-                    continue
-                Value = float(Value)
-                if ColMin is None or Value < ColMin:
-                    ColMin = Value
-                if ColMax is None or Value > ColMax:
-                    ColMax = Value
-            a = (MaxValue - MinValue) / (ColMax - ColMin)
-            b = MinValue - a * ColMin
+            ColumnData = self._csv.getColumnData(ColumnId)
+            a, b = List.calculateStandarizationParametersAandB(ColumnData, Mean, StdDev)
             self._a[ColumnId] = a
             self._b[ColumnId] = b
 
-    def getMappedCSV(self) -> SimpleCSV:
-        CSV : SimpleCSV = self._csv
-        MappedCSV = CSV.copy()
+    def mapCSV(self) -> SimpleCSV:
         for ColId in self._a.keys():
             a = self._a[ColId]
             b = self._b[ColId]
-            for Row in MappedCSV.getAllRows():
-                Value = Row[ColId]
-                if type(Value) not in [int, float]:
-                    continue
-                MappedValue = a * float(Value) + b
-                Row[ColId] = MappedValue
-        return MappedCSV   
+            for RowI in range(self._csv.getRowCount()):
+                self._csv._rows[RowI][ColId] = a * float(self._csv._rows[RowI][ColId]) + b
+        return self._csv   
+    
+    def unmapCSV(self, Resolution : float = 0.00001) -> SimpleCSV:
+        from libs.utils_float import FloatUtils
+        for ColId in self._a.keys():
+            a = self._a[ColId]
+            b = self._b[ColId]
+            for RowI in range(self._csv.getRowCount()):
+                self._csv._rows[RowI][ColId] = FloatUtils.roundToResolution((self._csv._rows[RowI][ColId] - b) / a, Resolution)
+        return self._csv   
 
-    def mapCSV(self, CSV : SimpleCSV) -> SimpleCSV:
-        MappedCSV = CSV.copy()
-        for ColId in self._a.keys():
-            if ColId >= MappedCSV.getColumnCount():
-                continue
-            a = self._a[ColId]
-            b = self._b[ColId]
-            for Row in MappedCSV.getAllRows():
-                Value = Row[ColId]
-                if type(Value) not in [int, float]:
-                    continue
-                MappedValue = a * float(Value) + b
-                Row[ColId] = MappedValue
-        return MappedCSV   
-
-    def unmapCSV(self, CSV : SimpleCSV) -> SimpleCSV:
-        UnMappedCSV = CSV.copy()
-        for ColId in self._a.keys():
-            if ColId >= UnMappedCSV.getColumnCount():
-                continue
-            a = self._a[ColId]
-            b = self._b[ColId]
-            for Row in UnMappedCSV.getAllRows():
-                Value = Row[ColId]
-                if type(Value) not in [int, float]:
-                    continue
-                UnMappedValue = (Value - b) / a
-                Row[ColId] = UnMappedValue
-        return UnMappedCSV   
+    def getCsv(self) -> SimpleCSV:
+        return self._csv
+    
+    def __getitem__(self, index : int) -> "CSVDedicatedDataMapper":
+        NewMapper = self.copy()
+        NewCsv : SimpleCSV = NewMapper._csv
+        Columns = [i for i in range(NewCsv._coll_cnt)]
+        Columns = Columns[index]
+        if type(Columns) is not list:
+            Columns = [Columns]
+        NewMapper._csv = NewCsv[index]
+        NewMapper._a, NewMapper._b = {}, {}
+        for ColI, Col in enumerate(Columns):
+            if Col in self._a:
+                NewMapper._a[ColI] = self._a[Col]
+                NewMapper._b[ColI] = self._b[Col]
+        return NewMapper

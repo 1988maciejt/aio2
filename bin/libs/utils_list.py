@@ -32,6 +32,8 @@ class List:
     if Count == 0:
       return 0.0
     return Sum / Count
+  avg = Avg
+  getAverage = Avg
   
   @staticmethod
   def StdDev(Numbers : list) -> float:
@@ -46,6 +48,53 @@ class List:
     if len(Values) < 2:
       return 0.0
     return pstdev(Values)
+  stdDev = StdDev
+  getStdDev = StdDev
+
+  @staticmethod
+  def calculateStandarizationParametersAandB(Numbers : list, Mean : float = 0, StdDev : float = 1) -> tuple:
+    InputAvg = List.Avg(Numbers)
+    InputStdDev = List.StdDev(Numbers)
+    if InputStdDev == 0.0:
+      a = 0
+      b = Mean
+    else:
+      a = StdDev / InputStdDev
+      b = Mean - (InputAvg * a)
+    return a, b
+
+  @staticmethod
+  def standarize(Numbers : list, Mean : float = 0, StdDev : float = 1, ReturnAlsoAandB : bool = False) -> list:
+    a, b = List.calculateStandarizationParametersAandB(Numbers, Mean, StdDev)
+    Result = List.mapLinearly(Numbers, a, b)
+    if ReturnAlsoAandB:
+      return Result, a, b
+    return Result
+  
+  @staticmethod
+  def mapLinearly(Numbers : list, a : float, b : float) -> list:
+    Result = []
+    for n in Numbers:
+      try:
+        v = float(n)
+      except:
+        v = 0.0
+      Result.append(a * v + b)
+    return Result
+  
+  @staticmethod
+  def unmapLinearly(Numbers : list, a : float, b : float) -> list:
+    Result = []
+    for n in Numbers:
+      try:
+        v = float(n)
+      except:
+        v = 0.0
+      if a != 0:
+        Result.append((v - b) / a)
+      else:
+        Result.append(0.0)
+    return Result
   
   @staticmethod
   def getIndexOfMinimum(Numbers : list) -> int:
