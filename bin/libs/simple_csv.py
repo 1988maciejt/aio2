@@ -271,3 +271,8 @@ class CSVDedicatedDataMapper:
                 NewMapper._a[ColI] = self._a[Col]
                 NewMapper._b[ColI] = self._b[Col]
         return NewMapper
+    
+    def replaceCsv(self, NewCSV : SimpleCSV) -> bool:
+        if self._csv.getColumnCount() != NewCSV.getColumnCount():
+            return False
+        self._csv = NewCSV
