@@ -3720,7 +3720,7 @@ class TestKompressCalculator:
                 Add = ""
                 if InputCount in Result:
                     Add = " // already in list"
-                Aio.print(f"{InputCount}\tinputs -> Compression: {round(TestKompressCalculator.getCompression(InputCount, LFSRSize, ScanLen, ScanCount), 1)} (expected {round(Compression, 1)}){Add}")
+                Aio.print(f"{InputCount} inputs -> Compression: {round(TestKompressCalculator.getCompression(InputCount, LFSRSize, ScanLen, ScanCount), 1)} (expected {round(Compression, 1)}){Add}")
             Result.append(InputCount)
             Compression += CompressionStep
         Result = List.getUniques(Result)
@@ -3748,3 +3748,30 @@ class TestKompressCalculator:
         Cmin = TestKompressCalculator.getCompression(InputCount, LFSRSize, ScanLen, ScanCount)
         Cmax = TestKompressCalculator.getCompression(1, LFSRSize, ScanLen, ScanCount)
         return (Cmin, Cmax)
+    
+    @staticmethod
+    def getAvailableCompressionsForConfiguration(InputCount : int, LFSRSize : int, ScanLen : int, ScanCount : int) -> list:
+        Result = []
+        for I in range(1, InputCount+1):
+            Result.append(TestKompressCalculator.getCompression(I, LFSRSize, ScanLen, ScanCount))
+        return Result
+    
+    @staticmethod
+    def getInputCountListToReachEvenlySpacedCompressionRange(HowMany : int, MinCompression : float, MaxCompression : float, InputCount : int, LFSRSize : int, ScanLen : int, ScanCount : int, Verbose : bool = False) -> list:
+        AvailableC = TestKompressCalculator.getAvailableCompressionsForConfiguration(InputCount, LFSRSize, ScanLen, ScanCount)
+        if Verbose:
+            Aio.print(f"Available compressions for configuration: {', '.join([str(round(C, 1)) for C in AvailableC])}")
+        AvailableC = List.getOnlyValuesInRange(AvailableC, MinCompression, MaxCompression)
+        if Verbose:
+            Aio.print(f"Available compressions in range {round(MinCompression, 1)} - {round(MaxCompression, 1)}: {', '.join([str(round(C, 1)) for C in AvailableC])}")
+        CList = List.getEvenlySpacedSublist(AvailableC, HowMany)
+        if Verbose:
+            Aio.print(f"Evenly spaced compressions: {', '.join([str(round(C, 1)) for C in CList])}")
+        Result = []
+        for C in CList:
+            I = TestKompressCalculator.getInputCountToReachDesiredCompression(C, LFSRSize, ScanLen, ScanCount)
+            Result.append(I)
+        if Verbose:
+            for I, C in zip(Result, CList):
+                Aio.print(f"{I} inputs -> Compression: {round(TestKompressCalculator.getCompression(I, LFSRSize, ScanLen, ScanCount), 1)} (expected {round(C, 1)})")
+        return Result

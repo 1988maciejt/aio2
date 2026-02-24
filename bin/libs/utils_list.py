@@ -423,6 +423,39 @@ class List:
         Result.append(i)
     return Result
   
+  def getEvenlySpacedSublist(lst : list, HowMany : int):
+    m = len(lst)
+    if HowMany >= m: return lst[:]
+    if HowMany <= 1: return [lst[0]] if lst else []
+    idealGap = (lst[0] - lst[-1]) / (HowMany - 1)
+    dp = [[(float('inf'), -1)] * m for _ in range(HowMany + 1)]
+    dp[1][0] = (0, -1)
+    for k in range(2, HowMany + 1):
+      for j in range(k - 1, m):
+        for i in range(k - 2, j):
+          currentCost = dp[k-1][i][0] + ((lst[i] - lst[j]) - idealGap) ** 2
+          if currentCost < dp[k][j][0]:
+            dp[k][j] = (currentCost, i)
+    indices = []
+    curr = m - 1
+    for k in range(HowMany, 0, -1):
+      indices.append(curr)
+      curr = dp[k][curr][1]
+    Result = [lst[idx] for idx in reversed(indices)]
+    return Result
+  
+  def getOnlyValuesInRange(lst : list, Min : float, Max : float) -> list:
+    Result = []
+    for i in lst:
+      try:
+        v = float(i)
+        if v >= Min and v <= Max:
+          Result.append(i)
+      except:
+        pass
+    return Result
+  
+  
   
 
 
