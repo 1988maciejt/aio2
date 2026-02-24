@@ -1,4 +1,6 @@
 from multiprocessing import Value
+
+import numpy
 from libs.aio import *
 from libs.files import *
 from libs.pandas_table import *
@@ -10,8 +12,9 @@ class SimpleCSV:
     
     def __init__(self, FileName: str, Separator : str = ","):
         if type(FileName) is SimpleCSV:
+            from copy import deepcopy
             self._coll_cnt = FileName._coll_cnt
-            self._rows = FileName._rows.copy()
+            self._rows = deepcopy(FileName._rows)
             return
         if type(FileName) is list:
             Rows = []
@@ -202,25 +205,72 @@ class SimpleCSV:
             Columns = [Columns]
         NewCsv._coll_cnt = len(Columns)
         return NewCsv
-        
+    
+    def randomlySplitIntoTwoSubCSVs(self, Ratio : float = 0.5) -> tuple:
+        import random
+        if Ratio < 0 or Ratio > 1:
+            Aio.printError("SimpleCSV.randomlySplitIntoTwoSubCSVs: Ratio must be between 0 and 1.")
+        RowCount = self.getRowCount()
+        RowIndices = list(range(RowCount))
+        random.shuffle(RowIndices)
+        SplitIndex = int(RowCount * Ratio)
+        SubCSV1 = SimpleCSV([])
+        SubCSV2 = SimpleCSV([])
+        SubCSV1._coll_cnt = self._coll_cnt
+        SubCSV2._coll_cnt = self._coll_cnt
+        for i in range(SplitIndex):
+            SubCSV1._rows.append(self._rows[RowIndices[i]].copy())
+        for i in range(SplitIndex, RowCount):
+            SubCSV2._rows.append(self._rows[RowIndices[i]].copy())
+        return SubCSV1, SubCSV2
+    
+    def getNumpyArraysForML(self, YColumnCount : int = 1) -> tuple:
+        x, y = [], []
+        SplitPoint = self.getColumnCount() - YColumnCount
+        for R in self.getAllRows():
+            x.append(R[:SplitPoint])
+            y.append(R[SplitPoint:])
+        np_x = numpy.array(x, dtype=numpy.float32)
+        np_y = numpy.array(y, dtype=numpy.float32)
+        return np_x, np_y
+    
+    def shuffleRows(self) -> None:
+        import random
+        random.shuffle(self._rows)
         
 class CSVDedicatedDataMapper:
     
-    __slots__ = ('_a', '_b', '_csv')
+    __slots__ = ('_a', '_b', '_csv', '_mapped')
     
-    def __init__(self, CSV : SimpleCSV, Mean : float = 0, StdDev : float = 1, ColumnIds : list = None):
+    def __init__(self, CSV : SimpleCSV, ColumnIds : list = None, Mean : float = 0, StdDev : float = 1):
         if type(CSV) is CSVDedicatedDataMapper:
             self._a = CSV._a.copy()
             self._b = CSV._b.copy()
             self._csv = CSV._csv.copy()
+            self._mapped = CSV._mapped
         else:
             self._a = {}
             self._b = {}
             self._csv = CSV
+            self._mapped = None
             self._calculateMappingParameters(ColumnIds, Mean, StdDev)
+            
+    def __str__(self) -> str:
+        Result = ""
+        for k in self._a.keys():
+            Result += f"Column {k}: a={self._a[k]}, b={self._b[k]}\n"
+        return Result
 
-    def copy(self) -> "CSVDedicatedDataMapper":
-        return CSVDedicatedDataMapper(self)
+    def __len__(self) -> int:
+        return len(self._csv)
+
+    def copy(self, AnotherCsv : SimpleCSV = None) -> "CSVDedicatedDataMapper":
+        Result = CSVDedicatedDataMapper(self)
+        if AnotherCsv is not None:
+            if not Result.replaceCsv(AnotherCsv):
+                Aio.printError(f"CSVDedicatedDataMapper.copy: The provided CSV has different column count than the original CSV. Cannot replace.")
+            Result._mapped = None
+        return Result
         
     def _calculateMappingParameters(self, ColumnIds : list = None, Mean : float = 0, StdDev : float = 1) -> None:
         from libs.utils_list import List
@@ -232,26 +282,37 @@ class CSVDedicatedDataMapper:
         self._a = {}
         self._b = {}
         for ColumnId in ColumnIds:
+            if ColumnId >= CSV.getColumnCount():
+                Aio.printError(f"CSVDedicatedDataMapper: ColumnId {ColumnId} is out of range for the provided CSV.")
             ColumnData = self._csv.getColumnData(ColumnId)
             a, b = List.calculateStandarizationParametersAandB(ColumnData, Mean, StdDev)
             self._a[ColumnId] = a
             self._b[ColumnId] = b
 
     def mapCSV(self) -> SimpleCSV:
+        if self._mapped is not None and self._mapped:
+            Aio.printWarning("CSVDedicatedDataMapper.mapCSV: The CSV is already mapped. Mapping again may take an unexpected effect.")
         for ColId in self._a.keys():
             a = self._a[ColId]
             b = self._b[ColId]
             for RowI in range(self._csv.getRowCount()):
                 self._csv._rows[RowI][ColId] = a * float(self._csv._rows[RowI][ColId]) + b
+        self._mapped = True
         return self._csv   
     
     def unmapCSV(self, Resolution : float = 0.00001) -> SimpleCSV:
+        if self._mapped is not None and not self._mapped:
+            Aio.printWarning("CSVDedicatedDataMapper.unmapCSV: The CSV is not mapped. Unmapping again may take an unexpected effect.")
         from libs.utils_float import FloatUtils
         for ColId in self._a.keys():
             a = self._a[ColId]
             b = self._b[ColId]
             for RowI in range(self._csv.getRowCount()):
-                self._csv._rows[RowI][ColId] = FloatUtils.roundToResolution((self._csv._rows[RowI][ColId] - b) / a, Resolution)
+                if (a != 0):
+                    self._csv._rows[RowI][ColId] = FloatUtils.roundToResolution((self._csv._rows[RowI][ColId] - b) / a, Resolution)
+                else:
+                    self._csv._rows[RowI][ColId] = FloatUtils.roundToResolution((self._csv._rows[RowI][ColId] - b), Resolution)
+        self._mapped = False
         return self._csv   
 
     def getCsv(self) -> SimpleCSV:
@@ -259,6 +320,7 @@ class CSVDedicatedDataMapper:
     
     def __getitem__(self, index : int) -> "CSVDedicatedDataMapper":
         NewMapper = self.copy()
+        NewMapper._mapped = self._mapped
         NewCsv : SimpleCSV = NewMapper._csv
         Columns = [i for i in range(NewCsv._coll_cnt)]
         Columns = Columns[index]
@@ -276,3 +338,54 @@ class CSVDedicatedDataMapper:
         if self._csv.getColumnCount() != NewCSV.getColumnCount():
             return False
         self._csv = NewCSV
+        self._mapped = None
+        return True
+        
+    def removeColumn(self, index : int) -> None:
+        for Row in self._csv._rows:
+            del Row[index]
+        for k in list(self._a.keys()):
+            if k == index:
+                del self._a[k]
+                del self._b[k]
+            elif k > index:
+                self._a[k-1] = self._a[k]
+                self._b[k-1] = self._b[k]
+                del self._a[k]
+                del self._b[k]    
+        self._csv._coll_cnt -= 1
+        
+    def getColumnCount(self) -> int:
+        return self._csv.getColumnCount()
+    
+    def getRowCount(self) -> int:
+        return self._csv.getRowCount()
+    
+    def getAllRows(self) -> list:
+        return self._csv.getAllRows()
+    
+    def randomlySplitIntoTwoSubDataMappers(self, Ratio : float = 0.5) -> tuple:
+        CSV1, CSV2 = self._csv.randomlySplitIntoTwoSubCSVs(Ratio)
+        Mapper1 = self.copy(CSV1)
+        Mapper2 = self.copy(CSV2)
+        Mapper1._mapped = self._mapped
+        Mapper2._mapped = self._mapped
+        return Mapper1, Mapper2
+    
+    def filterRows(self, ColumnId : int, IncludingRegex : str = None, ExcludingRegex : str = None) -> "CSVDedicatedDataMapper":
+        NewCsv = self._csv.filterRows(ColumnId, IncludingRegex, ExcludingRegex)
+        NewMapper = self.copy(NewCsv)
+        NewMapper._mapped = self._mapped
+        return NewMapper
+    
+    def getNumpyArraysForML(self, YColumnCount : int = 1) -> tuple:
+        return self._csv.getNumpyArraysForML(YColumnCount)
+    
+    def shuffleRows(self) -> None:
+        self._csv.shuffleRows()
+    
+    @staticmethod
+    def createMLPredictionMapper(MLYpredictions : numpy.ndarray, AnyYMapper : "CSVDedicatedDataMapper", YColumnCount : int = 1) -> "CSVDedicatedDataMapper":
+        PredictCsv = SimpleCSV(MLYpredictions.tolist())
+        PredictMapper = AnyYMapper[-YColumnCount:].copy(PredictCsv)
+        return PredictMapper

@@ -416,6 +416,13 @@ class List:
   def getDifferentItems(a : list, b : list) -> list:
     return list(set(a) ^ set(b))
   
+  def getUniques(lst : list) -> list:
+    Result = []
+    for i in lst:
+      if not i in Result:
+        Result.append(i)
+    return Result
+  
   
 
 

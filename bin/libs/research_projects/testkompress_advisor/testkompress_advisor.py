@@ -3095,7 +3095,7 @@ class PreparsedData:
         Result += RangesHistogram(DynCompPerPattern, 10).getRanges(1)[1:]  # per pattern RangesHistogram    9 59-67
         Result.append(sum(self.getDynamicCompactionAdddedFaultsData()))  # Added faults SUM    1  68
         ### Patterns ##########################
-        Result.append(len(PatternSpecBits))             # Count                 1  69
+        Result.append(len(PatternSpecBits)/self.getFaultCount())             # Count                 1  69
         Result.append(List.Avg(PatternSpecBits))        # AVG                   1  70
         Result.append(List.StdDev(PatternSpecBits))     # STD DEV               1  71
         Result.append(min(PatternSpecBits) if len(PatternSpecBits) > 0 else 0)     # per pattern MIN         1  72
@@ -3698,3 +3698,53 @@ class PatternCountComprensator:
             Result.append(Value)
         return Result
         
+        
+class TestKompressCalculator:
+    
+    @staticmethod
+    def getInputCountToReachDesiredCompression(Compression : float, LFSRSize : int, ScanLen : int, ScanCount : int) -> int:
+        if type(Compression) in [list, set]:
+            Result = []
+            for C in Compression:
+                Result.append(TestKompressCalculator.getInputCountToReachDesiredCompression(C, LFSRSize, ScanLen, ScanCount))
+            return Result
+        return int(round(((ScanCount * ScanLen) - (LFSRSize * Compression)) / (Compression * ScanLen), 0))
+    
+    @staticmethod
+    def getInputCountListToReachCompressionRange(MinCompression : float, MaxCompression : float, CompressionStep : float, LFSRSize : int, ScanLen : int, ScanCount : int, Verbose : bool = False) -> list:
+        Result = []
+        Compression = MinCompression
+        while Compression <= MaxCompression:
+            InputCount = TestKompressCalculator.getInputCountToReachDesiredCompression(Compression, LFSRSize, ScanLen, ScanCount)
+            if Verbose:
+                Add = ""
+                if InputCount in Result:
+                    Add = " // already in list"
+                Aio.print(f"{InputCount}\tinputs -> Compression: {round(TestKompressCalculator.getCompression(InputCount, LFSRSize, ScanLen, ScanCount), 1)} (expected {round(Compression, 1)}){Add}")
+            Result.append(InputCount)
+            Compression += CompressionStep
+        Result = List.getUniques(Result)
+        return Result
+    
+    @staticmethod
+    def getInputCountListToReachMinMaxCompression(HowMany : int, InputCount : int, LFSRSize : int, ScanLen : int, ScanCount : int, Verbose : bool = False) -> list:
+        Cmin, Cmax = TestKompressCalculator.getCompressionRangeForConfiguration(InputCount, LFSRSize, ScanLen, ScanCount)
+        Cstep = int((Cmax - Cmin) / (HowMany - 1))
+        if Verbose:
+            Aio.print(f"Compression MIN={round(Cmin, 1)}, MAX={round(Cmax, 1)}, STEP={round(Cstep, 1)}")
+        return TestKompressCalculator.getInputCountListToReachCompressionRange(Cmin, Cmax, Cstep, LFSRSize, ScanLen, ScanCount, Verbose)
+    
+    @staticmethod
+    def getCompression(InputCount : int, LFSRSize : int, ScanLen : int, ScanCount : int) -> float:
+        if type(InputCount) in [list, set]:
+            Result = []
+            for C in InputCount:
+                Result.append(TestKompressCalculator.getCompression(C, LFSRSize, ScanLen, ScanCount))
+            return Result
+        return (ScanCount * ScanLen) / (InputCount * (ScanLen + LFSRSize / InputCount))
+    
+    @staticmethod
+    def getCompressionRangeForConfiguration(InputCount : int, LFSRSize : int, ScanLen : int, ScanCount : int) -> tuple:
+        Cmin = TestKompressCalculator.getCompression(InputCount, LFSRSize, ScanLen, ScanCount)
+        Cmax = TestKompressCalculator.getCompression(1, LFSRSize, ScanLen, ScanCount)
+        return (Cmin, Cmax)
