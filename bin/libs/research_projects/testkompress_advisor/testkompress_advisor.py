@@ -3122,105 +3122,9 @@ class PreparsedData:
         return Result
     
     
-class MLDataUtils:
     
-    @staticmethod
-    def getEmptyDict() -> dict:
-        Result = {
-            "InputChannels" : None,
-            "LfsrSize" : None,
-            "CompressionRatio" : None,
-            "EncodingCapacity" : None,
-            "ScanChains" : None,
-            "ScanLength" : None,
-            "GateCount" : None,
-            "FaultCount" : None,
-            "UsefulCubeCount" : None,
-            "UsefulCubeSpecBitsAVG" : None,
-            "UsefulCubeSpecBitsSTDDEV" : None,
-            "UsefulCubeSpecBitsMIN" : None,
-            "UsefulCubeSpecBitsMAX" : None,
-            "UsefulCubeSpecBitsRange1" : None,
-            "UsefulCubeSpecBitsRange2" : None,
-            "UsefulCubeSpecBitsRange3" : None,
-            "UsefulCubeSpecBitsRange4" : None,
-            "UsefulCubeSpecBitsRange5" : None,
-            "UsefulCubeSpecBitsRange6" : None,
-            "UsefulCubeSpecBitsRange7" : None,
-            "UsefulCubeSpecBitsRange8" : None,
-            "UsefulCubeSpecBitsRange9" : None,
-            "UsefulCubeSpecBitsRange10" : 1,
-            "UsefulCubesUsedEncodingCapacityAVG" : None,
-            "DroppedCubeCount" : None,
-            "DroppedCubeSpecBitsAVG" : None,
-            "DroppedCubeSpecBitsSTDDEV" : None,
-            "DroppedCubeSpecBitsMIN" : None,
-            "DroppedCubeSpecBitsMAX" : None,
-            "DroppedCubeSpecBitsRange1" : None,
-            "DroppedCubeSpecBitsRange2" : None,
-            "DroppedCubeSpecBitsRange3" : None,
-            "DroppedCubeSpecBitsRange4" : None,
-            "DroppedCubeSpecBitsRange5" : None,
-            "DroppedCubeSpecBitsRange6" : None,
-            "DroppedCubeSpecBitsRange7" : None,
-            "DroppedCubeSpecBitsRange8" : None,
-            "DroppedCubeSpecBitsRange9" : None,
-            "DroppedCubeSpecBitsRange10" : 1,
-            "DroppedCubesUsedEncodingCapacityAVG" : None,
-            "AbortedCubeCount" : None,
-            "AbortedCubeSpecBitsAVG" : None,
-            "AbortedCubeSpecBitsSTDDEV" : None,
-            "AbortedCubeSpecBitsMIN" : None,
-            "AbortedCubeSpecBitsMAX" : None,
-            "AbortedCubeSpecBitsRange1" : None,
-            "AbortedCubeSpecBitsRange2" : None,
-            "AbortedCubeSpecBitsRange3" : None,
-            "AbortedCubeSpecBitsRange4" : None,
-            "AbortedCubeSpecBitsRange5" : None,
-            "AbortedCubeSpecBitsRange6" : None,
-            "AbortedCubeSpecBitsRange7" : None,
-            "AbortedCubeSpecBitsRange8" : None,
-            "AbortedCubeSpecBitsRange9" : None,
-            "AbortedCubeSpecBitsRange10" : 1,
-            "AbortedCubesUsedEncodingCapacityAVG" : None,
-            "DynamicCompactionAddedScanCellsSUM" : None,
-            "DynamicCompactionAddedPerPatternAVG" : None,
-            "DynamicCompactionAddedPerPatternSTDDEV" : None,
-            "DynamicCompactionAddedPerPatternMIN" : None,
-            "DynamicCompactionAddedPerPatternMAX" : None,
-            "DynamicCompactionAddedPerPatternRange1" : None,
-            "DynamicCompactionAddedPerPatternRange2" : None,
-            "DynamicCompactionAddedPerPatternRange3" : None,
-            "DynamicCompactionAddedPerPatternRange4" : None,
-            "DynamicCompactionAddedPerPatternRange5" : None,
-            "DynamicCompactionAddedPerPatternRange6" : None,
-            "DynamicCompactionAddedPerPatternRange7" : None,
-            "DynamicCompactionAddedPerPatternRange8" : None,
-            "DynamicCompactionAddedPerPatternRange9" : None,
-            "DynamicCompactionAddedPerPatternRange10" : 1,
-            "DynamicCompactionAddedFaultsSUM" : None,
-            "PatternCount" : None,
-            "PatternSpecBitsAVG" : None,
-            "PatternSpecBitsSTDDEV" : None,
-            "PatternSpecBitsMIN" : None,
-            "PatternSpecBitsMAX" : None,
-            "PatternSpecBitsRange1" : None,
-            "PatternSpecBitsRange2" : None,
-            "PatternSpecBitsRange3" : None,
-            "PatternSpecBitsRange4" : None,
-            "PatternSpecBitsRange5" : None,
-            "PatternSpecBitsRange6" : None,
-            "PatternSpecBitsRange7" : None,
-            "PatternSpecBitsRange8" : None,
-            "PatternSpecBitsRange9" : None,
-            "PatternSpecBitsRange10" : 1,
-            "TestDataVolume" : None,
-            "TestTime" : None,
-            "EdtAborts" : None,
-            "AtpgAborts" : None,
-            "TestCoverage" : None
-        }
-        return Result
+    
+class MLDataUtils:
     
     @staticmethod
     def getMLReportFromLog(FileName : str) -> str:
@@ -3228,10 +3132,13 @@ class MLDataUtils:
         DataStr = ""
         for Line in Generators().readFileLineByLine(FileName):
             if not Run:
-                if re.search(r"report\s+ml\s+data", Line):
+                if re.search(r"ML\s+report\s+version", Line):
                     Run = True
+                    DataStr += Line + "\n"
                     continue
             else:
+                if re.search(r"--- --- --- --- ---$", Line):
+                    break
                 DataStr += Line + "\n"
         return DataStr
     
@@ -3242,7 +3149,7 @@ class MLDataUtils:
         for Line in MLReportStr.splitlines():
             R = re.search(r"--- --- --- --- ---\s+(.+)$", Line)
             if R:
-                CurrentSection = R.group(1)
+                CurrentSection = R.group(1).strip()
                 Result[CurrentSection] = ""
                 continue
             if CurrentSection is not None:
@@ -3270,127 +3177,194 @@ class MLDataUtils:
                     SectionDict[Key] = Value
                     Result[SectionName] = SectionDict
         return Result
-
-    @staticmethod
-    def getMLDataFromSectionsDict(SectionsDict : dict) -> list:
-        Result = []
-        SectionDict = SectionsDict["Design data"]
-        Result.append(SectionDict["Input channels"])
-        Result.append(SectionDict["LFSR size"])
-        Result.append(SectionDict["Compression ratio"])
-        Result.append(SectionDict["Encoding capacity"])
-        Result.append(SectionDict["Scan chain count"])
-        Result.append(SectionDict["Scan chain length"])
-        Result.append(SectionDict["Gate count"])
-        Result.append(SectionDict["Fault count"])
-        SectionDict = SectionsDict["Useful cubes"]
-        Result.append(SectionDict["Cube count"])
-        Result.append(SectionDict["AVG specified bits"])
-        Result.append(SectionDict["Std dev spec bits"])
-        Result.append(SectionDict["Min specified bits"])
-        Result.append(SectionDict["Max specified bits"])
-        Result.append(SectionDict["HIST_1 spec bits"])
-        Result.append(SectionDict["HIST_2 spec bits"])
-        Result.append(SectionDict["HIST_3 spec bits"])
-        Result.append(SectionDict["HIST_4 spec bits"])
-        Result.append(SectionDict["HIST_5 spec bits"])
-        Result.append(SectionDict["HIST_6 spec bits"])
-        Result.append(SectionDict["HIST_7 spec bits"])
-        Result.append(SectionDict["HIST_8 spec bits"])
-        Result.append(SectionDict["HIST_9 spec bits"])
-        Result.append(1)
-        Result.append(SectionDict["Used enc capacity"])
-        SectionDict = SectionsDict["Dropped cubes"]
-        Result.append(SectionDict["Cube count"])
-        Result.append(SectionDict["AVG specified bits"])
-        Result.append(SectionDict["Std dev spec bits"])
-        Result.append(SectionDict["Min specified bits"])
-        Result.append(SectionDict["Max specified bits"])
-        Result.append(SectionDict["HIST_1 spec bits"])
-        Result.append(SectionDict["HIST_2 spec bits"])
-        Result.append(SectionDict["HIST_3 spec bits"])
-        Result.append(SectionDict["HIST_4 spec bits"])
-        Result.append(SectionDict["HIST_5 spec bits"])
-        Result.append(SectionDict["HIST_6 spec bits"])
-        Result.append(SectionDict["HIST_7 spec bits"])
-        Result.append(SectionDict["HIST_8 spec bits"])
-        Result.append(SectionDict["HIST_9 spec bits"])
-        Result.append(1)
-        Result.append(SectionDict["Used enc capacity"])
-        SectionDict = SectionsDict["Aborted cubes"]
-        Result.append(SectionDict["Cube count"])
-        Result.append(SectionDict["AVG specified bits"])
-        Result.append(SectionDict["Std dev spec bits"])
-        Result.append(SectionDict["Min specified bits"])
-        Result.append(SectionDict["Max specified bits"])
-        Result.append(SectionDict["HIST_1 spec bits"])
-        Result.append(SectionDict["HIST_2 spec bits"])
-        Result.append(SectionDict["HIST_3 spec bits"])
-        Result.append(SectionDict["HIST_4 spec bits"])
-        Result.append(SectionDict["HIST_5 spec bits"])
-        Result.append(SectionDict["HIST_6 spec bits"])
-        Result.append(SectionDict["HIST_7 spec bits"])
-        Result.append(SectionDict["HIST_8 spec bits"])
-        Result.append(SectionDict["HIST_9 spec bits"])
-        Result.append(1)
-        Result.append(SectionDict["Used enc capacity"])
-        SectionDict = SectionsDict["Dynamic compaction"]
-        Result.append(SectionDict["Added scan cells"])
-        Result.append(SectionDict["AVG added per patt"])
-        Result.append(SectionDict["Std dev add per pt"])
-        Result.append(SectionDict["Min added per patt"])
-        Result.append(SectionDict["Max added per patt"])
-        Result.append(SectionDict["HIST_1 per pattern"])
-        Result.append(SectionDict["HIST_2 per pattern"])
-        Result.append(SectionDict["HIST_3 per pattern"])
-        Result.append(SectionDict["HIST_4 per pattern"])
-        Result.append(SectionDict["HIST_5 per pattern"])
-        Result.append(SectionDict["HIST_6 per pattern"])
-        Result.append(SectionDict["HIST_7 per pattern"])
-        Result.append(SectionDict["HIST_8 per pattern"])
-        Result.append(SectionDict["HIST_9 per pattern"])
-        Result.append(1)
-        Result.append(SectionDict["Added faults"])
-        SectionDict = SectionsDict["Regenerated patterns"]
-        Result.append(SectionDict["Count"])
-        Result.append(SectionDict["AVG specified bits"])
-        Result.append(SectionDict["Std dev spec bits"])
-        Result.append(SectionDict["Min specified bits"])
-        Result.append(SectionDict["Max specified bits"])
-        Result.append(SectionDict["HIST_1 spec bits"])
-        Result.append(SectionDict["HIST_2 spec bits"])
-        Result.append(SectionDict["HIST_3 spec bits"])
-        Result.append(SectionDict["HIST_4 spec bits"])
-        Result.append(SectionDict["HIST_5 spec bits"])
-        Result.append(SectionDict["HIST_6 spec bits"])
-        Result.append(SectionDict["HIST_7 spec bits"])
-        Result.append(SectionDict["HIST_8 spec bits"])
-        Result.append(SectionDict["HIST_9 spec bits"])
-        Result.append(1)
-        Result.append(SectionDict["Used enc capacity"])
-        SectionDict = SectionsDict["ATPG/EDT statistics"]
-        Result.append(SectionDict["Test Data Volume"])
-        Result.append(SectionDict["Test app time"])
-        Result.append(SectionDict["EDT aborts"])
-        Result.append(SectionDict["ATPG aborts"])
-        Result.append(SectionDict["Test coverage"])
-        # Result.append(battery model!!!!)
-        return Result
     
-    @staticmethod
-    def parseLogFile(FileName : str) -> dict:
+    
+
+class TestKompressMLData:
+    
+    __slots__ = ("_data", "_version")
+    
+    def __init__(self, FileName : str) -> None:
+        self._data = {}
         MLReport = MLDataUtils.getMLReportFromLog(FileName)
+        try:
+            self._version = int(re.search(r"ML\s+report\s+version\s*:\s*([0-9]+)", MLReport).group(1))
+        except:
+            self._version = -1
         SectionsStr = MLDataUtils.getSectionsFromMLReport(MLReport)
         SectionsDict = MLDataUtils.getMLDataFromSections(SectionsStr)
-        DataRow = MLDataUtils.getMLDataFromSectionsDict(SectionsDict)
-        return DataRow
-                
+        self._data = SectionsDict
         
+    def __str__(self) -> str:
+        Result = f"TestKompressMLData (version {self._version}):\n"
+        for SectionName, SectionDict in self._data.items():
+            Result += f"|- {SectionName}\n"
+            for Key, Value in SectionDict.items():
+                Result += f"|  |- {Key} = {Value}\n"
+        return Result
+        
+    def getVersion(self) -> int:
+        return self._version
+    
+    def normaliseData(self) -> None:
+        k = self.getFaultCount()
+        self._data['Regenerated patterns']['Count'] /= k
+        self._data['ATPG/EDT statistics']['ATPG pattern count'] /= k
+        self._data['ATPG/EDT statistics']['Test app time'] /= k
+        self._data['ATPG/EDT statistics']['Test Data Volume'] /= k
+        self._data['ATPG/EDT statistics']['Single detected DS'] /= k
+        self._data['ATPG/EDT statistics']['DS (det by sim)'] /= k
+    
+    def denormaliseData(self) -> None:
+        k = self.getFaultCount()
+        self._data['Regenerated patterns']['Count'] *= k
+        self._data['ATPG/EDT statistics']['ATPG pattern count'] *= k
+        self._data['ATPG/EDT statistics']['Test app time'] *= k
+        self._data['ATPG/EDT statistics']['Test Data Volume'] *= k
+        self._data['ATPG/EDT statistics']['Single detected DS'] *= k
+        self._data['ATPG/EDT statistics']['DS (det by sim)'] *= k
+        
+    def getMLData(self, ReturnAlsoHeaderList : bool = False) -> dict:
+        Row = []
+        if ReturnAlsoHeaderList:
+            HeaderList = []
+        for SectionName, SectionDict in self._data.items():
+            if SectionName in ['Additional design data']:
+                continue
+            for Key, Value in SectionDict.items():
+                Row.append(float(Value))
+                if ReturnAlsoHeaderList:
+                    HeaderList.append(f"{SectionName} -> {Key}")
+        if ReturnAlsoHeaderList:
+            return Row, HeaderList
+        return Row
+    
+    def getHeader(self, FilterNotForML : bool = True) -> list:
+        HeaderList = []
+        for SectionName, SectionDict in self._data.items():
+            if FilterNotForML and (SectionName in ['Additional design data']):
+                continue
+            for Key in SectionDict.keys():
+                HeaderList.append(f"{SectionName} -> {Key}")
+        return HeaderList
+    
+    def getMLHeader(self) -> list:
+        return self.getHeader(FilterNotForML=True)
+    
+    def _getKey(self, Section : str, Key : str):
+        try:
+            return self._data[Section.strip()][Key.strip()]
+        except:
+            return None
+    
+    def getLfsrSize(self) -> int:
+        return self._getKey('Design data', 'LFSR size')
+    
+    def getInputCount(self) -> int:
+        return self._getKey('Design data', 'Input channels')
+    
+    def getCompressionRatio(self) -> float:
+        return self._getKey('Design data', 'Compression ratio')
 
+    def getPatternCount(self, Regenerated : bool = False) -> float:
+        if Regenerated:
+            return self._getKey('Regenerated patterns', 'Count')
+        return self._getKey('ATPG/EDT statistics', 'ATPG pattern count')
+    
+    def getScanLength(self) -> float:
+        return self._getKey('Design data', 'Scan chain length')
+    
+    def getScanCount(self) -> float:
+        return self._getKey('Design data', 'Scan chain count')
+    
+    def getEncodingCapacity(self) -> float:
+        return self._getKey('Design data', 'Encoding capacity')
+    
+    def getGateCount(self) -> float:
+        return self._getKey('Design data', 'Gate count')
+    
+    def getFaultCount(self) -> float:
+        return self._getKey('Design data', 'Fault count')
+    
+    def getTestDataVolume(self) -> float:
+        return self._getKey('ATPG/EDT statistics', 'Test Data Volume')
+    
+    def getTestTime(self) -> float:
+        return self._getKey('ATPG/EDT statistics', 'Test app time')
+    
+    def getTestCoverageProgress(self) -> list:
+        Result = []
+        Section = self._data['Test Coverage progress (40/40)']
+        for Val in Section.values():
+            Result.append(float(Val))
+        return Result
+    
+
+class TestKompressMLDataList:
+    
+    __slots__ = ("_dict",)
+    
+    def __init__(self, FileNames : list, Verbose : bool = False) -> None:
+        self._dict = {}
+        for FileName in FileNames:
+            if not File.exists(FileName):
+                if Verbose:
+                    Aio.printError("File not found:", FileName)
+                continue
+            if Verbose:
+                print("Processing file:", FileName)
+            Data = TestKompressMLData(FileName)
+            ch = Data.getInputCount()
+            lfsr = Data.getLfsrSize()
+            self._dict[(lfsr, ch)] = Data
+            
+    def __len__(self) -> int:
+        return len(self._dict)
+    
+    def getData(self, Channels : int, LfsrSize : int) -> TestKompressMLData:
+        return self._dict.get((LfsrSize, Channels), None)
+    
+    def normaliseData(self) -> None:
+        for Data in self._dict.values():
+            Data.normaliseData()
+            
+    def denormaliseData(self) -> None:
+        for Data in self._dict.values():
+            Data.denormaliseData()
+            
+    def getMLDataRows(self, Regenerated : bool = False) -> list:
+        Result = []
+        for DataRef in self._dict.values():
+            RefRow = DataRef.getMLData()
+            for DataEst in self._dict.values():
+                EstCells = [DataEst.getLfsrSize(), DataEst.getInputCount(), DataEst.getCompressionRatio(), DataEst.getPatternCount(Regenerated)]
+                Result.append(RefRow + EstCells)
+        return Result
+    
+    def checkHeaders(self) -> bool:
+        Header = None
+        for Data in self._dict.values():
+            if Header is None:
+                Header = Data.getHeader()
+            else:
+                if Header != Data.getHeader():
+                    return False
+        return True
+    
+    def checkVersion(self) -> bool:
+        Version = None
+        for Data in self._dict.values():
+            if Version is None:
+                Version = Data.getVersion()
+            else:
+                if Version != Data.getVersion():
+                    return False
+        return True
+    
 
 class TestCubeSetUtils:
     
-    preparseLogs = DecompressorUtils.preparseLogs
+    preparseLogs = DecompressorUtils.   preparseLogs
     
     @staticmethod
     def adaptiveSearchForTemplates(Cubes : TestCubeSet, MinTemplateCount : int = 3, MaxTemplateCount : int = 6, Step : float = 0.00005, MultiThreading : bool = True, CustomCubesForAnalysis : TestCubeSet = None) -> TestCubeSet:
