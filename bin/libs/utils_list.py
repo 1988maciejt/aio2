@@ -455,6 +455,17 @@ class List:
         pass
     return Result
   
+  def same(lst1 : list, lst2 : list, Verbose : bool = False) -> bool:
+    if len(lst1) != len(lst2):
+      if Verbose:
+        Aio.print(f"Lists have different lengths: {len(lst1)} != {len(lst2)}")
+      return False
+    for i in range(len(lst1)):
+      if lst1[i] != lst2[i]:
+        if Verbose:
+          Aio.print(f"Lists differ at index {i}: {lst1[i]} != {lst2[i]}")
+        return False
+    return True
   
   
 

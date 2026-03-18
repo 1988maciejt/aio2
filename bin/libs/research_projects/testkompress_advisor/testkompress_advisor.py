@@ -3147,7 +3147,12 @@ class MLDataUtils:
         Result = {}
         CurrentSection = None
         for Line in MLReportStr.splitlines():
-            R = re.search(r"--- --- --- --- ---\s+(.+)$", Line)
+            R = re.search(r'--- --- --- --- ---\s*(.*)\([ 0-9\+\/]+', Line)
+            if R:
+                CurrentSection = R.group(1).strip()
+                Result[CurrentSection] = ""
+                continue
+            R = re.search(r"--- --- --- --- ---\s+(.*)", Line)
             if R:
                 CurrentSection = R.group(1).strip()
                 Result[CurrentSection] = ""
@@ -3155,6 +3160,9 @@ class MLDataUtils:
             if CurrentSection is not None:
                 Line = Line.replace('n/a', '0')
                 Result[CurrentSection] += Line + "\n"
+        for Section in list(Result.keys()):
+            if len(Result[Section]) < 5:
+                del Result[Section]
         return Result
     
     @staticmethod
@@ -3202,6 +3210,9 @@ class TestKompressMLData:
             for Key, Value in SectionDict.items():
                 Result += f"|  |- {Key} = {Value}\n"
         return Result
+    
+    def __len__(self):
+        return len(self._data)
         
     def getVersion(self) -> int:
         return self._version
@@ -3229,9 +3240,14 @@ class TestKompressMLData:
         if ReturnAlsoHeaderList:
             HeaderList = []
         for SectionName, SectionDict in self._data.items():
-            if SectionName in ['Additional design data']:
+            if SectionName in ['Additional design data',
+                               'Dropped cubes (outside of current EDT block)',
+                               'Useful cubes (outside of current EDT block)',
+                               'Test Coverage progress']:
                 continue
             for Key, Value in SectionDict.items():
+                if Key == 'EDT block index' and SectionName == 'Design data':
+                    continue
                 Row.append(float(Value))
                 if ReturnAlsoHeaderList:
                     HeaderList.append(f"{SectionName} -> {Key}")
@@ -3312,8 +3328,12 @@ class TestKompressMLDataList:
                     Aio.printError("File not found:", FileName)
                 continue
             if Verbose:
-                print("Processing file:", FileName)
+                Aio.print("Processing file:", FileName)
             Data = TestKompressMLData(FileName)
+            if len(Data) <= 0:
+                if Verbose:
+                    Aio.printError("...No data extracted from file:", FileName)
+                continue
             ch = Data.getInputCount()
             lfsr = Data.getLfsrSize()
             self._dict[(lfsr, ch)] = Data
@@ -3332,22 +3352,33 @@ class TestKompressMLDataList:
         for Data in self._dict.values():
             Data.denormaliseData()
             
-    def getMLDataRows(self, Regenerated : bool = False) -> list:
+    def getMLDataRows(self, Regenerated : bool = False, DesignName = None) -> list:
         Result = []
         for DataRef in self._dict.values():
             RefRow = DataRef.getMLData()
+            if DesignName is not None:
+                RefRow = [str(DesignName)] + RefRow
             for DataEst in self._dict.values():
                 EstCells = [DataEst.getLfsrSize(), DataEst.getInputCount(), DataEst.getCompressionRatio(), DataEst.getPatternCount(Regenerated)]
                 Result.append(RefRow + EstCells)
         return Result
     
-    def checkHeaders(self) -> bool:
+    def getConfAndPCDict(self) -> dict:
+        Result = {}
+        for Data in self._dict.values():
+            lfsr = Data.getLfsrSize()
+            ch = Data.getInputCount()
+            pc = Data.getPatternCount()
+            Result[(lfsr, ch)] = pc
+        return Result
+    
+    def checkHeaders(self, Verbose : bool = False) -> bool:
         Header = None
         for Data in self._dict.values():
             if Header is None:
                 Header = Data.getHeader()
             else:
-                if Header != Data.getHeader():
+                if not List.same(Header, Data.getHeader(), Verbose):
                     return False
         return True
     
@@ -3360,6 +3391,16 @@ class TestKompressMLDataList:
                 if Version != Data.getVersion():
                     return False
         return True
+    
+    def getCOnfigurationsDict(self) -> dict:
+        Result = {}
+        for Data in self._dict.values():
+            lfsr = Data.getLfsrSize()
+            ch = Data.getInputCount()
+            if lfsr not in Result.keys():
+                Result[lfsr] = []
+            Result[lfsr].append(ch)
+        return Result
     
 
 class TestCubeSetUtils:
