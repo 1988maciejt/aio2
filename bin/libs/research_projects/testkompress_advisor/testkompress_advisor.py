@@ -3127,6 +3127,21 @@ class PreparsedData:
 class MLDataUtils:
     
     @staticmethod
+    def getDataLogFromExcellCopiedValues(ExcellRows : str) -> str:
+        Idx = -1
+        Result = File.read(Aio.getPath() + "libs/research_projects/testkompress_advisor/ml_report_template.txt")
+        for Row in ExcellRows.splitlines():
+            Idx += 1
+            if len(Row.strip()) == 0:
+                continue
+            Row = Row.replace(",", "")
+            Result = Result.replace(f"<{Idx}>", Row.strip())
+        for i in range(200):
+            Result = Result.replace(f"<{i}>", "UNDEFINED")
+        return Result
+            
+    
+    @staticmethod
     def getMLReportFromLog(FileName : str) -> str:
         Run = False
         DataStr = ""
@@ -3218,7 +3233,7 @@ class TestKompressMLData:
         return self._version
     
     def normaliseData(self) -> None:
-        k = self.getFaultCount()
+        k = sqrt(self.getFaultCount())
         self._data['Regenerated patterns']['Count'] /= k
         self._data['ATPG/EDT statistics']['ATPG pattern count'] /= k
         self._data['ATPG/EDT statistics']['Test app time'] /= k
@@ -3227,7 +3242,7 @@ class TestKompressMLData:
         self._data['ATPG/EDT statistics']['DS (det by sim)'] /= k
     
     def denormaliseData(self) -> None:
-        k = self.getFaultCount()
+        k = sqrt(self.getFaultCount())
         self._data['Regenerated patterns']['Count'] *= k
         self._data['ATPG/EDT statistics']['ATPG pattern count'] *= k
         self._data['ATPG/EDT statistics']['Test app time'] *= k
@@ -3235,18 +3250,52 @@ class TestKompressMLData:
         self._data['ATPG/EDT statistics']['Single detected DS'] *= k
         self._data['ATPG/EDT statistics']['DS (det by sim)'] *= k
         
+    def getEstimationDataToReachTheDesiredCompression(self, Compression : float, LfsrSize : int = None) -> tuple:
+        """Returns (Lfsr, InputCount, Compression)"""
+        if LfsrSize is None:
+            LfsrSize = self.getLfsrSize()
+        try:
+            InputCount = TestKompressCalculator.getInputCountToReachDesiredCompression(Compression, LfsrSize, self.getScanLength(), self.getScanCount())
+        except:
+            InputCount = 1
+        EffCompression = TestKompressCalculator.getCompression(InputCount, LfsrSize, self.getScanLength(), self.getScanCount())
+        return LfsrSize, InputCount, EffCompression
+        
     def getMLData(self, ReturnAlsoHeaderList : bool = False) -> dict:
         Row = []
         if ReturnAlsoHeaderList:
             HeaderList = []
         for SectionName, SectionDict in self._data.items():
             if SectionName in ['Additional design data',
-                               'Dropped cubes (outside of current EDT block)',
-                               'Useful cubes (outside of current EDT block)',
-                               'Test Coverage progress']:
+                                'Dropped cubes (outside of current EDT block)',
+                                'Useful cubes (outside of current EDT block)',
+                                'Test Coverage progress',
+                                'Encoding capacity - cube merging',
+                                'Encoding capacity - dynamic compaction']:
                 continue
             for Key, Value in SectionDict.items():
                 if Key == 'EDT block index' and SectionName == 'Design data':
+                    continue
+                if SectionName == 'Dropped cubes (in current EDT block)':
+                    if Key in ['Max specified bits']:
+                        continue
+                if SectionName == 'Design data':
+                    if Key in ['Enc cap w/ presets',]:
+                        continue
+                if SectionName == 'ATPG/EDT statistics':
+                    if Key in ['Single det useful',
+                                'Sngl dt (%u_cubes)',
+                                'Sngl det dyn comp',
+                                'Sngl det (%d_comp)',]:
+                        continue
+                if 0:
+                    # removing 1st
+                    if SectionName == 'Dynamic compaction':
+                        if Key in ['Std dev add per pt',
+                                    'Min added per patt',
+                                    'Max added per patt',]:
+                            continue
+                if "HIST_" in Key:
                     continue
                 Row.append(float(Value))
                 if ReturnAlsoHeaderList:
@@ -3258,9 +3307,38 @@ class TestKompressMLData:
     def getHeader(self, FilterNotForML : bool = True) -> list:
         HeaderList = []
         for SectionName, SectionDict in self._data.items():
-            if FilterNotForML and (SectionName in ['Additional design data']):
+            if FilterNotForML and (SectionName in ['Additional design data',
+                                'Dropped cubes (outside of current EDT block)',
+                                'Useful cubes (outside of current EDT block)',
+                                'Test Coverage progress',
+                                'Encoding capacity - cube merging',
+                                'Encoding capacity - dynamic compaction']):
                 continue
             for Key in SectionDict.keys():
+                if FilterNotForML:
+                    if Key == 'EDT block index' and SectionName == 'Design data':
+                        continue
+                    if SectionName == 'Dropped cubes (in current EDT block)':
+                        if Key in ['Max specified bits']:
+                            continue
+                    if SectionName == 'Design data':
+                        if Key in ['Enc cap w/ presets',]:
+                            continue
+                    if SectionName == 'ATPG/EDT statistics':
+                        if Key in ['Single det useful',
+                                    'Sngl dt (%u_cubes)',
+                                    'Sngl det dyn comp',
+                                    'Sngl det (%d_comp)',]:
+                            continue
+                    if 0:
+                        # removing 1st
+                        if SectionName == 'Dynamic compaction':
+                            if Key in ['Std dev add per pt',
+                                        'Min added per patt',
+                                        'Max added per patt',]:
+                                continue
+                    if "HIST_" in Key:
+                        continue
                 HeaderList.append(f"{SectionName} -> {Key}")
         return HeaderList
     
@@ -3389,6 +3467,16 @@ class TestKompressMLDataList:
                 Version = Data.getVersion()
             else:
                 if Version != Data.getVersion():
+                    return False
+        return True
+    
+    def checkFaultCount(self) -> bool:
+        FaultCount = None
+        for Data in self._dict.values():
+            if FaultCount is None:
+                FaultCount = Data.getFaultCount()
+            else:
+                if FaultCount != Data.getFaultCount():
                     return False
         return True
     
@@ -3723,7 +3811,10 @@ class TestKompressCalculator:
             for C in Compression:
                 Result.append(TestKompressCalculator.getInputCountToReachDesiredCompression(C, LFSRSize, ScanLen, ScanCount))
             return Result
-        return int(round(((ScanCount * ScanLen) - (LFSRSize * Compression)) / (Compression * ScanLen), 0))
+        Result = int(round(((ScanCount * ScanLen) - (LFSRSize * Compression)) / (Compression * ScanLen), 0))
+        if Result <= 1:
+            Result = 1
+        return Result
     
     @staticmethod
     def getInputCountListToReachCompressionRange(MinCompression : float, MaxCompression : float, CompressionStep : float, LFSRSize : int, ScanLen : int, ScanCount : int, Verbose : bool = False) -> list:

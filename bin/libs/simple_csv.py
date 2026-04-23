@@ -57,6 +57,9 @@ class SimpleCSV:
                 Row.append(None)
         self._rows = Rows
         
+    def __str__(self):
+        return self.toTable().toString()
+        
     def __len__(self) -> int:
         return len(self._rows)
     
@@ -296,7 +299,10 @@ class CSVDedicatedDataMapper:
             a = self._a[ColId]
             b = self._b[ColId]
             for RowI in range(self._csv.getRowCount()):
-                self._csv._rows[RowI][ColId] = a * float(self._csv._rows[RowI][ColId]) + b
+                try:
+                    self._csv._rows[RowI][ColId] = a * float(self._csv._rows[RowI][ColId]) + b
+                except:
+                    Aio.printError(f"CSVDedicatedDataMapper.mapCSV: Failed to map value '{self._csv._rows[RowI][ColId]}' at row {RowI}, column {ColId}.")
         self._mapped = True
         return self._csv   
     

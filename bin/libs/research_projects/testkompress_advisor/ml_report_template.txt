@@ -1,0 +1,155 @@
+//  ML report version : 8
+//  --- --- --- --- --- Design data
+//  EDT block index   : <1>
+//  Input channels    : <2>
+//  Output channels   : <3>
+//  LFSR size         : <4>
+//  Compression ratio : <5>
+//  Encoding capacity : <6>
+//  Enc cap w/ presets: <7>
+//  Max enc capacity  : <8>
+//  Scan chain count  : <9>
+//  Scan chain length : <10>
+//  Pattern length    : <11>
+//  Scan cell count   : <12>
+//  Gate count        : <13>
+//  Fault count       : <14>
+//  --- --- --- --- --- Useful cubes (in current EDT block)
+//  Cube count        : <16>
+//  AVG specified bits: <17>
+//  Std dev spec bits : <18>
+//  Min specified bits: <19>
+//  Max specified bits: <20>
+//  HIST_1 spec bits  : <21>
+//  HIST_2 spec bits  : <22>
+//  HIST_3 spec bits  : <23>
+//  HIST_4 spec bits  : <24>
+//  HIST_5 spec bits  : <25>
+//  HIST_6 spec bits  : <26>
+//  HIST_7 spec bits  : <27>
+//  HIST_8 spec bits  : <28>
+//  HIST_9 spec bits  : <29>
+//  Used enc capacity : <30>
+//  --- --- --- --- --- Dropped cubes (in current EDT block)
+//  Cube count        : <32>
+//  AVG specified bits: <33>
+//  Std dev spec bits : <34>
+//  Min specified bits: <35>
+//  Max specified bits: <36
+//  HIST_1 spec bits  : <37>
+//  HIST_2 spec bits  : <38>
+//  HIST_3 spec bits  : <39>
+//  HIST_4 spec bits  : <40>
+//  HIST_5 spec bits  : <41>
+//  HIST_6 spec bits  : <42>
+//  HIST_7 spec bits  : <43>
+//  HIST_8 spec bits  : <44>
+//  HIST_9 spec bits  : <45>
+//  Used enc capacity : <46>
+//  --- --- --- --- --- Aborted cubes
+//  Cube count        : <48>
+//  AVG specified bits: <49>
+//  Std dev spec bits : <50>
+//  Min specified bits: <51>
+//  Max specified bits: <52>
+//  HIST_1 spec bits  : <53>
+//  HIST_2 spec bits  : <54>
+//  HIST_3 spec bits  : <55>
+//  HIST_4 spec bits  : <56>
+//  HIST_5 spec bits  : <57>
+//  HIST_6 spec bits  : <58>
+//  HIST_7 spec bits  : <59>
+//  HIST_8 spec bits  : <60>
+//  HIST_9 spec bits  : <61>
+//  Used enc capacity : <62>
+//  --- --- --- --- --- Dynamic compaction
+//  Added patterns    : <64>
+//  Data points       : <65>
+//  Added scan cells  : <66>
+//  AVG added per patt: <67>
+//  Std dev add per pt: <68>
+//  Min added per patt: <69>
+//  Max added per patt: <70>
+//  HIST_1 per pattern: <71>
+//  HIST_2 per pattern: <72>
+//  HIST_3 per pattern: <73>
+//  HIST_4 per pattern: <74>
+//  HIST_5 per pattern: <75>
+//  HIST_6 per pattern: <76>
+//  HIST_7 per pattern: <77>
+//  HIST_8 per pattern: <78>
+//  HIST_9 per pattern: <79>
+//  Used enc capacity : <80>
+//  Added faults      : <81>
+//  --- --- --- --- --- Regenerated patterns
+//  Count             : <83>
+//  AVG specified bits: <84>
+//  Std dev spec bits : <85>
+//  Min specified bits: <86>
+//  Max specified bits: <87>
+//  HIST_1 spec bits  : <88>
+//  HIST_2 spec bits  : <89>
+//  HIST_3 spec bits  : <90>
+//  HIST_4 spec bits  : <91>
+//  HIST_5 spec bits  : <92>
+//  HIST_6 spec bits  : <93>
+//  HIST_7 spec bits  : <94>
+//  HIST_8 spec bits  : <95>
+//  HIST_9 spec bits  : <96>
+//  Used enc capacity : <97>
+//  --- --- --- --- --- ATPG/EDT statistics
+//  ATPG pattern count: <99>
+//  Test Data Volume  : <100>
+//  Test app time     : <101>
+//  EDT aborts        : <102>
+//  ATPG aborts       : <103>
+//  Test coverage     : <104>
+//  DS (det by sim)   : <105>
+//  Single detected DS: <106>
+//  Single DS (%DS)   : <107>
+//  Single DS (%full) : <108>
+//  Single det useful : <109>
+//  Sngl dt (%u_cubes): <110>
+//  Sngl det dyn comp : <111>
+//  Sngl det (%d_comp): <112>
+//  --- --- --- --- --- Additional design data
+//  Primary Input cnt : <114>
+//  Primary Output cnt: <115>
+//  Whole dsgn sc cell: <116>
+//  Whole design gates: <117>
+//  Cur blk gat (%all): <118>
+//  Masking bits      : <119>
+//  --- --- --- --- --- Test Coverage progress (101/101)
+//  Test Coverage[ 1] : <121>
+//  Test Coverage[ 2] : <122>
+//  Test Coverage[ 3] : <123>
+//  Test Coverage[ 4] : <124>
+//  Test Coverage[ 5] : <125>
+//  Test Coverage[ 6] : <126>
+//  Test Coverage[ 7] : <127>
+//  Test Coverage[ 8] : <128>
+//  Test Coverage[ 9] : <129>
+//  Test Coverage[10] : <130>
+//  --- --- --- --- --- Encoding capacity - cube merging (101/101)
+//  Enc Cap cub_m[ 1] : <132>
+//  Enc Cap cub_m[ 2] : <133>
+//  Enc Cap cub_m[ 3] : <134>
+//  Enc Cap cub_m[ 4] : <135>
+//  Enc Cap cub_m[ 5] : <136>
+//  Enc Cap cub_m[ 6] : <137>
+//  Enc Cap cub_m[ 7] : <138>
+//  Enc Cap cub_m[ 8] : <139>
+//  Enc Cap cub_m[ 9] : <140>
+//  Enc Cap cub_m[10] : <141>
+//  --- --- --- --- --- Encoding capacity - dynamic compaction (101/99+2 inactive)
+//  Enc Cap dyn_c[ 1] : <143>
+//  Enc Cap dyn_c[ 2] : <144>
+//  Enc Cap dyn_c[ 3] : <145>
+//  Enc Cap dyn_c[ 4] : <146>
+//  Enc Cap dyn_c[ 5] : <147>
+//  Enc Cap dyn_c[ 6] : <148>
+//  Enc Cap dyn_c[ 7] : <149>
+//  Enc Cap dyn_c[ 8] : <150>
+//  Enc Cap dyn_c[ 9] : <151>
+//  Enc Cap dyn_c[10] : <152>
+//  --- --- --- --- ---
