@@ -3295,8 +3295,9 @@ class TestKompressMLData:
                                     'Min added per patt',
                                     'Max added per patt',]:
                             continue
-                if "HIST_" in Key:
-                    continue
+                if 0:
+                    if "HIST_" in Key:
+                        continue
                 Row.append(float(Value))
                 if ReturnAlsoHeaderList:
                     HeaderList.append(f"{SectionName} -> {Key}")
@@ -3337,8 +3338,9 @@ class TestKompressMLData:
                                         'Min added per patt',
                                         'Max added per patt',]:
                                 continue
-                    if "HIST_" in Key:
-                        continue
+                    if 0:
+                        if "HIST_" in Key:
+                            continue
                 HeaderList.append(f"{SectionName} -> {Key}")
         return HeaderList
     

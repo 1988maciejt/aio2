@@ -178,6 +178,70 @@ class RangesHistogram:
     y = self.getRanges()
     x = [i for i in range(len(y))]
     return [x, y]
+  
+  
+class Deciles:
+  
+  __slots__ = ("_data", "_min", "_max")
+  
+  def __init__(self, Data = []):
+    self._data = []
+    self._min = None
+    self._max = None
+    self.addData(Data)
+  
+  def addData(self, Data):
+    if type(Data) in [int, float]:
+      Data = [Data]
+    for D in Data:
+      if type(D) is list:
+        D = D[0]
+      D = float(D)
+      self._data.append(D)
+      if self._min is None:
+        self._min = D
+        self._max = D
+      else:
+        if D < self._min: 
+          self._min = D
+        if D > self._max:
+          self._max = D
+          
+  addDataPoint = addData
+          
+  def clearData(self):
+    self._data.clear()
+    self._min = None
+    self._max = None
+    
+  def getDeciles(self, Normalise: bool = False):
+    n = len(self._data)
+    if n == 0:
+        return [0.0] * 9
+    data = sorted(self._data)
+    if n == 1:
+        result = [data[0]] * 9
+    else:
+        result = []
+        for k in range(1, 10):
+            p = k / 10
+            i = p * (n - 1)
+            lower = int(i)
+            upper = min(lower + 1, n - 1)
+            frac = i - lower
+            value = data[lower] + frac * (data[upper] - data[lower])
+            result.append(value)
+    if Normalise:
+        if self._min is None or self._max is None or self._max == self._min:
+            return [0.0] * len(result)
+        scale = self._max - self._min
+        result = [(v - self._min) / scale for v in result]
+    return result
+  
+  def getPlotData(self) -> dict:
+    y = self.getDeciles()
+    x = [i for i in range(len(y))]
+    return [x, y]
 
 
 class PlotTypes:

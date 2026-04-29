@@ -47,5 +47,6 @@ python3 -m pip install --upgrade galois
 python3 -m pip install --upgrade pysnooper
 python3 -m pip install --upgrade tensorflow keras
 python3 -m pip install --upgrade pyroaring
+python3 -m pip install --upgrade tensorflow-macos tensorflow-metal
 
 # python3 -m pip install pyqt5 pyqt5-tools
