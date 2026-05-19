@@ -3205,10 +3205,12 @@ class MLDataUtils:
 
 class TestKompressMLData:
     
-    __slots__ = ("_data", "_version")
+    __slots__ = ("_data", "_version", "_no_histo", "_no_progress")
     
-    def __init__(self, FileName : str) -> None:
+    def __init__(self, FileName : str, NoHistograms : bool = True, NoProgress : bool = True) -> None:
         self._data = {}
+        self._no_histo = NoHistograms
+        self._no_progress = NoProgress
         MLReport = MLDataUtils.getMLReportFromLog(FileName)
         try:
             self._version = int(re.search(r"ML\s+report\s+version\s*:\s*([0-9]+)", MLReport).group(1))
@@ -3268,19 +3270,19 @@ class TestKompressMLData:
         for SectionName, SectionDict in self._data.items():
             if SectionName in ['Additional design data',
                                 'Dropped cubes (outside of current EDT block)',
-                                'Useful cubes (outside of current EDT block)',
-                                'Test Coverage progress',
-                                'Encoding capacity - cube merging',
-                                'Encoding capacity - dynamic compaction']:
+                                'Useful cubes (outside of current EDT block)',]:
                 continue
-            for Key, Value in SectionDict.items():
-                if Key == 'EDT block index' and SectionName == 'Design data':
+            if self._no_progress:
+                if SectionName in ['Test Coverage progress',
+                                    'Encoding capacity - cube merging',
+                                    'Encoding capacity - dynamic compaction']:
                     continue
+            for Key, Value in SectionDict.items():
                 if SectionName == 'Dropped cubes (in current EDT block)':
                     if Key in ['Max specified bits']:
                         continue
                 if SectionName == 'Design data':
-                    if Key in ['Enc cap w/ presets',]:
+                    if Key in ['Enc cap w/ presets','EDT block index',]:
                         continue
                 if SectionName == 'ATPG/EDT statistics':
                     if Key in ['Single det useful',
@@ -3288,14 +3290,7 @@ class TestKompressMLData:
                                 'Sngl det dyn comp',
                                 'Sngl det (%d_comp)',]:
                         continue
-                if 0:
-                    # removing 1st
-                    if SectionName == 'Dynamic compaction':
-                        if Key in ['Std dev add per pt',
-                                    'Min added per patt',
-                                    'Max added per patt',]:
-                            continue
-                if 0:
+                if self._no_histo:
                     if "HIST_" in Key:
                         continue
                 Row.append(float(Value))
@@ -3305,42 +3300,34 @@ class TestKompressMLData:
             return Row, HeaderList
         return Row
     
-    def getHeader(self, FilterNotForML : bool = True) -> list:
+    def getHeader(self) -> list:
         HeaderList = []
         for SectionName, SectionDict in self._data.items():
-            if FilterNotForML and (SectionName in ['Additional design data',
+            if SectionName in ['Additional design data',
                                 'Dropped cubes (outside of current EDT block)',
-                                'Useful cubes (outside of current EDT block)',
-                                'Test Coverage progress',
-                                'Encoding capacity - cube merging',
-                                'Encoding capacity - dynamic compaction']):
+                                'Useful cubes (outside of current EDT block)',]:
                 continue
+            if self._no_progress:
+                if SectionName in ['Test Coverage progress',
+                                    'Encoding capacity - cube merging',
+                                    'Encoding capacity - dynamic compaction']:
+                    continue
             for Key in SectionDict.keys():
-                if FilterNotForML:
-                    if Key == 'EDT block index' and SectionName == 'Design data':
+                if SectionName == 'Dropped cubes (in current EDT block)':
+                    if Key in ['Max specified bits']:
                         continue
-                    if SectionName == 'Dropped cubes (in current EDT block)':
-                        if Key in ['Max specified bits']:
-                            continue
-                    if SectionName == 'Design data':
-                        if Key in ['Enc cap w/ presets',]:
-                            continue
-                    if SectionName == 'ATPG/EDT statistics':
-                        if Key in ['Single det useful',
-                                    'Sngl dt (%u_cubes)',
-                                    'Sngl det dyn comp',
-                                    'Sngl det (%d_comp)',]:
-                            continue
-                    if 0:
-                        # removing 1st
-                        if SectionName == 'Dynamic compaction':
-                            if Key in ['Std dev add per pt',
-                                        'Min added per patt',
-                                        'Max added per patt',]:
-                                continue
-                    if 0:
-                        if "HIST_" in Key:
-                            continue
+                if SectionName == 'Design data':
+                    if Key in ['Enc cap w/ presets','EDT block index',]:
+                        continue
+                if SectionName == 'ATPG/EDT statistics':
+                    if Key in ['Single det useful',
+                                'Sngl dt (%u_cubes)',
+                                'Sngl det dyn comp',
+                                'Sngl det (%d_comp)',]:
+                        continue
+                if self._no_histo:
+                    if "HIST_" in Key:
+                        continue
                 HeaderList.append(f"{SectionName} -> {Key}")
         return HeaderList
     
@@ -3400,7 +3387,7 @@ class TestKompressMLDataList:
     
     __slots__ = ("_dict",)
     
-    def __init__(self, FileNames : list, Verbose : bool = False) -> None:
+    def __init__(self, FileNames : list, Verbose : bool = False, NoHistograms : bool = True, NoProgress : bool = True) -> None:
         self._dict = {}
         for FileName in FileNames:
             if not File.exists(FileName):
@@ -3409,7 +3396,7 @@ class TestKompressMLDataList:
                 continue
             if Verbose:
                 Aio.print("Processing file:", FileName)
-            Data = TestKompressMLData(FileName)
+            Data = TestKompressMLData(FileName, NoHistograms=NoHistograms, NoProgress=NoProgress)
             if len(Data) <= 0:
                 if Verbose:
                     Aio.printError("...No data extracted from file:", FileName)

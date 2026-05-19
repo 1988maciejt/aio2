@@ -32,6 +32,37 @@ class Aio:
   _subsection_opened = False
   
   @staticmethod
+  def getWindowsUserProfilePath() -> str:
+    import subprocess
+    win_path = subprocess.check_output(
+      ["cmd.exe", "/c", "echo", "%USERPROFILE%"],
+      text=True
+    ).strip()
+    wsl_path = subprocess.check_output(
+      ["wslpath", "-u", win_path],
+      text=True
+    ).strip()
+    return wsl_path
+  
+  @staticmethod
+  def getWindowsUserDesktopPath() -> str:
+    import subprocess
+    desktop_win = subprocess.check_output(
+      [
+        "powershell.exe",
+        "-NoProfile",
+        "-Command",
+        "[Environment]::GetFolderPath('Desktop')"
+      ],
+      text=True
+    ).strip()
+    desktop_wsl = subprocess.check_output(
+      ["wslpath", "-u", desktop_win],
+      text=True
+    ).strip()
+    return desktop_wsl
+  
+  @staticmethod
   def printListing(FileName : str):
     Data = readFile(FileName)
     LNum = 1
