@@ -241,6 +241,22 @@ class SimpleCSV:
         import random
         random.shuffle(self._rows)
         
+    def interleaveRows(self) -> None:
+        from libs.utils_list import List
+        if len(self._rows) <= 1:
+            return
+        indices = List.getInterleaved([i for i in range(len(self._rows))])
+        new_rows = []
+        for i in indices:
+            new_rows.append(self._rows[i])
+        self._rows = new_rows
+        
+    def sort(self, ColumnId : int, reverse : bool = False) -> None:
+        if ColumnId >= self._coll_cnt:
+            Aio.printError(f"SimpleCSV.sort: ColumnId {ColumnId} is out of range for the CSV ({self._coll_cnt} columns).")
+            return
+        self._rows.sort(key=lambda x: x[ColumnId], reverse=reverse)
+        
 class CSVDedicatedDataMapper:
     
     __slots__ = ('_a', '_b', '_csv', '_mapped')
@@ -323,6 +339,12 @@ class CSVDedicatedDataMapper:
 
     def getCsv(self) -> SimpleCSV:
         return self._csv
+    
+    def interleaveRows(self) -> None:
+        self._csv.interleaveRows()
+        
+    def sort(self, ColumnId : int, reverse : bool = False) -> None:
+        self._csv.sort(ColumnId, reverse)
     
     def __getitem__(self, index : int) -> "CSVDedicatedDataMapper":
         NewMapper = self.copy()

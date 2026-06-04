@@ -3382,13 +3382,38 @@ class TestKompressMLData:
             Result.append(float(Val))
         return Result
     
+    def __str__(self):
+        return self.getReport()
+    
+    def getReport(self, IncludeCompressionTable : bool = False) -> str:
+        Result = f"""Scan chains: {self.getScanCount()}
+Scan length: {self.getScanLength()}
+LFSR size: {self.getLfsrSize()}
+Input channels: {self.getInputCount()}
+Compression ratio: {self.getCompressionRatio()}"""
+        if IncludeCompressionTable:
+            Table = AioTable(["#Inputs", "Compression"])
+            ICount = TestKompressCalculator.getInputCountListToReachCompressionRange(25, 500, 25, self.getLfsrSize(), self.getScanLength(), self.getScanCount())
+            for InputCount in ICount:
+                Compression = TestKompressCalculator.getCompression(InputCount, self.getLfsrSize(), self.getScanLength(), self.getScanCount())
+                Table.add([InputCount, int(round(Compression, 0))])
+            Result += f"\n{Table}"
+        return Result
+    
+    def print(self, IncludeCompressionTable : bool = False) -> str:
+        Aio.print(self.getReport(IncludeCompressionTable=IncludeCompressionTable))
+    
 
 class TestKompressMLDataList:
     
     __slots__ = ("_dict",)
     
-    def __init__(self, FileNames : list, Verbose : bool = False, NoHistograms : bool = True, NoProgress : bool = True) -> None:
-        self._dict = {}
+    def __init__(self, FileNames : list, Verbose : bool = False, NoHistograms : bool = True, NoProgress : bool = True, MinimumCompression : float = None, MaximumCompression : float = None, MaximumRunsPerLfsr : int = None, AverageCompressionDiffPerLfsr : float = None, GoldCompression : float = None) -> None:
+        if (AverageCompressionDiffPerLfsr is not None) and (MaximumRunsPerLfsr is not None):
+            Aio.printError("Cannot set both AverageCompressionDiffPerLfsr and MaximumRunsPerLfsr. Please choose one of them.")
+            return
+        self._dict, AuxDict = {}, {}
+        CHPerLfsr = {}
         for FileName in FileNames:
             if not File.exists(FileName):
                 if Verbose:
@@ -3401,9 +3426,112 @@ class TestKompressMLDataList:
                 if Verbose:
                     Aio.printError("...No data extracted from file:", FileName)
                 continue
+            if MinimumCompression is not None and Data.getCompressionRatio() < MinimumCompression:
+                if Verbose:
+                    Aio.printError("...Compression ratio", Data.getCompressionRatio(), "is less than minimum", MinimumCompression, "for file:", FileName)
+                continue
+            if MaximumCompression is not None and Data.getCompressionRatio() > MaximumCompression:
+                if Verbose:
+                    Aio.printError("...Compression ratio", Data.getCompressionRatio(), "is greater than maximum", MaximumCompression, "for file:", FileName)
+                continue
             ch = Data.getInputCount()
             lfsr = Data.getLfsrSize()
-            self._dict[(lfsr, ch)] = Data
+            chlist = CHPerLfsr.get(lfsr, [])
+            if ch not in chlist:
+                chlist.append(ch)
+                CHPerLfsr[lfsr] = chlist
+            AuxDict[(lfsr, ch)] = Data
+        if MaximumRunsPerLfsr is not None and GoldCompression is None:
+            for lfsr in CHPerLfsr.keys():
+                chlist = CHPerLfsr[lfsr]
+                chlist.sort(reverse=True)
+                #chlist = List.decimate(chlist, MaximumRunsPerLfsr)    
+                CDict = {}
+                for ch in chlist:
+                    CDict[AuxDict[(lfsr, ch)].getCompressionRatio()] = ch
+                clist = List.getEvenlySpacedSublist(list(CDict.keys()), MaximumRunsPerLfsr)
+                chlist = [CDict[key] for key in clist]
+                for ch in chlist:
+                    self._dict[(lfsr, ch)] = AuxDict[(lfsr, ch)]
+        elif MaximumRunsPerLfsr is not None and GoldCompression is not None and AverageCompressionDiffPerLfsr is None:
+            for lfsr in CHPerLfsr.keys():
+                chlist = CHPerLfsr[lfsr]
+                chlist.sort(reverse=True)
+                ctochdict = {AuxDict[(lfsr, ch)].getCompressionRatio(): ch for ch in chlist}
+                complist = sorted(ctochdict.keys())
+                if MinimumCompression is None:
+                    MinimumCompression = min(complist)
+                if MaximumCompression is None:
+                    MaximumCompression = max(complist)
+                newcomplist = TestKompressCalculator.filterCompressionListForMLTraining(complist, MinimumCompression, MaximumCompression, BreakValue=GoldCompression, DataPointsLimit=MaximumRunsPerLfsr)
+                for comp in newcomplist:
+                    ch = ctochdict[comp]
+                    self._dict[(lfsr, ch)] = AuxDict[(lfsr, ch)]
+        elif AverageCompressionDiffPerLfsr is not None:
+            for lfsr in CHPerLfsr.keys():
+                chlist = CHPerLfsr[lfsr]
+                ctochdict = {AuxDict[(lfsr, ch)].getCompressionRatio(): ch for ch in chlist}
+                complist = sorted(ctochdict.keys())
+                if len(complist) <= 3:
+                    newcomplist = complist
+                elif GoldCompression is not None:
+                    BestCompression = None
+                    for c in complist:
+                        if BestCompression is None:
+                            BestCompression = c
+                        elif abs(c - GoldCompression) < abs(BestCompression - GoldCompression):
+                            BestCompression = c
+                    lowlist, highlist = [], []
+                    for c in complist:
+                        if c < BestCompression:
+                            lowlist.append(c)
+                        elif c == BestCompression:
+                            lowlist.append(c)
+                            highlist.append(c)
+                        else:
+                            highlist.append(c)
+                    newlowlist = List.getBestSublistToMatchAGrid(lowlist, AverageCompressionDiffPerLfsr*0.8, AverageCompressionDiffPerLfsr, 0.1)
+                    if newlowlist is None:
+                        newlowlist = List.getBestSublistToMatchAGrid(lowlist, AverageCompressionDiffPerLfsr*0.8, AverageCompressionDiffPerLfsr, 0.2)
+                        if newlowlist is None:                       
+                            newlowlist = List.getBestSublistToReachAveragedSpaceBetweenSuccessors(lowlist, AverageCompressionDiffPerLfsr*0.8)
+                    newhighlist = List.getBestSublistToMatchAGrid(highlist, AverageCompressionDiffPerLfsr, AverageCompressionDiffPerLfsr*1.2, 0.1)
+                    if newhighlist is None:
+                        newhighlist = List.getBestSublistToMatchAGrid(highlist, AverageCompressionDiffPerLfsr, AverageCompressionDiffPerLfsr*1.2, 0.2)
+                        if newhighlist is None:                       
+                            newhighlist = List.getBestSublistToReachAveragedSpaceBetweenSuccessors(highlist, AverageCompressionDiffPerLfsr*1.2)
+                    newcomplist = list(set(newlowlist + newhighlist))
+                    newcomplist.sort()
+                else:                
+                    newcomplist = List.getBestSublistToMatchAGrid(complist, AverageCompressionDiffPerLfsr, AverageCompressionDiffPerLfsr, 0.1)
+                    if newcomplist is None:
+                        newcomplist = List.getBestSublistToMatchAGrid(complist, AverageCompressionDiffPerLfsr, AverageCompressionDiffPerLfsr, 0.2)
+                        if newcomplist is None:                       
+                            newcomplist = List.getBestSublistToReachAveragedSpaceBetweenSuccessors(complist, AverageCompressionDiffPerLfsr)
+                for comp in newcomplist:
+                    ch = ctochdict[comp]
+                    self._dict[(lfsr, ch)] = AuxDict[(lfsr, ch)]
+        elif GoldCompression is None:
+            for lfsr in CHPerLfsr.keys():
+                chlist = CHPerLfsr[lfsr]
+                ctochdict = {AuxDict[(lfsr, ch)].getCompressionRatio(): ch for ch in chlist}
+                complist = sorted(ctochdict.keys())
+                if MinimumCompression is None:
+                    MinimumCompression = min(complist)
+                if MaximumCompression is None:
+                    MaximumCompression = max(complist)
+                newcomplist = TestKompressCalculator.filterCompressionListForMLTraining(complist, MinimumCompression, MaximumCompression, DataPointsLimit=MaximumRunsPerLfsr)
+                for comp in newcomplist:
+                    ch = ctochdict[comp]
+                    self._dict[(lfsr, ch)] = AuxDict[(lfsr, ch)]
+        else:
+            self._dict = AuxDict
+        self._dict = dict(sorted(self._dict.items(), key=lambda x: (x[0][0], x[0][1])))
+        if Verbose:
+            Table = AioTable(["LFSR size", "#Channels", "Compression ratio"])
+            for Data in self._dict.values():
+                Table.add([Data.getLfsrSize(), Data.getInputCount(), Data.getCompressionRatio()])
+            Aio.print(Table)
             
     def __len__(self) -> int:
         return len(self._dict)
@@ -3792,6 +3920,41 @@ class PatternCountComprensator:
         
         
 class TestKompressCalculator:
+    
+    @staticmethod
+    def filterCompressionListForMLTraining(CompressionList : list, MinCompression : float, MaxCompression : float, ReturnAlsoTheBreakPointValue : bool = False, DataPointsLimit : int = None, BreakValue : float = None, Verbose : bool = False) -> tuple:
+        LimitedList = List.getOnlyValuesInRange(CompressionList, MinCompression, MaxCompression)
+        LimitedList.sort(reverse=True)
+        if BreakValue is None:
+            BreakIndex = List.getBestBreakPointIndexForTwoLinesFitting(LimitedList)
+        else:
+            BreakIndex = List.getIndexOfTheClosestValue(LimitedList, BreakValue)
+        if Verbose:
+            print(f"BreakIndex: {BreakIndex}")
+        if BreakIndex is None:
+            if ReturnAlsoTheBreakPointValue:
+                return LimitedList, None
+            return LimitedList
+        HighList = LimitedList[:BreakIndex+1]
+        LowList = LimitedList[BreakIndex:]
+        if Verbose:
+            print(f"HighList: {HighList}")
+            print(f"LowList: {LowList}")
+        MinCount = min(len(HighList), len(LowList))
+        if DataPointsLimit is not None:
+            Limit = int(round(DataPointsLimit / 2, 0))
+            MinCount = min(MinCount, Limit)
+        HighList = List.getEvenlySpacedSublist(HighList, MinCount)  
+        LowList = List.getEvenlySpacedSublist(LowList, MinCount)
+        if Verbose:
+            print(f"HighList (evenly spaced): {HighList}")
+            print(f"LowList (evenly spaced): {LowList}")
+        Result = list(set(HighList + LowList))
+        Result.sort(reverse=True)
+        if ReturnAlsoTheBreakPointValue:
+            return Result, LimitedList[BreakIndex]
+        return Result
+        
     
     @staticmethod
     def getInputCountToReachDesiredCompression(Compression : float, LFSRSize : int, ScanLen : int, ScanCount : int) -> int:

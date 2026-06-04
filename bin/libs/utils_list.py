@@ -326,6 +326,22 @@ class List:
       result += ind + str(i) + "\n"
     return result
   
+  def decimate(lst: list, HowMany: int) -> list:
+    if HowMany <= 0:
+        return lst[:]
+    if len(lst) <= 1:
+        return lst[:] if HowMany >= len(lst) else lst[:HowMany]
+    if HowMany == 1:
+        return [lst[0]]
+    if HowMany >= len(lst):
+        return lst[:]
+    Step = (len(lst) - 1) / (HowMany - 1)
+    Result = []
+    for i in range(HowMany):
+        index = round(i * Step)
+        Result.append(lst[index])
+    return Result
+  
   def getShortenListOfAveragedNumbers(lst : list, HowMany : int) -> list:
     HowManyToAdd = len(lst) / HowMany
     Counter = 0
@@ -443,6 +459,252 @@ class List:
       curr = dp[k][curr][1]
     Result = [lst[idx] for idx in reversed(indices)]
     return Result
+  
+  def getAbs(lst : list) -> list:
+    Result = []
+    for i in lst:
+      try:
+        Result.append(abs(i))
+      except:
+        pass
+    return Result
+  
+  def getInterleaved(lst : list) -> list:
+    if len(lst) <= 2:
+      return lst.copy()
+    result = []
+    left = 0
+    right = len(lst) - 1
+    while left <= right:
+      if left == right:
+        result.append(lst[left])
+      else:
+        result.append(lst[left])
+        result.append(lst[right])
+      left += 1
+      right -= 1
+    return result
+  
+  def getBestSublistToReachAveragedSpaceBetweenSuccessors(lst : list, TargetGap : float) -> list:
+    if len(lst) <= 2:
+      return lst.copy()
+    BestGap = None
+    BestSublist = None
+    for i in range(2, len(lst)+1):
+      Sublist = List.getEvenlySpacedSublist(lst, i)
+      #print(i)
+      #print(Sublist)
+      Gaps = List.mathDelta(Sublist)
+      #print(Gaps)
+      AvgGap = List.Avg([abs(G) for G in Gaps])
+      #print(AvgGap)
+      #print("")
+      if BestGap is None or abs(AvgGap - TargetGap) < abs(BestGap - TargetGap):
+        BestGap = AvgGap
+        BestSublist = Sublist.copy()
+    return BestSublist
+  
+  def getBestSublistToReachEqualSpaceBetweenSuccessors(lst : list, MinimumSizeOfResult : int = None, TheMoreItemsTheBestResult : bool = True) -> list:
+    if len(lst) <= 3:
+      return lst.copy()
+    if MinimumSizeOfResult is None:
+      MinimumSizeOfResult = 3
+    BestGapDiff = None
+    BestSublist = None
+    for i in range(int(MinimumSizeOfResult), len(lst)+1):
+      Sublist = List.getEvenlySpacedSublist(lst, i)
+      #print(i)
+      #print(Sublist)
+      Gaps = List.getAbs(List.mathDelta(Sublist))
+      #print(Gaps)
+      GapsDiff = abs(max(Gaps) - min(Gaps))
+      #print(GapsDiff)
+      #print("")
+      if TheMoreItemsTheBestResult:
+        if BestGapDiff is None or GapsDiff <= BestGapDiff:
+          BestGapDiff = GapsDiff
+          BestSublist = Sublist.copy()
+      else:
+        if BestGapDiff is None or GapsDiff < BestGapDiff:
+          BestGapDiff = GapsDiff
+          BestSublist = Sublist.copy()
+    return BestSublist
+  
+  def getBestSublistToMatchAGrid(lst : list, ApproxMinDistance : float = None, ApproxMaxDistance : float = None, MaxError : float = 0.1, MinimumSizeOfResult : int = None, TheMoreItemsTheBestResult : bool = True) -> list:
+    if len(lst) <= 3:
+      return lst.copy()
+    lst.sort()
+    AbsGaps = List.getAbs(List.mathDelta(lst))
+    MinSpace = min(AbsGaps)
+    MaxSpace = max(AbsGaps)
+    if ApproxMaxDistance is None:
+      ApproxMaxDistance = MaxSpace
+    #print(f"MinSpace={MinSpace}, MaxSpace={MaxSpace}")
+    if ApproxMaxDistance is not None and ApproxMaxDistance < MaxSpace:
+      MinGrids = int(((lst[-1] - lst[0]) / ApproxMaxDistance) * (1-MaxError))
+    else:
+      MinGrids = int(((lst[-1] - lst[0]) / MaxSpace) * (1-MaxError))
+    if (MinGrids < 3):
+      MinGrids = 3
+    if ApproxMinDistance is not None and ApproxMinDistance > MinSpace:
+      MaxGrids = int(((lst[-1] - lst[0]) / ApproxMinDistance) * (1+MaxError))
+    else:
+      MaxGrids = int(((lst[-1] - lst[0]) / MinSpace) * (1+MaxError))
+    #print(f"MinGrids={MinGrids}, MaxGrids={MaxGrids}")
+    BestMae = None
+    BestSubList = None
+    for Grids in range(MinGrids, MaxGrids+1):
+      GridSize = (lst[-1] - lst[0]) / (Grids - 1)
+      GridList = [i*GridSize + lst[0] for i in range(Grids)]
+      SubList = []
+      ErrList = []
+      for item in lst:
+        if ApproxMinDistance is not None:
+          if len(SubList) > 0:
+            if abs(item - SubList[-1]) < ApproxMinDistance * (1-MaxError):
+              continue 
+        MustInclude = False
+        if len(SubList) > 0:
+          if abs(item - SubList[-1]) >= ApproxMaxDistance * (1-MaxError):
+            MustInclude = True  
+        BestErr = None
+        for G in GridList:
+          Err = abs(item - G) / GridSize
+          if MustInclude or Err <= MaxError:
+            if BestErr is None:
+              SubList.append(item)
+              BestErr = Err
+            else:
+              if Err < BestErr:
+                BestErr = Err
+              else:
+                break
+        if BestErr is not None:
+          ErrList.append(BestErr)
+      if len(SubList) <= 3:
+        continue
+      mae = List.Avg(ErrList)
+      #print(f"\nTrying with {Grids} grids (GridSize={GridSize}):")
+      #print(f"GridList={GridList}")
+      #print(f"SubList={SubList}")
+      #print(f"ErrList={ErrList}")
+      #print(f"MAE={mae}")
+      if BestMae is None or mae < BestMae:
+        BestMae = mae
+        BestSubList = SubList.copy()
+    return BestSubList
+  
+  def getLinearFitError(x, y):
+    """
+    Zwraca:
+    - współczynniki prostej
+    - SSE
+    """
+    import numpy as np
+    a, b = np.polyfit(x, y, 1)
+    y_pred = a * x + b
+    sse = np.sum((y - y_pred) ** 2)
+    return (a, b), sse
+  
+  def lineFit(x, y):
+    """
+    Zwraca:
+    - slope
+    - intercept
+    - SSE
+    """
+    import numpy as np
+    slope, intercept = np.polyfit(x, y, 1)
+    y_pred = slope * x + intercept
+    sse = np.sum((y - y_pred) ** 2)
+    return slope, intercept, sse
+  
+  def get3dbBreakPointIndex(values,
+                        target_ratio=2.0,
+                        min_segment_size=3,
+                        use_log_metric=True):
+    """
+    Szuka breakpointu, dla którego stosunek nachyleń
+    jest możliwie bliski target_ratio.
+    """
+    import numpy as np
+    y = np.array(values, dtype=float)
+    x = np.arange(len(y))
+    best_k = None
+    best_metric = float("inf")
+    best_data = None
+    for k in range(min_segment_size, len(y) - min_segment_size):
+        # lewa część
+        x1 = x[:k + 1]
+        y1 = y[:k + 1]
+        # prawa część
+        x2 = x[k:]
+        y2 = y[k:]
+        m1, b1, e1 = List.lineFit(x1, y1)
+        m2, b2, e2 = List.lineFit(x2, y2)
+        # unikamy problemów
+        if abs(m1) < 1e-12:
+            continue
+        ratio = m2 / m1
+        # dla monotonicznych dodatnich
+        if ratio <= 0:
+            continue
+        if use_log_metric:
+            metric = abs(np.log2(ratio) - np.log2(target_ratio))
+        else:
+            metric = abs(ratio - target_ratio)
+        if metric < best_metric:
+            best_metric = metric
+            best_k = k
+            best_data = {
+                "left_slope": m1,
+                "right_slope": m2,
+                "ratio": ratio,
+                "left_line": (m1, b1),
+                "right_line": (m2, b2),
+                "fit_error": e1 + e2
+            }
+    return best_k
+#    return best_k, best_data
+  
+  def getIndexOfTheClosestValue(lst : list, TargetValue : float) -> int:
+    ClosestIndex = None
+    ClosestDiff = None
+    for i, v in enumerate(lst):
+      try:
+        diff = abs(float(v) - TargetValue)
+        if ClosestDiff is None or diff < ClosestDiff:
+          ClosestDiff = diff
+          ClosestIndex = i
+      except:
+        pass
+    return ClosestIndex
+    
+  
+  def getBestBreakPointIndexForTwoLinesFitting(values : list) -> int:
+    import numpy as np
+    y = np.array(values, dtype=float)
+    x = np.arange(len(y))
+    best_k = None
+    best_error = float("inf")
+    best_models = None
+    # unikamy zbyt małych fragmentów
+    for k in range(2, len(y) - 2):
+        # lewa część
+        x1 = x[:k + 1]
+        y1 = y[:k + 1]
+        # prawa część
+        x2 = x[k:]
+        y2 = y[k:]
+        model1, err1 = List.getLinearFitError(x1, y1)
+        model2, err2 = List.getLinearFitError(x2, y2)
+        total_error = err1 + err2
+        if total_error < best_error:
+            best_error = total_error
+            best_k = k
+            best_models = (model1, model2)
+    return best_k
+#    return best_k, best_error, best_models
   
   def getOnlyValuesInRange(lst : list, Min : float, Max : float) -> list:
     Result = []
