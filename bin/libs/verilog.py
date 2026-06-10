@@ -451,8 +451,8 @@ class VerilogModule:
       CContent += re.sub(r'^(.*)\(\*.*\*\)(.*)$', r'\1\2', l) + "\n"
     ios = ""
     params = ""
-    RegexModule = "module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\s*\;"
-    RegexModuleWithParams = "module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\s*\#\s*\(([^)]*)\)\s*;"
+    RegexModule = r"module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\s*\;"
+    RegexModuleWithParams = r"module\s+([a-zA-Z0-9\_]+)\s*\(([^)]*)\)\s*\#\s*\(([^)]*)\)\s*;"
     R = re.search(RegexModule,CContent,re.MULTILINE)
     if R:
       self._name = R.group(1)
@@ -472,7 +472,7 @@ class VerilogModule:
     params_list = params.split(",")
     for par_ in params_list:
       par = par_.strip()
-      R = re.search("(\S+)\s*=\s*(\S+)",par,re.MULTILINE)
+      R = re.search(r"(\S+)\s*=\s*(\S+)",par,re.MULTILINE)
       if R:
         P = VerilogParameter(R.group(1), R.group(2))
         self._params.add(P)
@@ -484,15 +484,15 @@ class VerilogModule:
       _bush = 0
       _busl = 0
       io = io_.strip()
-      R = re.search("(input|output|inout)\s+(.*)",io,re.MULTILINE)
+      R = re.search(r"(input|output|inout)\s+(.*)",io,re.MULTILINE)
       if R:
         _direction = R.group(1)
         io = R.group(2)
-      R = re.search("(wire|reg)\s+(.*)",io,re.MULTILINE)
+      R = re.search(r"(wire|reg)\s+(.*)",io,re.MULTILINE)
       if R:
         _type = R.group(1)
         io = R.group(2)
-      R = re.search("\[([0-9]+):([0-9]+)\]\s(\S+)",io,re.MULTILINE)
+      R = re.search(r"\[([0-9]+):([0-9]+)\]\s(\S+)",io,re.MULTILINE)
       if R:
         _bush = int(R.group(1))
         _busl = int(R.group(2))
@@ -546,8 +546,8 @@ class VerilogModule:
           Instance.addConnection(Conn)
       self._instances.addInstance(Instance)
     # internal signals
-    RegexInternalSignal = f'(wire|reg)\s*((\[([0-9]+):([0-9]+)\])|())\s+([^=;]+)'
-    RegexIoSignal = f'(input|output|inout)\s+([^=;]+)'
+    RegexInternalSignal = r'(wire|reg)\s*((\[([0-9]+):([0-9]+)\])|())\s+([^=;]+)'
+    RegexIoSignal = r'(input|output|inout)\s+([^=;]+)'
     CContent = CContent.replace(",\n", ",")
     for Line in CContent.split("\n"):
       Direction = VerilogSignalDirection.INTERNAL
@@ -957,7 +957,7 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
                      "Macro/Black Box area",
                      "Total cell area"]
         for Param in ParamList:
-          R = re.search(f'{Param}:\s+([0-9.]+)', result, re.MULTILINE)
+          R = re.search(r'{Param}:\s+([0-9.]+)', result, re.MULTILINE)
           if R:
             try:
               DictVal = int(R.group(1))
@@ -972,7 +972,7 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
         ParamList = ["Total Dynamic Power",
                      "Cell Leakage Power"]
         for Param in ParamList:
-          R = re.search(f'{Param}\s*=\s*([.0-9]+\s*[numW]+)', result, re.MULTILINE)
+          R = re.search(r'{Param}\s*=\s*([.0-9]+\s*[numW]+)', result, re.MULTILINE)
           if R:
             try:
               unit = pint.UnitRegistry()
@@ -985,7 +985,7 @@ write -format verilog -output {OutputFileName} {self.Modules.TopModuleName} -hie
             ResDict[DictKey] = DictVal
         if ReportTiming:
           TimingReport = readFile(f"{OutputFileName}.rpt")
-          R = re.search(f'data\s+arrival\s+time\s+([.0-9]+)', TimingReport, re.MULTILINE)
+          R = re.search(r'data\s+arrival\s+time\s+([.0-9]+)', TimingReport, re.MULTILINE)
           if R:
             try:
               Delay = float(R.group(1))

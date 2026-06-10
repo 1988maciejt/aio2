@@ -105,7 +105,7 @@ class DecompressorSolver:
                     Txt = Txt.replace("  ", " ")
                     PhaseShifterXors.append([int(x)-1 for x in Txt.split(" ")])
                     continue
-                R = re.search("\/\/\s*Compactors\s*:", Line)
+                R = re.search(r"\/\/\s*Compactors\s*:", Line)
                 if R:
                     break
         RG = Lfsr(LfsrLen, RING_WITH_SPECIFIED_TAPS, LfsrConnections)

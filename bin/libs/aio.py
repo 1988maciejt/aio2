@@ -231,8 +231,8 @@ class Aio:
         </script>
       """
     html = conv.convert(text)
-    html = re.sub(r'(\.ansi2html-content\s+)(\{)', '\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
-    html = re.sub(r'(\*\s+)(\{)', '\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
+    html = re.sub(r'(\.ansi2html-content\s+)(\{)', r'\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
+    html = re.sub(r'(\*\s+)(\{)', r'\g<1>{ font-family: "Lucida Console", Cascadia, Consolas, Monospace;', html)
     HtmlFile = open(FileName, "w")
     HtmlFile.write(html)
     HtmlFile.close()

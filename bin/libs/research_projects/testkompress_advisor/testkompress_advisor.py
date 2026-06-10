@@ -2730,7 +2730,7 @@ class DecompressorUtils:
         Result = []
         Dict = {}
         for Line in Generators().readFileLineByLine(FileName):
-            R = re.search(f'-*\s*Targeting\s*statistics\s*-*', Line)
+            R = re.search(r'-*\s*Targeting\s*statistics\s*-*', Line)
             if R:
                 if len(Dict) > 0:
                     Result.append(Dict)
