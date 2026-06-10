@@ -67,6 +67,22 @@ from aio import *
 shell_config.printHeader()
 
 
+import importlib.util
+import importlib.machinery
+
+def load_module_from_path(module_name, file_path):
+    # Tworzenie specyfikacji modułu na podstawie ścieżki
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    if spec and spec.loader:
+        # Tworzenie obiektu modułu na podstawie specyfikacji
+        module = importlib.util.module_from_spec(spec)
+        # Wykonanie kodu modułu w jego własnej przestrzeni nazw
+        spec.loader.exec_module(module)
+        return module
+    else:
+        raise ImportError(f"Nie udało się załadować modułu z {file_path}")
+
+
 if len(sys.argv) > 1:
   os.chdir(sys.argv[1])
 
@@ -110,8 +126,9 @@ def _tc(filename="driver.py"):
 #    exec(open(SFile).read())
 #    from driver import *
 #    try:
-    with open(SFile) as src:
-      imp.load_module('__MAIN__', src, SFile, (".py", "r", imp.PY_SOURCE))
+    my_module = load_module_from_path('__MAIN__', SFile)
+##    with open(SFile) as src:
+##      imp.load_module('__MAIN__', src, SFile, (".py", "r", imp.PY_SOURCE))
 #    except:
 #      Aio.printError("TC processing error!")
   else:
