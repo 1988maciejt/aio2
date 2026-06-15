@@ -1,3 +1,4 @@
+import math
 import re
 import random
 import multiprocessing
@@ -50,6 +51,31 @@ class List:
     return pstdev(Values)
   stdDev = StdDev
   getStdDev = StdDev
+
+  @staticmethod
+  def getLogSpacedList(min_val : float, max_val : float, count : int) -> list:
+    if count < 2:
+        raise ValueError("Count musi wynosić co najmniej 2, aby pomieścić Min i Max.")
+    if min_val <= 0 or max_val <= 0:
+        raise ValueError("W skali logarytmicznej wartości muszą być większe od zera.")
+    log_min = math.log(min_val)
+    log_max = math.log(max_val)
+    step = (log_max - log_min) / (count - 1)
+    result = []
+    for i in range(count):
+        current_log = log_min + i * step
+        result.append(math.exp(current_log))
+    result[-1] = max_val
+    return result
+  
+  @staticmethod
+  def matchValues(Values : list, AvailableValues : list) -> list:
+    from libs.utils_float import FloatUtils
+    if len(AvailableValues) < 1:
+      return []
+    Result = [FloatUtils.getClosestValue(v, AvailableValues) for v in Values]
+    return Result
+
 
   @staticmethod
   def calculateStandarizationParametersAandB(Numbers : list, Mean : float = 0, StdDev : float = 1) -> tuple:
@@ -439,10 +465,16 @@ class List:
         Result.append(i)
     return Result
   
-  def getEvenlySpacedSublist(lst : list, HowMany : int):
+  def getEvenlySpacedSublist(lst : list, HowMany : int, LogSpaced : bool = False):
     m = len(lst)
     if HowMany >= m: return lst[:]
     if HowMany <= 1: return [lst[0]] if lst else []
+    if LogSpaced:
+      Min = min(lst)
+      Max = max(lst)
+      loglst = List.getLogSpacedList(Min, Max, HowMany)
+      Result = List.matchValues(loglst, lst)
+      return List.getUniques(Result)
     idealGap = (lst[0] - lst[-1]) / (HowMany - 1)
     dp = [[(float('inf'), -1)] * m for _ in range(HowMany + 1)]
     dp[1][0] = (0, -1)

@@ -16,3 +16,10 @@ class FloatUtils:
         result = round(Value / Resolution) * Resolution
         decimals = max(0, len(str(Resolution).split('.')[-1].rstrip('0')))
         return round(result, decimals)
+    
+    @staticmethod
+    def getClosestValue(Value : float, PossibleValues : list) -> float:
+        if not PossibleValues:
+            return None
+        closest = min(PossibleValues, key=lambda x: abs(x - Value))
+        return closest

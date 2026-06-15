@@ -3236,6 +3236,7 @@ class TestKompressMLData:
     
     def normaliseData(self) -> None:
         k = sqrt(self.getFaultCount())
+        #k = self.getFaultCount()
         self._data['Regenerated patterns']['Count'] /= k
         self._data['ATPG/EDT statistics']['ATPG pattern count'] /= k
         self._data['ATPG/EDT statistics']['Test app time'] /= k
@@ -3245,6 +3246,7 @@ class TestKompressMLData:
     
     def denormaliseData(self) -> None:
         k = sqrt(self.getFaultCount())
+        #k = self.getFaultCount()
         self._data['Regenerated patterns']['Count'] *= k
         self._data['ATPG/EDT statistics']['ATPG pattern count'] *= k
         self._data['ATPG/EDT statistics']['Test app time'] *= k
@@ -3408,7 +3410,7 @@ class TestKompressMLDataList:
     
     __slots__ = ("_dict",)
     
-    def __init__(self, FileNames : list, Verbose : bool = False, NoHistograms : bool = True, NoProgress : bool = True, MinimumCompression : float = None, MaximumCompression : float = None, MaximumRunsPerLfsr : int = None, AverageCompressionDiffPerLfsr : float = None, GoldCompression : float = None) -> None:
+    def __init__(self, FileNames : list, Verbose : bool = False, NoHistograms : bool = True, NoProgress : bool = True, MinimumCompression : float = None, MaximumCompression : float = None, MaximumRunsPerLfsr : int = None, AverageCompressionDiffPerLfsr : float = None, GoldCompression : float = None, LogSpaced : bool = False) -> None:
         if (AverageCompressionDiffPerLfsr is not None) and (MaximumRunsPerLfsr is not None):
             Aio.printError("Cannot set both AverageCompressionDiffPerLfsr and MaximumRunsPerLfsr. Please choose one of them.")
             return
@@ -3442,17 +3444,36 @@ class TestKompressMLDataList:
                 CHPerLfsr[lfsr] = chlist
             AuxDict[(lfsr, ch)] = Data
         if MaximumRunsPerLfsr is not None and GoldCompression is None:
-            for lfsr in CHPerLfsr.keys():
-                chlist = CHPerLfsr[lfsr]
-                chlist.sort(reverse=True)
-                #chlist = List.decimate(chlist, MaximumRunsPerLfsr)    
-                CDict = {}
-                for ch in chlist:
-                    CDict[AuxDict[(lfsr, ch)].getCompressionRatio()] = ch
-                clist = List.getEvenlySpacedSublist(list(CDict.keys()), MaximumRunsPerLfsr)
-                chlist = [CDict[key] for key in clist]
-                for ch in chlist:
-                    self._dict[(lfsr, ch)] = AuxDict[(lfsr, ch)]
+            if LogSpaced:            
+                for lfsr in CHPerLfsr.keys():
+                    chlist = CHPerLfsr[lfsr]
+                    chlist.sort(reverse=True)
+                    #chlist = List.decimate(chlist, MaximumRunsPerLfsr)    
+                    CDict = {}
+                    for ch in chlist:
+                        CDict[AuxDict[(lfsr, ch)].getCompressionRatio()] = ch
+                    CMin = min(CDict.keys())
+                    CMax = max(CDict.keys())
+                    if MinimumCompression > CMin:
+                        CMin = MinimumCompression
+                    if MaximumCompression < CMax:
+                        CMax = MaximumCompression
+                    LogList = List.getLogSpacedList(CMin, CMax, MaximumRunsPerLfsr)
+                    clist = List.matchValues(LogList, list(CDict.keys()))
+                    chlist = [CDict[key] for key in clist]
+                    for ch in chlist:
+                        self._dict[(lfsr, ch)] = AuxDict[(lfsr, ch)]
+            else:
+                for lfsr in CHPerLfsr.keys():
+                    chlist = CHPerLfsr[lfsr]
+                    chlist.sort(reverse=True) 
+                    CDict = {}
+                    for ch in chlist:
+                        CDict[AuxDict[(lfsr, ch)].getCompressionRatio()] = ch
+                    clist = List.getEvenlySpacedSublist(list(CDict.keys()), MaximumRunsPerLfsr)
+                    chlist = [CDict[key] for key in clist]
+                    for ch in chlist:
+                        self._dict[(lfsr, ch)] = AuxDict[(lfsr, ch)]
         elif MaximumRunsPerLfsr is not None and GoldCompression is not None and AverageCompressionDiffPerLfsr is None:
             for lfsr in CHPerLfsr.keys():
                 chlist = CHPerLfsr[lfsr]
@@ -3463,7 +3484,7 @@ class TestKompressMLDataList:
                     MinimumCompression = min(complist)
                 if MaximumCompression is None:
                     MaximumCompression = max(complist)
-                newcomplist = TestKompressCalculator.filterCompressionListForMLTraining(complist, MinimumCompression, MaximumCompression, BreakValue=GoldCompression, DataPointsLimit=MaximumRunsPerLfsr)
+                newcomplist = TestKompressCalculator.filterCompressionListForMLTraining(complist, MinimumCompression, MaximumCompression, BreakValue=GoldCompression, DataPointsLimit=MaximumRunsPerLfsr, LogSpaced=LogSpaced)
                 for comp in newcomplist:
                     ch = ctochdict[comp]
                     self._dict[(lfsr, ch)] = AuxDict[(lfsr, ch)]
@@ -3922,7 +3943,7 @@ class PatternCountComprensator:
 class TestKompressCalculator:
     
     @staticmethod
-    def filterCompressionListForMLTraining(CompressionList : list, MinCompression : float, MaxCompression : float, ReturnAlsoTheBreakPointValue : bool = False, DataPointsLimit : int = None, BreakValue : float = None, Verbose : bool = False) -> tuple:
+    def filterCompressionListForMLTraining(CompressionList : list, MinCompression : float, MaxCompression : float, ReturnAlsoTheBreakPointValue : bool = False, DataPointsLimit : int = None, BreakValue : float = None, LogSpaced : bool = False, Verbose : bool = False) -> tuple:
         LimitedList = List.getOnlyValuesInRange(CompressionList, MinCompression, MaxCompression)
         LimitedList.sort(reverse=True)
         if BreakValue is None:
@@ -3944,8 +3965,12 @@ class TestKompressCalculator:
         if DataPointsLimit is not None:
             Limit = int(round(DataPointsLimit / 2, 0))
             MinCount = min(MinCount, Limit)
-        HighList = List.getEvenlySpacedSublist(HighList, MinCount)  
-        LowList = List.getEvenlySpacedSublist(LowList, MinCount)
+        if LogSpaced:
+            HighList = List.getEvenlySpacedSublist(HighList, MinCount, LogSpaced=True)
+            LowList = List.getEvenlySpacedSublist(LowList, MinCount, LogSpaced=True)
+        else:
+            HighList = List.getEvenlySpacedSublist(HighList, MinCount)
+            LowList = List.getEvenlySpacedSublist(LowList, MinCount)
         if Verbose:
             print(f"HighList (evenly spaced): {HighList}")
             print(f"LowList (evenly spaced): {LowList}")

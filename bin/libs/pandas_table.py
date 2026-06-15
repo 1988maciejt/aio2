@@ -229,15 +229,15 @@ class AioTableUtils:
           df[Column] = pandas.to_numeric(df[Column], errors='ignore')
         df.to_excel(writer, sheet_name=SheetName, index=False)
   
-    @staticmethod
-    def tablesToXlsx(FileName : str, TablesDictOrList : dict) -> str:
-        from libs.utils_str import Str
-        FileName = Str.mustEndWith(FileName, ".xlsx")
-        if not isinstance(TablesDictOrList, dict):
-            TablesDictOrList = {f"Table_{i}": table for i, table in enumerate(TablesDictOrList)}
-        with pandas.ExcelWriter(FileName, engine="xlsxwriter") as writer:
-            for SheetName, Table in TablesDictOrList.items():
-                df = pandas.DataFrame.from_dict(Table._main_dict)
-                df = df.apply(lambda col: pandas.to_numeric(col, errors='coerce')).fillna(df)
-                df.to_excel(writer, sheet_name=SheetName, index=False)
-        return FileName
+  @staticmethod
+  def tablesToXlsx(FileName : str, TablesDictOrList : dict) -> str:
+      from libs.utils_str import Str
+      FileName = Str.mustEndWith(FileName, ".xlsx")
+      if not isinstance(TablesDictOrList, dict):
+          TablesDictOrList = {f"Table_{i}": table for i, table in enumerate(TablesDictOrList)}
+      with pandas.ExcelWriter(FileName, engine="xlsxwriter") as writer:
+          for SheetName, Table in TablesDictOrList.items():
+              df = pandas.DataFrame.from_dict(Table._main_dict)
+              df = df.apply(lambda col: pandas.to_numeric(col, errors='coerce')).fillna(df)
+              df.to_excel(writer, sheet_name=SheetName, index=False)
+      return FileName
