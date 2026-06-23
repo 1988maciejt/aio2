@@ -3205,12 +3205,13 @@ class MLDataUtils:
 
 class TestKompressMLData:
     
-    __slots__ = ("_data", "_version", "_no_histo", "_no_progress")
+    __slots__ = ("_data", "_version", "_no_histo", "_no_progress", "_replace_histos_by_other_stats")
     
-    def __init__(self, FileName : str, NoHistograms : bool = True, NoProgress : bool = True) -> None:
+    def __init__(self, FileName : str, NoHistograms : bool = True, NoProgress : bool = True, ReplaceHistosByOtherStats : bool = False) -> None:
         self._data = {}
         self._no_histo = NoHistograms
         self._no_progress = NoProgress
+        self._replace_histos_by_other_stats = ReplaceHistosByOtherStats
         MLReport = MLDataUtils.getMLReportFromLog(FileName)
         try:
             self._version = int(re.search(r"ML\s+report\s+version\s*:\s*([0-9]+)", MLReport).group(1))
@@ -3295,6 +3296,24 @@ class TestKompressMLData:
                 if self._no_histo:
                     if "HIST_" in Key:
                         continue
+                if self._replace_histos_by_other_stats:
+                    if "HIST_" in Key:
+                        if "HIST_1" in Key:
+                            HistoList = []
+                        HistoList.append(float(Value))
+                        if "HIST_9" in Key:
+                            bpidx = List.getBestBreakPointIndexForTwoLinesFitting(HistoList)
+                            Row.append(bpidx)
+                            Row.append(HistoList[bpidx])
+                            Row.append(List.Avg(HistoList))
+                            Row.append(List.StdDev(HistoList))
+                            if ReturnAlsoHeaderList:
+                                HeaderList.append(f"{SectionName} -> HISTO -> breaking point idx")
+                                HeaderList.append(f"{SectionName} -> HISTO -> breaking point value")
+                                HeaderList.append(f"{SectionName} -> HISTO -> AVG")
+                                HeaderList.append(f"{SectionName} -> HISTO -> std dev")
+                        else:
+                            continue
                 Row.append(float(Value))
                 if ReturnAlsoHeaderList:
                     HeaderList.append(f"{SectionName} -> {Key}")
@@ -3330,6 +3349,15 @@ class TestKompressMLData:
                 if self._no_histo:
                     if "HIST_" in Key:
                         continue
+                if self._replace_histos_by_other_stats:
+                    if "HIST_" in Key:
+                        if "HIST_9" in Key:
+                            HeaderList.append(f"{SectionName} -> HISTO -> breaking point idx")
+                            HeaderList.append(f"{SectionName} -> HISTO -> breaking point value")
+                            HeaderList.append(f"{SectionName} -> HISTO -> AVG")
+                            HeaderList.append(f"{SectionName} -> HISTO -> std dev")
+                        else:
+                            continue
                 HeaderList.append(f"{SectionName} -> {Key}")
         return HeaderList
     
@@ -3410,7 +3438,7 @@ class TestKompressMLDataList:
     
     __slots__ = ("_dict",)
     
-    def __init__(self, FileNames : list, Verbose : bool = False, NoHistograms : bool = True, NoProgress : bool = True, MinimumCompression : float = None, MaximumCompression : float = None, MaximumRunsPerLfsr : int = None, AverageCompressionDiffPerLfsr : float = None, GoldCompression : float = None, LogSpaced : bool = False) -> None:
+    def __init__(self, FileNames : list, Verbose : bool = False, NoHistograms : bool = True, NoProgress : bool = True, MinimumCompression : float = None, MaximumCompression : float = None, MaximumRunsPerLfsr : int = None, AverageCompressionDiffPerLfsr : float = None, GoldCompression : float = None, LogSpaced : bool = False, ReplaceHistosByOtherStats : bool = False) -> None:
         if (AverageCompressionDiffPerLfsr is not None) and (MaximumRunsPerLfsr is not None):
             Aio.printError("Cannot set both AverageCompressionDiffPerLfsr and MaximumRunsPerLfsr. Please choose one of them.")
             return
@@ -3421,19 +3449,19 @@ class TestKompressMLDataList:
                 if Verbose:
                     Aio.printError("File not found:", FileName)
                 continue
-            if Verbose:
+            if type(Verbose) is int and Verbose == 2:
                 Aio.print("Processing file:", FileName)
-            Data = TestKompressMLData(FileName, NoHistograms=NoHistograms, NoProgress=NoProgress)
+            Data = TestKompressMLData(FileName, NoHistograms=NoHistograms, NoProgress=NoProgress, ReplaceHistosByOtherStats=ReplaceHistosByOtherStats)
             if len(Data) <= 0:
-                if Verbose:
+                if type(Verbose) is int and Verbose == 2:
                     Aio.printError("...No data extracted from file:", FileName)
                 continue
             if MinimumCompression is not None and Data.getCompressionRatio() < MinimumCompression:
-                if Verbose:
+                if type(Verbose) is int and Verbose == 2:
                     Aio.printError("...Compression ratio", Data.getCompressionRatio(), "is less than minimum", MinimumCompression, "for file:", FileName)
                 continue
             if MaximumCompression is not None and Data.getCompressionRatio() > MaximumCompression:
-                if Verbose:
+                if type(Verbose) is int and Verbose == 2:
                     Aio.printError("...Compression ratio", Data.getCompressionRatio(), "is greater than maximum", MaximumCompression, "for file:", FileName)
                 continue
             ch = Data.getInputCount()

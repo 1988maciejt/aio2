@@ -288,6 +288,7 @@ class CSVDedicatedDataMapper:
         if AnotherCsv is not None:
             if not Result.replaceCsv(AnotherCsv):
                 Aio.printError(f"CSVDedicatedDataMapper.copy: The provided CSV has different column count than the original CSV. Cannot replace.")
+                raise ValueError("CSVDedicatedDataMapper.copy: The provided CSV has different column count than the original CSV. Cannot replace.")
             Result._mapped = None
         return Result
         
