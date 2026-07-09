@@ -3205,13 +3205,14 @@ class MLDataUtils:
 
 class TestKompressMLData:
     
-    __slots__ = ("_data", "_version", "_no_histo", "_no_progress", "_replace_histos_by_other_stats")
+    __slots__ = ("_data", "_version", "_no_histo", "_no_progress", "_replace_histos_by_other_stats", "_replace_progress_by_other_stats")
     
-    def __init__(self, FileName : str, NoHistograms : bool = True, NoProgress : bool = True, ReplaceHistosByOtherStats : bool = False) -> None:
+    def __init__(self, FileName : str, NoHistograms : bool = True, NoProgress : bool = True, ReplaceHistosByOtherStats : bool = True, ReplaceProgressByOtherStats : bool = True) -> None:
         self._data = {}
         self._no_histo = NoHistograms
         self._no_progress = NoProgress
-        self._replace_histos_by_other_stats = ReplaceHistosByOtherStats
+        self._replace_histos_by_other_stats = bool(ReplaceHistosByOtherStats)
+        self._replace_progress_by_other_stats = bool(ReplaceProgressByOtherStats)
         MLReport = MLDataUtils.getMLReportFromLog(FileName)
         try:
             self._version = int(re.search(r"ML\s+report\s+version\s*:\s*([0-9]+)", MLReport).group(1))
@@ -3314,6 +3315,26 @@ class TestKompressMLData:
                                 HeaderList.append(f"{SectionName} -> HISTO -> std dev")
                         else:
                             continue
+                if self._replace_progress_by_other_stats:
+                    R = re.search(r"\[\s*([0-9]+)\]", str(Key))
+                    if R:
+                        Idx = int(R.group(1))
+                        if Idx == 1:
+                            ProgressList = []
+                        ProgressList.append(float(Value))
+                        if Idx == 10:
+                            bpidx = List.getBestBreakPointIndexForTwoLinesFitting(ProgressList)
+                            Row.append(bpidx)
+                            Row.append(ProgressList[bpidx])
+                            Row.append(List.Avg(ProgressList))
+                            Row.append(List.StdDev(ProgressList))
+                            if ReturnAlsoHeaderList:
+                                HeaderList.append(f"{SectionName} -> PROGRESS -> breaking point idx")
+                                HeaderList.append(f"{SectionName} -> PROGRESS -> breaking point value")
+                                HeaderList.append(f"{SectionName} -> PROGRESS -> AVG")
+                                HeaderList.append(f"{SectionName} -> PROGRESS -> std dev")
+                        else:
+                            continue
                 Row.append(float(Value))
                 if ReturnAlsoHeaderList:
                     HeaderList.append(f"{SectionName} -> {Key}")
@@ -3356,6 +3377,17 @@ class TestKompressMLData:
                             HeaderList.append(f"{SectionName} -> HISTO -> breaking point value")
                             HeaderList.append(f"{SectionName} -> HISTO -> AVG")
                             HeaderList.append(f"{SectionName} -> HISTO -> std dev")
+                        else:
+                            continue
+                if self._replace_progress_by_other_stats:
+                    R = re.search(r"\[\s*([0-9]+)\]", str(Key))
+                    if R:
+                        Idx = int(R.group(1))
+                        if Idx == 10:
+                            HeaderList.append(f"{SectionName} -> PROGRESS -> breaking point idx")
+                            HeaderList.append(f"{SectionName} -> PROGRESS -> breaking point value")
+                            HeaderList.append(f"{SectionName} -> PROGRESS -> AVG")
+                            HeaderList.append(f"{SectionName} -> PROGRESS -> std dev")
                         else:
                             continue
                 HeaderList.append(f"{SectionName} -> {Key}")
@@ -3438,7 +3470,10 @@ class TestKompressMLDataList:
     
     __slots__ = ("_dict",)
     
-    def __init__(self, FileNames : list, Verbose : bool = False, NoHistograms : bool = True, NoProgress : bool = True, MinimumCompression : float = None, MaximumCompression : float = None, MaximumRunsPerLfsr : int = None, AverageCompressionDiffPerLfsr : float = None, GoldCompression : float = None, LogSpaced : bool = False, ReplaceHistosByOtherStats : bool = False) -> None:
+    def __init__(self, FileNames : list, Verbose : bool = False, NoHistograms : bool = True, NoProgress : bool = True, MinimumCompression : float = None, MaximumCompression : float = None, MaximumRunsPerLfsr : int = None, AverageCompressionDiffPerLfsr : float = None, GoldCompression : float = None, LogSpaced : bool = False, ReplaceHistosByOtherStats : bool = True, ReplaceProgressByOtherStats : bool = True, FilterPeaks : bool = False) -> None:
+        if type(FileNames) is dict:
+            self._dict = FileNames
+            return
         if (AverageCompressionDiffPerLfsr is not None) and (MaximumRunsPerLfsr is not None):
             Aio.printError("Cannot set both AverageCompressionDiffPerLfsr and MaximumRunsPerLfsr. Please choose one of them.")
             return
@@ -3451,7 +3486,7 @@ class TestKompressMLDataList:
                 continue
             if type(Verbose) is int and Verbose == 2:
                 Aio.print("Processing file:", FileName)
-            Data = TestKompressMLData(FileName, NoHistograms=NoHistograms, NoProgress=NoProgress, ReplaceHistosByOtherStats=ReplaceHistosByOtherStats)
+            Data = TestKompressMLData(FileName, NoHistograms=NoHistograms, NoProgress=NoProgress, ReplaceHistosByOtherStats=ReplaceHistosByOtherStats, ReplaceProgressByOtherStats=ReplaceProgressByOtherStats)
             if len(Data) <= 0:
                 if type(Verbose) is int and Verbose == 2:
                     Aio.printError("...No data extracted from file:", FileName)
@@ -3470,7 +3505,40 @@ class TestKompressMLDataList:
             if ch not in chlist:
                 chlist.append(ch)
                 CHPerLfsr[lfsr] = chlist
-            AuxDict[(lfsr, ch)] = Data
+            AuxDict[(lfsr, ch)] = Data        
+        if FilterPeaks:
+            NewAuxDict = {}
+            for lfsr in CHPerLfsr.keys():
+                #print(f"LFSR: {lfsr} ------------------")
+                chlist = CHPerLfsr[lfsr]
+                chlist.sort(reverse=True)
+                newchlist = []
+                PCountDict = {}
+                for ch in chlist:
+                    ThisLog : TestKompressMLData = AuxDict[(lfsr, ch)]
+                    PCount = ThisLog.getPatternCount()
+                    Compr = ThisLog.getCompressionRatio()
+                    if MinimumCompression is not None and Compr < 0.75 * MinimumCompression:
+                        continue
+                    if MaximumCompression is not None and Compr > 1.25 * MaximumCompression:
+                        continue
+                    PCountDict[PCount] = ch
+                PCountList = list(PCountDict.keys())
+                #print(f"Before filtration: {PCountList}")
+                MaxRemovedCount = int(len(PCountList) * 0.2)
+                if MaxRemovedCount < 1:
+                    MaxRemovedCount = 1
+                if MaxRemovedCount > 5:
+                    MaxRemovedCount = 5
+                PCountList = List.filterPeaks(PCountList, MaxRemovedCount=MaxRemovedCount)
+                #print(f"After filtration: {PCountList}")
+                for PCount in PCountList:
+                    ch = PCountDict[PCount]
+                    #print(f"Adding {(lfsr, ch)}")
+                    newchlist.append(ch)
+                    NewAuxDict[(lfsr, ch)] = AuxDict[(lfsr, ch)]
+                CHPerLfsr[lfsr] = newchlist
+            AuxDict = NewAuxDict
         if MaximumRunsPerLfsr is not None and GoldCompression is None:
             if LogSpaced:            
                 for lfsr in CHPerLfsr.keys():
@@ -3560,31 +3628,157 @@ class TestKompressMLDataList:
                 for comp in newcomplist:
                     ch = ctochdict[comp]
                     self._dict[(lfsr, ch)] = AuxDict[(lfsr, ch)]
-        elif GoldCompression is None:
-            for lfsr in CHPerLfsr.keys():
-                chlist = CHPerLfsr[lfsr]
-                ctochdict = {AuxDict[(lfsr, ch)].getCompressionRatio(): ch for ch in chlist}
-                complist = sorted(ctochdict.keys())
-                if MinimumCompression is None:
-                    MinimumCompression = min(complist)
-                if MaximumCompression is None:
-                    MaximumCompression = max(complist)
-                newcomplist = TestKompressCalculator.filterCompressionListForMLTraining(complist, MinimumCompression, MaximumCompression, DataPointsLimit=MaximumRunsPerLfsr)
-                for comp in newcomplist:
-                    ch = ctochdict[comp]
-                    self._dict[(lfsr, ch)] = AuxDict[(lfsr, ch)]
+        #elif GoldCompression is None:
+        #    for lfsr in CHPerLfsr.keys():
+        #        chlist = CHPerLfsr[lfsr]
+        #        ctochdict = {AuxDict[(lfsr, ch)].getCompressionRatio(): ch for ch in chlist}
+        #        complist = sorted(ctochdict.keys())
+        #        if MinimumCompression is None:
+        #            MinimumCompression = min(complist)
+        #        if MaximumCompression is None:
+        #            MaximumCompression = max(complist)
+        #        newcomplist = TestKompressCalculator.filterCompressionListForMLTraining(complist, MinimumCompression, MaximumCompression, DataPointsLimit=MaximumRunsPerLfsr)
+        #        for comp in newcomplist:
+        #            ch = ctochdict[comp]
+        #            self._dict[(lfsr, ch)] = AuxDict[(lfsr, ch)]
         else:
             self._dict = AuxDict
         self._dict = dict(sorted(self._dict.items(), key=lambda x: (x[0][0], x[0][1])))
         if Verbose:
-            Table = AioTable(["LFSR size", "#Channels", "Compression ratio"])
+            Table = AioTable(["LFSR size", "#Channels", "Compression ratio", "Pattern count"])
             for Data in self._dict.values():
-                Table.add([Data.getLfsrSize(), Data.getInputCount(), Data.getCompressionRatio()])
+                Table.add([Data.getLfsrSize(), Data.getInputCount(), Data.getCompressionRatio(), Data.getPatternCount()])
             Aio.print(Table)
             
     def __len__(self) -> int:
         return len(self._dict)
     
+    def __str__(self) -> str:
+        return self.getReport()
+    
+    def getCompressionToLfsrChDict(self, IncludeOnlyLfsr : int = None) -> dict:
+        Result = {}
+        for LfsrCh, Item in self._dict.items():
+            if IncludeOnlyLfsr is not None and LfsrCh[0] != IncludeOnlyLfsr:
+                continue
+            Result[Item.getCompressionRatio()] = LfsrCh
+        return Result
+    
+    def popHighestCompressionItem(self, IncludeOnlyLfsr : int = None) -> TestKompressMLData:
+        CompDict = self.getCompressionToLfsrChDict(IncludeOnlyLfsr)
+        CompList = list(CompDict.keys())
+        CompList.sort(reverse=True)
+        if len(CompList) > 0:
+            HighComp = CompList[0]
+            LfsrCh = CompDict[HighComp]
+            return self._dict.pop(LfsrCh)
+        return None
+    
+    def popLowestCompressionItem(self, IncludeOnlyLfsr : int = None) -> TestKompressMLData:
+        CompDict = self.getCompressionToLfsrChDict(IncludeOnlyLfsr)
+        CompList = list(CompDict.keys())
+        CompList.sort()
+        if len(CompList) > 0:
+            LowComp = CompList[0]
+            LfsrCh = CompDict[LowComp]
+            return self._dict.pop(LfsrCh)
+        return None
+    
+    def popMiddleCompressionItem(self, IncludeOnlyLfsr : int = None) -> TestKompressMLData:
+        CompDict = self.getCompressionToLfsrChDict(IncludeOnlyLfsr)
+        CompList = list(CompDict.keys())
+        #CompList.sort()
+        if len(CompList) > 2:
+            MiddleValue = (max(CompList) - min(CompList)) / 2
+            MidBest = List.getIndexOfTheClosestValue(CompList, MiddleValue)
+            MidComp = CompList[MidBest]
+            LfsrCh = CompDict[MidComp]
+            return self._dict.pop(LfsrCh)
+        return None
+    
+    def getMinCompression(self) -> float:
+        return min([self._dict[key].getCompressionRatio() for key in self._dict.keys()]) if len(self._dict) > 0 else None
+
+    def getMaxCompression(self) -> float:
+        return max([self._dict[key].getCompressionRatio() for key in self._dict.keys()]) if len(self._dict) > 0 else None
+    
+    def getBestItemForCompression(self, Compression : float, IncludeOnlyLfsr : int = None) -> TestKompressMLData:
+        CompDict = self.getCompressionToLfsrChDict(IncludeOnlyLfsr)
+        CompList = list(CompDict.keys())
+        if len(CompList) > 0:
+            BestIdx = List.getIndexOfTheClosestValue(CompList, Compression)
+            BestComp = CompList[BestIdx]
+            LfsrCh = CompDict[BestComp]
+            return self._dict[LfsrCh]
+        return None
+    
+    def getLfsrs(self) -> list:
+        Result = set()
+        for LfsrCh in self._dict.keys():
+            Result.add(LfsrCh[0])
+        return list(Result)
+    
+    def getDataListForReferencePoints(self, ReferencePoints : int = 1, IncludeOnlyLfsr : int = None, BaseOnCompression : bool = False) -> "TestKompressMLDataList":
+        if ReferencePoints <= 0:
+            return None
+        CompDict = self.getCompressionToLfsrChDict(IncludeOnlyLfsr)
+        CompList = list(CompDict.keys())
+        CompList.sort(reverse=True)
+        ResultDict = {}
+        #print(CompList)
+        if BaseOnCompression:
+            MinComp = min(CompList)
+            MaxComp = max(CompList)
+            CompSpan = MaxComp - MinComp
+            CompStep = CompSpan / (ReferencePoints + 1)
+            #print(f"MinComp: {MinComp}, MaxComp: {MaxComp}, CompSpan: {CompSpan}, CompStep: {CompStep}")
+            TargetComp = MinComp + CompStep
+            UsedComps = set()
+            for i in range(ReferencePoints):
+                ActualIdx = List.getIndexOfTheClosestValue(CompList, TargetComp)
+                ActualComp = CompList[ActualIdx] if ActualIdx is not None else None
+                #print(f"  Reference point {i+1}: Target compression: {TargetComp}, Actual compression: {ActualComp}")
+                if ActualComp is not None and ActualComp not in UsedComps:
+                    UsedComps.add(ActualComp)
+                    LfsrCh = CompDict[ActualComp]
+                    ResultDict[LfsrCh] = self._dict[LfsrCh]
+                TargetComp += CompStep
+        else:
+            IdxStep = len(CompList) / (ReferencePoints + 1)
+            TargetIdx = IdxStep - 1 + 0.51
+            UsedIdx = set()
+            #print(f"IdxStep: {IdxStep}")
+            for i in range(ReferencePoints):
+                ActualIdx = int(round(TargetIdx, 0))
+                if ActualIdx >= len(CompList):
+                    ActualIdx = len(CompList) - 1
+                #print(f"  Reference point {i+1}: Target index: {TargetIdx}, Actual index: {ActualIdx}")
+                if ActualIdx not in UsedIdx:
+                    UsedIdx.add(ActualIdx)
+                    ActualComp = CompList[ActualIdx]
+                    LfsrCh = CompDict[ActualComp]
+                    ResultDict[LfsrCh] = self._dict[LfsrCh]
+                TargetIdx += IdxStep
+        return TestKompressMLDataList(ResultDict)
+
+
+
+
+    def getReport(self) -> str:
+        Table = AioTable(["LFSR size", "#Channels", "Compression ratio", "Pattern count"])
+        for Data in self._dict.values():
+            Table.add([Data.getLfsrSize(), Data.getInputCount(), Data.getCompressionRatio(), Data.getPatternCount()])
+        return str(Table)
+
+    def printReport(self) -> None:
+        Aio.print(self.getReport())
+
+    def getMinCompression(self) -> float:
+        return min([self._dict[key].getCompressionRatio() for key in self._dict.keys()]) if len(self._dict) > 0 else None
+        
+    def getMaxCompression(self) -> float:
+        return max([self._dict[key].getCompressionRatio() for key in self._dict.keys()]) if len(self._dict) > 0 else None
+        
     def getData(self, Channels : int, LfsrSize : int) -> TestKompressMLData:
         return self._dict.get((LfsrSize, Channels), None)
     
@@ -3971,7 +4165,53 @@ class PatternCountComprensator:
 class TestKompressCalculator:
     
     @staticmethod
+    def getChainsDictionary(LFSRSize : int, ScanLen : int, ScanCount : int, Coefficient : float = 1.5, Verbose : bool = False) -> dict:
+        """Returns dict:
+        {#chains: (ComprMax)}
+        """
+        Result = {}
+        ScanCells = ScanCount * ScanLen
+        ChainsMax = int(round(ScanCells / 2 + 0.5, 0))
+        ChainsMin = ScanCells
+        Chains = ScanCount
+        Aux = Chains
+        if Verbose:
+            Table = AioTable(["ScanChains", "ScanLen", "MaxCompression"])
+        while True:
+            Aux /= Coefficient
+            if Aux < ChainsMin:
+                break
+            Chains = Aux
+        while True:
+            TestedScanChains = int(round(Chains, 0))
+            TestedScanLen = int(round(ScanCells / TestedScanChains + 0.5, 0))
+            ComprMax = TestKompressCalculator.getCompression(1, LFSRSize, TestedScanLen, TestedScanChains)
+            if Verbose:
+                Table.add([TestedScanChains, TestedScanLen, int(ComprMax)])
+            Result[TestedScanChains] = ComprMax
+            Chains *= Coefficient
+            if Chains > ChainsMax:
+                break
+        if Verbose:
+            Table.print()
+        return Result
+    
+    @staticmethod
+    def getBestChainCountToObtainDesiredMaxCompression(MaxComrpession : int, LFSRSize : int, ScanLen : int, ScanCount : int, ReturnAlsoMaxCompression : bool = False) -> int:
+        ChainsDict = TestKompressCalculator.getChainsDictionary(LFSRSize, ScanLen, ScanCount, 1.01)
+        BestCompr, BestChains, BestDiff = None, None, None
+        for Chains, Compr in ChainsDict.items():
+            if BestChains is None or abs(Compr - MaxComrpession) < BestDiff:
+                BestChains = Chains
+                BestCompr = Compr
+                BestDiff = abs(BestCompr - MaxComrpession)
+        if ReturnAlsoMaxCompression:
+            return BestChains, BestCompr
+        return BestChains
+
+    @staticmethod
     def filterCompressionListForMLTraining(CompressionList : list, MinCompression : float, MaxCompression : float, ReturnAlsoTheBreakPointValue : bool = False, DataPointsLimit : int = None, BreakValue : float = None, LogSpaced : bool = False, Verbose : bool = False) -> tuple:
+        #Verbose = 1
         LimitedList = List.getOnlyValuesInRange(CompressionList, MinCompression, MaxCompression)
         LimitedList.sort(reverse=True)
         if BreakValue is None:
@@ -3987,11 +4227,28 @@ class TestKompressCalculator:
         HighList = LimitedList[:BreakIndex+1]
         LowList = LimitedList[BreakIndex:]
         if Verbose:
+            print(f"DataPointsLimit: {DataPointsLimit}")
             print(f"HighList: {HighList}")
             print(f"LowList: {LowList}")
-        MinCount = min(len(HighList), len(LowList))
+        if len(HighList) < 2 or len(LowList) < 2:
+            MinCount = max(len(HighList), len(LowList))
+        else:
+            MinCount = min(len(HighList), len(LowList))
+        DataPointsIsEven = False
         if DataPointsLimit is not None:
-            Limit = int(round(DataPointsLimit / 2, 0))
+            if DataPointsLimit % 2 == 0:
+                DataPointsIsEven = True
+            if DataPointsLimit < 2:
+                Result = [LimitedList[BreakIndex]]
+                if ReturnAlsoTheBreakPointValue:
+                    return Result, LimitedList[BreakIndex]
+                return Result 
+            Limit = int(round(DataPointsLimit / 2 + 0.25, 0))
+            if DataPointsIsEven:
+                Limit += 1
+            if Verbose:
+                print(f"- MinCount: {MinCount}")
+                print(f"- Limit: {Limit}")
             MinCount = min(MinCount, Limit)
         if LogSpaced:
             HighList = List.getEvenlySpacedSublist(HighList, MinCount, LogSpaced=True)
@@ -3999,6 +4256,15 @@ class TestKompressCalculator:
         else:
             HighList = List.getEvenlySpacedSublist(HighList, MinCount)
             LowList = List.getEvenlySpacedSublist(LowList, MinCount)
+        if DataPointsIsEven:
+            try:
+                HighList = HighList[:-1]
+            except:
+                pass
+            try:
+                LowList = LowList[1:]
+            except:
+                pass
         if Verbose:
             print(f"HighList (evenly spaced): {HighList}")
             print(f"LowList (evenly spaced): {LowList}")

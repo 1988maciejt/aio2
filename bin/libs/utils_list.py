@@ -135,6 +135,99 @@ class List:
     return median_low(Indices)
   
   @staticmethod
+  def fromExcellRow(Text : str) -> list:
+    Result = []
+    for Pos in Text.split("\t"):
+      try:
+        Result.append(int(Pos))
+      except:
+        try:
+          Result.append(float(Pos))
+        except:
+          Result.append(Pos)
+    return Result
+  
+  @staticmethod
+  def toExcellRow(Numbers : list) -> str:
+    Result = ""
+    for n in Numbers:
+      Result += str(n) + ";"
+    return Result.strip(";")
+
+  @staticmethod
+  def smoothingMAVFilter(Numbers : list, WindowSize : int = None, Steps : int = 0, ReturnAlsoVarianceCoefficient : bool = False, DontTouchBounds : bool = False) -> list:
+    if Steps is None:
+      Steps = -1
+    if WindowSize is None or (WindowSize is not None and WindowSize <= 0):
+      WindowSize = 3
+      Half = int(round(len(Numbers) / 2 + 0.1, 0))
+      while True:
+        NewWindow = WindowSize + 2
+        if NewWindow > Half + 1:
+          break
+        WindowSize = NewWindow
+      #print(WindowSize)
+    if Steps > 1:
+      if ReturnAlsoVarianceCoefficient:
+        for _ in range(Steps):
+          Numbers, Coeff = List.smoothingMAVFilter(Numbers, WindowSize, 1, True, DontTouchBounds)
+        return Numbers, Coeff
+      else:
+        for _ in range(Steps):
+          Numbers = List.smoothingMAVFilter(Numbers, WindowSize, 1, False, DontTouchBounds)
+        return Numbers
+    elif Steps == 1:
+      RightHalf = int(round(WindowSize / 2 + 0.1, 0)) - 1
+      LeftHalf = WindowSize - 1 - RightHalf
+      Result = []
+      for i in range(len(Numbers)):
+        Start = i - LeftHalf
+        Stop = i + RightHalf
+        if DontTouchBounds:
+          while Start < 0:
+            Start += 1
+            Stop -= 1
+          while Stop >= len(Numbers):
+            Stop -= 1
+            Start += 1
+        else:
+          if Start < 0:
+            Start = 0
+          if Stop >= len(Numbers):
+            Stop = len(Numbers) - 1
+        if Start > Stop:
+          Stop = Start
+        #print(f"i={i}, Start={Start}, Stop={Stop}")
+        Sublist = Numbers[Start:Stop+1]
+        Result.append(sum(Sublist) / len(Sublist))
+      if ReturnAlsoVarianceCoefficient:
+        Sum = 0
+        for i in range(len(Numbers)):
+          Sum += abs(Numbers[i] - Result[i])
+        Coeff = Sum / len(Numbers) / sum(Numbers)
+        return Result, Coeff
+      return Result
+    else:
+      Eps = 1e-50
+      OldCoeff = None
+      Count = 0
+      while True:
+        Numbers, Coeff = List.smoothingMAVFilter(Numbers, WindowSize, 1, True, DontTouchBounds)
+        if Coeff <= Eps:
+          break
+        #if OldCoeff is not None:
+        #  if Coeff > OldCoeff:
+        #    break
+        OldCoeff = Coeff
+        Count += 1
+        if Count > 10000:
+          break
+      if ReturnAlsoVarianceCoefficient:
+        return Numbers, Coeff
+      return Numbers
+    return None
+
+  @staticmethod
   def MAVFilter(Numbers : list, WindowSize : int, Round = None) -> list:
     WFilter = None
     if type(WindowSize) in [list, tuple]:
@@ -180,6 +273,71 @@ class List:
         Result[i] = round(Result[i], Round)
     return Result
   
+  def getPeakIndex(Numbers : list, DontTouchBounds : bool = False, Steps : int = 2, ReturnAlsoErrorCoefficient : bool = False, ReturnAlsoAllCoefficients : bool = False, Verbose : bool = False) -> int:
+    if len(Numbers) < 4:    
+      if ReturnAlsoErrorCoefficient and ReturnAlsoAllCoefficients:
+        return None, 0.0, []
+      if ReturnAlsoErrorCoefficient:
+        return None, 0.0
+      return None
+    Smoothed = List.smoothingMAVFilter(Numbers, 3, Steps, False, DontTouchBounds)
+    Diffs = [(abs(Smoothed[i] - Numbers[i]) / Smoothed[i]) for i in range(len(Numbers))]
+    if Verbose:
+      from libs.stats import Plot
+      Aio.print("Errors (peaks):")
+      Plot(Diffs, Width=40, Height=15).print()
+    Errors = []
+    for i in range(len(Diffs)):
+      Error = Diffs[i]
+      Errors.append((Error, i))
+    Errors.sort(reverse=True, key=lambda x: x[0])
+    if ReturnAlsoErrorCoefficient and ReturnAlsoAllCoefficients:
+      return Errors[0][1], Errors[0][0], [e[0] for e in Errors]
+    if ReturnAlsoErrorCoefficient:
+      return Errors[0][1], Errors[0][0]
+    if ReturnAlsoAllCoefficients:
+      return Errors[0][1], [e[0] for e in Errors]
+    return Errors[0][1]
+  
+  def getFilteredListByRemovingPeaks(Numbers : list, Threshold : float = None, MaxRemovedCount : int = None, Verbose : bool = False) -> list:
+    if Verbose:
+      from libs.stats import Plot
+      print("Input list:")
+      Plot(Numbers, Width=50, Height=15).print()
+    Numbers = Numbers.copy()
+    if MaxRemovedCount is None or MaxRemovedCount <= 0:
+      MaxRemovedCount = int(round(len(Numbers) / 2 + 0.25, 0))
+    while True:
+      MaxRemovedCount -= 1
+      Index, Coeff, Coeffs = List.getPeakIndex(Numbers, ReturnAlsoErrorCoefficient=True, ReturnAlsoAllCoefficients=True, Verbose=False)
+      if Index is None:
+        if Verbose:
+          print("No more peaks found.")
+        break
+      CoeffsAvg = List.avg(Coeffs)
+      CoeffsStdDev = List.stdDev(Coeffs)
+      AutoThreshold = CoeffsAvg + CoeffsStdDev * 2
+      Thr = Threshold if Threshold is not None and Threshold > 0 else AutoThreshold
+      if Verbose:
+        print(f"Peak index: {Index}, Coeff: {Coeff}")
+        print(f"Coefficients: {Coeffs}")
+        print(f"CoeffsAvg: {CoeffsAvg}, CoeffsStdDev: {CoeffsStdDev}, AutoThreshold: {AutoThreshold}")
+      if Coeff >= Thr:
+        Numbers.pop(Index)
+        if Verbose:
+          print("List after removing peak:")
+          Plot(Numbers, Width=50, Height=15).print()
+      else:
+        if Verbose:
+          print(f"No more peaks above threshold {Thr}.")
+        break
+      if MaxRemovedCount <= 0:
+        if Verbose:
+          print("Max removed count reached.")
+        break
+    return Numbers
+  filterPeaks = getFilteredListByRemovingPeaks
+
   def getCombinations(List, k : int) -> list:
     Result = []
     for subset in itertools.combinations(List, k):
@@ -469,6 +627,7 @@ class List:
     m = len(lst)
     if HowMany >= m: return lst[:]
     if HowMany <= 1: return [lst[0]] if lst else []
+    if HowMany == 2: return [lst[0], lst[-1]] if lst else []
     if LogSpaced:
       Min = min(lst)
       Max = max(lst)
@@ -712,6 +871,37 @@ class List:
         pass
     return ClosestIndex
     
+  def getIndexOfTheGreaterOrEqualValue(lst : list, TargetValue : float) -> int:
+    ClosestIndex = None
+    ClosestDiff = None
+    for i, v in enumerate(lst):
+      try:
+        diff = float(v) - TargetValue
+        if diff < 0:
+          continue
+        diff = abs(diff)
+        if ClosestDiff is None or diff < ClosestDiff:
+          ClosestDiff = diff
+          ClosestIndex = i
+      except:
+        pass
+    return ClosestIndex
+    
+  def getIndexOfTheLowerOrEqualValue(lst : list, TargetValue : float) -> int:
+    ClosestIndex = None
+    ClosestDiff = None
+    for i, v in enumerate(lst):
+      try:
+        diff = float(v) - TargetValue
+        if diff > 0:
+          continue
+        diff = abs(diff)
+        if ClosestDiff is None or diff < ClosestDiff:
+          ClosestDiff = diff
+          ClosestIndex = i
+      except:
+        pass
+    return ClosestIndex
   
   def getBestBreakPointIndexForTwoLinesFitting(values : list) -> int:
     import numpy as np
