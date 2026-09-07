@@ -240,7 +240,7 @@ class File:
     
   @staticmethod
   def list(Pattern : str) -> list:
-    return glob.glob(Pattern)
+    return [f for f in glob.glob(Pattern) if os.path.isfile(f)]
   
   @staticmethod
   def replaceText(FileNamePattern : str, OldText : str, NewText : str) -> int:
@@ -324,6 +324,17 @@ class File:
       Result = AuxList
     return Result
   
+  @staticmethod
+  def getBaseName(Path : str) -> str:
+    return os.path.basename(Path)
+  
+  @staticmethod
+  def getAbsolutePath(FullPath : str) -> str:
+    return os.path.abspath(FullPath)
+  
+  @staticmethod
+  def getDir(FullPath : str) -> str:
+    return os.path.abspath(os.path.dirname(FullPath))
   
   
 class Dir:
@@ -333,6 +344,18 @@ class Dir:
   getAioPath = getAioPath
   pwd = pwd
   getCurrent = pwd
+
+  @staticmethod
+  def getBaseName(Path : str) -> str:
+    return os.path.basename(Path)
+  
+  @staticmethod
+  def getAbsolutePath(Path : str) -> str:
+    return os.path.abspath(Path)
+
+  @staticmethod
+  def list(Pattern : str) -> list:
+    return [d for d in glob.glob(Pattern) if os.path.isdir(d)]
   
   @staticmethod
   def forceRemove_Linux(DirName: str) -> bool:

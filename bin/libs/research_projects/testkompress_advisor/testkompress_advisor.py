@@ -3151,6 +3151,11 @@ class MLDataUtils:
                     Run = True
                     DataStr += Line + "\n"
                     continue
+                if re.search(r"--- --- --- --- ---", Line):
+                    Run = True
+                    DataStr += f"ML report version: -1\n"
+                    DataStr += Line + "\n"
+                    continue
             else:
                 if re.search(r"--- --- --- --- ---$", Line):
                     break
@@ -3205,7 +3210,7 @@ class MLDataUtils:
 
 class TestKompressMLData:
     
-    __slots__ = ("_data", "_version", "_no_histo", "_no_progress", "_replace_histos_by_other_stats", "_replace_progress_by_other_stats")
+    __slots__ = ("_data", "_version", "_no_histo", "_no_progress", "_replace_histos_by_other_stats", "_replace_progress_by_other_stats", "_ignore_lfsr")
     
     def __init__(self, FileName : str, NoHistograms : bool = True, NoProgress : bool = True, ReplaceHistosByOtherStats : bool = True, ReplaceProgressByOtherStats : bool = True) -> None:
         self._data = {}
@@ -3213,6 +3218,7 @@ class TestKompressMLData:
         self._no_progress = NoProgress
         self._replace_histos_by_other_stats = bool(ReplaceHistosByOtherStats)
         self._replace_progress_by_other_stats = bool(ReplaceProgressByOtherStats)
+        self._ignore_lfsr = False
         MLReport = MLDataUtils.getMLReportFromLog(FileName)
         try:
             self._version = int(re.search(r"ML\s+report\s+version\s*:\s*([0-9]+)", MLReport).group(1))
@@ -3282,7 +3288,7 @@ class TestKompressMLData:
                                     'Encoding capacity - dynamic compaction']:
                     continue
             for Key, Value in SectionDict.items():
-                if SectionName == 'Dropped cubes (in current EDT block)':
+                if SectionName.startswith('Dropped cubes'):
                     if Key in ['Max specified bits']:
                         continue
                 if SectionName == 'Design data':
@@ -3403,6 +3409,8 @@ class TestKompressMLData:
             return None
     
     def getLfsrSize(self) -> int:
+        if self._ignore_lfsr:
+            return -1
         return self._getKey('Design data', 'LFSR size')
     
     def getInputCount(self) -> int:
@@ -3470,7 +3478,7 @@ class TestKompressMLDataList:
     
     __slots__ = ("_dict",)
     
-    def __init__(self, FileNames : list, Verbose : bool = False, NoHistograms : bool = True, NoProgress : bool = True, MinimumCompression : float = None, MaximumCompression : float = None, MaximumRunsPerLfsr : int = None, AverageCompressionDiffPerLfsr : float = None, GoldCompression : float = None, LogSpaced : bool = False, ReplaceHistosByOtherStats : bool = True, ReplaceProgressByOtherStats : bool = True, FilterPeaks : bool = False) -> None:
+    def __init__(self, FileNames : list, Verbose : bool = False, NoHistograms : bool = True, NoProgress : bool = True, MinimumCompression : float = None, MaximumCompression : float = None, MaximumRunsPerLfsr : int = None, AverageCompressionDiffPerLfsr : float = None, GoldCompression : float = None, LogSpaced : bool = False, ReplaceHistosByOtherStats : bool = True, ReplaceProgressByOtherStats : bool = True, FilterPeaks : bool = False, IgnoreLfsr : bool = False) -> None:
         if type(FileNames) is dict:
             self._dict = FileNames
             return
@@ -3487,6 +3495,7 @@ class TestKompressMLDataList:
             if type(Verbose) is int and Verbose == 2:
                 Aio.print("Processing file:", FileName)
             Data = TestKompressMLData(FileName, NoHistograms=NoHistograms, NoProgress=NoProgress, ReplaceHistosByOtherStats=ReplaceHistosByOtherStats, ReplaceProgressByOtherStats=ReplaceProgressByOtherStats)
+            Data._ignore_lfsr = bool(IgnoreLfsr)
             if len(Data) <= 0:
                 if type(Verbose) is int and Verbose == 2:
                     Aio.printError("...No data extracted from file:", FileName)
@@ -3649,6 +3658,9 @@ class TestKompressMLDataList:
             for Data in self._dict.values():
                 Table.add([Data.getLfsrSize(), Data.getInputCount(), Data.getCompressionRatio(), Data.getPatternCount()])
             Aio.print(Table)
+        if IgnoreLfsr:
+            for Value in self._dict.values():
+                Value._ignore_lfsr = False
             
     def __len__(self) -> int:
         return len(self._dict)
@@ -3730,9 +3742,9 @@ class TestKompressMLDataList:
             MinComp = min(CompList)
             MaxComp = max(CompList)
             CompSpan = MaxComp - MinComp
-            CompStep = CompSpan / (ReferencePoints + 1)
+            CompStep = CompSpan / (ReferencePoints)
             #print(f"MinComp: {MinComp}, MaxComp: {MaxComp}, CompSpan: {CompSpan}, CompStep: {CompStep}")
-            TargetComp = MinComp + CompStep
+            TargetComp = MinComp + (0.5 * CompStep)
             UsedComps = set()
             for i in range(ReferencePoints):
                 ActualIdx = List.getIndexOfTheClosestValue(CompList, TargetComp)
@@ -3744,8 +3756,8 @@ class TestKompressMLDataList:
                     ResultDict[LfsrCh] = self._dict[LfsrCh]
                 TargetComp += CompStep
         else:
-            IdxStep = len(CompList) / (ReferencePoints + 1)
-            TargetIdx = IdxStep - 1 + 0.51
+            IdxStep = len(CompList) / (ReferencePoints)
+            TargetIdx = (0.5 * IdxStep) - 1 + 0.51
             UsedIdx = set()
             #print(f"IdxStep: {IdxStep}")
             for i in range(ReferencePoints):
