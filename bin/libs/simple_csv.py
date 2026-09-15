@@ -291,6 +291,28 @@ class CSVDedicatedDataMapper:
                 raise ValueError("CSVDedicatedDataMapper.copy: The provided CSV has different column count than the original CSV. Cannot replace.")
             Result._mapped = None
         return Result
+
+    def writeMappingParametersToFile(self, FileName : str) -> None:
+        from libs.files import File
+        return File.writeObject(FileName, (self._a, self._b))
+
+    def readMappingParametersFromFile(self, FileName : str) -> None:
+        from libs.files import File
+        self._a, self._b = File.readObject(FileName)
+        self._mapped = None
+        if self._csv is not None:
+            if len(self._a) != self._csv.getColumnCount():
+                Aio.printError(f"CSVDedicatedDataMapper.readFromFile: The loaded mapping parameters {len(self._a)} do not match the column count of the current CSV {self._csv.getColumnCount()}. Cannot load.")
+
+    def writeAllDataToFile(self, FileName : str) -> None:
+        Data = (self._a, self._b, self._mapped, self._csv._coll_cnt, self._csv._rows)
+        from libs.files import File
+        return File.writeObject(FileName, Data)
+
+    def readAllDataFromFile(self, FileName : str) -> None:
+        from libs.files import File
+        self._a, self._b, self._mapped, coll_cnt, rows = File.readObject(FileName)
+        self._csv = SimpleCSV(rows)
         
     def _calculateMappingParameters(self, ColumnIds : list = None, Mean : float = 0, StdDev : float = 1) -> None:
         from libs.utils_list import List
