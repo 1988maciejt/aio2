@@ -2,6 +2,9 @@
 import libs.research_projects.testkompress_advisor.testkompress_advisor as TestKompressAdvisor
 
 
+class SSNMapperCore: pass
+
+
 class SSNMapperCoreConfig:
 
     __slots__ = ('Lfsr', 'InputCount', 'PatternCount', 'OutputCount', 'MaskingBits')
@@ -12,6 +15,9 @@ class SSNMapperCoreConfig:
         self.PatternCount = int(PatternCount)
         self.OutputCount = int(OutputCount)
         self.MaskingBits = int(MaskingBits)
+
+    def copy(self):
+        return SSNMapperCoreConfig(self.Lfsr, self.InputCount, self.PatternCount, self.OutputCount, self.MaskingBits)
 
     def __str__(self):
         return f"{self.Lfsr} {self.InputCount} {self.PatternCount} {self.OutputCount} {self.MaskingBits}"
@@ -30,6 +36,10 @@ class SSNMapperCoreConfig:
 
     def __neq__(self, other):
         return not self.__eq__(other)
+
+    def getCompressionRatio(self, MyCore : SSNMapperCore):
+        import libs.research_projects.testkompress_advisor.testkompress_advisor as TestKompressAdvisor
+        return TestKompressAdvisor.TestKompressCalculator.getCompression(self.InputCount, self.Lfsr, MyCore.ScanLength, MyCore.ScanCount)
 
 
 class SSNMapperCore:
@@ -58,6 +68,9 @@ class SSNMapperCore:
             Result += f"\n{config}"
         return Result
 
+    def __len__(self):
+        return len(self._config_list)
+
     def addConfig(self, config):
         if not isinstance(config, SSNMapperCoreConfig):
             raise TypeError("config must be an instance of SSNMapperCoreConfig")
@@ -74,6 +87,21 @@ class SSNMapperCore:
 
     def getConfigurations(self):
         return self._config_list
+
+    def setOutputCountForAllConfigs(self, OutputCount : int, ExcludeFirstConfig : bool = False):
+        First = True
+        for config in self._config_list:
+            if ExcludeFirstConfig and First:
+                First = False
+                continue
+            config.OutputCount = OutputCount
+            First = False
+
+    def getConfigsCompressionList(self):
+        Result = []
+        for config in self._config_list:
+            Result.append(config.getCompressionRatio(self))
+        return Result
 
 
 class SSNMapperData:
@@ -153,3 +181,7 @@ class SSNMapperData:
             if core.Id == CoreId:
                 return core
         return None
+
+    def setOutputCountForAllConfigs(self, OutputCount : int, ExcludeFirstConfig : bool = False):
+        for core in self._core_list:
+            core.setOutputCountForAllConfigs(OutputCount, ExcludeFirstConfig)
