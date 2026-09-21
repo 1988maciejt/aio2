@@ -45,6 +45,27 @@ _sub_retrans = str.maketrans(
 class Str:
   
   @staticmethod
+  def makeComment(Text : str, CommentChar : str = "# ", LineBefore : str = None, LineAfter : str = None) -> str:
+    Result = ""
+    Second = 0
+    Width = Str.getWidth(Text)
+    if LineBefore is not None:
+      Line = LineBefore * (Width // len(LineBefore) + 1)
+      Line = Line[:Width]
+      Text = Line + "\n" + Text
+    if LineAfter is not None:
+      Line = LineAfter * (Width // len(LineAfter) + 1)
+      Line = Line[:Width]
+      Text += "\n" + Line 
+    for Line in Text.split("\n"):
+      if Second:
+        Result += "\n"
+      else:
+        Second = 1
+      Result += CommentChar + Line
+    return Result
+
+  @staticmethod
   def wrap(Text : str, Width : int) -> str:
     Result = ""
     Second = 0
