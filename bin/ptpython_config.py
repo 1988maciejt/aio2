@@ -182,6 +182,31 @@ def configure(repl):
                 print(f'[!] Failed to synchronize namespace: {e}')
         run_in_terminal(perform_reload)
 
+    from prompt_toolkit.filters import Condition
+    @Condition
+    def line_starts_with_bang():
+        from prompt_toolkit.application import get_app
+        app = get_app()
+        return app.current_buffer.text.strip().startswith("!")
+
+    @repl.add_key_binding("enter", filter=line_starts_with_bang)
+    def _(event):
+        buffer = event.current_buffer
+        text = buffer.text.strip()
+        cmd = text[1:].strip()
+        buffer.reset()  
+        if cmd:
+            buffer.history.append_string(text)  # Dodanie do historii
+            def execute_system_command():
+                import subprocess
+                print(f"\n[sh] $ {cmd}")
+                try:
+                    subprocess.run(cmd, shell=True)
+                except Exception as e:
+                    print(f"[✖] Error executing: {e}")
+            from prompt_toolkit.application import run_in_terminal
+            run_in_terminal(execute_system_command)       
+
     # Dodanie wpisu na pasku statusu (tytuł / menu na dole)
     # Dopasuj do swoich pozostałych wpisów, upewniając się, że uwzględniasz [F5]: reload
     #repl.title = "[F1]: MENU,  [Ctrl+T]: Temp Transcripts,  [F5]: reload"
