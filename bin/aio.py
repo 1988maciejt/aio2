@@ -189,4 +189,23 @@ def profile(Code : str, FilterBuiltIns = True, FilterInternals = True):
             continue
         print(Line)
 
-
+def reload():
+    print('[⏳] Reloading all dependencies...')
+    if 'aio' in sys.modules:
+        import aio
+        importlib.reload(aio)
+    for name, mod in list(sys.modules.items()):
+        if name == 'aio' or name.startswith('aio.'):
+            if mod is not None:
+                try:
+                    importlib.reload(mod)
+                except Exception as e:
+                    print(f'[!] Error reloading {name}: {e}')
+    try:
+        frame = sys._getframe(1)  # pobiera ramkę wywołującą (np. REPL)
+        exec('from aio import *', frame.f_globals, frame.f_locals)
+        print(
+            '[✔] AIO environment has been successfully reloaded and synchronized!'
+        )
+    except Exception as e:
+        print(f'[!] Failed to synchronize namespace: {e}')

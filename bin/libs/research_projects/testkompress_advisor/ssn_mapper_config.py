@@ -1,7 +1,6 @@
 #from libs.aio import *
 import libs.research_projects.testkompress_advisor.testkompress_advisor as TestKompressAdvisor
 
-
 class SSNMapperCore: pass
 
 
@@ -87,6 +86,14 @@ class SSNMapperCore:
 
     def getConfigurations(self):
         return self._config_list
+
+    def fromTestKompressMLData(Id : int,TestKompressMLData : TestKompressAdvisor.TestKompressMLData) -> "SSNMapperCore":
+        from libs.aio import Aio
+        Id = int(Id)
+        ScanCount = int(TestKompressMLData.getScanCount())
+        ScanLength = int(TestKompressMLData.getScanLength())
+        Aio.printError(f"Not finished yet! MLData to grab LowPowerBits...")
+
 
     def setOutputCountForAllConfigs(self, OutputCount : int, ExcludeFirstConfig : bool = False):
         First = True

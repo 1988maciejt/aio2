@@ -3,6 +3,9 @@ Configuration example for ``ptpython``.
 Copy this file to $XDG_CONFIG_HOME/ptpython/config.py
 On Linux, this is: ~/.config/ptpython/config.py
 """
+import importlib
+import sys
+
 from prompt_toolkit.filters import ViInsertMode
 from prompt_toolkit.key_binding.key_processor import KeyPress
 from prompt_toolkit.keys import Keys
@@ -152,7 +155,36 @@ def configure(repl):
     ##def _(event):
     ##    keybinds.setEvent(event)
     ##    keybinds.KEY_BINDING_FLAGS.set(3)
-    
+
+
+    @repl.add_key_binding("f5")
+    def _(event):
+        from prompt_toolkit.application import run_in_terminal
+        def perform_reload():
+            print('[⏳] Reloading all dependencies...')
+            if 'aio' in sys.modules:
+                import aio
+                importlib.reload(aio)
+            for name, mod in list(sys.modules.items()):
+                if name == 'aio' or name.startswith('aio.'):
+                    if mod is not None:
+                        try:
+                            importlib.reload(mod)
+                        except Exception as e:
+                            print(f'[!] Error reloading {name}: {e}')
+            try:
+                frame = sys._getframe(1)  # pobiera ramkę wywołującą (np. REPL)
+                exec('from aio import *', frame.f_globals, frame.f_locals)
+                print(
+                    '[✔] AIO environment has been successfully reloaded and synchronized!'
+                )
+            except Exception as e:
+                print(f'[!] Failed to synchronize namespace: {e}')
+        run_in_terminal(perform_reload)
+
+    # Dodanie wpisu na pasku statusu (tytuł / menu na dole)
+    # Dopasuj do swoich pozostałych wpisów, upewniając się, że uwzględniasz [F5]: reload
+    #repl.title = "[F1]: MENU,  [Ctrl+T]: Temp Transcripts,  [F5]: reload"
 
 
     # Add custom key binding for PDB.
@@ -227,3 +259,6 @@ __ptpython_config__ = {
     'color_depth': 'DEPTH_24_BIT',
     'confirm_exit': False,
 }
+
+
+
