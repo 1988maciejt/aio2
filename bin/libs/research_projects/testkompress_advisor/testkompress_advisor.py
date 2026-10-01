@@ -3400,7 +3400,7 @@ class TestKompressMLData:
         return HeaderList
     
     def getMLHeader(self) -> list:
-        return self.getHeader(FilterNotForML=True)
+        return self.getHeader()
     
     def _getKey(self, Section : str, Key : str):
         try:

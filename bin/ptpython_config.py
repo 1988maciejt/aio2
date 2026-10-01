@@ -209,7 +209,6 @@ def configure(repl):
 
     # Dodanie wpisu na pasku statusu (tytuł / menu na dole)
     # Dopasuj do swoich pozostałych wpisów, upewniając się, że uwzględniasz [F5]: reload
-    #repl.title = "[F1]: MENU,  [Ctrl+T]: Temp Transcripts,  [F5]: reload"
 
 
     # Add custom key binding for PDB.
@@ -261,6 +260,7 @@ def configure(repl):
     repl.title = "My custom prompt."
     """
     #repl.title = "[F1]: MENU,  [Ctr+T]: Temp Transcripts  "#"",  [Ctrl+P]: Pause Generators  "
+    repl.title = "[F5] reload  "
 
 
 # Custom colorscheme for the UI. See `ptpython/layout.py` and

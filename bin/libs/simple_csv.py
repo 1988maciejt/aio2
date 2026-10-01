@@ -256,6 +256,7 @@ class SimpleCSV:
             Aio.printError(f"SimpleCSV.sort: ColumnId {ColumnId} is out of range for the CSV ({self._coll_cnt} columns).")
             return
         self._rows.sort(key=lambda x: x[ColumnId], reverse=reverse)
+
         
 class CSVDedicatedDataMapper:
     
@@ -267,6 +268,11 @@ class CSVDedicatedDataMapper:
             self._b = CSV._b.copy()
             self._csv = CSV._csv.copy()
             self._mapped = CSV._mapped
+        elif CSV is None:
+            self._a = {}
+            self._b = {}
+            self._csv = None
+            self._mapped = None
         else:
             self._a = {}
             self._b = {}
@@ -304,15 +310,24 @@ class CSVDedicatedDataMapper:
             if len(self._a) != self._csv.getColumnCount():
                 Aio.printError(f"CSVDedicatedDataMapper.readFromFile: The loaded mapping parameters {len(self._a)} do not match the column count of the current CSV {self._csv.getColumnCount()}. Cannot load.")
 
-    def writeAllDataToFile(self, FileName : str) -> None:
-        Data = (self._a, self._b, self._mapped, self._csv._coll_cnt, self._csv._rows)
+    def toFile(self, FileName : str) -> None:
+        from copy import deepcopy
+        Rows = deepcopy(self._csv._rows)
+        Data = [self._a, self._b, self._mapped, Rows]
         from libs.files import File
         return File.writeObject(FileName, Data)
 
-    def readAllDataFromFile(self, FileName : str) -> None:
+    @staticmethod
+    def fromFile(FileName : str) -> "CSVDedicatedDataMapper":
         from libs.files import File
-        self._a, self._b, self._mapped, coll_cnt, rows = File.readObject(FileName)
-        self._csv = SimpleCSV(rows)
+        Result = CSVDedicatedDataMapper(None)
+        Data = File.readObject(FileName)
+        Result._a = Data[0]
+        Result._b = Data[1]
+        Result._mapped = Data[2]
+        rows = Data[3]
+        Result._csv = SimpleCSV(rows)
+        return Result
         
     def _calculateMappingParameters(self, ColumnIds : list = None, Mean : float = 0, StdDev : float = 1) -> None:
         from libs.utils_list import List
