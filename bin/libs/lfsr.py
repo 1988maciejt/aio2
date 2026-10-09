@@ -45,20 +45,48 @@ _LFSR_SIM = []
 
 
 class IntPolynomialUtils:
-
+  
+  @staticmethod
   def gf2_mod(a: int, p: int) -> int:
       """Polynomial remainder a(x) mod p(x) over GF(2)."""
       dp = p.bit_length() - 1
       while a and a.bit_length() - 1 >= dp:
           a ^= p << (a.bit_length() - 1 - dp)
       return a
+  
+  @staticmethod
+  def gf2_mul_mod(a: int, b: int, p: int) -> int:
+      """Polynomial multiplication modulo p over GF(2)."""
+      result = 0
+      while b:
+          if b & 1:
+              result ^= a
+          b >>= 1
+          a <<= 1
+          if a.bit_length() >= p.bit_length():
+              a = IntPolynomialUtils.gf2_mod(a, p)
+      return IntPolynomialUtils.gf2_mod(result, p)
 
+  @staticmethod
+  def gf2_pow_mod(a: int, exponent: int, p: int) -> int:
+      """Polynomial exponentiation modulo p over GF(2)."""
+      result = 1
+      while exponent:
+          if exponent & 1:
+              result = IntPolynomialUtils.gf2_mul_mod(result, a, p)
+          exponent >>= 1
+          if exponent:
+              a = IntPolynomialUtils.gf2_mul_mod(a, a, p)
+      return result
+
+  @staticmethod
   def gf2_gcd(a: int, b: int) -> int:
       """Polynomial GCD over GF(2)."""
       while b:
           a, b = b, IntPolynomialUtils.gf2_mod(a, b)
       return a
 
+  @staticmethod
   def gf2_square_mod(a: int, p: int) -> int:
       """Compute a(x)^2 mod p(x) over GF(2)."""
       squared = 0
@@ -68,7 +96,29 @@ class IntPolynomialUtils:
           squared |= 1 << (2 * i)
           a ^= lowest
       return IntPolynomialUtils.gf2_mod(squared, p)
+    
+  @staticmethod
+  def gf2_divmod(a: int, b: int) -> tuple[int, int]:
+      """Polynomial quotient and remainder over GF(2)."""
+      if b == 0:
+          raise ZeroDivisionError
+      quotient = 0
+      while a and a.bit_length() >= b.bit_length():
+          shift = a.bit_length() - b.bit_length()
+          quotient |= 1 << shift
+          a ^= b << shift
+      return quotient, a
+  
+  @staticmethod
+  def gf2_derivative(p: int) -> int:
+      """Formal derivative over GF(2)."""
+      result = 0
+      for i in range(1, p.bit_length(), 2):
+          if (p >> i) & 1:
+              result |= 1 << (i - 1)
+      return result
 
+  @staticmethod
   def prime_divisors(n: int) -> list[int]:
       """Return distinct prime divisors of a positive integer."""
       factors = []
@@ -82,7 +132,39 @@ class IntPolynomialUtils:
       if n > 1:
           factors.append(n)
       return factors
+  
+  @staticmethod
+  def solve_z2_z(c: int, p: int, n: int) -> int | None:
+    """
+    Solve z^2 + z = c modulo irreducible p.
+    Gaussian elimination over GF(2), using integer bit vectors.
+    """
+    basis = {}
+    # Build a linear basis for the map z -> z^2 + z.
+    for i in range(n):
+        v = IntPolynomialUtils.gf2_square_mod(1 << i, p) ^ (1 << i)
+        combination = 1 << i
+        while v:
+            pivot = v.bit_length() - 1
+            if pivot not in basis:
+                basis[pivot] = (v, combination)
+                break
+            bv, bc = basis[pivot]
+            v ^= bv
+            combination ^= bc
+    # Express c as a combination of the basis vectors.
+    z = 0
+    v = c
+    while v:
+        pivot = v.bit_length() - 1
+        if pivot not in basis:
+            return None
+        bv, bc = basis[pivot]
+        v ^= bv
+        z ^= bc
+    return z
 
+  @staticmethod
   def is_irreducible_rabin(poly: int) -> bool:
       """Test polynomial irreducibility over GF(2)."""
       if poly < 2:
@@ -1089,6 +1171,12 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     for coeff in clist:
       result[coeff] = 1
     return result
+
+  def isIrreducible(self) -> bool:
+    return bool(IntPolynomialUtils.is_irreducible_rabin(self.toInt()))
+  
+  def isReducible(self) -> bool:
+    return not self.isIrreducible()
   
   def isPrimitive(self) -> bool:
     """Check if the polynomial is primitive over GF(2).
@@ -1896,8 +1984,13 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
   
   @staticmethod
   def decodeUsingBerlekampMassey(Sequence, ProgressBar=0, PrintLinearComplexity=0) -> Polynomial:
-    if Aio.isType(Sequence, "Lfsr"):
+    from libs.ca import Ca
+    from libs.nlfsr import Nlfsr
+    if type(Sequence) in [Lfsr, Ca, Nlfsr]:
       Seq2 = Sequence.getSequence(Length=Sequence._size<<1+2)
+      if type(Sequence) is Lfsr:
+        if Sequence._type != LfsrType.Fibonacci:
+          Seq2.reverse()
     else:
       Seq2 = Sequence
     if Aio.isType(Seq2, bitarray('')):
@@ -2179,7 +2272,7 @@ class Lfsr:
     return Lfsr(self)
   def __init__(self, polynomial, lfsr_type = LfsrType.Fibonacci, manual_taps = []):
     poly = polynomial
-    if "Lfsr" in str(type(polynomial)):
+    if type(polynomial) is Lfsr:
         self._my_poly = polynomial._my_poly.copy()
         self._my_signs = polynomial._my_signs.copy()
         self._type = polynomial._type
@@ -3674,7 +3767,7 @@ class _BerlekampMassey:
 
     def getPolynomial(self):
         lst = list(self._f)
-        return Polynomial(lst)
+        return Polynomial(lst).getReciprocal()
 
     def getDegree(self):
         return self._l
