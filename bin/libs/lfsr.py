@@ -2888,6 +2888,10 @@ class Lfsr:
     Returns:
         bool: True if is maximum, otherwise False.
     """
+    if len(self) > 70:
+      p = Polynomial.decodeUsingBerlekampMassey(self)
+      if p.isReducible():
+        return False
     index = self._size
     self.reset()
     value0 = self._baValue.copy()

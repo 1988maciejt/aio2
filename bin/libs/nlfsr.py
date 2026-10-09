@@ -3281,7 +3281,7 @@ endmodule'''
           if not HardcodedInverters:
             if random.randint(0,1):
               D *= -1
-          Taps.append([D, [S]])
+          Taps.append([D, S])
         if len(Taps) > 0:
           Candidate = Nlfsr(Size, Taps)
           if HybridAllowed or not Candidate.isSemiLfsr():
