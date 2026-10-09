@@ -227,14 +227,11 @@ class SimpleCSV:
             SubCSV2._rows.append(self._rows[RowIndices[i]].copy())
         return SubCSV1, SubCSV2
     
-    def getNumpyArraysForML(self, YColumnCount : int = 1) -> tuple:
-        x, y = [], []
-        SplitPoint = self.getColumnCount() - YColumnCount
-        for R in self.getAllRows():
-            x.append(R[:SplitPoint])
-            y.append(R[SplitPoint:])
-        np_x = numpy.array(x, dtype=numpy.float32)
-        np_y = numpy.array(y, dtype=numpy.float32)
+    def getNumpyArraysForML(self, YColumnCount: int = 1) -> tuple:
+        data = numpy.array(self.getAllRows(), dtype=numpy.float32)
+        split_point = self.getColumnCount() - YColumnCount
+        np_x = data[:, :split_point]
+        np_y = data[:, split_point:]
         return np_x, np_y
     
     def shuffleRows(self) -> None:

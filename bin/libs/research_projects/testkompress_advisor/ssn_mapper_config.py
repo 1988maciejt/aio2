@@ -1,4 +1,5 @@
 #from libs.aio import *
+from libs.pandas_table import AioTable
 import libs.research_projects.testkompress_advisor.testkompress_advisor as TestKompressAdvisor
 
 class SSNMapperCore: pass
@@ -39,6 +40,9 @@ class SSNMapperCoreConfig:
     def getCompressionRatio(self, MyCore : SSNMapperCore):
         import libs.research_projects.testkompress_advisor.testkompress_advisor as TestKompressAdvisor
         return TestKompressAdvisor.TestKompressCalculator.getCompression(self.InputCount, self.Lfsr, MyCore.ScanLength, MyCore.ScanCount)
+
+    def getReportRow(self, MyCore : SSNMapperCore):
+        return [self.Lfsr, self.InputCount, self.OutputCount, round(self.getCompressionRatio(MyCore), 2), self.PatternCount]
 
 
 class SSNMapperCore:
@@ -94,7 +98,6 @@ class SSNMapperCore:
         ScanLength = int(TestKompressMLData.getScanLength())
         Aio.printError(f"Not finished yet! MLData to grab LowPowerBits...")
 
-
     def setOutputCountForAllConfigs(self, OutputCount : int, ExcludeFirstConfig : bool = False):
         First = True
         for config in self._config_list:
@@ -108,6 +111,24 @@ class SSNMapperCore:
         Result = []
         for config in self._config_list:
             Result.append(config.getCompressionRatio(self))
+        return Result
+
+    def getReportTable(self, BestCompressionOnly : bool = False) -> "AioTable":
+        AutoId = True
+        if BestCompressionOnly:
+            AutoId = False
+        Result = AioTable(["LFSR", "Input Count", "Output Count", "Compression Ratio", "Pattern Count"], AutoId=AutoId)
+        if BestCompressionOnly:
+            Best = None
+        for config in self._config_list:
+            Row = config.getReportRow(self)
+            if BestCompressionOnly:
+                if Best is None or abs(Row[3] - 120) < abs(Best[3] - 120):
+                    Best = Row
+            else:
+                Result.addRow(Row)
+        if BestCompressionOnly and Best is not None:
+            Result.addRow(Best)
         return Result
 
 
@@ -192,3 +213,19 @@ class SSNMapperData:
     def setOutputCountForAllConfigs(self, OutputCount : int, ExcludeFirstConfig : bool = False):
         for core in self._core_list:
             core.setOutputCountForAllConfigs(OutputCount, ExcludeFirstConfig)
+
+    def getReport(self, BestCompressionOnly : bool = False) -> str:
+        Result = ""
+        Next = False 
+        for core in self._core_list:
+            if Next:
+                Result += "\n\n"
+            else:
+                Next = True
+            Result += f"Core ID: {core.Id}\n"
+            Result += core.getReportTable(BestCompressionOnly).toString()
+        return Result
+
+    def printReport(self, BestCompressionOnly : bool = False):
+        from libs.aio import Aio
+        Aio.print(self.getReport(BestCompressionOnly))

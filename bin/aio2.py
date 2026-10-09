@@ -149,6 +149,8 @@ _run_tc()
 #_run_binding_thread()
       
 class Shell:
+  
+  @staticmethod
   def getUserObjects():
     result = List.xor(globals(), Cache.recall("globals", []))
     result = List.removeByString(result, r'^_+[0-9]*$')
@@ -164,6 +166,8 @@ class Shell:
     result = List.removeByString(result, r'^quit$')
     result = List.removeByString(result, r'^__.*__$')
     return result
+  
+  @staticmethod
   def startHistoryLogging(filename="aio2_history", append=True):      
     from ptpython.repl import embed
     history_path = os.path.expanduser(filename)
@@ -173,12 +177,18 @@ class Shell:
       except:
         pass
     embed(globals(), locals(), history_filename=history_path)
+
+  @staticmethod
   def importHistory(filename="aio2_history"):
     try:
       exec(open(filename).read())
       print("History loaded.")
     except:
       print("History loading error!")
+
+  @staticmethod
+  def checkNecessaryModules(ListOfModules : list):
+    _installMissingModules(ListOfModules)
       
       
 Cache.store("globals", list(globals().keys()).copy())
