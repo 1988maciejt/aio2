@@ -44,6 +44,67 @@ _LFSR = None
 _LFSR_SIM = []
 
 
+class IntPolynomialUtils:
+
+  def gf2_mod(a: int, p: int) -> int:
+      """Polynomial remainder a(x) mod p(x) over GF(2)."""
+      dp = p.bit_length() - 1
+      while a and a.bit_length() - 1 >= dp:
+          a ^= p << (a.bit_length() - 1 - dp)
+      return a
+
+  def gf2_gcd(a: int, b: int) -> int:
+      """Polynomial GCD over GF(2)."""
+      while b:
+          a, b = b, IntPolynomialUtils.gf2_mod(a, b)
+      return a
+
+  def gf2_square_mod(a: int, p: int) -> int:
+      """Compute a(x)^2 mod p(x) over GF(2)."""
+      squared = 0
+      while a:
+          lowest = a & -a
+          i = lowest.bit_length() - 1
+          squared |= 1 << (2 * i)
+          a ^= lowest
+      return IntPolynomialUtils.gf2_mod(squared, p)
+
+  def prime_divisors(n: int) -> list[int]:
+      """Return distinct prime divisors of a positive integer."""
+      factors = []
+      d = 2
+      while d * d <= n:
+          if n % d == 0:
+              factors.append(d)
+              while n % d == 0:
+                  n //= d
+          d += 1 if d == 2 else 2
+      if n > 1:
+          factors.append(n)
+      return factors
+
+  def is_irreducible_rabin(poly: int) -> bool:
+      """Test polynomial irreducibility over GF(2)."""
+      if poly < 2:
+          return False
+      n = poly.bit_length() - 1
+      if n == 0:
+          return False
+      x = IntPolynomialUtils.gf2_mod(0b10, poly)
+      h = x
+      # Check gcd(P, x^(2^(n/q)) - x) == 1
+      # for each distinct prime divisor q of n.
+      checkpoints = {n // q for q in IntPolynomialUtils.prime_divisors(n)}
+      for i in range(1, n + 1):
+          h = IntPolynomialUtils.gf2_square_mod(h, poly)
+          if i in checkpoints:
+              if IntPolynomialUtils.gf2_gcd(poly, h ^ x) != 1:
+                  return False
+      # Check x^(2^n) == x (mod P).
+      return h == x
+
+
+
 class SequenceSymbol:
   
   __slots__ = ("_symbol", "_shift", "_inv")
@@ -1040,6 +1101,9 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     if len(self._coefficients_list) % 2 == 0: 
       return False
     Degree = self.getDegree()
+    if Degree > 70:
+      if not IntPolynomialUtils.is_irreducible_rabin(self.toInt()):
+        return False
     if len(self._coefficients_list) == 3 and Degree % 8 == 0: 
       return False
     l = Lfsr(self.copy(), LfsrType.Galois)
