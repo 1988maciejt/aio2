@@ -43,40 +43,64 @@ from libs.gf2_polynomial import *
 _LFSR = None
 _LFSR_SIM = []
 
+_GF2_SQUARE_BYTE = tuple(
+    sum(((b >> i) & 1) << (2 * i) for i in range(8))
+    for b in range(256)
+)
 
 class IntPolynomialUtils:
-  
+
   @staticmethod
   def gf2_mod(a: int, p: int) -> int:
       """Polynomial remainder a(x) mod p(x) over GF(2)."""
+      if a < 0 or p <= 0:
+          raise ValueError("Polynomials must be non-negative and p != 0")
+      if p == 1:
+          return 0
+      if a.bit_length() < p.bit_length():
+          return a
       dp = p.bit_length() - 1
-      while a and a.bit_length() - 1 >= dp:
+      while a.bit_length() > dp:
           a ^= p << (a.bit_length() - 1 - dp)
       return a
-  
+
   @staticmethod
   def gf2_mul_mod(a: int, b: int, p: int) -> int:
-      """Polynomial multiplication modulo p over GF(2)."""
+      """Fast polynomial multiplication modulo p over GF(2)."""
+      if a < 0 or b < 0 or p < 2:
+          raise ValueError("Require a, b >= 0 and p >= 2")
+      n = p.bit_length() - 1
+      top_bit = 1 << (n - 1)
+      a = IntPolynomialUtils.gf2_mod(a, p)
       result = 0
       while b:
           if b & 1:
               result ^= a
           b >>= 1
-          a <<= 1
-          if a.bit_length() >= p.bit_length():
-              a = IntPolynomialUtils.gf2_mod(a, p)
-      return IntPolynomialUtils.gf2_mod(result, p)
+          if b:
+              carry = a & top_bit
+              a <<= 1
+              if carry:
+                  a ^= p
+      return result
 
   @staticmethod
+  @cacheit
   def gf2_pow_mod(a: int, exponent: int, p: int) -> int:
       """Polynomial exponentiation modulo p over GF(2)."""
+      if exponent < 0:
+          raise ValueError("Exponent must be non-negative")
+      if p < 2:
+          raise ValueError("Modulus must have degree >= 1")
+      mul = IntPolynomialUtils.gf2_mul_mod
       result = 1
+      a = IntPolynomialUtils.gf2_mod(a, p)
       while exponent:
           if exponent & 1:
-              result = IntPolynomialUtils.gf2_mul_mod(result, a, p)
+              result = mul(result, a, p)
           exponent >>= 1
           if exponent:
-              a = IntPolynomialUtils.gf2_mul_mod(a, a, p)
+              a = mul(a, a, p)
       return result
 
   @staticmethod
@@ -87,14 +111,20 @@ class IntPolynomialUtils:
       return a
 
   @staticmethod
+  @cacheit
   def gf2_square_mod(a: int, p: int) -> int:
-      """Compute a(x)^2 mod p(x) over GF(2)."""
+      """Fast polynomial squaring modulo p over GF(2)."""
+      if a < 0 or p <= 0:
+          raise ValueError("Polynomials must be non-negative and p != 0")
+      if p == 1:
+          return 0
+      table = _GF2_SQUARE_BYTE
       squared = 0
+      shift = 0
       while a:
-          lowest = a & -a
-          i = lowest.bit_length() - 1
-          squared |= 1 << (2 * i)
-          a ^= lowest
+          squared |= table[a & 0xFF] << (2 * shift)
+          a >>= 8
+          shift += 8
       return IntPolynomialUtils.gf2_mod(squared, p)
     
   @staticmethod
@@ -119,6 +149,7 @@ class IntPolynomialUtils:
       return result
 
   @staticmethod
+  @cacheit
   def prime_divisors(n: int) -> list[int]:
       """Return distinct prime divisors of a positive integer."""
       factors = []
