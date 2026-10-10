@@ -356,6 +356,32 @@ class Str:
         Second = 1
       Result += Indentation + Line
     return Result
+
+  @staticmethod
+  def getSimilarity(Text1 : str, Text2 : str) -> float:
+    from difflib import SequenceMatcher
+    return SequenceMatcher(None, Text1, Text2, autojunk=False).ratio()
+
+  @staticmethod
+  def getMostSimilar(Text : str, ListOfStrings : list, ReturnAlsoSimilarityRatio : bool = False):
+    BestText, BestSim = None, None
+    for Text2 in ListOfStrings:
+      Sim = Str.getSimilarity(Text, Text2)
+      if Sim == 1.0:
+        if ReturnAlsoSimilarityRatio:
+          return Text2, Sim
+        return Text2
+      if (BestText is None) or (Sim > BestSim):
+        BestText, BestSim = Text2, Sim
+    if ReturnAlsoSimilarityRatio:
+      return BestText, BestSim
+    return BestText
+
+  @staticmethod
+  def sortListOfStringsBasingOnSimilarity(ListOfStrings : list, Text : str) -> list:
+    Result = ListOfStrings.copy()
+    Result.sort(reverse=True, key = lambda x: Str.getSimilarity(Text, x))
+    return Result
     
 
 class StrHex:
