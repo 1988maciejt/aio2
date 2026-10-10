@@ -1209,7 +1209,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
   def isReducible(self) -> bool:
     return not self.isIrreducible()
   
-  def isPrimitive(self) -> bool:
+  def isPrimitive(self, SkipRabinTest : bool = False) -> bool:
     """Check if the polynomial is primitive over GF(2).
     
     That's considered by simulating an LFSR based on the polynomial.
@@ -1220,9 +1220,10 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     if len(self._coefficients_list) % 2 == 0: 
       return False
     Degree = self.getDegree()
-    if Degree > 70:
-      if not IntPolynomialUtils.is_irreducible_rabin(self.toInt()):
-        return False
+    if not SkipRabinTest:
+      if Degree > 70:
+        if not IntPolynomialUtils.is_irreducible_rabin(self.toInt()):
+          return False
     if len(self._coefficients_list) == 3 and Degree % 8 == 0: 
       return False
     l = Lfsr(self.copy(), LfsrType.Galois)
@@ -2697,7 +2698,7 @@ class Lfsr:
         steps >>= 1
         RowIndex += 1
       return self._baValue.copy()   
-    
+
   def _buildFastSimArray(self, NotFull = False):
     oldVal = self._baValue.copy()
     size = self._size
