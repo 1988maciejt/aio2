@@ -1227,7 +1227,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     if len(self._coefficients_list) == 3 and Degree % 8 == 0: 
       return False
     l = Lfsr(self.copy(), LfsrType.Galois)
-    result = l.isMaximum()
+    result = l.isMaximum(SkipRabin=True, SkipMax=False)
     return result
   
   def _getArgsForCppPrimitivityChecker(self) -> str:
@@ -1352,6 +1352,10 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return p
   
   @staticmethod
+  def _checkPrimitivesSerialChunk(ListOfPolys : list) -> list:
+    return [Polynomial._check(p) for p in ListOfPolys]
+
+  @staticmethod
   def checkPrimitives(Candidates : list, n = 0, Silent = True) -> list:
     """Returns a list of primitive polynomials (over GF(2)) found on a given list.
 
@@ -1371,16 +1375,35 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     Generator = Generators()
     Results = []
     RemoveOnceMore = 0
-    Iter = p_uimap(Polynomial._check, Generator.wrapper(PList), total=len(PList))
-    for I in Iter:
-      if I is not None:
-        Results.append(I)
-        if not Silent:
-          AioShell.removeLastLine()
-          print(f'Found {str(I)}')
-          RemoveOnceMore = 1
-      if len(Results) >= n > 0:
-        Generator.disable()
+    CpuCount = Aio.getCpuCount()
+    SerialChunk = 1
+    if len(PList) > CpuCount:
+      SerialChunk = int(len(PList) // CpuCount)
+      if SerialChunk > 10:
+        SerialChunk = 10
+    if SerialChunk > 1:
+      Iter = p_uimap(Polynomial._checkPrimitivesSerialChunk, Generator.subLists(PList, SerialChunk), total=int(len(PList)/SerialChunk), desc=f"x{SerialChunk}")
+      for IS in Iter:
+        for I in IS:
+          if I is not None:
+            Results.append(I)
+            if not Silent:
+              AioShell.removeLastLine()
+              print(f'Found {str(I)}')
+              RemoveOnceMore = 1
+          if len(Results) >= n > 0:
+            Generator.disable()
+    else:
+      Iter = p_uimap(Polynomial._check, Generator.wrapper(PList), total=len(PList))
+      for I in Iter:
+        if I is not None:
+          Results.append(I)
+          if not Silent:
+            AioShell.removeLastLine()
+            print(f'Found {str(I)}')
+            RemoveOnceMore = 1
+        if len(Results) >= n > 0:
+          Generator.disable()
     AioShell.removeLastLine()
     if RemoveOnceMore:
       AioShell.removeLastLine()
@@ -2913,22 +2936,29 @@ class Lfsr:
       return self
     return None
   
-  def isMaximum(self) -> bool:
+  def isMaximum(self, Faster : bool = True, **kwargs) -> bool:
     """Uses the fast-simulation method to determine if the LFSR's trajectory
     includes all possible (but 0) states. 
 
     Returns:
         bool: True if is maximum, otherwise False.
     """
-    if len(self) > 70:
-      p = Polynomial.decodeUsingBerlekampMassey(self)
-      if p.isReducible():
-        return False
+    if not kwargs.get('SkipRabin', False):
+      if len(self) > 70:
+        p = Polynomial.decodeUsingBerlekampMassey(self)
+        if p.getDegree() != len(self):
+          return False
+        if p.isReducible():
+          return False
     index = self._size
     self.reset()
     value0 = self._baValue.copy()
-    if self.next(Int.mersenne(index)) != value0:
-      return False
+    if not kwargs.get('SkipMax', True):
+      if self.next(Int.mersenne(index)) != value0:
+        return False
+    #else:
+    #  if self._ba_fast_sim_array is None:
+    #    self._buildFastSimArray(NotFull=1)
     lst = DB.getPrimitiveTestingCyclesList(index)
     for num in lst:
       self.reset()
