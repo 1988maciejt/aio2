@@ -1356,7 +1356,15 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     return [Polynomial._check(p) for p in ListOfPolys]
 
   @staticmethod
-  def checkPrimitives(Candidates : list, n = 0, Silent = True) -> list:
+  def _checkIrreducibleSerialChunk(PList : list) -> list:
+    Result = []
+    for P in PList:
+      if P.isIrreducible():
+        Result.append(P)
+    return Result
+
+  @staticmethod
+  def checkPrimitives(Candidates : list, n = 0, Silent = True, HugeCandidates : bool = False) -> list:
     """Returns a list of primitive polynomials (over GF(2)) found on a given list.
 
     Args:
@@ -1379,22 +1387,23 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     SerialChunk = 1
     if len(PList) > CpuCount:
       SerialChunk = int(len(PList) // CpuCount)
-      if SerialChunk > 10:
-        SerialChunk = 10
-    if SerialChunk > 1:
-      Iter = p_uimap(Polynomial._checkPrimitivesSerialChunk, Generator.subLists(PList, SerialChunk), total=int(len(PList)/SerialChunk), desc=f"x{SerialChunk}")
+    if HugeCandidates:
+      if SerialChunk > 50:
+        SerialChunk = 50
+      RCandidates = []
+      Iter = p_uimap(Polynomial._checkIrreducibleSerialChunk, Generator.subLists(PList, SerialChunk), total=int(len(PList)/SerialChunk), desc=f"x{SerialChunk} (Rabin test)")
       for IS in Iter:
         for I in IS:
-          if I is not None:
-            Results.append(I)
-            if not Silent:
-              AioShell.removeLastLine()
-              print(f'Found {str(I)}')
-              RemoveOnceMore = 1
-          if len(Results) >= n > 0:
-            Generator.disable()
-    else:
-      Iter = p_uimap(Polynomial._check, Generator.wrapper(PList), total=len(PList))
+          RCandidates.append(I)
+          if not Silent:
+            AioShell.removeLastLine()
+            print(f'Found irreducible candidate {str(I)}')
+            RemoveOnceMore = 1
+      AioShell.removeLastLine()
+      if RemoveOnceMore:
+        AioShell.removeLastLine()
+      RemoveOnceMore = 0
+      Iter = p_uimap(Polynomial._check, Generator.wrapper(RCandidates), total=int(len(RCandidates)), desc="(Simulation)")
       for I in Iter:
         if I is not None:
           Results.append(I)
@@ -1403,7 +1412,33 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
             print(f'Found {str(I)}')
             RemoveOnceMore = 1
         if len(Results) >= n > 0:
-          Generator.disable()
+          Generator.disable()      
+    else:
+      if SerialChunk > 10:
+        SerialChunk = 10
+      if SerialChunk > 1:
+        Iter = p_uimap(Polynomial._checkPrimitivesSerialChunk, Generator.subLists(PList, SerialChunk), total=int(len(PList)/SerialChunk), desc=f"x{SerialChunk}")
+        for IS in Iter:
+          for I in IS:
+            if I is not None:
+              Results.append(I)
+              if not Silent:
+                AioShell.removeLastLine()
+                print(f'Found {str(I)}')
+                RemoveOnceMore = 1
+            if len(Results) >= n > 0:
+              Generator.disable()
+      else:
+        Iter = p_uimap(Polynomial._check, Generator.wrapper(PList), total=len(PList))
+        for I in Iter:
+          if I is not None:
+            Results.append(I)
+            if not Silent:
+              AioShell.removeLastLine()
+              print(f'Found {str(I)}')
+              RemoveOnceMore = 1
+          if len(Results) >= n > 0:
+            Generator.disable()
     AioShell.removeLastLine()
     if RemoveOnceMore:
       AioShell.removeLastLine()
@@ -1774,7 +1809,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         AllCandidates.append(p.copy())
       cntr += 1
       if (cntr >= MaxSetSize):
-        Aux = Polynomial.checkPrimitives(candidates, n, Silent)
+        Aux = Polynomial.checkPrimitives(candidates, n, Silent, PolynomialDegree>1200)
         result += Aux
         if SecondIter:
           AioShell.removeLastLine()
@@ -1793,11 +1828,11 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
           if SkippingCounter <= 0:
             break
     if (cntr > 0):
-      result += Polynomial.checkPrimitives(candidates, n, Silent)
+      result += Polynomial.checkPrimitives(candidates, n, Silent, PolynomialDegree>1200)
       candidates.clear()
-    if cntr != 0:
-        result += Polynomial.checkPrimitives(candidates, n, Silent)
-        candidates.clear()      
+    #if cntr != 0:
+    #  result += Polynomial.checkPrimitives(candidates, n, Silent)
+    #  candidates.clear()      
     if SecondIter:
       AioShell.removeLastLine()
 #    if n > 0 and len(result) > n:
@@ -2006,7 +2041,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     plist = [poly.copy()]
     while poly.makeNext():
       plist.append(poly.copy())
-    return Polynomial.checkPrimitives(plist, n, Silent)
+    return Polynomial.checkPrimitives(plist, n, Silent, PolynomialDegree>1200)
   
   @staticmethod
   def firstTapsFromTheLeftPrimitive(PolynomialDegree : int, PolynomialCoefficientsCount : int, MaxDistance = 3, Silent = True) -> list:

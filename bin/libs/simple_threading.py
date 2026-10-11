@@ -77,7 +77,7 @@ class SimpleThread:
     for I in Iterable:
       while 1:
         if self._parallel_jobs < self.MaxParallelJobs:
-          print("START")
+          #print("START")
           Tasks.append(self._single_forced(Function, I))
           self._parallel_jobs += 1
           break
@@ -85,7 +85,7 @@ class SimpleThread:
           T = Tasks[0]
           if T:
             yield T.getResult()
-            print("END")
+            #print("END")
             Tasks.remove(T)
             self._parallel_jobs -= 1
           else:
@@ -94,7 +94,7 @@ class SimpleThread:
       T = Tasks[0]
       if T:
         yield T.getResult()
-        print("END")
+        #print("END")
         Tasks.remove(T)
         self._parallel_jobs -= 1
       else:
