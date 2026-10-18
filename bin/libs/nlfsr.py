@@ -21,6 +21,8 @@ try:
   from numba import cuda
 except:
   pass
+from itertools import combinations
+from math import comb
 
 # TUI =====================================================
 
@@ -32,6 +34,200 @@ import textual.containers as TextualContainers
 _NLFSR = None
 _NLFSR_UNDO = None
 _NLFSR_SIM = []
+
+
+
+class NlfsrAnf:
+
+  __slots__ = ('_monomials', '_size')
+
+  def __init__(self, Size : int,  StrANF : str):
+    self._size = Size
+    pattern = r'\s*(\(\s*\d+(?:\s*,\s*\d+)*\s*\)|\d+)\s*'
+    result = []
+    pos = 0
+    while pos < len(StrANF):
+        match = re.match(pattern, StrANF[pos:])
+        if not match:
+            raise ValueError(
+                f"Incorrect expression at position {pos}: "
+                f"{StrANF[pos:]!r}"
+            )
+        token = match.group(1)
+        if token.startswith('('):
+            result.append([
+                int(x.strip())
+                for x in token[1:-1].split(',')
+            ])
+        else:
+            result.append(int(token))
+        pos += match.end()
+        if pos == len(StrANF):
+            break
+        if StrANF[pos] != ',':
+            raise ValueError(
+                f"Comma expected at position {pos}"
+            )
+        pos += 1
+    self._monomials = List.getUniques(result)
+    for M in self._monomials:
+       if type(M) is list:
+         M = List.getUniques(M) 
+         M.sort()
+         if len(M) == 1:
+           M = M[0]
+
+  def getGFunction(self) -> list:
+    Result = []
+    for Monom in self._monomials:
+      if type(Monom) is not int or Monom != 0:
+        Result.append(Monom)
+    return Result 
+
+  def getMirror(self, Monom):
+    if type(Monom) is list:
+      Result = []
+      for M in Monom:
+        Result.append(self.getMirror(M))
+      Result.sort()
+      return Result
+    return self._size - Monom
+
+  def isGSymetric(self):
+    G = self.getGFunction()
+    for M in G:
+      if self.getMirror(M) in G:
+        return False
+    return True
+
+  def atLeastOneEvenVariable(self) -> bool:
+    VarDict = {}
+    for M in self._monomials:
+      if type(M) is list:
+        for mm in M:
+          VarDict[mm] = VarDict.get(mm, 0) + 1
+      else:
+        VarDict[M] = VarDict.get(M, 0) + 1
+    for Count in VarDict.values():
+      if Count % 2 == 0:
+        return True
+    return False
+
+  def atLeastOneLinearMonom(self):
+    for M in self.getGFunction():
+      if type(M) is int:
+        return True
+    return False
+
+  def isCandidateToBeMaximumLength(self, Verbose : bool = False) -> bool:
+    if 0 not in self._monomials:
+      if Verbose:
+        print("'0' is not in Monomials.")
+      return False
+    if len(self._monomials) % 2 == 1:
+      if Verbose:
+        print('Monomial count is even')
+      return False
+    if not self.atLeastOneLinearMonom():
+      if Verbose:
+        print('At least one monom must be linear.')
+      return False
+    if self.isGSymetric():
+      if Verbose:
+        print('g-function is symetric.')
+      return False
+    if [i+1 for i in range(self._size-1)] in self._monomials:
+      if Verbose:
+        print('[1,2,...n-1] in monomials.')
+      return False
+    if not self.atLeastOneEvenVariable():
+      if Verbose:
+        print('At least one variable must apper even times.')
+      return False
+    return True
+
+  @staticmethod
+  def passes_symmetry_test(monoms: list, n: int) -> bool:
+    """True, jeśli ANF nie jest symetryczne względem i -> n-i."""
+    def normalize(monom):
+        if isinstance(monom, int):
+            return (monom,)
+        return tuple(sorted(monom))
+    terms = {normalize(m) for m in monoms}
+    reflected = {
+        tuple(sorted(n - i for i in monom))
+        for monom in terms
+    }
+    return terms != reflected
+
+  @staticmethod
+  def generateAnf(
+      n: int,
+      max_degree: int | None = None,
+      min_terms: int = 1,
+      max_terms: int | None = None,
+      require_linear: bool = True,
+      require_asymmetric: bool = True,
+      max_candidates: int | None = None,
+  ):
+    if n < 2:
+        raise ValueError("n musi być >= 2")
+    if max_degree is None:
+        max_degree = n - 1
+    max_degree = min(max_degree, n - 1)
+    if max_degree < 1:
+        raise ValueError("max_degree should be >= 1")
+    available = []
+    # Tworzymy wszystkie monomy o dozwolonym stopniu.
+    for degree in range(1, max_degree + 1):
+        for variables in combinations(range(1, n), degree):
+            if degree == 1:
+                available.append(variables[0])
+            else:
+                available.append(list(variables))
+    if max_terms is None:
+        max_terms = len(available)
+    if min_terms < 1 or max_terms < min_terms:
+        raise ValueError("Incorrect monomials count")
+    max_terms = min(max_terms, len(available))
+    yielded = 0
+    # Każda kombinacja monomów definiuje jeden ANF.
+    for count in range(min_terms, max_terms + 1):
+        for candidate in combinations(available, count):
+            anf = list(candidate)
+            if require_linear and not any(
+                isinstance(m, int) for m in anf
+            ):
+                continue
+            if require_asymmetric and not NlfsrAnf.passes_symmetry_test(anf, n):
+                continue
+            yield NlfsrAnf.anf_to_string(anf + [0])
+            yielded += 1
+            if (
+                max_candidates is not None
+                and yielded >= max_candidates
+            ):
+                return
+
+  @staticmethod
+  def anf_to_string(anf: list) -> str:
+    def monom_to_string(monom):
+        if isinstance(monom, int):
+            return str(monom)
+        return "(" + ",".join(map(str, monom)) + ")"
+    return ",".join(monom_to_string(m) for m in anf)
+
+  @staticmethod
+  def filterMaxLengthCandidates(Size : int, ANFList : list) -> list:
+    Result = []
+    for AC in ANFList:
+      C : Nlfsr = Nlfsr.fromANF(Size, AC)
+      if C.isCandidateForMaximumPeriod():
+        Result.append(AC)
+    return Result
+    
+
+
 
 
 def _to_taps_templates(expr : str) -> list:
@@ -114,7 +310,42 @@ class Nlfsr(Lfsr):
   
   def __neq__(self, other) -> bool:
     return not self.__eq__(self, other)
+
+  @staticmethod
+  def generateMaxLengthCandidates(Size : int, MaxMonomialSize : int = 3, MinimumTerms : int = 4, MaximumTerms : int = 6):
+    def test(anf):
+      na : NlfsrAnf = NlfsrAnf(Size, anf)
+      if na.isCandidateToBeMaximumLength(0):
+        return Nlfsr.fromANF(Size, anf)
+      return None
+    for Terms in range(MinimumTerms, MaximumTerms+1, 2):
+      for anf in NlfsrAnf.generateAnf(Size, MaxMonomialSize, Terms-1, Terms-1, True, True):
+        TestResult = test(anf)
+        if TestResult is not None:
+          yield TestResult
   
+  @staticmethod
+  def findMaximumLengthNlfsrsBasingOnAnf(Size : int, MaxMonomialSize : int = 3, MinimumTerms : int = 4, MaximumTerms : int = 6, MinimumResultCount : int = None) -> list:
+    CandList = []
+    Result = []
+    for Candidate in Nlfsr.generateMaxLengthCandidates(Size, MaxMonomialSize, MinimumTerms, MaximumTerms):
+      CandList.append(Candidate)
+      if len(CandList) >= 1000:
+        if MinimumResultCount is not None:
+          RestN = MinimumResultCount - len(Result)
+        else:
+          RestN = None
+        Result += NlfsrList.checkMaximum(CandList, RestN)
+        Result = NlfsrList.filter(Result)
+        if MinimumResultCount is not None and len(Result) >= MinimumResultCount:
+          return Result
+        print(f"// Found so far: {len(Result)}")
+        CandList = []
+    if len(CandList) > 0:
+      Result += NlfsrList.checkMaximum(CandList)
+    return NlfsrList.filter(Result)
+  
+        
   def getTapsStats(self) -> tuple:
     AndInputs = 0
     for Tap in self._Config:
@@ -1151,6 +1382,11 @@ def f():
     
   def isMaximum(self) -> bool:
     return self.getPeriod() == ((1<<self._size)-1)
+
+  def _isMaximumHelperForList(self) -> Nlfsr:
+    if self.isMaximum():
+      return self
+    return None
   
   def isPrime(self, MinPeriodRatio = 0.95) -> bool:
     Max = (1 << self._size) -1
@@ -1334,7 +1570,7 @@ def f():
         return max(FFs)
     return sum(FFs) / self._size
     
-  def _makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, LeftRightAllowedShift = 2, InvertersAllowed = 1, MaxAndCount = 0, BeautifullOnly = False, Filter = True, Tiger = False) -> list:
+  def _makeNLRingGeneratorsFromPolynomial(Poly : Polynomial, LeftRightAllowedShift = 2, InvertersAllowed = 1, MaxAndCount = 0, BeautifullOnly = False, Filter = True, Tiger = False, OnlyPrime = False) -> list:
     LType = RING_GENERATOR
     if Tiger:
       LType = TIGER_RING
@@ -1362,25 +1598,6 @@ def f():
             AP[aindex] *= -1            
             ProposedTaps.append([D, AP])
       AOptionsList.append(ProposedTaps)
-#      for ai in range(S-LeftRightAllowedShift, S+LeftRightAllowedShift+1):
-#        if ai == S:
-#          continue
-#        A = ai
-#        while A <= 0: 
-#          A += Size
-#        while A > Size:
-#          A -= Size
-#        AOptions.append(A)
-#      ProposedTaps = [ [D, [S]] ]
-#      for AIn in AOptions:
-#        if D == 0:
-#          D = Size
-#        ProposedTaps.append([D, [S, AIn]])
-#        if InvertersAllowed:
-#          ProposedTaps.append([-D, [S, AIn]])
-#          ProposedTaps.append([D, [-S, AIn]])
-#          ProposedTaps.append([D, [S, -AIn]])
-#      AOptionsList.append(ProposedTaps)
     First = 1
     for Permutations in List.getPermutationsPfManyListsGenerator(AOptionsList, MaximumNonBaseElements=MaxAndCount, UseAsGenerator_Chunk=100000):
       if First:
@@ -1398,6 +1615,12 @@ def f():
         newR = Nlfsr(Size, P)
         Results.append(newR)
       Results = NlfsrList.filterNonLinear(Results)
+      if OnlyPrime:
+        Results2 = []
+        for R in Results:
+          if R.isCandidateForMaximumPeriod():
+            Results2.append(R)
+        Results = Results2
       if BeautifullOnly:
         Results2 = []
         Generator = Generators()
@@ -1542,7 +1765,7 @@ def f():
     pmax = Int.mersenne(Size)
     eps = 0.0
     PMR = PeriodLengthMinimumRatio - eps
-    for InputSet in Nlfsr._makeNLRingGeneratorsFromPolynomial(Poly, LeftRightAllowedShift, InvertersAllowed, MaxAndCount, BeautifullOnly, False, Tiger):
+    for InputSet in Nlfsr._makeNLRingGeneratorsFromPolynomial(Poly, LeftRightAllowedShift, InvertersAllowed, MaxAndCount, BeautifullOnly, False, Tiger, OnlyPrimePeriods):
       for i in range(len(InputSet)):
         if InputSet[i]._size <= 64:
           InputSet[i]._exename = exename64b
@@ -3123,8 +3346,8 @@ endmodule'''
         break
     return None
         
-  def checkMaximum(NlfsrsList : list) -> list:
-    return NlfsrList.checkMaximum(NlfsrsList)
+  def checkMaximum(NlfsrsList : list, RequiredResults : int = None) -> list:
+    return NlfsrList.checkMaximum(NlfsrsList, RequiredResults)
   
   
   def parseFromArticleString(Size : int, txt : str) -> Nlfsr:
@@ -3236,7 +3459,7 @@ endmodule'''
     return Result        
   
   @staticmethod
-  def generateRandomNlrgCandidates(Size : int, n : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False):
+  def generateRandomNlrgCandidates(Size : int, n : int, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False, OnlyMaximumPeriodCandidate = False):
     if HybridAllowed:
       SourceCandidates = [Size] + [i+1 for i in range(Size-1)]
       DestCandidates = [Size] + [i+1 for i in range(Size-1)]
@@ -3284,10 +3507,28 @@ endmodule'''
           Taps.append([D, S])
         if len(Taps) > 0:
           Candidate = Nlfsr(Size, Taps)
+          if OnlyMaximumPeriodCandidate:
+            if not Candidate.isCandidateForMaximumPeriod():
+              continue
           if HybridAllowed or not Candidate.isSemiLfsr():
             NotFound = 0
       yield Candidate.copy()
-  
+
+  def isCandidateForMaximumPeriod(self) -> bool:
+    ANF = self.toAnf(False, False)
+    if "~" in ANF:
+      ANF = self.toAnf(True, False)
+    if "~" in ANF:
+      ANF = self.toAnf(False, True)
+    if "~" in ANF:
+      ANF = self.toAnf(True, True)
+    if "~" not in ANF:
+      NA = NlfsrAnf(self.getSize(), ANF)
+      if not NA.isCandidateToBeMaximumLength():
+        #print(f"{ANF}")
+        #NA.isCandidateToBeMaximumLength(1)
+        return False
+    return True
   
   @staticmethod
   def _listRandomNlrgCandidatesMulti(n : int, Size : int, ProgressBar = False, MinTapsCount = 3, MaxTapsCount = 10, MinAndInputsCount = 2, MaxAndInputCount = 3, MinNonlinearTapsRatio = 0.3, MaxNonlinearTapsRatio = 0.6, HybridAllowed = False, UniformTapsDistribution = False, HardcodedInverters = False) -> list:
@@ -3423,7 +3664,7 @@ endmodule'''
       MaximumTries = 10000000 * Size
     SecondIter = 0
     for _ in range(MaximumTries):
-      PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Nlfsr.generateRandomNlrgCandidates(Size, ChunkSize, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters), LimitedTo64b=True if Size <= 64 else False, Total=ChunkSize),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio, ReturnAll=ReturnAll)
+      PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Nlfsr.generateRandomNlrgCandidates(Size, ChunkSize, MinTapsCount, MaxTapsCount, MinAndInputsCount, MaxAndInputCount, MinNonlinearTapsRatio, MaxNonlinearTapsRatio, HybridAllowed, UniformTapsDistribution, HardcodedInverters, OnlyMaximumPeriod), LimitedTo64b=True if Size <= 64 else False, Total=ChunkSize),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio, ReturnAll=ReturnAll)
       if not ReturnAll:
         for Res in PartResult:
           TT.print(repr(Res), "\t", Res._period, "\tPrime:", Int.isPrime(Res._period))
@@ -3453,7 +3694,7 @@ endmodule'''
     return Result
     
   @staticmethod
-  def _HWNlrgCandidates(Size, n = 1, ArchitectureVersion = 0):
+  def _HWNlrgCandidates(Size, n = 1, ArchitectureVersion = 0, OnlyPrimePeriods = False):
     if ArchitectureVersion == 1:
       UpperBranchLen = Size // 2
       LowerBranchSize = Size - UpperBranchLen
@@ -3522,12 +3763,15 @@ endmodule'''
         Candidate = Nlfsr(Size, Taps)
         if Candidate.isLfsr() or Candidate.isSemiLfsr():
           continue
+        if OnlyPrimePeriods:
+          if not Candidate.isCandidateForMaximumPeriod():
+            continue
         Result.append(Candidate)
       if len(Result) >= n:
         return Result[:n]
   
   @staticmethod
-  def _HWNlrgCandidatesMult(Size, n = 10, ArchitectureVersion = 0):
+  def _HWNlrgCandidatesMult(Size, n = 10, ArchitectureVersion = 0, OnlyPrimePeriods = False):
     Result = []
     N = 10
     if n < 10:
@@ -3535,7 +3779,7 @@ endmodule'''
     elif n > 128:
       N = int(n / 128)
     CList = [Size] * int(ceil(n / N))
-    for Part in p_map(partial(Nlfsr._HWNlrgCandidates, n=N, ArchitectureVersion=ArchitectureVersion), CList, desc=f"Generating candidates (x{N})"):
+    for Part in p_map(partial(Nlfsr._HWNlrgCandidates, n=N, ArchitectureVersion=ArchitectureVersion, OnlyPrimePeriods=OnlyPrimePeriods), CList, desc=f"Generating candidates (x{N})"):
       Result += Part
     AioShell.removeLastLine()
     if len(Result) > n:
@@ -3580,7 +3824,7 @@ endmodule'''
     T0 = time.time()
     SecondIter = 0
     for _ in range(MaximumTries):
-      Chunk = Nlfsr._HWNlrgCandidatesMult(Size, ChunkSize, ArchitectureVersion)
+      Chunk = Nlfsr._HWNlrgCandidatesMult(Size, ChunkSize, ArchitectureVersion, OnlyMaximumPeriod)
       #Chunk = Nlfsr.filter(Chunk)
       PartResult = NlfsrList.filterPeriod(NlfsrList.checkPeriod(Chunk, LimitedTo64b=True if Size <= 64 else False),  OnlyMaximumPeriod=OnlyMaximumPeriod, AllowMaximumPeriods=AllowMaximumPeriods, OnlyPrimeNonMaximumPeriods=OnlyPrimeNonMaximumPeriods, MinimumPeriodRatio=MinimumPeriodRatio)    
       for Res in PartResult:
@@ -4573,7 +4817,7 @@ class NlfsrList:
         pass
     return Result
     
-  def checkMaximum(NlfsrsList) -> list:
+  def checkMaximum(NlfsrsList, RequiredResults : int = None) -> list:
     exename = CppPrograms.NLSFRPeriodCounterInvertersAllowed.getExePath()
     exename64b = CppPrograms.NLSFRPeriodCounterInvertersAllowed64b.getExePath()
     for N in NlfsrsList:
@@ -4582,12 +4826,16 @@ class NlfsrList:
       else:
         N._exename = exename
     G = Generators()
-    RM = p_map(Nlfsr.isMaximum, NlfsrsList, desc="Nlfsrs simulating")
-    Results = []
-    for i in range(len(RM)):
-      if RM[i]:
-        Results.append(NlfsrsList[i])
-    return NlfsrList.filter(Results)
+    Result = []
+    for Res in p_uimap(Nlfsr._isMaximumHelperForList, G.wrapper(NlfsrsList), total=len(NlfsrsList), desc="Nlfsrs simulating"):
+      if Res is not None:
+        Result.append(Res)
+        if RequiredResults is not None and len(Result) >= RequiredResults:
+          Result = NlfsrList.filter(Result)
+          if len(Result) >= RequiredResults:
+            G.disable()
+    AioShell.removeLastLine()
+    return NlfsrList.filter(Result)
   
   def _getPeriodAndNlfsr(nlfsr : Nlfsr, ForceRecalculation=False, ExeName=None) -> list:
     #Result = [nlfsr, nlfsr.getPeriod(ForceRecalculation=ForceRecalculation, ExeName=ExeName)]

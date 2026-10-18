@@ -5,6 +5,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <cstdint>
 #include "string_split.h"
 #include <fstream>
 

@@ -43,6 +43,9 @@ from libs.gf2_polynomial import *
 _LFSR = None
 _LFSR_SIM = []
 
+
+
+# int polynomials =========================================
 _GF2_SQUARE_BYTE = tuple(
     sum(((b >> i) & 1) << (2 * i) for i in range(8))
     for b in range(256)
@@ -1403,8 +1406,22 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
       if RemoveOnceMore:
         AioShell.removeLastLine()
       RemoveOnceMore = 0
-      Iter = p_uimap(Polynomial._check, Generator.wrapper(RCandidates), total=int(len(RCandidates)), desc="(Simulation)")
+      MaxSize = 0
+      for Cand in RCandidates:
+        Deg = Cand.getDegree()
+        if Deg > MaxSize:
+          MaxSize = Deg
+      JobCount = min(Aio.getCpuCount(), len(RCandidates))
+      NeedMemory = (MaxSize ** 3) * JobCount / 8
+      if NeedMemory <= (Aio.getAvailableMemory() * 0.75):
+        Serial = False
+        Iter = p_uimap(Polynomial._check, Generator.wrapper(RCandidates), total=int(len(RCandidates)), desc="(Simulation - parallel)")
+      else:
+        Serial = True
+        Iter = tqdm(Generator.wrapper(RCandidates), total=int(len(RCandidates)), desc="(Simulation - serial)")
       for I in Iter:
+        if Serial:
+          I = Polynomial._check(I)
         if I is not None:
           Results.append(I)
           if not Silent:
