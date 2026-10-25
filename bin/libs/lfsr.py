@@ -31,6 +31,24 @@ except:
   pass
 import asyncio
 #from tqdm.contrib.concurrent import process_map
+import pyximport
+import os
+
+
+_LFSR_FAST = True
+try:
+  pyximport.install(
+      setup_args={
+          "include_dirs": [os.path.dirname(__file__)]
+      },
+      build_dir=Aio.getPath() + "libs/__pycache__",
+      #build_in_temp=True,
+      language_level=3
+  )
+  from libs.lfsr_fast import build_fast_sim_array_cython
+except:
+  #Aio.printWarning("Fast simulation of LFSR using Cython cannot be compiled.")
+  _LFSR_FAST = False
 
 # TUI =====================================================
 
@@ -2774,30 +2792,32 @@ class Lfsr:
         RowIndex += 1
       return self._baValue.copy()   
 
-  def _buildFastSimArray(self, NotFull = False):
+
+  def _buildFastSimArray(self, NotFull=False):
+    if _LFSR_FAST:
+      build_fast_sim_array_cython(self, NotFull)
+    else:
+      self._buildFastSimArray_pure_python(NotFull)
+
+  def _buildFastSimArray_pure_python(self, NotFull = False):
     oldVal = self._baValue.copy()
     size = self._size
-    rowm1 = []
+    FSA = [[None for _ in range(size)] for _ in range(size)]
+    rowm1 = FSA[0]
     for i in range(size):
       self._baValue.setall(0)
       self._baValue[i] = 1
-      rowm1.append(self._next1().copy())
-    FSA = [rowm1]
+      rowm1[i] = self._next1().copy()
     One = bitarray('1')
-    if NotFull:
-      RowNone = [None for _ in range(size)]
-      for _ in range(size-1):
-        FSA.append(RowNone.copy())
-    else:
+    if not NotFull:
       for r in range(1,size):
-        row = []
+        row = FSA[r]
         for c in range(size):
           FirstOne = rowm1[c].find(One)
           res = rowm1[FirstOne].copy()
           for index in rowm1[c].search(One, FirstOne+1):
             res ^= rowm1[index]
-          row.append(res)
-        FSA.append(row)
+          row[c] = res
         rowm1 = row
     self._ba_fast_sim_array = FSA
     self._baValue = oldVal
