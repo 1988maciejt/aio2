@@ -1548,6 +1548,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
         SkipAll = 1
     if (n <= 0) or (len(Polys) < n > 0) and not SkipAll:
       FirstNotSkipped = 1
+      RemoveLine = False
       for p in Poly0:
         if FirstNotSkipped and StartingPolynomial is not None:
           FirstNotSkipped = 0
@@ -1589,7 +1590,11 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
               WasFound = 1
               for l in Aux:
                 Polys.append(Polynomial(l._my_poly.copy()))
+          if RemoveLine:
+            AioShell.removeLastLine()
+          RemoveLine = False
           print(f'Found so far: {len(Polys)}')
+          RemoveLine = True
           if len(Polys) >= n > 0:
             break
           if NoResultsSkippingIteration > 0:
@@ -1599,10 +1604,16 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
               SkippingCounter -= 1
             if SkippingCounter <= 0:
               break
+    if RemoveLine:
+      AioShell.removeLastLine()
+      RemoveLine = False
     while len(lfsrs) > 0 and (len(Polys) < n or n <= 0) and not SkipAll:
       if NoResultsSkippingIteration > 0 and SkippingCounter <= 0:
         break
       AuxComb = Lfsr.checkMaximum(lfsrs, n-len(Polys), SerialChunkSize, 1)
+      if RemoveLine:
+        AioShell.removeLastLine()
+      RemoveLine = False
       Aux = AuxComb[0]
       lfsrs = AuxComb[1]
       if MinNotMatchingTapsCount > 0:
@@ -1620,6 +1631,10 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
           lpol = Polynomial(l._my_poly.copy())
           Polys.append(Polynomial(lpol))      
       print(f'Found so far: {len(Polys)}')
+      RemoveLine = True
+    if RemoveLine:
+      AioShell.removeLastLine()
+      RemoveLine = False
     for P in Polys:      
       P._sign_list = Signs
     return Polys
