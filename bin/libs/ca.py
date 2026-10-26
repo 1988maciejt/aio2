@@ -61,7 +61,10 @@ class Ca(Lfsr):
 
   def getReciprocal(self) -> "Ca":
     #Aio.printError("Ca.getReciprocal() is not implemented - simple method still not found")
-    return Ca(Polynomial.decodeUsingBerlekampMassey(self).getReciprocal())
+    p : Polynomial = Polynomial.decodeUsingBerlekampMassey(self)
+    if p.isReducible():
+       Aio.printWarning(f"getReciprocal() of the given CA may give incorrect result, as its characteristic polynomial '{p}' IS REDUCIBLE.")
+    return Ca(p.getReciprocal())
 
 
   def __repr__(self) -> str:
