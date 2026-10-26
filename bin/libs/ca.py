@@ -52,6 +52,9 @@ class Ca(Lfsr):
       self._baValue = bitarray(self._size)
       self.reset()
 
+  def getRules(self) -> bitarray:
+     return self._ba_my_rules.copy()
+
   def getDual(self) -> "Ca":
      return self.copy()
 
