@@ -3168,6 +3168,7 @@ class Lfsr:
       
   def getMSequence(self, BitIndex = 0, Reset = True, ProgressBar = 0):
     return self.getSequence(BitIndex, Reset, (1<<self.getSize())-1, ProgressBar)
+  
   def getSequence(self, BitIndex = 0, Reset = True, Length = 0, ProgressBar = 0) -> bitarray:
     """Returns a bitarray containing the Sequence of the LFSR.
 

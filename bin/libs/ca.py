@@ -34,6 +34,7 @@ class Ca(Lfsr):
     if type(Rules) is Ca:
       self._ba_my_rules = Rules._ba_my_rules.copy()
       self._size = Rules._size
+      self._ba_fast_sim_array = Rules._ba_fast_sim_array
       self._baValue = Rules._baValue.copy()
     else:
       if type(Rules) in [Polynomial, list]:
@@ -57,6 +58,11 @@ class Ca(Lfsr):
 
   def getDual(self) -> "Ca":
      return self.copy()
+
+  def getReciprocal(self) -> "Ca":
+    #Aio.printError("Ca.getReciprocal() is not implemented - simple method still not found")
+    return Ca(Polynomial.decodeUsingBerlekampMassey(self).getReciprocal())
+
 
   def __repr__(self) -> str:
     result = "Ca(" + str(self._size) + ", " + self._ba_my_rules.to01() + ")"
