@@ -64,6 +64,7 @@ _LFSR_SIM = []
 
 
 # int polynomials =========================================
+
 _GF2_SQUARE_BYTE = tuple(
     sum(((b >> i) & 1) << (2 * i) for i in range(8))
     for b in range(256)
@@ -106,7 +107,7 @@ class IntPolynomialUtils:
       return result
 
   @staticmethod
-  @cacheit
+  @functools.lru_cache(1024)
   def gf2_pow_mod(a: int, exponent: int, p: int) -> int:
       """Polynomial exponentiation modulo p over GF(2)."""
       if exponent < 0:
@@ -132,7 +133,7 @@ class IntPolynomialUtils:
       return a
 
   @staticmethod
-  @cacheit
+  @functools.lru_cache(1024)
   def gf2_square_mod(a: int, p: int) -> int:
       """Fast polynomial squaring modulo p over GF(2)."""
       if a < 0 or p <= 0:
@@ -170,7 +171,7 @@ class IntPolynomialUtils:
       return result
 
   @staticmethod
-  @cacheit
+  @functools.lru_cache(1024)
   def prime_divisors(n: int) -> list[int]:
       """Return distinct prime divisors of a positive integer."""
       factors = []
@@ -1835,9 +1836,9 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     """
     if PolynomialDegree < 2:
       PolynomialDegree = AioShell.inputInt("Polynomial degree", 32, 2)
+      PolynomialCoefficientsCount = AioShell.inputInt("Coefficient count", PolynomialCoefficientsCount, 3)
       PolynomialBalancing = AioShell.inputInt("Polynomial balancing (0 means 'no limit')", PolynomialBalancing, 0)
       MinDistance = AioShell.inputInt("Minimum distance (0 means 'no restriction')", MinDistance, 0)
-      PolynomialCoefficientsCount = AioShell.inputInt("Coefficient count", PolynomialCoefficientsCount, 3)
       LayoutFriendly = AioShell.inputBool("LayoutFriendly", LayoutFriendly)
       n = AioShell.inputInt("Results limit", n, 0)
     polys = Polynomial.createPolynomial(PolynomialDegree, PolynomialCoefficientsCount, PolynomialBalancing, LayoutFriendly, MinDistance, ExactBalancing)
@@ -1978,7 +1979,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     results = []
     exclude = []
     for b in range(1, EveryN):
-      resultsAux = Polynomial.listPrimitives(PolynomialDegree, ccount, b, True, 0, n, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True, StartingPolynomial=StartingPolynomial)
+      resultsAux = Polynomial.listPrimitives(PolynomialDegree, ccount, b, True, 0, n, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True, StartingPolynomial=StartingPolynomial, noErrors=1)
       exclude += resultsAux[1]
       for pol in resultsAux[0]:
         results.append(pol.copy())
@@ -2020,7 +2021,7 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     #print("c", c, "minc", minc)
     while (c >= 3) & (c >= minc):
       print (f'Found so far: {len(result)}. Looking for {c} coefficients')
-      resultAux = Polynomial.listPrimitives(PolynomialDegree, c, 2, True, 0, n2, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True, StartingPolynomial=StartingPolynomial)
+      resultAux = Polynomial.listPrimitives(PolynomialDegree, c, 2, True, 0, n2, Silent, ExcludeList=exclude, ReturnAlsoAllCandidaes=True, StartingPolynomial=StartingPolynomial, noErrors=1)
       result += resultAux[0]
       exclude += resultAux[1]
       if n > 0:

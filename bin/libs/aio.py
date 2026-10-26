@@ -594,7 +594,7 @@ class AioShell:
       DefStr = None
     Res = None
     while Res is None:
-      Res = AioShell.input(Prompt + " [Y|N]", DefStr, [bool], ForceAnswer=False)
+      Res = AioShell.input(Str.color(Prompt, 'blue') + " [Y|N]", Str.color(DefStr, 'blue'), [bool], ForceAnswer=False)
       if Res is None and Default is not None:
         return Default
       if Res is None:
@@ -624,7 +624,7 @@ class AioShell:
     elif Max is not None:
       MinMax = f" [ <={Max}]"
     while Res is None:
-      Res = AioShell.input(Prompt + MinMax, DefStr, [int], ForceAnswer=False)
+      Res = AioShell.input(Str.color(Prompt, 'blue') + MinMax, Str.color(DefStr, 'blue'), [int], ForceAnswer=False)
       if Res is None and Default is not None:
         return Default
       if Res is None:
@@ -656,7 +656,7 @@ class AioShell:
     elif Max is not None:
       MinMax = f" [ <={Max}]"
     while Res is None:
-      Res = AioShell.input(Prompt + MinMax, DefStr, [float], ForceAnswer=False)
+      Res = AioShell.input(Str.color(Prompt, 'blue') + MinMax, Str.color(DefStr, 'blue'), [float], ForceAnswer=False)
       if Res is None and Default is not None:
         return Default
       if Res is None:
