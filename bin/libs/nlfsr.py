@@ -37,11 +37,219 @@ _NLFSR_SIM = []
 
 
 
+class NonlinearPolynomial:
+
+  __slots__ = ("_coefficients", "_hash")
+
+  def __init__(self, Coefficients : list):
+    if type(Coefficients) is NlfsrAnf:
+      self._coefficients = NonlinearPolynomial.fromNlfsrAnf(Coefficients)._coefficients
+      self._hash = None
+    elif type(Coefficients) is NonlinearPolynomial:
+      from copy import deepcopy
+      self._coefficients = deepcopy(Coefficients._coefficients)
+      self._hash = Coefficients._hash
+    else:
+      self._hash = None
+      self._coefficients = []
+      for Coeff in Coefficients:
+        if type(Coeff) is tuple:
+          Coeff = list(Coeff)
+        if type(Coeff) is list:
+          Coeff.sort(reverse=1)
+        self._coefficients.append(Coeff)
+      self._coefficients.sort(reverse=1, key = lambda x: x[0] if type(x) is list else x)
+
+  def __repr__(self):
+    return f"NonlinearPolynomial({str(self._coefficients)})"
+
+  def __str__(self):
+    return str(self._coefficients)
+
+  def __len__(self):
+    return len(self._coefficients)
+
+  def __hash__(self) -> int:
+    if self._hash is None:
+      Result = 0
+      Mult = self.getDegree()
+      for Coeff in self._coefficients:
+        if type(Coeff) is int:
+          Result = (Result * Mult) + Coeff
+        else:
+          for C in Coeff:
+            Result = (Result * (Mult + 1)) + C
+      self._hash = Result
+    return self._hash
+
+  def __eq__(self, value):
+    return self._coefficients == value._coefficients
+
+  def getDegree(self) -> int:
+    if len(self._coefficients) <= 0:
+      return 0
+    if type(self._coefficients[0]) is list:
+      return self._coefficients[0][0]
+    return self._coefficients[0]
+
+  def getCoefficients(self) -> list:
+    from copy import deepcopy
+    return deepcopy(self._coefficients)
+
+  def getCoefficientsCount(self) -> int:
+    return len(self._coefficients)
+
+  def getReciprocal(self) -> int:
+    Max = self.getDegree()
+    NewCoefficients = []
+    for Coeff in self._coefficients:
+      if type(Coeff) is list:
+        NewCoeff = []
+        for C in Coeff:
+          NewCoeff.append(Max - C)
+        NewCoefficients.append(NewCoeff)
+      else:
+        NewCoefficients.append(Max - Coeff)
+    return NonlinearPolynomial(NewCoefficients)
+
+  def getConfigForNlfsr(self) -> list:
+    Max = self.getDegree() - 1
+    Config = []
+    for Coeff in self._coefficients:
+      if type(Coeff) is int:
+        if 0 < Coeff <= Max:
+          Config.append([Max, [Coeff]])
+      else:
+        Config.append([Max, Coeff])
+    return Config
+
+  def getStrANF(self) -> str:
+    Max = self.getDegree() - 1
+    Result = ""
+    for Coeff in self._coefficients:
+      if type(Coeff) is int:
+        if Coeff < Max:
+          Result += Coeff + ","
+      else:
+        Result += str(tuple(Coeff)) + ","
+    if Result.endswith(","):
+      Result = Result[:-1]
+    return Result
+
+  def getAnfMonomials(self) -> str:
+    Max = self.getDegree() - 1
+    Result = []
+    for Coeff in self._coefficients:
+      if type(Coeff) is int:
+        if Coeff < Max:
+          Result.append(Coeff)
+      else:
+        Result.append(Coeff) 
+    return Result
+
+  def isLinear(self) -> bool:
+    for Coeff in self._coefficients:
+      if type(Coeff) is not int:
+        return False
+    return True
+  
+  def toNlfsrAnf(self) -> "NlfsrAnf":
+    return NlfsrAnf(self)
+
+  @staticmethod
+  def fromAnf(Size : int, StrANF : str) -> "NonlinearPolynomial":
+    NA = NlfsrAnf(Size, StrANF)
+    return NA.toNonlinearPolynomial()
+
+  @staticmethod
+  def fromNlfsrAnf(NlfsrAnfInstance : "NlfsrAnf") -> "NonlinearPolynomial":
+    return NlfsrAnfInstance.toNonlinearPolynomial()
+
+  @staticmethod
+  def generate(Degree : int, MinTerms : int, MaxTerms : int, MaxMonomialSize : int = 2, FilterCandidatesForMaximumLengthNlfsr : bool = False, MaxGeneratedPolynomials : int = None, IncludeLinear : bool = False, ExcludeReciprocal : bool = True):
+    if MaxGeneratedPolynomials is not None:
+      Counter = 0
+    if ExcludeReciprocal:
+      PolyBase = set()
+    for CAnf in NlfsrAnf.generateAnf(Degree, MaxMonomialSize, MinTerms-1, MaxTerms-1):
+      if FilterCandidatesForMaximumLengthNlfsr:
+        CNlfsrAnf : "NlfsrAnf" = NlfsrAnf(Degree, CAnf)
+        if CNlfsrAnf.isCandidateToBeMaximumLength():
+          Poly = CNlfsrAnf.toNonlinearPolynomial()
+          if not ExcludeReciprocal or (ExcludeReciprocal and hash(Poly.getReciprocal()) not in PolyBase):
+            if ExcludeReciprocal:
+              PolyBase.add(hash(Poly))
+            yield Poly
+            if MaxGeneratedPolynomials is not None:
+              Counter += 1
+              if Counter >= MaxGeneratedPolynomials:
+                return
+      else:
+        Poly = NonlinearPolynomial.fromAnf(Degree, CAnf)
+        if IncludeLinear or (not IncludeLinear and not Poly.isLinear()):
+          if not ExcludeReciprocal or (ExcludeReciprocal and hash(Poly.getReciprocal()) not in PolyBase):
+            if ExcludeReciprocal:
+              PolyBase.add(hash(Poly))
+            yield Poly
+            if MaxGeneratedPolynomials is not None:
+              Counter += 1
+              if Counter >= MaxGeneratedPolynomials:
+                return
+
+  def isMaximum(self):
+    return Nlfsr(self).isMaximum()
+
+  @staticmethod
+  def listMaximum(Degree : int = None, MinTerms : int = 3, MaxTerms : int = 5, MaxMonomialSize : int = 2, ExcludeReciprocal : bool = True, n : int = 5) -> list:
+    if Degree is None:
+      Degree = AioShell.inputInt("Polynomial degree", 12, 2)
+      MinTerms = AioShell.inputInt("Minimum #terms", MinTerms, 3)
+      MaxTerms = AioShell.inputInt("Maximum #terms", MaxTerms, 3)
+      MaxMonomialSize = AioShell.inputInt("Maximum monomial size", MaxMonomialSize, 2)
+      ExcludeReciprocal = AioShell.inputBool("Exclude reciprocal", ExcludeReciprocal)
+      n = AioShell.inputInt("Minimum result count (0 = no limit)", n, 0)
+    Candidates = []
+    ChunkSize = 1000
+    if n < 1:
+      n = None
+    Rest = n
+    Result = []
+    NeedToRemoveLine = False
+    for Poly in NonlinearPolynomial.generate(Degree, MinTerms, MaxTerms, MaxMonomialSize, True, None, False, ExcludeReciprocal):
+      Candidates.append(Nlfsr(Poly))
+      if len(Candidates) >= ChunkSize:
+        for N in NlfsrList.checkMaximum(Candidates, Rest):
+          Result.append(N._poly)
+        if n is not None:
+          if len(Result) >= n:
+            if NeedToRemoveLine:
+              AioShell.removeLastLine()
+            return Result
+          Rest = n - len(Result)
+        Candidates = []
+        if NeedToRemoveLine:
+          AioShell.removeLastLine()
+        print(f"Found so far: {len(Result)}")
+        NeedToRemoveLine = True
+    for N in NlfsrList.checkMaximum(Candidates, Rest):
+      Result.append(N._poly)
+    if NeedToRemoveLine:
+      AioShell.removeLastLine()
+    return Result
+
 class NlfsrAnf:
 
   __slots__ = ('_monomials', '_size')
 
-  def __init__(self, Size : int,  StrANF : str):
+  def __init__(self, SizeOrNonlinearPolynomial : int,  StrANF : str = None):
+    if type(SizeOrNonlinearPolynomial) is NonlinearPolynomial:
+      self._size = SizeOrNonlinearPolynomial.getDegree()
+      self._monomials = SizeOrNonlinearPolynomial.getAnfMonomials()
+      return
+    else:
+      Size = SizeOrNonlinearPolynomial
+    if StrANF is None:
+      Aio.printError("StrANF must be specified.")
     self._size = Size
     pattern = r'\s*(\(\s*\d+(?:\s*,\s*\d+)*\s*\)|\d+)\s*'
     result = []
@@ -76,6 +284,9 @@ class NlfsrAnf:
          M.sort()
          if len(M) == 1:
            M = M[0]
+
+  def toNonlinearPolynomial(self) -> NonlinearPolynomial:
+    return NonlinearPolynomial([self._size] + self._monomials)
 
   def getGFunction(self) -> list:
     Result = []
@@ -275,6 +486,7 @@ class Nlfsr(Lfsr):
   _anf_temp = None
   Accepted = False
   _prediction = None
+  _poly = None
   
   def clear(self):
     pass
@@ -318,7 +530,7 @@ class Nlfsr(Lfsr):
       if na.isCandidateToBeMaximumLength(0):
         return Nlfsr.fromANF(Size, anf)
       return None
-    for Terms in range(MinimumTerms, MaximumTerms+1, 2):
+    for Terms in range(MinimumTerms, MaximumTerms+1, 1):
       for anf in NlfsrAnf.generateAnf(Size, MaxMonomialSize, Terms-1, Terms-1, True, True):
         TestResult = test(anf)
         if TestResult is not None:
@@ -830,7 +1042,13 @@ def {FunctionName}(States):
     return Result
   def getTaps(self) -> int:
     return self._Config.copy()
-  def __init__(self, Size : int, Config = [], **kwargs) -> None:
+  def __init__(self, SizeOrNonlinearPolynomial : int, Config = [], **kwargs) -> None:
+    if type(SizeOrNonlinearPolynomial) is NonlinearPolynomial:
+      Config = SizeOrNonlinearPolynomial.getConfigForNlfsr()
+      Size = SizeOrNonlinearPolynomial.getDegree()
+      self._poly = SizeOrNonlinearPolynomial
+    else:
+      Size = SizeOrNonlinearPolynomial
     self.Accepted = False
     self._anf_temp = None
     self._period_verified = None
@@ -849,6 +1067,7 @@ def {FunctionName}(States):
       self._period_verified = Size._period_verified
       self._anf_temp = Size._anf_temp
       self.Accepted = Size.Accepted
+      self._poly = Size._poly
     elif Aio.isType(Size, "Lfsr"):
       self._size = Size._size
       self._period = None
