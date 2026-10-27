@@ -549,6 +549,7 @@ class AioShell:
     Res = input(P)
     if Res == "" and Default is not None:
       Res = Default
+    Res = Str.removeEscapeCodes(Res)
     Iterables = [tuple, list, set]
     if AcceptableTypes is not None:
       while 1:
@@ -580,6 +581,27 @@ class AioShell:
         else:
           return None
     return Res
+
+  @staticmethod
+  def inputList(Prompt : str, Default : list = None, UseCache = True):
+    if UseCache:
+      Cached = AioShell._bool_cache.get(Prompt, None)
+      if Cached is not None:
+        Default = Cached
+    if Default is not None:
+      DefStr = str(Default)
+    else:
+      DefStr = None
+    Res = None
+    while Res is None:
+      Res = AioShell.input(Str.color(Prompt, 'blue'), Str.color(DefStr, 'blue'), [list], ForceAnswer=False)
+      if Res is None and Default is not None:
+        return Default
+      if Res is None:
+        AioShell.removeLastLine()
+    if UseCache:
+      AioShell._bool_cache[Prompt] = Res
+    return Res    
   
   @staticmethod
   def inputYN(Prompt : str, Default : bool = None, UseCache = True):
@@ -667,6 +689,14 @@ class AioShell:
     if UseCache:
       AioShell._float_cache[Prompt] = Res
     return Res    
+
+  @staticmethod
+  def choose(ListOfMenuPositions : list, Default : int = 0, Title : str = None):
+    if Title is not None:
+      print(Str.color(Title, 'blue'))
+    for i, v in enumerate(ListOfMenuPositions):
+      print(f"  {Str.color(str(i), 'blue')}.\t{Str.color(str(v), 'blue')}")
+    return AioShell.inputInt("Choice:", Default, 0, len(ListOfMenuPositions)-1, False)
   
   @staticmethod
   def runCommand(command, PrintOutput=True):

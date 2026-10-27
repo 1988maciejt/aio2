@@ -702,7 +702,7 @@ class Polynomial:
       self._IterationStartingPoint = NewPoly._coefficients_list
     return True
 
-  def __init__(self, PolynomialCoefficientList : list, PolynomialBalancing = 0):
+  def __init__(self, PolynomialCoefficientList : list = None, PolynomialBalancing = 0):
     """ Polynomial (Polynomial, PolynomialBalancing=0)
 Polynomial (PolynomialCoefficientList, PolynomialBalancing=0)
 Polynomial (int, PolynomialBalancing=0)
@@ -724,6 +724,8 @@ Polynomial ("size,HexNumber", PolynomialBalancing=0)
     self._OddOnly = 1
     self._sign_list = []
     self._IterationStartingPoint = None
+    if PolynomialCoefficientList is None:
+      PolynomialCoefficientList = AioShell.inputList("Polynomial coefficients list", [3,1,0])
     if "Polynomial" in str(type(PolynomialCoefficientList)):
       self._coefficients_list = PolynomialCoefficientList._coefficients_list.copy()
       self._sign_list = PolynomialCoefficientList._sign_list.copy()
@@ -2451,9 +2453,20 @@ class Lfsr:
       self._next_iteration = True
     self.next()
     return val
+  
   def copy(self):
     return Lfsr(self)
-  def __init__(self, polynomial, lfsr_type = LfsrType.Fibonacci, manual_taps = []):
+  
+  def __init__(self, polynomial : Polynomial = None, lfsr_type = LfsrType.Fibonacci, manual_taps = []):
+    if polynomial is None:
+      polynomial = Polynomial()
+      lfsr_type = AioShell.choose(["Fibonacci", "Galois", "Ring Generator"], 0, "Choose LFSR type:")
+      if lfsr_type == 0:
+        lfsr_type = LfsrType.Fibonacci
+      elif lfsr_type == 1:
+        lfsr_type = LfsrType.Galois
+      else:
+        lfsr_type = LfsrType.RingGenerator
     poly = polynomial
     if type(polynomial) is Lfsr:
         self._my_poly = polynomial._my_poly.copy()
