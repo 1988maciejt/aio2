@@ -71,15 +71,7 @@ class NonlinearPolynomial:
 
   def __hash__(self) -> int:
     if self._hash is None:
-      Result = 0
-      Mult = self.getDegree()
-      for Coeff in self._coefficients:
-        if type(Coeff) is int:
-          Result = (Result * Mult) + Coeff
-        else:
-          for C in Coeff:
-            Result = (Result * (Mult + 1)) + C
-      self._hash = Result
+      self._hash = hash(tuple([Coeff if type(Coeff) is int else tuple(Coeff) for Coeff in self._coefficients]))
     return self._hash
 
   def __eq__(self, value):
@@ -166,16 +158,64 @@ class NonlinearPolynomial:
     return NlfsrAnfInstance.toNonlinearPolynomial()
 
   @staticmethod
+  def _generate_helper(
+      n: int,
+      max_degree: int | None = None,
+      min_terms: int = 1,
+      max_terms: int | None = None,
+      require_linear: bool = True,
+      require_asymmetric: bool = True,
+      max_candidates: int | None = None,
+  ):
+    if n < 2:
+        raise ValueError("n musi być >= 2")
+    if max_degree is None:
+        max_degree = n - 1
+    max_degree = min(max_degree, n - 1)
+    if max_degree < 1:
+        raise ValueError("max_degree should be >= 1")
+    available = []
+    # Tworzymy wszystkie monomy o dozwolonym stopniu.
+    for degree in range(1, max_degree + 1):
+        for variables in combinations(range(1, n), degree):
+            if degree == 1:
+                available.append(variables[0])
+            else:
+                available.append(list(variables))
+    if max_terms is None:
+        max_terms = len(available)
+    if min_terms < 1 or max_terms < min_terms:
+        raise ValueError("Incorrect monomials count")
+    max_terms = min(max_terms, len(available))
+    yielded = 0
+    for count in range(min_terms, max_terms + 1):
+        for candidate in combinations(available, count):
+            anf = list(candidate)
+            if require_linear and not any(
+                isinstance(m, int) for m in anf
+            ):
+                continue
+            if require_asymmetric and not NlfsrAnf.passes_symmetry_test(anf, n):
+                continue
+            yield anf
+            yielded += 1
+            if (
+                max_candidates is not None
+                and yielded >= max_candidates
+            ):
+                return
+
+  @staticmethod
   def generate(Degree : int, MinTerms : int, MaxTerms : int, MaxMonomialSize : int = 2, FilterCandidatesForMaximumLengthNlfsr : bool = False, MaxGeneratedPolynomials : int = None, IncludeLinear : bool = False, ExcludeReciprocal : bool = True):
     if MaxGeneratedPolynomials is not None:
       Counter = 0
     if ExcludeReciprocal:
       PolyBase = set()
-    for CAnf in NlfsrAnf.generateAnf(Degree, MaxMonomialSize, MinTerms-1, MaxTerms-1):
+    for CAnf in NonlinearPolynomial._generate_helper(Degree, MaxMonomialSize, MinTerms-1, MaxTerms-1):
+      Poly = NonlinearPolynomial([Degree] + CAnf + [0])
       if FilterCandidatesForMaximumLengthNlfsr:
-        CNlfsrAnf : "NlfsrAnf" = NlfsrAnf(Degree, CAnf)
+        CNlfsrAnf : "NlfsrAnf" = NlfsrAnf(Degree, CAnf + [0], skipANFChecking=True)
         if CNlfsrAnf.isCandidateToBeMaximumLength():
-          Poly = CNlfsrAnf.toNonlinearPolynomial()
           if not ExcludeReciprocal or (ExcludeReciprocal and hash(Poly.getReciprocal()) not in PolyBase):
             if ExcludeReciprocal:
               PolyBase.add(hash(Poly))
@@ -185,7 +225,6 @@ class NonlinearPolynomial:
               if Counter >= MaxGeneratedPolynomials:
                 return
       else:
-        Poly = NonlinearPolynomial.fromAnf(Degree, CAnf)
         if IncludeLinear or (not IncludeLinear and not Poly.isLinear()):
           if not ExcludeReciprocal or (ExcludeReciprocal and hash(Poly.getReciprocal()) not in PolyBase):
             if ExcludeReciprocal:
@@ -196,11 +235,40 @@ class NonlinearPolynomial:
               if Counter >= MaxGeneratedPolynomials:
                 return
 
+  @staticmethod
+  def generateChunkOfMaximumCandidates(Degree : int, MinTerms : int, MaxTerms : int, MaxMonomialSize : int = 2, ChunkSize : int = 1000, ReturnNlfsrs : bool = False):
+    def helper(PolyList) -> list:
+      if ReturnNlfsrs:
+        return [Nlfsr(Poly) for Poly in PolyList if Poly.toNlfsrAnf().isCandidateToBeMaximumLength()]
+      return [Poly for Poly in PolyList if Poly.toNlfsrAnf().isCandidateToBeMaximumLength()]
+    ParallelChunk = []
+    SerialChunk = []
+    ToBeYielded = []
+    for Poly in NonlinearPolynomial.generate(Degree, MinTerms, MaxTerms, MaxMonomialSize, False, None, False, True):
+      SerialChunk.append(Poly)
+      if len(SerialChunk) >= 1000:
+        ParallelChunk.append(SerialChunk)
+        SerialChunk = []
+        if len(ParallelChunk) >= Aio.getCpuCount() * 10:
+          for Results in p_uimap(helper,ParallelChunk,desc="fast elimination (x1000)"):
+            ToBeYielded += Results
+          AioShell.removeLastLine()
+          ParallelChunk = []
+      if len(ToBeYielded) >= ChunkSize:
+        yield ToBeYielded
+        ToBeYielded = []
+    if len(ParallelChunk) > 0:
+      for Results in p_uimap(helper,ParallelChunk):
+        ToBeYielded += Results
+      AioShell.removeLastLine()
+    if len(ToBeYielded) > 0:
+      yield ToBeYielded
+
   def isMaximum(self):
     return Nlfsr(self).isMaximum()
 
   @staticmethod
-  def listMaximum(Degree : int = None, MinTerms : int = 3, MaxTerms : int = 5, MaxMonomialSize : int = 2, ExcludeReciprocal : bool = True, n : int = 5) -> list:
+  def listMaximum(Degree : int = None, MinTerms : int = 3, MaxTerms : int = 5, MaxMonomialSize : int = 3, ExcludeReciprocal : bool = True, n : int = 5, TimeOutMin : int = 0) -> list:
     if Degree is None:
       Degree = AioShell.inputInt("Polynomial degree", 12, 2)
       MinTerms = AioShell.inputInt("Minimum #terms", MinTerms, 3)
@@ -208,31 +276,30 @@ class NonlinearPolynomial:
       MaxMonomialSize = AioShell.inputInt("Maximum monomial size", MaxMonomialSize, 2)
       ExcludeReciprocal = AioShell.inputBool("Exclude reciprocal", ExcludeReciprocal)
       n = AioShell.inputInt("Minimum result count (0 = no limit)", n, 0)
+      TimeOutMin = AioShell.inputFloat("Timeout in minutes (0 = no limit)", TimeOutMin, 0)
     Candidates = []
-    ChunkSize = 1000
     if n < 1:
       n = None
     Rest = n
     Result = []
     NeedToRemoveLine = False
-    for Poly in NonlinearPolynomial.generate(Degree, MinTerms, MaxTerms, MaxMonomialSize, True, None, False, ExcludeReciprocal):
-      Candidates.append(Nlfsr(Poly))
-      if len(Candidates) >= ChunkSize:
-        for N in NlfsrList.checkMaximum(Candidates, Rest):
-          Result.append(N._poly)
-        if n is not None:
-          if len(Result) >= n:
-            if NeedToRemoveLine:
-              AioShell.removeLastLine()
-            return Result
-          Rest = n - len(Result)
-        Candidates = []
-        if NeedToRemoveLine:
-          AioShell.removeLastLine()
-        print(f"Found so far: {len(Result)}")
-        NeedToRemoveLine = True
-    for N in NlfsrList.checkMaximum(Candidates, Rest):
-      Result.append(N._poly)
+    if TimeOutMin is None:
+      TimeOutMin = 0
+    if TimeOutMin > 0:
+      TimeToStop = time.time() + 60 * TimeOutMin
+    for Candidates in NonlinearPolynomial.generateChunkOfMaximumCandidates(Degree, MinTerms, MaxTerms, MaxMonomialSize, Aio.getCpuCount() * 10, True):
+      #print(Candidates)
+      for N in NlfsrList.checkMaximum(Candidates, Rest):
+        Result.append(N._poly)
+      if n is not None and len(Result) >= n:
+        break
+      Rest = n - len(Result)
+      if NeedToRemoveLine:
+        AioShell.removeLastLine()
+      print(f"Found so far: {len(Result)}")
+      NeedToRemoveLine = True
+      if TimeOutMin > 0 and time.time() > TimeToStop:
+        break
     if NeedToRemoveLine:
       AioShell.removeLastLine()
     return Result
@@ -241,7 +308,7 @@ class NlfsrAnf:
 
   __slots__ = ('_monomials', '_size')
 
-  def __init__(self, SizeOrNonlinearPolynomial : int,  StrANF : str = None):
+  def __init__(self, SizeOrNonlinearPolynomial : int,  StrANF : str = None, **kwargs):
     if type(SizeOrNonlinearPolynomial) is NonlinearPolynomial:
       self._size = SizeOrNonlinearPolynomial.getDegree()
       self._monomials = SizeOrNonlinearPolynomial.getAnfMonomials()
@@ -251,39 +318,44 @@ class NlfsrAnf:
     if StrANF is None:
       Aio.printError("StrANF must be specified.")
     self._size = Size
-    pattern = r'\s*(\(\s*\d+(?:\s*,\s*\d+)*\s*\)|\d+)\s*'
-    result = []
-    pos = 0
-    while pos < len(StrANF):
-        match = re.match(pattern, StrANF[pos:])
-        if not match:
-            raise ValueError(
-                f"Incorrect expression at position {pos}: "
-                f"{StrANF[pos:]!r}"
-            )
-        token = match.group(1)
-        if token.startswith('('):
-            result.append([
-                int(x.strip())
-                for x in token[1:-1].split(',')
-            ])
-        else:
-            result.append(int(token))
-        pos += match.end()
-        if pos == len(StrANF):
-            break
-        if StrANF[pos] != ',':
-            raise ValueError(
-                f"Comma expected at position {pos}"
-            )
-        pos += 1
-    self._monomials = List.getUniques(result)
-    for M in self._monomials:
-       if type(M) is list:
-         M = List.getUniques(M) 
-         M.sort()
-         if len(M) == 1:
-           M = M[0]
+    if type(StrANF) is list:
+      self._monomials = StrANF
+    else:
+      pattern = r'\s*(\(\s*\d+(?:\s*,\s*\d+)*\s*\)|\d+)\s*'
+      result = []
+      pos = 0
+      while pos < len(StrANF):
+          match = re.match(pattern, StrANF[pos:])
+          if not match:
+              raise ValueError(
+                  f"Incorrect expression at position {pos}: "
+                  f"{StrANF[pos:]!r}"
+              )
+          token = match.group(1)
+          if token.startswith('('):
+              result.append([
+                  int(x.strip())
+                  for x in token[1:-1].split(',')
+              ])
+          else:
+              result.append(int(token))
+          pos += match.end()
+          if pos == len(StrANF):
+              break
+          if StrANF[pos] != ',':
+              raise ValueError(
+                  f"Comma expected at position {pos}"
+              )
+          pos += 1
+      self._monomials = result
+    if not kwargs.get('skipANFChecking', False):
+      self._monomials = List.getUniques(self._monomials)
+      for M in self._monomials:
+        if type(M) is list:
+          M = List.getUniques(M) 
+          M.sort()
+          if len(M) == 1:
+            M = M[0]
 
   def toNonlinearPolynomial(self) -> NonlinearPolynomial:
     return NonlinearPolynomial([self._size] + self._monomials)
