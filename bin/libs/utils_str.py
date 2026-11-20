@@ -212,7 +212,8 @@ class Str:
   
   @staticmethod
   def similarity(a : str, b : str) -> float:
-    return difflib.SequenceMatcher(None, a, b).ratio()
+    return difflib.SequenceMatcher(None, str(a), str(b)).ratio()
+  getSimilarity = similarity
   
   @staticmethod
   def toLeft(Text : str, Width : int) -> str:
@@ -366,7 +367,7 @@ class Str:
   def getMostSimilar(Text : str, ListOfStrings : list, ReturnAlsoSimilarityRatio : bool = False):
     BestText, BestSim = None, None
     for Text2 in ListOfStrings:
-      Sim = Str.getSimilarity(Text, Text2)
+      Sim = Str.similarity(Text, Text2)
       if Sim == 1.0:
         if ReturnAlsoSimilarityRatio:
           return Text2, Sim

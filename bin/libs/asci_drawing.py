@@ -247,6 +247,7 @@ class AsciiDrawingCanvas:
     
   
   def print(self) -> None:
+    from libs.aio import Aio
     Aio.print(str(self))
       
   def clear(self) -> None:

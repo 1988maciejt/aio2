@@ -326,33 +326,39 @@ class Aio:
   SectionNumber = 0
   SubSectionNumber = 0
   LineNumber = 0
+
   @staticmethod
   def printNumberedSection(*args):
     Aio.SectionNumber += 1
     Aio.printSection(f"{Aio.SectionNumber}.", *args)
     Aio.SubSectionNumber = 1
     Aio.LineNumber = 1
+
   @staticmethod
   def printNumberedSubsection(*args):
     Aio.SubSectionNumber += 1
     Aio.printSubsection(f"{Aio.SectionNumber}.{Aio.SubSectionNumber}.", *args)
     Aio.LineNumber = 1
+
   @staticmethod
   def printNumberedLine(*args):
     Aio.LineNumber += 1
     Aio.print(f"{Aio.SectionNumber}.{Aio.SubSectionNumber}.{Aio.LineNumber}.", *args)
+
   @staticmethod
   def printSection(*args):
     s = ""
     for arg in args:
       s += str(arg) + " "
     Aio.transcriptSectionBegin(s)
+
   @staticmethod
   def printSubsection(*args):
     s = ""
     for arg in args:
       s += str(arg) + " "
     Aio.transcriptSubsectionBegin(s)
+
   @staticmethod
   def transcriptSectionBegin(SectionName : str):
     Aio._add_collapsing_css()
@@ -369,6 +375,7 @@ class Aio:
       os.fsync(transcript_file.fileno())
     Aio._transcript += '\n<button type="button" class="collapsible">' + str(SectionName) + '</button><div class="content">\n' 
     Aio._section_opened = True
+
   @staticmethod
   def transcriptSubsectionBegin(SectionName : str):
     Aio._add_collapsing_css()
@@ -383,6 +390,7 @@ class Aio:
       os.fsync(transcript_file.fileno())
     Aio._transcript += '\n<button type="button" class="collapsiblesub">' + str(SectionName) + '</button><div class="content">\n' 
     Aio._subsection_opened = True
+
   @staticmethod
   def transcriptSectionEnd():
     Aio._transcript += '</div>\n' 
@@ -510,11 +518,15 @@ class Aio:
     return radiolist_dialog(title=str(Title), text=str(Text), values=vals, default=int(Default)).run()
     
 class Tc:
+
+  @staticmethod
   def step(name = "transcript.txt") -> None:
     global tc_step
     if not "tc_step" in globals():
       tc_step = 1
     Aio.print("STEP " + str(tc_step) + ":\t" + name)
+  
+  @staticmethod
   def diff(FileName : str) -> None:
     result = Aio.shellExecute("diff " + FileName + " ../references/" + FileName)
     print(result)
